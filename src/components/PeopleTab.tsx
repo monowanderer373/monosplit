@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CURRENCIES } from '../lib/currency'
 import { PRESET_AVATARS } from '../lib/avatars'
 import { getPersonNameStyle, PERSON_COLOR_PALETTE } from '../lib/personTheme'
 import { THEMES } from '../lib/themes'
 import { useStore } from '../store/useStore'
+import { exportGroupAsJson, exportGroupAsCsv, parseImportedJson } from '../lib/export'
+import { generateGroupId } from '../lib/id'
 import type { Group, Person } from '../types'
 
 type Props = {
@@ -126,6 +128,8 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
 
       <ThemeCard />
 
+      <DataCard group={group} />
+
       {editingPerson ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">
           <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-[#faf8f4] p-4 lg:max-w-3xl">
@@ -234,6 +238,49 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
         </div>
       ) : null}
     </section>
+  )
+}
+
+function DataCard({ group }: { group: Group }) {
+  const upsertGroup = useStore((s) => s.upsertGroup)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const parsed = parseImportedJson(reader.result as string)
+      if (!parsed) {
+        window.alert('Invalid MonoSplit JSON file.')
+        return
+      }
+      const newId = generateGroupId()
+      upsertGroup({ ...parsed, id: newId })
+      window.alert(`Imported "${parsed.name}" successfully!`)
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  return (
+    <div className="ms-card-soft">
+      <h3 className="ms-title mb-1">Data</h3>
+      <p className="mb-4 text-xs text-[var(--ms-text-muted)]">Export or import group data for backup.</p>
+
+      <div className="flex flex-wrap gap-2">
+        <button className="ms-btn-primary" onClick={() => exportGroupAsJson(group)}>
+          Export JSON
+        </button>
+        <button className="ms-btn-ghost" onClick={() => exportGroupAsCsv(group)}>
+          Export CSV
+        </button>
+        <button className="ms-btn-ghost" onClick={() => fileRef.current?.click()}>
+          Import JSON
+        </button>
+        <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+      </div>
+    </div>
   )
 }
 

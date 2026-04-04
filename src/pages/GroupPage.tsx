@@ -9,6 +9,7 @@ import ExpenseForm from '../components/ExpenseForm'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { spawnRipple } from '../lib/ripple'
+import { useGroupSync } from '../hooks/useGroupSync'
 
 type Tab = 'summary' | 'dashboard' | 'settle' | 'profile'
 
@@ -21,6 +22,9 @@ export default function GroupPage() {
   const [editName, setEditName] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
+
+  const { status: syncStatus } = useGroupSync(groupId)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const group = useStore((state) => state.groups.find((entry) => entry.id === groupId))
   const addPerson = useStore((state) => state.addPerson)
@@ -50,6 +54,17 @@ export default function GroupPage() {
     setGroupEditOpen(true)
   }
 
+  const copyShareLink = async () => {
+    const url = `${window.location.origin}/group/${groupId}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      window.prompt('Copy this link to share:', url)
+    }
+  }
+
   if (!group) {
     return (
       <main className="ms-page flex min-h-dvh items-center justify-center">
@@ -71,12 +86,23 @@ export default function GroupPage() {
             <button className="ms-btn-ghost" onClick={() => navigate('/')}>
               Back
             </button>
-            <button className="ms-btn-ghost" onClick={openEditPanel}>
-              Edit
-            </button>
+            <div className="flex items-center gap-2">
+              <button className="ms-btn-ghost" onClick={copyShareLink}>
+                {linkCopied ? 'Copied!' : 'Share Link'}
+              </button>
+              <button className="ms-btn-ghost" onClick={openEditPanel}>
+                Edit
+              </button>
+            </div>
           </div>
           <h1 className="mt-3 text-4xl font-bold text-[#2c2520]">{group.name}</h1>
-          <p className="mt-2 text-base text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
+          <div className="mt-2 flex items-center gap-3">
+            <p className="text-base text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
+            {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">Synced</span>}
+            {syncStatus === 'loading' && <span className="text-xs text-[#9a9088]">Syncing...</span>}
+            {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">Local only</span>}
+            {syncStatus === 'error' && <span className="text-xs text-[#9e4a4a]">Sync error</span>}
+          </div>
           <p className="mt-1 text-base text-[#6b6058]">
             {group.people.length} people · {totalExpenses} expenses
           </p>
@@ -137,12 +163,22 @@ export default function GroupPage() {
                 <button className="ms-btn-ghost" onClick={() => navigate('/')}>
                   Back
                 </button>
-                <button className="ms-btn-ghost" onClick={openEditPanel}>
-                  Edit
-                </button>
+                <div className="flex items-center gap-2">
+                  <button className="ms-btn-ghost" onClick={copyShareLink}>
+                    {linkCopied ? 'Copied!' : 'Share'}
+                  </button>
+                  <button className="ms-btn-ghost" onClick={openEditPanel}>
+                    Edit
+                  </button>
+                </div>
               </div>
               <h1 className="text-2xl font-bold text-[#2c2520]">{group.name}</h1>
-              <p className="mt-1 text-xs text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
+              <div className="mt-1 flex items-center gap-2">
+                <p className="text-xs text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
+                {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">Synced</span>}
+                {syncStatus === 'loading' && <span className="text-xs text-[#9a9088]">Syncing...</span>}
+                {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">Local</span>}
+              </div>
               <p className="mt-1 text-sm text-[#6b6058]">
                 {group.people.length} people · {totalExpenses} expenses
               </p>

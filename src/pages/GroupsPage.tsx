@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
+import { supabase, supabaseEnabled } from '../lib/supabase'
 
 export default function GroupsPage() {
   const navigate = useNavigate()
@@ -18,6 +19,8 @@ export default function GroupsPage() {
     [groups],
   )
 
+  const [joinId, setJoinId] = useState('')
+
   const onCreate = () => {
     const name = newGroup.trim()
     if (!name) return
@@ -30,6 +33,25 @@ export default function GroupsPage() {
     setEndDate('')
     setDateExpanded(false)
     navigate(`/group/${id}`)
+  }
+
+  const onJoinGroup = async () => {
+    const id = joinId.trim()
+    if (!id) return
+    if (groups.some((g) => g.id === id)) {
+      navigate(`/group/${id}`)
+      return
+    }
+    if (supabase && supabaseEnabled) {
+      const { data } = await supabase.from('groups').select('*').eq('id', id).maybeSingle()
+      if (data?.data) {
+        const upsertGroup = useStore.getState().upsertGroup
+        upsertGroup(data.data as unknown as import('../types').Group)
+        navigate(`/group/${id}`)
+        return
+      }
+    }
+    window.alert('Group not found. Check the ID or link.')
   }
 
   return (
@@ -82,6 +104,28 @@ export default function GroupsPage() {
           </div>
         ) : null}
       </section>
+
+      {supabaseEnabled ? (
+        <section className="ms-card-soft mb-6 max-w-3xl p-3">
+          <p className="mb-2 text-sm font-semibold text-[#6b6058]">Join an existing group</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              className="ms-input h-11 flex-1"
+              placeholder="Paste group ID or link..."
+              value={joinId}
+              onChange={(e) => {
+                const v = e.target.value
+                const match = v.match(/\/group\/([a-f0-9-]+)/i)
+                setJoinId(match ? match[1] : v)
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && onJoinGroup()}
+            />
+            <button className="ms-btn-ghost h-11 sm:min-w-24" onClick={onJoinGroup}>
+              Join
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
         {sortedGroups.length === 0 ? (

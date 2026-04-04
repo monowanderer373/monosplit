@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import GroupsPage from './pages/GroupsPage'
 import GroupPage from './pages/GroupPage'
+import EmbedPage from './pages/EmbedPage'
 import { useStore } from './store/useStore'
 import { DEFAULT_THEME_ID } from './lib/themes'
 
@@ -21,6 +22,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<GroupsPage />} />
         <Route path="/group/:groupId" element={<GroupPage />} />
+        <Route path="/embed/:groupId" element={<EmbedPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

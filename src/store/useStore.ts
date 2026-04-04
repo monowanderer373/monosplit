@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { generateId } from '../lib/id'
+import { generateId, generateGroupId } from '../lib/id'
 import { todayISO } from '../lib/format'
 import type { Expense, Group, PaymentInfo, PaymentProof, Person } from '../types'
 
@@ -17,6 +17,8 @@ type AppState = {
   addGroup: (name: string, options?: NewGroupOptions) => string
   updateGroup: (groupId: string, updates: Partial<Group>) => void
   deleteGroup: (groupId: string) => void
+  replaceGroup: (groupId: string, data: Group) => void
+  upsertGroup: (data: Group) => void
   addPerson: (groupId: string, name: string) => void
   updatePerson: (groupId: string, personId: string, name: string) => void
   updatePersonProfile: (
@@ -71,7 +73,7 @@ export const useStore = create<AppState>()(
       groups: [],
       addGroup: (name, options) => {
         const safeName = sanitizeName(name)
-        const groupId = generateId('group')
+        const groupId = generateGroupId()
         if (!safeName) return groupId
         const startDate = options?.startDate || null
         const endDate = options?.endDate || null
@@ -101,6 +103,20 @@ export const useStore = create<AppState>()(
       },
       deleteGroup: (groupId) => {
         set((state) => ({ groups: state.groups.filter((group) => group.id !== groupId) }))
+      },
+      replaceGroup: (groupId, data) => {
+        set((state) => ({
+          groups: state.groups.map((g) => (g.id === groupId ? { ...data, id: groupId } : g)),
+        }))
+      },
+      upsertGroup: (data) => {
+        set((state) => {
+          const exists = state.groups.some((g) => g.id === data.id)
+          if (exists) {
+            return { groups: state.groups.map((g) => (g.id === data.id ? data : g)) }
+          }
+          return { groups: [...state.groups, data] }
+        })
       },
       addPerson: (groupId, name) => {
         const safeName = sanitizeName(name)
@@ -331,6 +347,7 @@ export const useStore = create<AppState>()(
       name: 'monosplit-storage',
       version: 1,
       partialize: (state) => ({
+        themeId: state.themeId,
         groups: state.groups.map((group) => ({
           ...group,
           startDate: group.startDate || null,

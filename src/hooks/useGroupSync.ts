@@ -1,0 +1,143 @@
+import { useEffect, useRef, useCallback, useState } from 'react'
+import { supabase, supabaseEnabled } from '../lib/supabase'
+import { useStore } from '../store/useStore'
+import type { Group } from '../types'
+
+type SyncStatus = 'idle' | 'loading' | 'synced' | 'offline' | 'error'
+
+/**
+ * Syncs a single group between the local Zustand store and Supabase.
+ *
+ * - On mount: fetches from Supabase and merges into local state
+ * - On local changes: debounced upsert back to Supabase
+ * - Subscribes to Realtime for live updates from other devices
+ */
+export function useGroupSync(groupId: string | undefined) {
+  const group = useStore((s) => s.groups.find((g) => g.id === groupId))
+  const upsertGroup = useStore((s) => s.upsertGroup)
+  const replaceGroup = useStore((s) => s.replaceGroup)
+
+  const [status, setStatus] = useState<SyncStatus>('idle')
+  const versionRef = useRef(0)
+  const skipNextUpload = useRef(false)
+  const lastUploadJson = useRef('')
+
+  const uploadToSupabase = useCallback(
+    async (data: Group) => {
+      if (!supabase || !supabaseEnabled || !data) return
+      const nextVersion = versionRef.current + 1
+      const jsonData = JSON.stringify(data)
+
+      if (jsonData === lastUploadJson.current) return
+      lastUploadJson.current = jsonData
+
+      const { error } = await supabase.from('groups').upsert({
+        id: data.id,
+        data: data as unknown as Record<string, unknown>,
+        version: nextVersion,
+        updated_at: new Date().toISOString(),
+      })
+      if (!error) {
+        versionRef.current = nextVersion
+        setStatus('synced')
+      } else {
+        console.warn('[sync] upload error:', error.message)
+        setStatus('error')
+      }
+    },
+    [],
+  )
+
+  // Initial fetch from Supabase
+  useEffect(() => {
+    if (!groupId || !supabase || !supabaseEnabled) {
+      setStatus(supabaseEnabled ? 'idle' : 'offline')
+      return
+    }
+
+    let cancelled = false
+    setStatus('loading')
+
+    supabase
+      .from('groups')
+      .select('*')
+      .eq('id', groupId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          console.warn('[sync] fetch error:', error.message)
+          setStatus('error')
+          return
+        }
+        if (data?.data) {
+          versionRef.current = data.version ?? 0
+          const remoteGroup = data.data as unknown as Group
+          upsertGroup({ ...remoteGroup, id: groupId })
+          setStatus('synced')
+        } else if (group) {
+          // Group exists locally but not in Supabase — push it
+          skipNextUpload.current = false
+          void uploadToSupabase(group)
+        } else {
+          setStatus('idle')
+        }
+      })
+
+    return () => { cancelled = true }
+    // Only run on mount / groupId change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId])
+
+  // Subscribe to Realtime changes
+  useEffect(() => {
+    if (!groupId || !supabase || !supabaseEnabled) return
+
+    const channel = supabase
+      .channel(`group-${groupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'groups',
+          filter: `id=eq.${groupId}`,
+        },
+        (payload) => {
+          const incoming = payload.new as { data: unknown; version: number } | undefined
+          if (!incoming?.data) return
+          const incomingVersion = incoming.version ?? 0
+          if (incomingVersion <= versionRef.current) return
+
+          versionRef.current = incomingVersion
+          skipNextUpload.current = true
+          const remoteGroup = incoming.data as unknown as Group
+          replaceGroup(groupId, remoteGroup)
+          setStatus('synced')
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase!.removeChannel(channel)
+    }
+  }, [groupId, replaceGroup])
+
+  // Debounced upload on local changes
+  useEffect(() => {
+    if (!group || !supabase || !supabaseEnabled) return
+    if (skipNextUpload.current) {
+      skipNextUpload.current = false
+      return
+    }
+
+    const timer = setTimeout(() => {
+      void uploadToSupabase(group)
+    }, 600)
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group])
+
+  return { status, supabaseEnabled }
+}
