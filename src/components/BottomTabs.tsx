@@ -9,7 +9,7 @@ type Props = {
 export default function BottomTabs({ active, onChange, onAddExpenseClick }: Props) {
   const tabs: Array<{ id: Props['active']; label: string }> = [
     { id: 'summary', label: 'Summary' },
-    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'dashboard', label: 'Dash\nBoard' },
     { id: 'settle', label: 'Settle' },
     { id: 'profile', label: 'Profile' },
   ]
@@ -21,7 +21,7 @@ export default function BottomTabs({ active, onChange, onAddExpenseClick }: Prop
           {tabs.slice(0, 2).map((tab) => (
             <button
               key={tab.id}
-              className={`ms-key flex-1 h-[48px] text-[13px] font-semibold leading-none tracking-[0.01em] ${
+              className={`ms-key flex-1 h-[48px] text-[13px] font-semibold leading-tight tracking-[0.01em] whitespace-pre-line ${
                 active === tab.id ? 'ms-key-active text-[var(--ms-accent-hover)]' : 'text-[var(--ms-text-muted)]'
               }`}
               onPointerDown={(e) => {
@@ -47,7 +47,7 @@ export default function BottomTabs({ active, onChange, onAddExpenseClick }: Prop
           {tabs.slice(2).map((tab) => (
             <button
               key={tab.id}
-              className={`ms-key flex-1 h-[48px] text-[13px] font-semibold leading-none tracking-[0.01em] ${
+              className={`ms-key flex-1 h-[48px] text-[13px] font-semibold leading-tight tracking-[0.01em] whitespace-pre-line ${
                 active === tab.id ? 'ms-key-active text-[var(--ms-accent-hover)]' : 'text-[var(--ms-text-muted)]'
               }`}
               onPointerDown={(e) => {
