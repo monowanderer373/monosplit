@@ -109,6 +109,7 @@ export default function ExpenseForm({
   const [form, setForm] = useState<FormState>(() => (initialExpense ? expenseToForm(initialExpense) : blankForm(group)))
   const [rateInfo, setRateInfo] = useState<RateResult | null>(null)
   const [rateError, setRateError] = useState('')
+  const [fetchAttempts, setFetchAttempts] = useState(0)
   const [error, setError] = useState('')
   const [loadingRate, setLoadingRate] = useState(false)
 
@@ -202,17 +203,40 @@ export default function ExpenseForm({
 
   const onFetchRate = async () => {
     setRateError('')
-    if (form.paidCurrency === form.repayCurrency) {
-      setRateInfo({ rate: 1, source: 'same', date: form.date })
+
+    if (!form.date) {
+      setRateError('Please select a date first before fetching the rate.')
       return
     }
+
+    if (form.paidCurrency === form.repayCurrency) {
+      setRateInfo({ rate: 1, source: 'same', date: form.date })
+      setFetchAttempts(0)
+      return
+    }
+
+    const today = todayISO()
+    if (form.date > today) {
+      setRateError(`Cannot fetch future rate (${form.date}). Rates are only available up to today (${today}).`)
+      return
+    }
+
     setLoadingRate(true)
     const result = await fetchRate(form.paidCurrency, form.repayCurrency, form.date)
     setLoadingRate(false)
+
     if (!result) {
-      setRateError('Failed to fetch rate, please use manual rate.')
+      const next = fetchAttempts + 1
+      setFetchAttempts(next)
+      if (next >= 4) {
+        setRateError('Failed after multiple attempts. Please switch to manual rate and enter the rate yourself.')
+      } else {
+        setRateError(`Failed to fetch rate (attempt ${next}/4). Try again or use manual rate.`)
+      }
       return
     }
+
+    setFetchAttempts(0)
     setRateInfo(result)
   }
 
@@ -412,7 +436,9 @@ export default function ExpenseForm({
         {effectiveRate != null ? (
           <p className="rounded-xl bg-[rgba(90,122,90,0.06)] px-3 py-2 text-xs text-[#4a6a4a]">
             1 {form.paidCurrency} = {formatMoney(effectiveRate, 6)} {form.repayCurrency}
-            {rateInfo?.source ? ` (${rateInfo.source})` : ''}
+            {rateInfo?.source && rateInfo.source !== 'same'
+              ? ` — ${rateInfo.source}, rate from ${rateInfo.date}`
+              : ''}
           </p>
         ) : null}
 

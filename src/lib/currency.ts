@@ -28,19 +28,27 @@ export type RateResult = {
 export async function fetchRate(fromCurrency: string, toCurrency: string, date = 'latest'): Promise<RateResult | null> {
   if (fromCurrency === toCurrency) return { rate: 1, source: 'same', date }
 
-  const endpoint =
+  const endpoints = [
+    date === 'latest'
+      ? `https://api.frankfurter.dev/v1/latest?from=${fromCurrency}&to=${toCurrency}`
+      : `https://api.frankfurter.dev/v1/${date}?from=${fromCurrency}&to=${toCurrency}`,
     date === 'latest'
       ? `https://api.frankfurter.app/latest?from=${fromCurrency}&to=${toCurrency}`
-      : `https://api.frankfurter.app/${date}?from=${fromCurrency}&to=${toCurrency}`
+      : `https://api.frankfurter.app/${date}?from=${fromCurrency}&to=${toCurrency}`,
+  ]
 
-  try {
-    const response = await fetch(endpoint)
-    if (!response.ok) return null
-    const data = await response.json()
-    const rate = data?.rates?.[toCurrency]
-    if (!rate || Number.isNaN(Number(rate))) return null
-    return { rate: Number(rate), source: 'Frankfurter (ECB)', date: data.date ?? date }
-  } catch {
-    return null
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, { signal: AbortSignal.timeout(8000) })
+      if (!response.ok) continue
+      const data = await response.json()
+      const rate = data?.rates?.[toCurrency]
+      if (!rate || Number.isNaN(Number(rate))) continue
+      return { rate: Number(rate), source: 'Frankfurter (ECB)', date: data.date ?? date }
+    } catch {
+      continue
+    }
   }
+
+  return null
 }
