@@ -1,0 +1,835 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('/fonts/DepartureMono-Regular.woff2') format('woff2'),
+       url('/fonts/DepartureMono-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  font-family: 'Departure Mono', Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+
+  --ms-bg: #f4f0e8;
+  --ms-bg-warm: #ede8dd;
+  --ms-surface: #faf8f4;
+  --ms-surface-dim: #f0ece3;
+  --ms-border: #d8d0c4;
+  --ms-border-light: #e6e0d5;
+  --ms-text: #2c2520;
+  --ms-text-secondary: #6b6058;
+  --ms-text-muted: #9a9088;
+  --ms-sketch-line: #b0a498;
+  --ms-accent: #8b6e4e;
+  --ms-accent-hover: #74593c;
+  --ms-accent-light: #c4a882;
+  --ms-accent-bg: rgba(139, 110, 78, 0.08);
+  --ms-success: #5a7a5a;
+  --ms-success-bg: rgba(90, 122, 90, 0.08);
+  --ms-danger: #9e4a4a;
+  --ms-danger-bg: rgba(158, 74, 74, 0.08);
+  --ms-info: #5a6e8a;
+  --ms-info-bg: rgba(90, 110, 138, 0.08);
+
+  color: var(--ms-text);
+  background: var(--ms-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Global square corners — only rounded-full (avatars, + button) stays circular */
+input, select, textarea {
+  border-radius: 0 !important;
+  -webkit-appearance: none;
+}
+[class*="rounded-xl"],
+[class*="rounded-2xl"],
+[class*="rounded-lg"],
+[class*="rounded-md"],
+[class*="rounded-["] {
+  border-radius: 0 !important;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 500px at 50% -220px, rgba(139, 110, 78, 0.10), transparent 60%),
+    var(--ms-bg);
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+@layer components {
+  .ms-page {
+    @apply mx-auto w-full max-w-7xl px-4 py-4 pb-28 sm:px-6 lg:px-8 lg:pb-28;
+  }
+
+  .ms-card,
+  .ms-card-soft,
+  .ms-sketch {
+    position: relative;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 1.25rem;
+    box-shadow: none;
+  }
+  .ms-card::before,
+  .ms-card::after,
+  .ms-card-soft::before,
+  .ms-card-soft::after,
+  .ms-sketch::before,
+  .ms-sketch::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    filter: url(#pencil);
+  }
+  .ms-card::before,
+  .ms-card-soft::before,
+  .ms-sketch::before {
+    top: 0;
+    bottom: 0;
+    left: -6px;
+    right: -6px;
+    border-top: 2.5px solid var(--ms-sketch-line);
+    border-bottom: 2.5px solid var(--ms-sketch-line);
+  }
+  .ms-card::after,
+  .ms-card-soft::after,
+  .ms-sketch::after {
+    left: 0;
+    right: 0;
+    top: -6px;
+    bottom: -6px;
+    border-left: 2.5px solid var(--ms-sketch-line);
+    border-right: 2.5px solid var(--ms-sketch-line);
+  }
+  @media (min-width: 1024px) {
+    .ms-card-soft {
+      padding: 1.5rem;
+    }
+  }
+
+  /* Inner cards: square corners + subtle pencil texture */
+  .ms-card-soft [class*="rounded-xl"],
+  .ms-card-soft [class*="rounded-2xl"],
+  .ms-card-soft [class*="rounded-lg"],
+  .ms-sketch [class*="rounded-xl"],
+  .ms-sketch [class*="rounded-2xl"],
+  .ms-sketch [class*="rounded-lg"] {
+    border-radius: 0 !important;
+  }
+  .ms-card-soft div[class*="rounded-"][class*="border"],
+  .ms-card-soft button[class*="rounded-"][class*="border"]:not(.ms-btn-primary):not(.ms-btn-ghost):not(.ms-chip):not([class*="rounded-full"]),
+  .ms-sketch div[class*="rounded-"][class*="border"] {
+    filter: url(#pencil-sm);
+  }
+
+  /* ── Keyboard-key button (adapted from CodePen Alansdead/GgjdKvL) ── */
+  .ms-key {
+    position: relative;
+    background: var(--ms-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+    border: none;
+    padding: 0;
+    box-shadow:
+      0 1px 0px 0px #ffffff inset,
+      0 -1px 0px 0px var(--ms-border) inset,
+      1px 0 0px 0px var(--ms-border-light) inset,
+      -1px 0 0px 0px var(--ms-border-light) inset,
+      0 4px 0px 0px var(--ms-sketch-line),
+      0 5px 2px 0px rgba(44, 37, 32, 0.12),
+      0 7px 12px 0px rgba(44, 37, 32, 0.08);
+    transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.07s ease;
+  }
+  .ms-key:active,
+  .ms-key.pressed {
+    background: var(--ms-surface-dim);
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0px 0px #ffffff inset,
+      0 -1px 0px 0px var(--ms-border) inset,
+      1px 0 0px 0px var(--ms-border-light) inset,
+      -1px 0 0px 0px var(--ms-border-light) inset,
+      0 1px 0px 0px var(--ms-sketch-line),
+      0 2px 3px 0px rgba(44, 37, 32, 0.08);
+  }
+  .ms-key-active {
+    background: var(--ms-bg-warm);
+    box-shadow:
+      0 1px 0px 0px #ffffff inset,
+      0 -1px 0px 0px var(--ms-border) inset,
+      1px 0 0px 0px var(--ms-border-light) inset,
+      -1px 0 0px 0px var(--ms-border-light) inset,
+      0 4px 0px 0px var(--ms-accent-light),
+      0 5px 2px 0px rgba(44, 37, 32, 0.12),
+      0 7px 12px 0px rgba(44, 37, 32, 0.08);
+  }
+  .ms-key-active:active,
+  .ms-key-active.pressed {
+    background: var(--ms-surface-dim);
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0px 0px #ffffff inset,
+      0 -1px 0px 0px var(--ms-border) inset,
+      1px 0 0px 0px var(--ms-border-light) inset,
+      -1px 0 0px 0px var(--ms-border-light) inset,
+      0 1px 0px 0px var(--ms-accent-light),
+      0 2px 3px 0px rgba(44, 37, 32, 0.08);
+  }
+  .ms-key-round {
+    border-radius: 50% !important;
+  }
+
+  .ms-key .ripple,
+  .ms-btn-primary .ripple,
+  .ms-btn-ghost .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(139, 110, 78, 0.10);
+    transform: scale(0);
+    animation: ms-ripple 0.4s ease-out forwards;
+    pointer-events: none;
+  }
+  .ms-btn-primary .ripple {
+    background: rgba(255, 255, 255, 0.18);
+  }
+  @keyframes ms-ripple {
+    to {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  /* Bottom navigation bar with sketch outline */
+  .ms-sketch-bar {
+    position: relative;
+    border: none;
+    padding: 0;
+  }
+  .ms-sketch-bar::before,
+  .ms-sketch-bar::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    filter: url(#pencil);
+  }
+  .ms-sketch-bar::before {
+    top: 0;
+    bottom: 0;
+    left: -4px;
+    right: -4px;
+    border-top: 2.5px solid var(--ms-sketch-line);
+    border-bottom: 2.5px solid var(--ms-sketch-line);
+  }
+  .ms-sketch-bar::after {
+    left: 0;
+    right: 0;
+    top: -4px;
+    bottom: -4px;
+    border-left: 2.5px solid var(--ms-sketch-line);
+    border-right: 2.5px solid var(--ms-sketch-line);
+  }
+
+  .ms-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-synthesis: weight;
+    color: var(--ms-text);
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+  }
+
+  .ms-input {
+    height: 2.75rem;
+    border-radius: 0;
+    border: 1px solid var(--ms-border);
+    background: var(--ms-surface);
+    padding-inline: 0.75rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    color: var(--ms-text);
+  }
+  .ms-input:focus {
+    border-color: var(--ms-accent);
+    box-shadow: 0 0 0 2px var(--ms-accent-bg);
+  }
+  .ms-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* ── Primary button — accent-colored key ── */
+  .ms-btn-primary {
+    position: relative;
+    border-radius: 0;
+    background: var(--ms-accent);
+    color: #faf8f4;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0px 0px rgba(255,255,255,0.18) inset,
+      0 -1px 0px 0px var(--ms-accent-hover) inset,
+      1px 0 0px 0px rgba(255,255,255,0.08) inset,
+      -1px 0 0px 0px rgba(255,255,255,0.08) inset,
+      0 4px 0px 0px var(--ms-accent-hover),
+      0 5px 2px 0px rgba(44, 37, 32, 0.14),
+      0 7px 12px 0px rgba(44, 37, 32, 0.10);
+    transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.07s ease;
+  }
+  .ms-btn-primary:hover {
+    background: var(--ms-accent);
+  }
+  .ms-btn-primary:active {
+    background: var(--ms-accent-hover);
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0px 0px rgba(255,255,255,0.18) inset,
+      0 -1px 0px 0px var(--ms-accent-hover) inset,
+      1px 0 0px 0px rgba(255,255,255,0.08) inset,
+      -1px 0 0px 0px rgba(255,255,255,0.08) inset,
+      0 1px 0px 0px var(--ms-accent-hover),
+      0 2px 3px 0px rgba(44, 37, 32, 0.10);
+  }
+
+  /* ── Ghost button — light key ── */
+  .ms-btn-ghost {
+    position: relative;
+    border-radius: 0;
+    border: none;
+    background: var(--ms-surface);
+    padding: 0.3rem 0.625rem;
+    font-size: 0.75rem;
+    color: var(--ms-text-secondary);
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0px 0px #ffffff inset,
+      0 -1px 0px 0px var(--ms-border) inset,
+      1px 0 0px 0px var(--ms-border-light) inset,
+      -1px 0 0px 0px var(--ms-border-light) inset,
+      0 3px 0px 0px var(--ms-sketch-line),
+      0 4px 2px 0px rgba(44, 37, 32, 0.10),
+      0 5px 10px 0px rgba(44, 37, 32, 0.06);
+    transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.07s ease;
+  }
+  .ms-btn-ghost:hover {
+    background: var(--ms-surface);
+  }
+  .ms-btn-ghost:active {
+    background: var(--ms-surface-dim);
+    transform: translateY(2px);
+    box-shadow:
+      0 1px 0px 0px #ffffff inset,
+      0 -1px 0px 0px var(--ms-border) inset,
+      1px 0 0px 0px var(--ms-border-light) inset,
+      -1px 0 0px 0px var(--ms-border-light) inset,
+      0 1px 0px 0px var(--ms-sketch-line),
+      0 2px 3px 0px rgba(44, 37, 32, 0.06);
+  }
+
+  .ms-chip {
+    @apply border px-3 py-1.5 text-sm;
+    border-color: var(--ms-border);
+    color: var(--ms-text-secondary);
+  }
+
+  .ms-chip-active-indigo {
+    border-color: var(--ms-accent);
+    background: var(--ms-accent-bg);
+    color: var(--ms-accent-hover);
+  }
+
+  .ms-chip-active-emerald {
+    border-color: var(--ms-success);
+    background: var(--ms-success-bg);
+    color: var(--ms-success);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   THEME: Calling of Dungeons
+   Based on codepen.io/pharaohleap/pen/QwEMJEx
+   ═══════════════════════════════════════════════════════ */
+
+[data-theme="calling-of-dungeons"] {
+  --ms-bg: #ddd;
+  --ms-bg-warm: #d5d5d5;
+  --ms-surface: #e5e5e5;
+  --ms-surface-dim: #d5d5d5;
+  --ms-border: #c5c5c5;
+  --ms-border-light: #d0d0d0;
+  --ms-text: #444;
+  --ms-text-secondary: #666;
+  --ms-text-muted: #999;
+  --ms-sketch-line: #b5b5b5;
+  --ms-accent: #3a8a9a;
+  --ms-accent-hover: #2e7a8a;
+  --ms-accent-light: #6aabb6;
+  --ms-accent-bg: rgba(58, 138, 154, 0.08);
+  --ms-success: #5a8a62;
+  --ms-success-bg: rgba(90, 138, 98, 0.07);
+  --ms-danger: #a05050;
+  --ms-danger-bg: rgba(160, 80, 80, 0.07);
+  --ms-info: #5a949f;
+  --ms-info-bg: rgba(90, 148, 159, 0.07);
+
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--ms-bg);
+  font-synthesis: none;
+}
+
+/* Dark outer frame */
+[data-theme="calling-of-dungeons"] body {
+  background: #444;
+  overflow-x: hidden;
+}
+[data-theme="calling-of-dungeons"] #root {
+  margin: 0 8px;
+  border-left: solid 1px var(--ms-border);
+  border-right: solid 1px var(--ms-border);
+  background-color: var(--ms-bg);
+  min-height: 100dvh;
+  position: relative;
+  overflow: clip;
+}
+@media (min-width: 1024px) {
+  [data-theme="calling-of-dungeons"] #root {
+    margin: 12px;
+    border: solid 1px var(--ms-border);
+    border-radius: 15px;
+    min-height: calc(100dvh - 24px);
+  }
+}
+/* Muted accent radial glow (bottom-left) */
+[data-theme="calling-of-dungeons"] #root::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  bottom: 0;
+  left: 0;
+  height: 70vh;
+  width: 70vh;
+  background: radial-gradient(circle at bottom left, var(--ms-accent), transparent 70%);
+  opacity: 0.12;
+}
+/* Decorative circle borders */
+[data-theme="calling-of-dungeons"] #root::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  top: -380px;
+  left: -80px;
+  height: 560px;
+  width: 560px;
+  border: solid 1px var(--ms-border);
+  border-radius: 100%;
+  opacity: 0.5;
+}
+[data-theme="calling-of-dungeons"] .ms-page {
+  position: relative;
+  z-index: 1;
+}
+
+/* Restore rounded corners globally */
+[data-theme="calling-of-dungeons"] input,
+[data-theme="calling-of-dungeons"] select,
+[data-theme="calling-of-dungeons"] textarea {
+  border-radius: 8px !important;
+}
+[data-theme="calling-of-dungeons"] [class*="rounded-xl"],
+[data-theme="calling-of-dungeons"] [class*="rounded-2xl"],
+[data-theme="calling-of-dungeons"] [class*="rounded-lg"],
+[data-theme="calling-of-dungeons"] [class*="rounded-md"],
+[data-theme="calling-of-dungeons"] [class*="rounded-["] {
+  border-radius: 8px !important;
+}
+
+/* Cards: solid 1px border, rounded, no pencil pseudo-elements */
+[data-theme="calling-of-dungeons"] .ms-card,
+[data-theme="calling-of-dungeons"] .ms-card-soft,
+[data-theme="calling-of-dungeons"] .ms-sketch {
+  border: solid 1px var(--ms-border);
+  border-radius: 10px !important;
+  background: var(--ms-bg);
+  box-shadow: none;
+}
+[data-theme="calling-of-dungeons"] .ms-card::before,
+[data-theme="calling-of-dungeons"] .ms-card::after,
+[data-theme="calling-of-dungeons"] .ms-card-soft::before,
+[data-theme="calling-of-dungeons"] .ms-card-soft::after,
+[data-theme="calling-of-dungeons"] .ms-sketch::before,
+[data-theme="calling-of-dungeons"] .ms-sketch::after {
+  display: none !important;
+}
+
+/* Remove inner card pencil filter */
+[data-theme="calling-of-dungeons"] .ms-card-soft div[class*="rounded-"][class*="border"],
+[data-theme="calling-of-dungeons"] .ms-sketch div[class*="rounded-"][class*="border"] {
+  filter: none;
+}
+
+/* Title: DM Sans, uppercase, tight tracking */
+[data-theme="calling-of-dungeons"] .ms-title {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Input: rounded, clean */
+[data-theme="calling-of-dungeons"] .ms-input {
+  border-radius: 8px !important;
+  background: var(--ms-surface);
+}
+
+/* Buttons: keep key 3D effect, adapt shape */
+[data-theme="calling-of-dungeons"] .ms-key {
+  border-radius: 8px !important;
+}
+[data-theme="calling-of-dungeons"] .ms-btn-primary {
+  border-radius: 8px !important;
+}
+[data-theme="calling-of-dungeons"] .ms-btn-ghost {
+  border-radius: 8px !important;
+}
+
+/* Chip: rounded pill */
+[data-theme="calling-of-dungeons"] .ms-chip {
+  border-radius: 10px !important;
+}
+
+/* Bottom bar: solid rounded border, no pencil */
+[data-theme="calling-of-dungeons"] .ms-sketch-bar {
+  border: solid 1px var(--ms-border);
+  border-radius: 15px !important;
+  background: var(--ms-bg);
+}
+[data-theme="calling-of-dungeons"] .ms-sketch-bar::before,
+[data-theme="calling-of-dungeons"] .ms-sketch-bar::after {
+  display: none !important;
+}
+
+/* Accent gradient: teal → deep blue-teal */
+[data-theme="calling-of-dungeons"] .ms-btn-primary {
+  background: linear-gradient(to top, #4a96a4, #2e5a64);
+  color: #eee;
+  box-shadow:
+    0 1px 0px 0px rgba(255,255,255,0.12) inset,
+    0 -1px 0px 0px #25505a inset,
+    1px 0 0px 0px rgba(255,255,255,0.05) inset,
+    -1px 0 0px 0px rgba(255,255,255,0.05) inset,
+    0 4px 0px 0px #1e4048,
+    0 5px 2px 0px rgba(0,0,0,0.14),
+    0 7px 12px 0px rgba(0,0,0,0.08);
+}
+[data-theme="calling-of-dungeons"] .ms-btn-primary:hover {
+  background: linear-gradient(to top, #4a96a4, #2e5a64);
+}
+[data-theme="calling-of-dungeons"] .ms-btn-primary:active {
+  background: linear-gradient(to top, #3a8694, #264e58);
+  box-shadow:
+    0 1px 0px 0px rgba(255,255,255,0.12) inset,
+    0 -1px 0px 0px #25505a inset,
+    1px 0 0px 0px rgba(255,255,255,0.05) inset,
+    -1px 0 0px 0px rgba(255,255,255,0.05) inset,
+    0 1px 0px 0px #1e4048,
+    0 2px 3px 0px rgba(0,0,0,0.08);
+}
+
+/* Key shadows adapted for neutral gray */
+[data-theme="calling-of-dungeons"] .ms-key {
+  box-shadow:
+    0 1px 0px 0px #f0f0f0 inset,
+    0 -1px 0px 0px var(--ms-border) inset,
+    1px 0 0px 0px var(--ms-border-light) inset,
+    -1px 0 0px 0px var(--ms-border-light) inset,
+    0 4px 0px 0px var(--ms-sketch-line),
+    0 5px 2px 0px rgba(0,0,0,0.12),
+    0 7px 12px 0px rgba(0,0,0,0.08);
+}
+[data-theme="calling-of-dungeons"] .ms-key:active,
+[data-theme="calling-of-dungeons"] .ms-key.pressed {
+  box-shadow:
+    0 1px 0px 0px #f0f0f0 inset,
+    0 -1px 0px 0px var(--ms-border) inset,
+    1px 0 0px 0px var(--ms-border-light) inset,
+    -1px 0 0px 0px var(--ms-border-light) inset,
+    0 1px 0px 0px var(--ms-sketch-line),
+    0 2px 3px 0px rgba(0,0,0,0.08);
+}
+[data-theme="calling-of-dungeons"] .ms-key-active {
+  background: #2e5a64;
+  color: #eee !important;
+  box-shadow:
+    0 1px 0px 0px rgba(255,255,255,0.10) inset,
+    0 -1px 0px 0px #254a54 inset,
+    1px 0 0px 0px #2a5058 inset,
+    -1px 0 0px 0px #2a5058 inset,
+    0 4px 0px 0px #1e4048,
+    0 5px 2px 0px rgba(0,0,0,0.16),
+    0 7px 12px 0px rgba(0,0,0,0.10);
+}
+[data-theme="calling-of-dungeons"] .ms-key-active:active,
+[data-theme="calling-of-dungeons"] .ms-key-active.pressed {
+  background: #264e58;
+  box-shadow:
+    0 1px 0px 0px rgba(255,255,255,0.10) inset,
+    0 -1px 0px 0px #254a54 inset,
+    1px 0 0px 0px #2a5058 inset,
+    -1px 0 0px 0px #2a5058 inset,
+    0 1px 0px 0px #1e4048,
+    0 2px 3px 0px rgba(0,0,0,0.10);
+}
+
+/* Ghost button for dungeon theme */
+[data-theme="calling-of-dungeons"] .ms-btn-ghost {
+  box-shadow:
+    0 1px 0px 0px #f0f0f0 inset,
+    0 -1px 0px 0px var(--ms-border) inset,
+    1px 0 0px 0px var(--ms-border-light) inset,
+    -1px 0 0px 0px var(--ms-border-light) inset,
+    0 3px 0px 0px var(--ms-sketch-line),
+    0 4px 2px 0px rgba(0,0,0,0.10),
+    0 5px 10px 0px rgba(0,0,0,0.06);
+}
+[data-theme="calling-of-dungeons"] .ms-btn-ghost:active {
+  box-shadow:
+    0 1px 0px 0px #f0f0f0 inset,
+    0 -1px 0px 0px var(--ms-border) inset,
+    1px 0 0px 0px var(--ms-border-light) inset,
+    -1px 0 0px 0px var(--ms-border-light) inset,
+    0 1px 0px 0px var(--ms-sketch-line),
+    0 2px 3px 0px rgba(0,0,0,0.06);
+}
+
+/* Label-style uppercase (matching the CodePen's uppercase labels) */
+[data-theme="calling-of-dungeons"] label,
+[data-theme="calling-of-dungeons"] .ms-chip {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+/* Active chip: deep teal */
+[data-theme="calling-of-dungeons"] .ms-chip-active-indigo {
+  background: #2e5a64;
+  border-color: transparent;
+  color: #eee;
+}
+[data-theme="calling-of-dungeons"] .ms-chip-active-emerald {
+  background: #3a8a9a;
+  border-color: transparent;
+  color: #fff;
+}
+
+/* Secondary decorative circle (bottom-right) */
+[data-theme="calling-of-dungeons"] .ms-page::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  bottom: -200px;
+  right: -120px;
+  height: 300px;
+  width: 300px;
+  border: solid 1px var(--ms-border);
+  border-radius: 100%;
+  opacity: 0.4;
+}
+
+/* Bottom bar */
+[data-theme="calling-of-dungeons"] .ms-sketch-bar {
+  background: var(--ms-bg);
+  border: solid 1px var(--ms-border);
+  border-radius: 12px !important;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+}
+/* Bottom navs: align within the dark-framed area */
+[data-theme="calling-of-dungeons"] nav[class*="fixed"][class*="bottom-0"] {
+  left: 8px !important;
+  right: 8px !important;
+}
+@media (min-width: 1024px) {
+  [data-theme="calling-of-dungeons"] nav[class*="fixed"][class*="bottom-0"] {
+    left: 12px !important;
+    right: 12px !important;
+  }
+}
+
+/* ── Title: gradient teal→dark text (CodePen h2 div style) ── */
+[data-theme="calling-of-dungeons"] .ms-title {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 900;
+  font-size: 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: linear-gradient(to bottom, #3a8a9a, #2e5a64 90%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+/* Group name + app name: same gradient */
+[data-theme="calling-of-dungeons"] h1[class*="font-bold"] {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  background: linear-gradient(to bottom, #3a8a9a, #2e5a64 80%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent !important;
+}
+
+/* ── Day headers & table headers: gradient dark→teal (CodePen HP card) ── */
+[data-theme="calling-of-dungeons"] .ms-sketch > button[class*="bg-[#f5eed8]"],
+[data-theme="calling-of-dungeons"] .ms-sketch > button[class*="bg-[#f5eed8]"]:hover {
+  background: linear-gradient(to top, #4a96a4, #2e5a64) !important;
+  color: var(--ms-bg) !important;
+  border-radius: 8px 8px 0 0;
+}
+[data-theme="calling-of-dungeons"] .ms-sketch > button[class*="bg-[#f5eed8]"] * {
+  color: var(--ms-bg) !important;
+}
+[data-theme="calling-of-dungeons"] .ms-sketch > button[class*="bg-[#f5eed8]"] [class*="bg-[rgba(139"] {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: var(--ms-bg) !important;
+}
+/* Settlement table header row */
+[data-theme="calling-of-dungeons"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] {
+  background: linear-gradient(to top, #4a96a4, #2e5a64) !important;
+  color: var(--ms-bg) !important;
+  border-color: transparent !important;
+}
+[data-theme="calling-of-dungeons"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] > * {
+  color: var(--ms-bg) !important;
+}
+
+/* ── Override ALL hardcoded warm colors → dungeon palette ── */
+
+/* Backgrounds: warm cream/yellow → cool gray */
+[data-theme="calling-of-dungeons"] [class*="bg-[#f5eed8]"] {
+  background-color: var(--ms-surface-dim) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="bg-[#faf8f4]"] {
+  background-color: var(--ms-surface) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="bg-[#f0ece3]"] {
+  background-color: var(--ms-surface-dim) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="bg-[#f4f0e8]"] {
+  background-color: var(--ms-bg) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="bg-[#ede8dd]"] {
+  background-color: var(--ms-bg-warm) !important;
+}
+
+/* Backgrounds: warm accent tints → teal tints */
+[data-theme="calling-of-dungeons"] [class*="bg-[rgba(139,110,78"] {
+  background-color: rgba(24, 119, 140, 0.10) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="bg-[rgba(90,122,90"] {
+  background-color: rgba(58, 140, 74, 0.08) !important;
+}
+
+/* Borders: warm tones → neutral gray */
+[data-theme="calling-of-dungeons"] [class*="border-[#e6e0d5]"] {
+  border-color: var(--ms-border) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="border-[#e6dcc0]"] {
+  border-color: var(--ms-border) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="border-[#d8d0c4]"] {
+  border-color: var(--ms-border) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="border-[#c49898]"] {
+  border-color: #b5a0a0 !important;
+}
+[data-theme="calling-of-dungeons"] [class*="divide-[#e6e0d5]"] {
+  --tw-divide-color: var(--ms-border);
+}
+
+/* Text: warm browns → cool grays and teal */
+[data-theme="calling-of-dungeons"] [class*="text-[#2c2520]"] {
+  color: var(--ms-text) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#3a3330]"] {
+  color: var(--ms-text) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#6b6058]"] {
+  color: var(--ms-text-secondary) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#74593c]"] {
+  color: var(--ms-accent) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#9a9088]"] {
+  color: var(--ms-text-muted) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#8b6e4e]"] {
+  color: var(--ms-accent) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#8a3a3a]"] {
+  color: #a03030 !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#9e4a4a]"] {
+  color: #a03030 !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#4a6a4a]"] {
+  color: #3a7a4a !important;
+}
+[data-theme="calling-of-dungeons"] [class*="text-[#5a7a8a]"] {
+  color: var(--ms-accent) !important;
+}
+
+/* Ring and focus: warm accent → teal */
+[data-theme="calling-of-dungeons"] [class*="ring-[rgba(139,110,78"] {
+  --tw-ring-color: rgba(24, 119, 140, 0.15) !important;
+}
+[data-theme="calling-of-dungeons"] [class*="border-[#8b6e4e]"] {
+  border-color: var(--ms-accent) !important;
+}
+
+/* Shadow warm → neutral */
+[data-theme="calling-of-dungeons"] [class*="shadow-[0_10px_24px_rgba(139,110,78"] {
+  box-shadow: 0 10px 24px rgba(24, 119, 140, 0.25) !important;
+}
+
+/* Background on body gradient */
+[data-theme="calling-of-dungeons"] [class*="bg-[var(--ms-bg)]"] {
+  background-color: var(--ms-bg) !important;
+}
+
+/* Active tab text color */
+[data-theme="calling-of-dungeons"] [class*="text-[var(--ms-accent-hover)]"] {
+  color: var(--ms-bg) !important;
+}
+
+/* White-on-dark overrides for primary-button-colored backgrounds */
+[data-theme="calling-of-dungeons"] [class*="bg-[#8b6e4e]"] {
+  background-color: #2e5a64 !important;
+}

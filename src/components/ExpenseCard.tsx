@@ -1,0 +1,98 @@
+import { getCurrencySymbol } from '../lib/currency'
+import { formatMoney } from '../lib/format'
+import { getPersonNameStyle } from '../lib/personTheme'
+import type { Expense, Group } from '../types'
+
+type Props = {
+  group: Group
+  expense: Expense
+  onDelete: (expenseId: string) => void
+  onMarkRepaid: (expenseId: string, splitIndex: number) => void
+  onUnmarkRepaid: (expenseId: string, splitIndex: number) => void
+}
+
+export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, onUnmarkRepaid }: Props) {
+  const payer = group.people.find((person) => person.id === expense.payerId)
+  const paidSymbol = getCurrencySymbol(expense.paidCurrency)
+  const repaySymbol = getCurrencySymbol(expense.repayCurrency)
+
+  return (
+    <article className="ms-card-soft">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900">{expense.description}</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Paid by <span style={getPersonNameStyle(payer)}>{payer?.name ?? 'Unknown'}</span> · {expense.date} · {expense.paymentMethod}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {expense.splitMode === 'itemized' ? 'Itemized split' : `${expense.splits.length}-way equal split`}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-bold text-slate-900">
+            {paidSymbol}
+            {formatMoney(expense.amount)}
+          </p>
+          <p className="text-xs text-slate-500">
+            {expense.paidCurrency} → {expense.repayCurrency}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {expense.splits.map((split, index) => {
+          const person = group.people.find((p) => p.id === split.personId)
+          const amount = split.convertedAmount ?? split.amount ?? 0
+          return (
+            <div
+              key={`${split.personId}-${index}`}
+              className={`flex items-center justify-between rounded-xl border px-3 py-2 ${
+                split.repaid ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-800">
+                  <span style={getPersonNameStyle(person)}>{person?.name ?? 'Unknown'}</span>
+                  {split.personId === expense.payerId ? ' (payer)' : ''}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {repaySymbol}
+                  {formatMoney(amount)}
+                  {' · '}
+                  {split.repaid ? `Repaid ${split.repaidDate ?? ''}` : 'Outstanding'}
+                </p>
+              </div>
+
+              {split.personId !== expense.payerId ? (
+                split.repaid ? (
+                  <button className="ms-btn-ghost" onClick={() => onUnmarkRepaid(expense.id, index)}>
+                    Undo
+                  </button>
+                ) : (
+                  <button
+                    className="rounded-lg border border-emerald-600 bg-white px-2 py-1 text-xs font-medium text-emerald-700"
+                    onClick={() => onMarkRepaid(expense.id, index)}
+                  >
+                    Mark repaid
+                  </button>
+                )
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-3 flex justify-end">
+        <button
+          className="ms-btn-ghost"
+          onClick={() => {
+            const ok = window.confirm(`Delete expense "${expense.description}"?`)
+            if (ok) onDelete(expense.id)
+          }}
+        >
+          Delete
+        </button>
+      </div>
+    </article>
+  )
+}

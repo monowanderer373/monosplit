@@ -1,0 +1,23 @@
+/** Preset avatar images (served from `public/avatars/`). */
+export const PRESET_AVATARS: Array<{ id: string; src: string; label: string }> = [
+  { id: 'male-01', src: '/avatars/avatar-male-01.png', label: 'Male 1' },
+  { id: 'male-02', src: '/avatars/avatar-male-02.png', label: 'Male 2' },
+  { id: 'male-03', src: '/avatars/avatar-male-03.png', label: 'Male 3' },
+  { id: 'male-04', src: '/avatars/avatar-male-04.png', label: 'Male 4' },
+  { id: 'male-05', src: '/avatars/avatar-male-05.png', label: 'Male 5' },
+  { id: 'female-01', src: '/avatars/avatar-female-01.png', label: 'Female 1' },
+  { id: 'female-02', src: '/avatars/avatar-female-02.png', label: 'Female 2' },
+  { id: 'female-03', src: '/avatars/avatar-female-03.png', label: 'Female 3' },
+  { id: 'female-04', src: '/avatars/avatar-female-04.png', label: 'Female 4' },
+  { id: 'female-05', src: '/avatars/avatar-female-05.png', label: 'Female 5' },
+  { id: 'cat-persian', src: '/avatars/avatar-cat-persian.png', label: 'Cat · Persian' },
+  { id: 'cat-siamese', src: '/avatars/avatar-cat-siamese.png', label: 'Cat · Siamese' },
+  { id: 'cat-british', src: '/avatars/avatar-cat-british.png', label: 'Cat · British' },
+  { id: 'dog-golden', src: '/avatars/avatar-dog-golden.png', label: 'Dog · Golden' },
+  { id: 'dog-corgi', src: '/avatars/avatar-dog-corgi.png', label: 'Dog · Corgi' },
+  { id: 'dog-husky', src: '/avatars/avatar-dog-husky.png', label: 'Dog · Husky' },
+  { id: 'capybara', src: '/avatars/avatar-capybara.png', label: 'Capybara' },
+  { id: 'fox', src: '/avatars/avatar-fox.png', label: 'Fox' },
+  { id: 'rabbit', src: '/avatars/avatar-rabbit.png', label: 'Rabbit' },
+  { id: 'deer', src: '/avatars/avatar-deer.png', label: 'Deer' },
+]
