@@ -10,8 +10,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'MonoSplit',
-        short_name: 'MonoSplit',
+        name: 'Mono Split',
+        short_name: 'Mono Split',
         description: 'Travel expense splitting, simple and fast',
         start_url: '/',
         display: 'standalone',
