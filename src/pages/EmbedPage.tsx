@@ -165,7 +165,7 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
                       <div key={e.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
                         <div>
                           <span className="font-medium text-gray-800">{e.description}</span>
-                          <span className="ml-2 text-gray-400">by {personName(e.payerId)}</span>
+                          <span className="ml-2 text-gray-400">by {(e.payerIds ?? []).map((pid) => personName(pid)).join(', ') || 'Unknown'}</span>
                         </div>
                         <span className="font-semibold text-gray-700">
                           {getCurrencySymbol(e.paidCurrency)}{formatMoney(e.amount)}

@@ -4,17 +4,22 @@ export function getSettlements(expenses: Expense[]): Settlement[] {
   const debts: Record<string, Record<string, Record<string, number>>> = {}
 
   for (const expense of expenses) {
-    const payerId = expense.payerId
+    const payerIds = expense.payerIds ?? []
+    const numPayers = payerIds.length || 1
+
     for (const split of expense.splits) {
-      if (split.personId === payerId || split.repaid) continue
-      if (!debts[split.personId]) debts[split.personId] = {}
-      if (!debts[split.personId][payerId]) debts[split.personId][payerId] = {}
+      if (payerIds.includes(split.personId) || split.repaid) continue
 
       const currency = split.repayCurrency || expense.paidCurrency
-      const addAmount = split.convertedAmount ?? split.amount
-      if (addAmount == null || Number.isNaN(addAmount)) continue
+      const totalOwed = split.convertedAmount ?? split.amount
+      if (totalOwed == null || Number.isNaN(totalOwed)) continue
 
-      debts[split.personId][payerId][currency] = (debts[split.personId][payerId][currency] || 0) + addAmount
+      const perPayer = totalOwed / numPayers
+      for (const payerId of payerIds) {
+        if (!debts[split.personId]) debts[split.personId] = {}
+        if (!debts[split.personId][payerId]) debts[split.personId][payerId] = {}
+        debts[split.personId][payerId][currency] = (debts[split.personId][payerId][currency] || 0) + perPayer
+      }
     }
   }
 

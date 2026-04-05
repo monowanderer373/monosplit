@@ -46,7 +46,7 @@ export interface Expense {
   id: string
   category: string
   description: string
-  payerId: string
+  payerIds: string[]
   amount: number
   paidCurrency: string
   repayCurrency: string

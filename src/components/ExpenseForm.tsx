@@ -20,7 +20,7 @@ type Props = {
 type FormState = {
   category: string
   description: string
-  payerId: string
+  payerIds: string[]
   amount: string
   paidCurrency: string
   repayCurrency: string
@@ -44,7 +44,7 @@ function blankForm(group: Group): FormState {
   return {
     category: 'Other',
     description: '',
-    payerId: group.people[0]?.id ?? '',
+    payerIds: group.people[0] ? [group.people[0].id] : [],
     amount: '',
     paidCurrency: group.defaultPaidCurrency,
     repayCurrency: group.defaultRepayCurrency,
@@ -78,7 +78,7 @@ function expenseToForm(expense: Expense): FormState {
   return {
     category: normalizeCategory(expense.category),
     description: expense.description || '',
-    payerId: expense.payerId || '',
+    payerIds: expense.payerIds?.length ? expense.payerIds : [],
     amount: expense.amount != null ? String(expense.amount) : '',
     paidCurrency: expense.paidCurrency || 'JPY',
     repayCurrency: expense.repayCurrency || firstSplit?.repayCurrency || 'MYR',
@@ -276,7 +276,7 @@ export default function ExpenseForm({
       setError('Please enter a valid amount.')
       return
     }
-    if (!form.payerId) {
+    if (form.payerIds.length === 0) {
       setError('Please select who paid.')
       return
     }
@@ -308,8 +308,9 @@ export default function ExpenseForm({
 
     let splits
     if (form.splitMode === 'itemized') {
-      if (!assertPayerHasItemizedValue(form.payerId, form.itemizedInput)) {
-        setError('In itemized mode, payer must have a value.')
+      const payerMissingValue = form.payerIds.some((pid) => !assertPayerHasItemizedValue(pid, form.itemizedInput))
+      if (payerMissingValue) {
+        setError('In itemized mode, all payers must have a value.')
         return
       }
       splits = calcItemizedSplits({
@@ -338,7 +339,7 @@ export default function ExpenseForm({
     onSave({
       category: normalizeCategory(form.category),
       description: form.description.trim(),
-      payerId: form.payerId,
+      payerIds: form.payerIds,
       amount,
       paidCurrency: form.paidCurrency,
       repayCurrency: form.repayCurrency,
@@ -466,18 +467,32 @@ export default function ExpenseForm({
 
         <label className="text-xs font-semibold uppercase text-[#6b6058] lg:col-span-2">Paid by</label>
         <div className="flex flex-wrap gap-2 lg:col-span-2">
-          {group.people.map((person) => (
-            <button
-              key={person.id}
-              className={`ms-chip ${
-                form.payerId === person.id ? 'ms-chip-active-indigo' : 'border-[#d8d0c4] text-[#6b6058]'
-              }`}
-              onClick={() => setField('payerId', person.id)}
-              style={getPersonNameStyle(person)}
-            >
-              {person.name}
-            </button>
-          ))}
+          {group.people.map((person) => {
+            const active = form.payerIds.includes(person.id)
+            return (
+              <button
+                key={person.id}
+                className={`ms-chip ${
+                  active ? 'ms-chip-active-indigo' : 'border-[#d8d0c4] text-[#6b6058]'
+                }`}
+                onClick={() => {
+                  setForm((prev) => {
+                    const has = prev.payerIds.includes(person.id)
+                    return {
+                      ...prev,
+                      payerIds: has
+                        ? prev.payerIds.filter((id) => id !== person.id)
+                        : [...prev.payerIds, person.id],
+                    }
+                  })
+                }}
+                style={getPersonNameStyle(person)}
+              >
+                {active ? '✓ ' : ''}
+                {person.name}
+              </button>
+            )
+          })}
         </div>
 
         <div className="grid grid-cols-2 gap-2 lg:col-span-2">

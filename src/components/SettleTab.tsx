@@ -34,18 +34,21 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
   const pairMeta = useMemo(() => {
     const meta = new Map<string, { expenseCount: number; splitCount: number }>()
     group.expenses.forEach((expense) => {
+      const payerIds = expense.payerIds ?? []
       const seenPairs = new Set<string>()
       expense.splits.forEach((split) => {
-        if (split.repaid || split.personId === expense.payerId) return
+        if (split.repaid || payerIds.includes(split.personId)) return
         const currency = split.repayCurrency || expense.paidCurrency
-        const key = `${split.personId}-${expense.payerId}-${currency}`
-        const current = meta.get(key) ?? { expenseCount: 0, splitCount: 0 }
-        current.splitCount += 1
-        if (!seenPairs.has(key)) {
-          current.expenseCount += 1
-          seenPairs.add(key)
+        for (const payerId of payerIds) {
+          const key = `${split.personId}-${payerId}-${currency}`
+          const current = meta.get(key) ?? { expenseCount: 0, splitCount: 0 }
+          current.splitCount += 1
+          if (!seenPairs.has(key)) {
+            current.expenseCount += 1
+            seenPairs.add(key)
+          }
+          meta.set(key, current)
         }
-        meta.set(key, current)
       })
     })
     return meta
@@ -106,13 +109,16 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
     if (!repayModal.open) return 0
     let count = 0
     group.expenses.forEach((expense) => {
+      const payerIds = expense.payerIds ?? []
       expense.splits.forEach((split) => {
-        if (split.repaid || split.personId === expense.payerId) return
+        if (split.repaid || payerIds.includes(split.personId)) return
         const currency = split.repayCurrency || expense.paidCurrency
         if (currency !== repayModal.currency) return
-        const directMatch = split.personId === repayModal.debtorId && expense.payerId === repayModal.payerId
-        const contraMatch = split.personId === repayModal.payerId && expense.payerId === repayModal.debtorId
-        if (directMatch || contraMatch) count += 1
+        for (const payerId of payerIds) {
+          const directMatch = split.personId === repayModal.debtorId && payerId === repayModal.payerId
+          const contraMatch = split.personId === repayModal.payerId && payerId === repayModal.debtorId
+          if (directMatch || contraMatch) count += 1
+        }
       })
     })
     return count
@@ -121,20 +127,23 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
   const repaidRows = useMemo(() => {
     const rows: Array<{ key: string; debtorId: string; debtorName: string; creditorId: string; creditorName: string; amount: number; currency: string; date: string }> = []
     group.expenses.forEach((expense) => {
-      const creditorName = group.people.find((person) => person.id === expense.payerId)?.name ?? 'Unknown'
+      const payerIds = expense.payerIds ?? []
       expense.splits.forEach((split) => {
-        if (!split.repaid || split.personId === expense.payerId) return
+        if (!split.repaid || payerIds.includes(split.personId)) return
         const debtorName = group.people.find((person) => person.id === split.personId)?.name ?? 'Unknown'
-        rows.push({
-          key: `${expense.id}-${split.personId}`,
-          debtorId: split.personId,
-          debtorName,
-          creditorId: expense.payerId,
-          creditorName,
-          amount: split.convertedAmount ?? split.amount ?? 0,
-          currency: split.repayCurrency || expense.paidCurrency,
-          date: split.repaidDate ?? '',
-        })
+        for (const payerId of payerIds) {
+          const creditorName = group.people.find((person) => person.id === payerId)?.name ?? 'Unknown'
+          rows.push({
+            key: `${expense.id}-${split.personId}-${payerId}`,
+            debtorId: split.personId,
+            debtorName,
+            creditorId: payerId,
+            creditorName,
+            amount: (split.convertedAmount ?? split.amount ?? 0) / payerIds.length,
+            currency: split.repayCurrency || expense.paidCurrency,
+            date: split.repaidDate ?? '',
+          })
+        }
       })
     })
     return rows.slice(-8).reverse()

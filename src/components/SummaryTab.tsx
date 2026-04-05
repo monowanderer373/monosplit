@@ -151,12 +151,12 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
       .slice()
       .sort((a, b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime())
       .map((expense) => {
-        if (settlePayerFilterId !== 'all' && expense.payerId !== settlePayerFilterId) return null
+        if (settlePayerFilterId !== 'all' && !expense.payerIds.includes(settlePayerFilterId)) return null
 
         const storedRate = expense.splits.find((split) => split.rate != null)?.rate ?? null
         const expenseRate = getExpenseRate(expense.id, storedRate)
         const allRows = expense.splits
-          .filter((split) => split.personId !== expense.payerId)
+          .filter((split) => !expense.payerIds.includes(split.personId))
           .filter((split) => settleRepayFilterId === 'all' || split.personId === settleRepayFilterId)
           .map((split) => {
             const convertedAmount = calcConvertedSplitAmount(
@@ -180,7 +180,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
           expenseId: expense.id,
           description: expense.description,
           date: expense.date,
-          payerId: expense.payerId,
+          payerIds: expense.payerIds,
           amount: expense.amount,
           paidCurrency: expense.paidCurrency,
           repayCurrency: expense.repayCurrency,
@@ -281,7 +281,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                     .slice()
                     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                     .map((expense) => {
-                      const payer = group.people.find((person) => person.id === expense.payerId)
+                      const payers = (expense.payerIds ?? []).map((pid) => group.people.find((p) => p.id === pid)).filter(Boolean)
                       const storedRate = expense.splits.find((split) => split.rate != null)?.rate ?? null
                       const expenseRate = getExpenseRate(expense.id, storedRate)
                       const openExpense = openExpenseMap[expense.id] ?? false
@@ -327,12 +327,20 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                           {openExpense ? (
                             <div className="space-y-2 border-t border-[#e6e0d5] px-3 py-3">
                               <p className="text-sm text-[#6b6058]">
-                                Paid by <span className="font-semibold text-[#3a3330]" style={getPersonNameStyle(payer)}>{payer?.name ?? 'Unknown'}</span> · {expense.date}
+                                Paid by{' '}
+                                {payers.map((p, i) => (
+                                  <span key={p!.id}>
+                                    {i > 0 ? ', ' : ''}
+                                    <span className="font-semibold text-[#3a3330]" style={getPersonNameStyle(p)}>{p!.name}</span>
+                                  </span>
+                                ))}
+                                {payers.length === 0 ? 'Unknown' : ''}
+                                {' '}· {expense.date}
                                 {expenseRate != null ? ` · Rate 1 ${expense.paidCurrency} = ${formatMoney(expenseRate, 6)} ${expense.repayCurrency}` : ''}
                               </p>
 
-                              {(() => {
-                                const payerSplit = expense.splits.find((split) => split.personId === expense.payerId)
+                              {payers.map((payer) => {
+                                const payerSplit = expense.splits.find((split) => split.personId === payer!.id)
                                 const payerAmount =
                                   payerSplit != null
                                     ? calcConvertedSplitAmount(
@@ -342,8 +350,8 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                       )
                                     : null
                                 return (
-                                  <div className="flex items-center justify-between rounded-xl border border-[#e6dcc0] bg-[#f5eed8] px-3 py-2">
-                                    <p className="font-medium text-[#2c2520]" style={getPersonNameStyle(payer)}>{payer?.name ?? 'Unknown'}</p>
+                                  <div key={payer!.id} className="flex items-center justify-between rounded-xl border border-[#e6dcc0] bg-[#f5eed8] px-3 py-2">
+                                    <p className="font-medium text-[#2c2520]" style={getPersonNameStyle(payer)}>{payer!.name}</p>
                                     <div className="flex items-center gap-2">
                                       <span className="rounded-full bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs font-medium text-[#74593c]">Payer</span>
                                       <span className="text-sm font-semibold text-[#3a3330]">
@@ -354,10 +362,10 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                     </div>
                                   </div>
                                 )
-                              })()}
+                              })}
 
                               {expense.splits
-                                .filter((split) => split.personId !== expense.payerId)
+                                .filter((split) => !expense.payerIds.includes(split.personId))
                                 .map((split, idx) => {
                                   const person = group.people.find((entry) => entry.id === split.personId)
                                   const convertedAmount = calcConvertedSplitAmount(
@@ -447,11 +455,13 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                 <p className="text-sm text-[#6b6058]">{row.date}</p>
               </div>
               <div className="md:col-span-3">
-                <p
-                  className="text-base font-semibold text-[#2c2520]"
-                  style={getPersonNameStyle(group.people.find((person) => person.id === row.payerId))}
-                >
-                  {personNameById[row.payerId] ?? 'Unknown'}
+                <p className="text-base font-semibold text-[#2c2520]">
+                  {row.payerIds.map((pid, i) => (
+                    <span key={pid} style={getPersonNameStyle(group.people.find((person) => person.id === pid))}>
+                      {i > 0 ? ', ' : ''}
+                      {personNameById[pid] ?? 'Unknown'}
+                    </span>
+                  ))}
                 </p>
                 <p className="text-lg font-bold text-[#2c2520]">
                   {getCurrencySymbol(row.paidCurrency)}

@@ -12,7 +12,7 @@ type Props = {
 }
 
 export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, onUnmarkRepaid }: Props) {
-  const payer = group.people.find((person) => person.id === expense.payerId)
+  const payers = (expense.payerIds ?? []).map((pid) => group.people.find((p) => p.id === pid)).filter(Boolean)
   const paidSymbol = getCurrencySymbol(expense.paidCurrency)
   const repaySymbol = getCurrencySymbol(expense.repayCurrency)
 
@@ -22,7 +22,15 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
         <div>
           <h3 className="text-base font-semibold text-slate-900">{expense.description}</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Paid by <span style={getPersonNameStyle(payer)}>{payer?.name ?? 'Unknown'}</span> · {expense.date} · {expense.paymentMethod}
+            Paid by{' '}
+            {payers.map((p, i) => (
+              <span key={p!.id}>
+                {i > 0 ? ', ' : ''}
+                <span style={getPersonNameStyle(p)}>{p!.name}</span>
+              </span>
+            ))}
+            {payers.length === 0 ? 'Unknown' : ''}
+            {' '}· {expense.date} · {expense.paymentMethod}
           </p>
           <p className="mt-1 text-xs text-slate-500">
             {expense.splitMode === 'itemized' ? 'Itemized split' : `${expense.splits.length}-way equal split`}
@@ -53,7 +61,7 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-slate-800">
                   <span style={getPersonNameStyle(person)}>{person?.name ?? 'Unknown'}</span>
-                  {split.personId === expense.payerId ? ' (payer)' : ''}
+                  {expense.payerIds.includes(split.personId) ? ' (payer)' : ''}
                 </p>
                 <p className="text-xs text-slate-500">
                   {repaySymbol}
@@ -63,7 +71,7 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
                 </p>
               </div>
 
-              {split.personId !== expense.payerId ? (
+              {!expense.payerIds.includes(split.personId) ? (
                 split.repaid ? (
                   <button className="ms-btn-ghost" onClick={() => onUnmarkRepaid(expense.id, index)}>
                     Undo

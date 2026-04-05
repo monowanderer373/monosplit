@@ -51,6 +51,16 @@ function personInGroup(people: Person[], personId: string): boolean {
   return people.some((person) => person.id === personId)
 }
 
+function migrateExpensePayerIds(expense: Expense & { payerId?: string }): Expense {
+  if (expense.payerIds && expense.payerIds.length > 0) return expense as Expense
+  const legacyId = expense.payerId
+  if (legacyId) {
+    const { payerId: _, ...rest } = expense
+    return { ...rest, payerIds: [legacyId] } as Expense
+  }
+  return expense as Expense
+}
+
 function defaultPaymentInfo(): PaymentInfo {
   return {
     qrCodeDataUrl: null,
@@ -176,6 +186,7 @@ export const useStore = create<AppState>()(
             comments: group.comments.filter((comment) => comment.personId !== personId),
             expenses: group.expenses.map((expense) => ({
               ...expense,
+              payerIds: expense.payerIds.filter((pid) => pid !== personId),
               splits: expense.splits.filter((split) => split.personId !== personId),
             })),
           })),
@@ -305,7 +316,7 @@ export const useStore = create<AppState>()(
           groups: updateGroupById(state.groups, groupId, (group) => ({
             ...group,
             expenses: group.expenses.map((expense) => {
-              if (expense.payerId !== creditorId) return expense
+              if (!expense.payerIds.includes(creditorId)) return expense
               return {
                 ...expense,
                 splits: expense.splits.map((split) => {
@@ -362,11 +373,13 @@ export const useStore = create<AppState>()(
               paymentInfo: person.paymentInfo || defaultPaymentInfo(),
               paymentProofs: Array.isArray(person.paymentProofs) ? person.paymentProofs : [],
             })),
-          expenses: group.expenses.filter(
-            (expense) =>
-              personInGroup(group.people, expense.payerId) &&
-              expense.splits.every((split) => personInGroup(group.people, split.personId)),
-          ),
+          expenses: group.expenses
+            .map((expense) => migrateExpensePayerIds(expense))
+            .filter(
+              (expense) =>
+                expense.payerIds.every((pid) => personInGroup(group.people, pid)) &&
+                expense.splits.every((split) => personInGroup(group.people, split.personId)),
+            ),
         })),
       }),
     },

@@ -192,7 +192,7 @@ export default function GroupPage() {
               onUpdatePersonProfile={(personId, updates) => updatePersonProfile(group.id, personId, updates)}
               onRemovePerson={(personId) => {
                 const used = group.expenses.some(
-                  (expense) => expense.payerId === personId || expense.splits.some((split) => split.personId === personId),
+                  (expense) => expense.payerIds?.includes(personId) || expense.splits.some((split) => split.personId === personId),
                 )
                 if (used) {
                   window.alert('This traveller is used in expenses. Remove related expenses first.')

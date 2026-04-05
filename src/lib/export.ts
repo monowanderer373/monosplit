@@ -22,7 +22,7 @@ export function exportGroupAsCsv(group: Group): void {
 
   const personName = (id: string) => group.people.find((p) => p.id === id)?.name ?? 'Unknown'
 
-  const header = 'Date,Description,Category,Payer,Amount,Paid Currency,Repay Currency,Split Mode'
+  const header = 'Date,Description,Category,Payer(s),Amount,Paid Currency,Repay Currency,Split Mode'
   const rows = group.expenses
     .slice()
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
@@ -32,7 +32,7 @@ export function exportGroupAsCsv(group: Group): void {
         e.date,
         escapeCsv(e.description),
         e.category,
-        escapeCsv(personName(e.payerId)),
+        escapeCsv((e.payerIds ?? []).map((pid) => personName(pid)).join('; ')),
         e.amount,
         e.paidCurrency,
         e.repayCurrency,
