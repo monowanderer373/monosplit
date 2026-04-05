@@ -457,15 +457,26 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
               </p>
             </div>
 
-            <label className="mt-4 flex items-center gap-2 text-sm text-[#6b6058]">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-[#8b6e4e]"
-                checked={confirmModal.dontShowAgain}
-                onChange={(e) => setConfirmModal((prev) => ({ ...prev, dontShowAgain: e.target.checked }))}
-              />
+            <button
+              type="button"
+              className="mt-4 flex items-center gap-2 text-sm text-[#6b6058]"
+              onClick={() => setConfirmModal((prev) => ({ ...prev, dontShowAgain: !prev.dontShowAgain }))}
+            >
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                  confirmModal.dontShowAgain
+                    ? 'border-[#8b6e4e] bg-[#8b6e4e] text-white'
+                    : 'border-[#c4b8a8] bg-white'
+                }`}
+              >
+                {confirmModal.dontShowAgain ? (
+                  <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+                    <path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : null}
+              </span>
               {t('settle.doNotShowAgain')}
-            </label>
+            </button>
 
             <div className="mt-4 flex gap-2">
               <button className="ms-btn-primary flex-1 py-2.5" onClick={confirmRepaid}>
