@@ -458,12 +458,19 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
           </div>
         </div>
 
-        <div className="mt-2 divide-y divide-[#e6e0d5]">
+        <div className="mt-2 space-y-1">
           {settlementRows.length === 0 ? (
             <div className="py-4 text-sm text-[#6b6058]">{t('summary.noSettlement')}</div>
           ) : null}
-          {settlementRows.map((row) => (
-            <div key={row.expenseId} className="grid grid-cols-1 gap-3 py-3 md:grid-cols-12 md:gap-2">
+          {settlementRows.map((row, rowIdx) => (
+            <div
+              key={row.expenseId}
+              className={`grid grid-cols-1 gap-3 rounded-lg px-3 py-3 md:grid-cols-12 md:gap-2 ${
+                rowIdx % 2 === 0
+                  ? 'bg-[rgba(139,110,78,0.10)]'
+                  : 'bg-[rgba(139,110,78,0.03)]'
+              }`}
+            >
               <div className="md:col-span-4">
                 <p className="text-base font-semibold text-[#2c2520]">{row.description}</p>
                 <p className="text-sm text-[#6b6058]">{row.date}</p>
