@@ -157,7 +157,10 @@ export default function ExpenseForm({
     if (form.splitMode !== 'itemized') return null
     const expenseAmount = Number(form.amount)
     const taxFactor = totalTaxPct / 100
-    let enteredTotal = 0
+    const hasExpenseAmount = Number.isFinite(expenseAmount) && expenseAmount > 0
+
+    let enteredPreTaxSum = 0
+    let enteredTaxIncSum = 0
     let filledCount = 0
 
     for (const personId of form.splitPersonIds) {
@@ -166,17 +169,34 @@ export default function ExpenseForm({
       const value = Number(raw)
       if (!Number.isFinite(value) || value < 0) continue
       filledCount += 1
-      enteredTotal += form.itemizedInputMode === 'total' ? value : value * (1 + taxFactor)
+      if (form.itemizedInputMode === 'total') {
+        enteredTaxIncSum += value
+        enteredPreTaxSum += value / (1 + taxFactor)
+      } else {
+        enteredPreTaxSum += value
+        enteredTaxIncSum += value * (1 + taxFactor)
+      }
     }
 
-    const roundedEntered = Number(enteredTotal.toFixed(2))
-    const hasExpenseAmount = Number.isFinite(expenseAmount) && expenseAmount > 0
-    const diff = hasExpenseAmount ? Number((expenseAmount - roundedEntered).toFixed(2)) : null
+    const preTaxBudget = hasExpenseAmount && taxFactor > 0
+      ? Number((expenseAmount / (1 + taxFactor)).toFixed(2))
+      : hasExpenseAmount ? expenseAmount : null
+
+    const isPretaxMode = form.itemizedInputMode === 'pretax'
+    const displayTotal = isPretaxMode
+      ? Number(enteredPreTaxSum.toFixed(2))
+      : Number(enteredTaxIncSum.toFixed(2))
+    const compareTarget = isPretaxMode ? preTaxBudget : (hasExpenseAmount ? expenseAmount : null)
+    const diff = compareTarget != null ? Number((compareTarget - displayTotal).toFixed(2)) : null
+
     return {
-      enteredTotal: roundedEntered,
+      enteredTotal: displayTotal,
+      enteredTaxIncTotal: Number(enteredTaxIncSum.toFixed(2)),
       filledCount,
       diff,
       hasExpenseAmount,
+      preTaxBudget,
+      isPretaxMode,
     }
   }, [
     form.amount,
@@ -276,7 +296,7 @@ export default function ExpenseForm({
       form.splitMode === 'itemized' &&
       itemizedSummary?.hasExpenseAmount &&
       itemizedSummary.diff != null &&
-      Math.abs(itemizedSummary.diff) > 0.009
+      Math.abs(itemizedSummary.diff) > 0.5
     ) {
       const delta = `${getCurrencySymbol(form.paidCurrency)}${formatMoney(Math.abs(itemizedSummary.diff))}`
       const modeLabel = itemizedSummary.diff > 0 ? 'remaining' : 'exceeding'
@@ -551,8 +571,14 @@ export default function ExpenseForm({
               {form.splitPersonIds.map((pid) => {
                 const person = group.people.find((p) => p.id === pid)
                 if (!person) return null
+                const rawVal = form.itemizedInput[pid]
+                const numVal = rawVal != null && rawVal !== '' ? Number(rawVal) : null
+                const taxFactor = totalTaxPct / 100
+                const afterTaxVal = numVal != null && Number.isFinite(numVal) && numVal >= 0 && form.itemizedInputMode === 'pretax' && taxFactor > 0
+                  ? numVal * (1 + taxFactor)
+                  : null
                 return (
-                  <div key={pid} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_120px]">
+                  <div key={pid} className="grid items-center gap-2" style={{ gridTemplateColumns: afterTaxVal != null ? '1fr 100px auto' : '1fr 100px' }}>
                     <span className="text-sm text-[#3a3330]" style={getPersonNameStyle(person)}>
                       {person.name}
                     </span>
@@ -568,6 +594,11 @@ export default function ExpenseForm({
                         }))
                       }
                     />
+                    {afterTaxVal != null ? (
+                      <span className="whitespace-nowrap text-xs text-[#9a9088]">
+                        → {getCurrencySymbol(form.paidCurrency)}{formatMoney(afterTaxVal)}
+                      </span>
+                    ) : null}
                   </div>
                 )
               })}
@@ -575,10 +606,24 @@ export default function ExpenseForm({
             {itemizedSummary ? (
               <div className="mt-3 rounded-lg bg-[#faf8f4] px-3 py-2 text-xs text-[#6b6058]">
                 <p>Filled: {itemizedSummary.filledCount} person(s)</p>
+                {itemizedSummary.isPretaxMode && itemizedSummary.preTaxBudget != null ? (
+                  <p>
+                    Pre-tax budget: {getCurrencySymbol(form.paidCurrency)}
+                    {formatMoney(itemizedSummary.preTaxBudget)}
+                    <span className="text-[#9a9088]"> (from {getCurrencySymbol(form.paidCurrency)}{formatMoney(Number(form.amount))} incl. {formatMoney(totalTaxPct)}% tax)</span>
+                  </p>
+                ) : null}
                 <p>
-                  Itemized total: {getCurrencySymbol(form.paidCurrency)}
+                  {itemizedSummary.isPretaxMode ? 'Pre-tax total' : 'Itemized total'}:{' '}
+                  {getCurrencySymbol(form.paidCurrency)}
                   {formatMoney(itemizedSummary.enteredTotal)}
                 </p>
+                {itemizedSummary.isPretaxMode ? (
+                  <p>
+                    After-tax total: {getCurrencySymbol(form.paidCurrency)}
+                    {formatMoney(itemizedSummary.enteredTaxIncTotal)}
+                  </p>
+                ) : null}
                 {itemizedSummary.hasExpenseAmount && itemizedSummary.diff != null ? (
                   <p className={itemizedSummary.diff >= 0 ? 'text-[#4a6a4a]' : 'text-[#9e4a4a]'}>
                     {itemizedSummary.diff >= 0 ? 'Remaining' : 'Exceeds'}:{' '}
