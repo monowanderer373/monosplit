@@ -39,8 +39,7 @@ type FormState = {
 
 function blankForm(group: Group): FormState {
   const today = todayISO()
-  let initialDate = group.startDate || today
-  if (group.endDate && initialDate > group.endDate) initialDate = group.endDate
+  const initialDate = today
   return {
     category: 'Other',
     description: '',
@@ -660,10 +659,32 @@ export default function ExpenseForm({
             type="date"
             className="ms-input"
             value={form.date}
-            min={group.startDate || undefined}
-            max={group.endDate || undefined}
             onChange={(e) => setField('date', e.target.value)}
           />
+          {(() => {
+            const today = todayISO()
+            const inTrip =
+              group.startDate && group.endDate
+                ? form.date >= group.startDate && form.date <= group.endDate
+                : false
+            const isFuture = form.date > today
+            const hasTrip = group.startDate && group.endDate
+
+            if (!form.date) return null
+            return (
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                {hasTrip ? (
+                  <span className={inTrip ? 'font-medium text-[#4a6a4a]' : 'text-[#9a9088]'}>
+                    {inTrip ? '● Within trip period' : '○ Outside trip period'}
+                    <span className="ml-1 text-[#9a9088]">({group.startDate} — {group.endDate})</span>
+                  </span>
+                ) : null}
+                {isFuture ? (
+                  <span className="text-[#c49898]">Future date — auto rate unavailable</span>
+                ) : null}
+              </div>
+            )
+          })()}
         </div>
 
         {error ? <p className="text-sm text-[#9e4a4a] lg:col-span-2">{error}</p> : null}
