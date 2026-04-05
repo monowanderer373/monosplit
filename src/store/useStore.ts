@@ -368,7 +368,26 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'monosplit-storage',
-      version: 1,
+      version: 2,
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>
+        if (version < 2 && Array.isArray(state?.groups)) {
+          state.groups = (state.groups as Array<Record<string, unknown>>).map((group) => ({
+            ...group,
+            expenses: Array.isArray(group.expenses)
+              ? (group.expenses as Array<Record<string, unknown>>).map((expense) => {
+                  if (Array.isArray(expense.payerIds) && (expense.payerIds as string[]).length > 0) return expense
+                  if (typeof expense.payerId === 'string' && expense.payerId) {
+                    const { payerId: _, ...rest } = expense
+                    return { ...rest, payerIds: [expense.payerId] }
+                  }
+                  return { ...expense, payerIds: [] }
+                })
+              : [],
+          }))
+        }
+        return state
+      },
       partialize: (state) => ({
         lang: state.lang,
         themeId: state.themeId,

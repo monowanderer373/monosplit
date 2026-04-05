@@ -9,6 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      devOptions: { enabled: false },
       manifest: {
         name: 'Mono Split',
         short_name: 'Mono Split',
@@ -24,6 +25,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,woff,woff2}', 'icons/*.png'],
         navigateFallback: 'index.html',
         runtimeCaching: [
@@ -36,7 +39,7 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /^https:\/\/api\.frankfurter\.app\/.*/i,
+            urlPattern: /^https:\/\/api\.frankfurter\.(app|dev)\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'exchange-rates',
