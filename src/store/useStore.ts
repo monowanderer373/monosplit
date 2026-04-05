@@ -60,7 +60,13 @@ function migrateExpensePayerIds(expense: Expense & { payerId?: string }): Expens
     const { payerId: _, ...rest } = expense
     return { ...rest, payerIds: [legacyId] } as Expense
   }
-  return expense as Expense
+  return { ...expense, payerIds: expense.payerIds ?? [] } as Expense
+}
+
+function migrateGroupData(group: Group): Group {
+  if (!group.expenses || !Array.isArray(group.expenses)) return group
+  const migrated = group.expenses.map((e) => migrateExpensePayerIds(e as Expense & { payerId?: string }))
+  return { ...group, expenses: migrated }
 }
 
 function defaultPaymentInfo(): PaymentInfo {
@@ -119,17 +125,19 @@ export const useStore = create<AppState>()(
         set((state) => ({ groups: state.groups.filter((group) => group.id !== groupId) }))
       },
       replaceGroup: (groupId, data) => {
+        const migrated = migrateGroupData({ ...data, id: groupId })
         set((state) => ({
-          groups: state.groups.map((g) => (g.id === groupId ? { ...data, id: groupId } : g)),
+          groups: state.groups.map((g) => (g.id === groupId ? migrated : g)),
         }))
       },
       upsertGroup: (data) => {
+        const migrated = migrateGroupData(data)
         set((state) => {
-          const exists = state.groups.some((g) => g.id === data.id)
+          const exists = state.groups.some((g) => g.id === migrated.id)
           if (exists) {
-            return { groups: state.groups.map((g) => (g.id === data.id ? data : g)) }
+            return { groups: state.groups.map((g) => (g.id === migrated.id ? migrated : g)) }
           }
-          return { groups: [...state.groups, data] }
+          return { groups: [...state.groups, migrated] }
         })
       },
       addPerson: (groupId, name) => {
@@ -190,7 +198,7 @@ export const useStore = create<AppState>()(
             comments: group.comments.filter((comment) => comment.personId !== personId),
             expenses: group.expenses.map((expense) => ({
               ...expense,
-              payerIds: expense.payerIds.filter((pid) => pid !== personId),
+              payerIds: (expense.payerIds ?? []).filter((pid) => pid !== personId),
               splits: expense.splits.filter((split) => split.personId !== personId),
             })),
           })),
@@ -320,7 +328,7 @@ export const useStore = create<AppState>()(
           groups: updateGroupById(state.groups, groupId, (group) => ({
             ...group,
             expenses: group.expenses.map((expense) => {
-              if (!expense.payerIds.includes(creditorId)) return expense
+              if (!(expense.payerIds ?? []).includes(creditorId)) return expense
               return {
                 ...expense,
                 splits: expense.splits.map((split) => {
@@ -382,7 +390,7 @@ export const useStore = create<AppState>()(
             .map((expense) => migrateExpensePayerIds(expense))
             .filter(
               (expense) =>
-                expense.payerIds.every((pid) => personInGroup(group.people, pid)) &&
+                (expense.payerIds ?? []).every((pid) => personInGroup(group.people, pid)) &&
                 expense.splits.every((split) => personInGroup(group.people, split.personId)),
             ),
         })),

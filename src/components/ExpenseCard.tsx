@@ -63,7 +63,7 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-slate-800">
                   <span style={getPersonNameStyle(person)}>{person?.name ?? t('card.unknown')}</span>
-                  {expense.payerIds.includes(split.personId) ? ` ${t('card.payer')}` : ''}
+                  {(expense.payerIds ?? []).includes(split.personId) ? ` ${t('card.payer')}` : ''}
                 </p>
                 <p className="text-xs text-slate-500">
                   {repaySymbol}
@@ -73,7 +73,7 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
                 </p>
               </div>
 
-              {!expense.payerIds.includes(split.personId) ? (
+              {!(expense.payerIds ?? []).includes(split.personId) ? (
                 split.repaid ? (
                   <button className="ms-btn-ghost" onClick={() => onUnmarkRepaid(expense.id, index)}>
                     {t('card.undo')}

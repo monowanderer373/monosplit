@@ -155,12 +155,12 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
       .slice()
       .sort((a, b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime())
       .map((expense) => {
-        if (settlePayerFilterId !== 'all' && !expense.payerIds.includes(settlePayerFilterId)) return null
+        if (settlePayerFilterId !== 'all' && !(expense.payerIds ?? []).includes(settlePayerFilterId)) return null
 
         const storedRate = expense.splits.find((split) => split.rate != null)?.rate ?? null
         const expenseRate = getExpenseRate(expense.id, storedRate)
         const allRows = expense.splits
-          .filter((split) => !expense.payerIds.includes(split.personId))
+          .filter((split) => !(expense.payerIds ?? []).includes(split.personId))
           .filter((split) => settleRepayFilterId === 'all' || split.personId === settleRepayFilterId)
           .map((split) => {
             const convertedAmount = calcConvertedSplitAmount(
@@ -377,7 +377,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                               })}
 
                               {expense.splits
-                                .filter((split) => !expense.payerIds.includes(split.personId))
+                                .filter((split) => !(expense.payerIds ?? []).includes(split.personId))
                                 .map((split, idx) => {
                                   const person = group.people.find((entry) => entry.id === split.personId)
                                   const convertedAmount = calcConvertedSplitAmount(
