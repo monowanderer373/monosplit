@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchRate, getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
+import { tCategory, useT } from '../lib/i18n'
 import { getPersonNameStyle } from '../lib/personTheme'
+import { useStore } from '../store/useStore'
 import type { Expense, Group } from '../types'
 import { EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
 import ExpenseForm from './ExpenseForm'
@@ -36,6 +38,8 @@ function calcConvertedSplitAmount(
 }
 
 export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Props) {
+  const t = useT()
+  const lang = useStore((s) => s.lang)
   const [categoryFilter, setCategoryFilter] = useState<'All' | (typeof EXPENSE_CATEGORIES)[number]>('All')
   const [selectedDate, setSelectedDate] = useState<'All' | string>('All')
   const [settlePayerFilterId, setSettlePayerFilterId] = useState('all')
@@ -196,31 +200,31 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
     <section className="space-y-4 pb-24 lg:pb-0">
       <div className="ms-card-soft">
         <div className="mb-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="ms-title">Expense Summary</h2>
+          <h2 className="ms-title">{t('summary.title')}</h2>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <span className="text-sm text-[#6b6058]">Category:</span>
+            <span className="text-sm text-[#6b6058]">{t('summary.category')}</span>
             <select
               className="ms-input h-9 min-w-0 py-0 text-sm sm:min-w-36"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as 'All' | (typeof EXPENSE_CATEGORIES)[number])}
             >
-              <option value="All">All</option>
+              <option value="All">{t('summary.all')}</option>
               {EXPENSE_CATEGORIES.map((category) => (
                 <option key={category} value={category}>
-                  {category}
+                  {tCategory(category)}
                 </option>
               ))}
             </select>
           </div>
         </div>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <span className="text-sm text-[#6b6058]">Date:</span>
+          <span className="text-sm text-[#6b6058]">{t('summary.date')}</span>
           <select
             className="ms-input h-9 min-w-0 py-0 text-sm sm:min-w-56"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
           >
-            <option value="All">All dates</option>
+            <option value="All">{t('summary.allDates')}</option>
             {availableDateOptions.map((date) => (
               <option key={date} value={date}>
                 {(() => {
@@ -239,7 +243,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
       <div className="space-y-3">
         {groupedDays.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-4 text-center text-sm text-[#6b6058]">
-            No expense records in selected filters.
+            {t('summary.noRecords')}
           </div>
         ) : null}
 
@@ -261,9 +265,13 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-[#6b6058]">{openDay ? '▾' : '▸'}</span>
                   <p className="text-lg font-semibold text-[#2c2520]">
-                    Day {dayNumber} ({formatDateLabel(date)})
+                    {lang === 'zh'
+                      ? `${t('summary.day')}${dayNumber}${t('summary.dayUnit')} (${formatDateLabel(date)})`
+                      : `${t('summary.day')} ${dayNumber} (${formatDateLabel(date)})`}
                   </p>
-                  <span className="rounded-full bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs text-[#74593c]">{expenses.length} expense(s)</span>
+                  <span className="rounded-full bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs text-[#74593c]">
+                    {expenses.length} {t('summary.expenseCount')}
+                  </span>
                 </div>
                 <div className="text-right">
                   {Object.entries(dayTotalByPaidCurrency).map(([currency, total]) => (
@@ -301,7 +309,9 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                             >
                               <span className="text-xs text-[#6b6058]">{openExpense ? '▾' : '▸'}</span>
                               <p className="truncate text-lg font-semibold text-[#2c2520]">{expense.description}</p>
-                              <span className="rounded-md bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs text-[#74593c]">{normalizeCategory(expense.category)}</span>
+                              <span className="rounded-md bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs text-[#74593c]">
+                                {tCategory(normalizeCategory(expense.category))}
+                              </span>
                             </button>
                             <div className="text-left md:text-right">
                               <p className="text-base font-semibold text-[#2c2520]">
@@ -313,12 +323,12 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                     {formatMoney(convertedTotal)})
                                   </span>
                                 ) : (
-                                  <span className="ml-1 text-xs font-medium text-[#9a9088]">(converting...)</span>
+                                  <span className="ml-1 text-xs font-medium text-[#9a9088]">{t('summary.converting')}</span>
                                 )}
                               </p>
                               <div className="mt-1 flex gap-2 md:justify-end">
                                 <button className="ms-btn-ghost" onClick={() => setEditingExpenseId(expense.id)}>
-                                  Edit
+                                  {t('group.edit')}
                                 </button>
                               </div>
                             </div>
@@ -327,14 +337,14 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                           {openExpense ? (
                             <div className="space-y-2 border-t border-[#e6e0d5] px-3 py-3">
                               <p className="text-sm text-[#6b6058]">
-                                Paid by{' '}
+                                {t('card.paidBy')}{' '}
                                 {payers.map((p, i) => (
                                   <span key={p!.id}>
                                     {i > 0 ? ', ' : ''}
                                     <span className="font-semibold text-[#3a3330]" style={getPersonNameStyle(p)}>{p!.name}</span>
                                   </span>
                                 ))}
-                                {payers.length === 0 ? 'Unknown' : ''}
+                                {payers.length === 0 ? t('card.unknown') : ''}
                                 {' '}· {expense.date}
                                 {expenseRate != null ? ` · Rate 1 ${expense.paidCurrency} = ${formatMoney(expenseRate, 6)} ${expense.repayCurrency}` : ''}
                               </p>
@@ -353,7 +363,9 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                   <div key={payer!.id} className="flex items-center justify-between rounded-xl border border-[#e6dcc0] bg-[#f5eed8] px-3 py-2">
                                     <p className="font-medium text-[#2c2520]" style={getPersonNameStyle(payer)}>{payer!.name}</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="rounded-full bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs font-medium text-[#74593c]">Payer</span>
+                                      <span className="rounded-full bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs font-medium text-[#74593c]">
+                                        {t('summary.payer')}
+                                      </span>
                                       <span className="text-sm font-semibold text-[#3a3330]">
                                         {payerAmount != null
                                           ? `${getCurrencySymbol(expense.repayCurrency)}${formatMoney(payerAmount)}`
@@ -376,7 +388,9 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                   return (
                                     <div key={`${expense.id}-${split.personId}-${idx}`} className="flex items-center justify-between rounded-xl border border-[#e6e0d5] bg-[#faf8f4] px-3 py-2">
                                       <div>
-                                        <p className="text-base font-medium text-[#2c2520]" style={getPersonNameStyle(person)}>{person?.name ?? 'Unknown'}</p>
+                                        <p className="text-base font-medium text-[#2c2520]" style={getPersonNameStyle(person)}>
+                                          {person?.name ?? t('card.unknown')}
+                                        </p>
                                         <p className="text-sm text-[#6b6058]">
                                           {convertedAmount != null
                                             ? `${getCurrencySymbol(expense.repayCurrency)}${formatMoney(convertedAmount)}`
@@ -384,7 +398,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                         </p>
                                       </div>
                                       <span className={`text-sm font-semibold ${split.repaid ? 'text-[#5a7a5a]' : 'text-[#9e4a4a]'}`}>
-                                        {split.repaid ? 'Paid' : 'Unpaid'}
+                                        {split.repaid ? t('summary.paid') : t('summary.unpaid')}
                                       </span>
                                     </div>
                                   )
@@ -403,23 +417,23 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
       </div>
 
       <div className="ms-card-soft">
-        <h2 className="ms-title mb-2">Settlement Summary</h2>
+        <h2 className="ms-title mb-2">{t('summary.settlementTitle')}</h2>
         <p className="mb-3 text-sm text-[#6b6058]">
-          Each row is one expense. Default shows items with unpaid balances. Repaid lines are shown as
-          <span className="mx-1 font-semibold text-[#5a7a8a]">Paid</span>
-          in cyan and are excluded from total outstanding.
+          {t('summary.settlementDesc')}{' '}
+          <span className="mx-1 font-semibold text-[#5a7a8a]">{t('summary.paid')}</span>{' '}
+          {t('summary.inCyan')}
         </p>
 
         <div className="grid grid-cols-1 gap-2 rounded-xl border border-[#e6e0d5] bg-[#f0ece3] p-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058] md:grid-cols-12">
-          <div className="md:col-span-4">Item</div>
+          <div className="md:col-span-4">{t('summary.item')}</div>
           <div className="md:col-span-3">
-            <label className="mb-1 block">Payer</label>
+            <label className="mb-1 block">{t('summary.payer')}</label>
             <select
               className="ms-input h-8 w-full py-0 text-sm normal-case tracking-normal"
               value={settlePayerFilterId}
               onChange={(e) => setSettlePayerFilterId(e.target.value)}
             >
-              <option value="all">All</option>
+              <option value="all">{t('summary.all')}</option>
               {group.people.map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.name}
@@ -428,13 +442,13 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
             </select>
           </div>
           <div className="md:col-span-5">
-            <label className="mb-1 block">Outstanding Repay</label>
+            <label className="mb-1 block">{t('summary.outstandingRepay')}</label>
             <select
               className="ms-input h-8 w-full py-0 text-sm normal-case tracking-normal"
               value={settleRepayFilterId}
               onChange={(e) => setSettleRepayFilterId(e.target.value)}
             >
-              <option value="all">All</option>
+              <option value="all">{t('summary.all')}</option>
               {group.people.map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.name}
@@ -446,7 +460,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
 
         <div className="mt-2 divide-y divide-[#e6e0d5]">
           {settlementRows.length === 0 ? (
-            <div className="py-4 text-sm text-[#6b6058]">No settlement rows for current filters.</div>
+            <div className="py-4 text-sm text-[#6b6058]">{t('summary.noSettlement')}</div>
           ) : null}
           {settlementRows.map((row) => (
             <div key={row.expenseId} className="grid grid-cols-1 gap-3 py-3 md:grid-cols-12 md:gap-2">
@@ -459,7 +473,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                   {row.payerIds.map((pid, i) => (
                     <span key={pid} style={getPersonNameStyle(group.people.find((person) => person.id === pid))}>
                       {i > 0 ? ', ' : ''}
-                      {personNameById[pid] ?? 'Unknown'}
+                      {personNameById[pid] ?? t('card.unknown')}
                     </span>
                   ))}
                 </p>
@@ -469,7 +483,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                 </p>
               </div>
               <div className="md:col-span-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Who owes</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('summary.whoOwes')}</p>
                 <ul className="mt-1 space-y-1">
                   {row.rows.map((line, idx) => (
                     <li key={`${row.expenseId}-${line.personId}-${idx}`} className="flex items-center justify-between text-sm">
@@ -477,11 +491,11 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                         className="font-semibold text-[#3a3330]"
                         style={getPersonNameStyle(group.people.find((person) => person.id === line.personId))}
                       >
-                        {personNameById[line.personId] ?? 'Unknown'}
+                        {personNameById[line.personId] ?? t('card.unknown')}
                       </span>
                       {line.repaid ? (
                         <span className="font-semibold text-[#5a7a8a]">
-                          Paid (
+                          {t('summary.paid')} (
                           {getCurrencySymbol(row.repayCurrency)}
                           {formatMoney(line.amount)})
                         </span>
@@ -495,7 +509,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                   ))}
                 </ul>
 
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Total outstanding</p>
+                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('summary.totalOutstanding')}</p>
                 {row.outstandingTotal > 0 ? (
                   <p className="text-2xl font-bold text-[#8a3a3a]">
                     {getCurrencySymbol(row.repayCurrency)}
@@ -503,7 +517,8 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                   </p>
                 ) : (
                   <p className="text-lg font-bold text-[#5a7a8a]">
-                    Paid{row.paidCount > 0 ? ` (${row.paidCount})` : ''}
+                    {t('summary.paid')}
+                    {row.paidCount > 0 ? ` (${row.paidCount})` : ''}
                   </p>
                 )}
               </div>
@@ -518,10 +533,10 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
             <ExpenseForm
               group={group}
               initialExpense={editingExpense}
-              title="Edit Expense"
-              submitLabel="Save Changes"
+              title={t('expense.editTitle')}
+              submitLabel={t('expense.saveChanges')}
               onRemove={() => {
-                const ok = window.confirm(`Warning: Delete expense "${editingExpense.description}"?`)
+                const ok = window.confirm(`${t('summary.deleteConfirm')} "${editingExpense.description}"?`)
                 if (!ok) return
                 onDeleteExpense(editingExpense.id)
                 setEditingExpenseId(null)

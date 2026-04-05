@@ -11,6 +11,8 @@ type NewGroupOptions = {
 }
 
 type AppState = {
+  lang: 'en' | 'zh'
+  setLang: (lang: 'en' | 'zh') => void
   themeId: string
   setThemeId: (id: string) => void
   groups: Group[]
@@ -78,6 +80,8 @@ function normalizePersonName(name: string): string {
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
+      lang: 'en' as 'en' | 'zh',
+      setLang: (lang: 'en' | 'zh') => set({ lang }),
       themeId: 'solid-vintage',
       setThemeId: (id: string) => set({ themeId: id }),
       groups: [],
@@ -358,6 +362,7 @@ export const useStore = create<AppState>()(
       name: 'monosplit-storage',
       version: 1,
       partialize: (state) => ({
+        lang: state.lang,
         themeId: state.themeId,
         groups: state.groups.map((group) => ({
           ...group,

@@ -8,12 +8,14 @@ import DashboardTab from '../components/DashboardTab'
 import ExpenseForm from '../components/ExpenseForm'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
+import { useT } from '../lib/i18n'
 import { spawnRipple } from '../lib/ripple'
 import { useGroupSync } from '../hooks/useGroupSync'
 
 type Tab = 'summary' | 'dashboard' | 'settle' | 'profile'
 
 export default function GroupPage() {
+  const t = useT()
   const { groupId } = useParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<Tab>('summary')
@@ -40,10 +42,10 @@ export default function GroupPage() {
 
   const totalExpenses = useMemo(() => group?.expenses.length ?? 0, [group?.expenses.length])
   const desktopTabs: Array<{ id: Tab; label: string }> = [
-    { id: 'summary', label: 'Summary' },
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'settle', label: 'Settle-up' },
-    { id: 'profile', label: 'Profile' },
+    { id: 'summary', label: t('desktopTab.summary') },
+    { id: 'dashboard', label: t('desktopTab.dashboard') },
+    { id: 'settle', label: t('desktopTab.settle') },
+    { id: 'profile', label: t('desktopTab.profile') },
   ]
 
   const openEditPanel = () => {
@@ -61,7 +63,7 @@ export default function GroupPage() {
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     } catch {
-      window.prompt('Copy this link to share:', url)
+      window.prompt(t('group.copyPrompt'), url)
     }
   }
 
@@ -69,9 +71,9 @@ export default function GroupPage() {
     return (
       <main className="ms-page flex min-h-dvh items-center justify-center">
         <div className="ms-card-soft w-full p-6 text-center">
-          <p className="text-sm text-[#6b6058]">Group not found.</p>
+          <p className="text-sm text-[#6b6058]">{t('group.notFound')}</p>
           <button className="ms-btn-primary mt-3" onClick={() => navigate('/')}>
-            Back to groups
+            {t('group.backToGroups')}
           </button>
         </div>
       </main>
@@ -84,27 +86,27 @@ export default function GroupPage() {
         <section className="ms-card-soft mb-4">
           <div className="flex items-start justify-between gap-3">
             <button className="ms-btn-ghost" onClick={() => navigate('/')}>
-              Back
+              {t('group.back')}
             </button>
             <div className="flex items-center gap-2">
               <button className="ms-btn-ghost" onClick={copyShareLink}>
-                {linkCopied ? 'Copied!' : 'Share Link'}
+                {linkCopied ? t('group.copied') : t('group.shareLink')}
               </button>
               <button className="ms-btn-ghost" onClick={openEditPanel}>
-                Edit
+                {t('group.edit')}
               </button>
             </div>
           </div>
           <h1 className="mt-3 text-4xl font-bold text-[#2c2520]">{group.name}</h1>
           <div className="mt-2 flex items-center gap-3">
             <p className="text-base text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
-            {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">Synced</span>}
-            {syncStatus === 'loading' && <span className="text-xs text-[#9a9088]">Syncing...</span>}
-            {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">Local only</span>}
-            {syncStatus === 'error' && <span className="text-xs text-[#9e4a4a]">Sync error</span>}
+            {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
+            {syncStatus === 'loading' && <span className="text-xs text-[#9a9088]">{t('group.syncing')}</span>}
+            {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.localOnly')}</span>}
+            {syncStatus === 'error' && <span className="text-xs text-[#9e4a4a]">{t('group.syncError')}</span>}
           </div>
           <p className="mt-1 text-base text-[#6b6058]">
-            {group.people.length} people · {totalExpenses} expenses
+            {group.people.length} {t('groups.people')} · {totalExpenses} {t('groups.expenses')}
           </p>
         </section>
       </div>
@@ -129,7 +131,7 @@ export default function GroupPage() {
 
             <button
               className="ms-key ms-key-round h-[60px] w-[60px] shrink-0"
-              aria-label="Add expense"
+              aria-label={t('tab.addExpense')}
               onPointerDown={(e) => {
                 spawnRipple(e)
                 setExpenseComposerOpen(true)
@@ -161,26 +163,26 @@ export default function GroupPage() {
             <header className="ms-card-soft mb-4 lg:hidden">
               <div className="mb-2 flex items-start justify-between gap-3">
                 <button className="ms-btn-ghost" onClick={() => navigate('/')}>
-                  Back
+                  {t('group.back')}
                 </button>
                 <div className="flex items-center gap-2">
                   <button className="ms-btn-ghost" onClick={copyShareLink}>
-                    {linkCopied ? 'Copied!' : 'Share'}
+                    {linkCopied ? t('group.copied') : t('group.share')}
                   </button>
                   <button className="ms-btn-ghost" onClick={openEditPanel}>
-                    Edit
+                    {t('group.edit')}
                   </button>
                 </div>
               </div>
               <h1 className="text-2xl font-bold text-[#2c2520]">{group.name}</h1>
               <div className="mt-1 flex items-center gap-2">
                 <p className="text-xs text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
-                {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">Synced</span>}
-                {syncStatus === 'loading' && <span className="text-xs text-[#9a9088]">Syncing...</span>}
-                {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">Local</span>}
+                {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
+                {syncStatus === 'loading' && <span className="text-xs text-[#9a9088]">{t('group.syncing')}</span>}
+                {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.local')}</span>}
               </div>
               <p className="mt-1 text-sm text-[#6b6058]">
-                {group.people.length} people · {totalExpenses} expenses
+                {group.people.length} {t('groups.people')} · {totalExpenses} {t('groups.expenses')}
               </p>
             </header>
           ) : null}
@@ -195,10 +197,10 @@ export default function GroupPage() {
                   (expense) => expense.payerIds?.includes(personId) || expense.splits.some((split) => split.personId === personId),
                 )
                 if (used) {
-                  window.alert('This traveller is used in expenses. Remove related expenses first.')
+                  window.alert(t('people.usedInExpenses'))
                   return
                 }
-                const ok = window.confirm('Remove traveller?')
+                const ok = window.confirm(t('people.removeConfirm'))
                 if (ok) removePerson(group.id, personId)
               }}
               onUpdateGroupCurrency={(paid, repay) =>
@@ -259,15 +261,15 @@ export default function GroupPage() {
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">
           <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 lg:max-w-2xl">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="ms-title">Edit Trip</h2>
+              <h2 className="ms-title">{t('group.editTrip')}</h2>
               <button className="ms-btn-ghost" onClick={() => setGroupEditOpen(false)}>
-                Close
+                {t('group.close')}
               </button>
             </div>
 
             <div className="space-y-3">
               <label className="block text-sm text-[#6b6058]">
-                Trip name
+                {t('group.tripName')}
                 <input
                   className="ms-input mt-1 w-full"
                   value={editName}
@@ -275,10 +277,10 @@ export default function GroupPage() {
                 />
               </label>
 
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Monthly calendar range</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('group.calendarRange')}</p>
               <div className="grid grid-cols-1 gap-2 rounded-xl border border-[#e6e0d5] bg-[#f0ece3] p-3 sm:grid-cols-2">
                 <label className="text-xs text-[#6b6058]">
-                  Start date
+                  {t('groups.startDate')}
                   <input
                     type="date"
                     className="ms-input mt-1 w-full"
@@ -287,7 +289,7 @@ export default function GroupPage() {
                   />
                 </label>
                 <label className="text-xs text-[#6b6058]">
-                  End date
+                  {t('groups.endDate')}
                   <input
                     type="date"
                     className="ms-input mt-1 w-full"
@@ -311,7 +313,7 @@ export default function GroupPage() {
                   setGroupEditOpen(false)
                 }}
               >
-                Save changes
+                {t('group.saveChanges')}
               </button>
             </div>
           </div>

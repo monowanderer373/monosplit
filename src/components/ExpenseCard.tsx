@@ -1,5 +1,6 @@
 import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
+import { useT } from '../lib/i18n'
 import { getPersonNameStyle } from '../lib/personTheme'
 import type { Expense, Group } from '../types'
 
@@ -12,6 +13,7 @@ type Props = {
 }
 
 export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, onUnmarkRepaid }: Props) {
+  const t = useT()
   const payers = (expense.payerIds ?? []).map((pid) => group.people.find((p) => p.id === pid)).filter(Boolean)
   const paidSymbol = getCurrencySymbol(expense.paidCurrency)
   const repaySymbol = getCurrencySymbol(expense.repayCurrency)
@@ -22,18 +24,18 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
         <div>
           <h3 className="text-base font-semibold text-slate-900">{expense.description}</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Paid by{' '}
+            {t('card.paidBy')}{' '}
             {payers.map((p, i) => (
               <span key={p!.id}>
                 {i > 0 ? ', ' : ''}
                 <span style={getPersonNameStyle(p)}>{p!.name}</span>
               </span>
             ))}
-            {payers.length === 0 ? 'Unknown' : ''}
+            {payers.length === 0 ? t('card.unknown') : ''}
             {' '}· {expense.date} · {expense.paymentMethod}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            {expense.splitMode === 'itemized' ? 'Itemized split' : `${expense.splits.length}-way equal split`}
+            {expense.splitMode === 'itemized' ? t('card.itemizedSplit') : `${expense.splits.length}${t('card.equalSplit')}`}
           </p>
         </div>
         <div className="text-right">
@@ -60,28 +62,28 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-slate-800">
-                  <span style={getPersonNameStyle(person)}>{person?.name ?? 'Unknown'}</span>
-                  {expense.payerIds.includes(split.personId) ? ' (payer)' : ''}
+                  <span style={getPersonNameStyle(person)}>{person?.name ?? t('card.unknown')}</span>
+                  {expense.payerIds.includes(split.personId) ? ` ${t('card.payer')}` : ''}
                 </p>
                 <p className="text-xs text-slate-500">
                   {repaySymbol}
                   {formatMoney(amount)}
                   {' · '}
-                  {split.repaid ? `Repaid ${split.repaidDate ?? ''}` : 'Outstanding'}
+                  {split.repaid ? `${t('card.repaid')} ${split.repaidDate ?? ''}` : t('card.outstanding')}
                 </p>
               </div>
 
               {!expense.payerIds.includes(split.personId) ? (
                 split.repaid ? (
                   <button className="ms-btn-ghost" onClick={() => onUnmarkRepaid(expense.id, index)}>
-                    Undo
+                    {t('card.undo')}
                   </button>
                 ) : (
                   <button
                     className="rounded-lg border border-emerald-600 bg-white px-2 py-1 text-xs font-medium text-emerald-700"
                     onClick={() => onMarkRepaid(expense.id, index)}
                   >
-                    Mark repaid
+                    {t('card.markRepaid')}
                   </button>
                 )
               ) : null}
@@ -94,11 +96,11 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
         <button
           className="ms-btn-ghost"
           onClick={() => {
-            const ok = window.confirm(`Delete expense "${expense.description}"?`)
+            const ok = window.confirm(`${t('card.deleteConfirm')} "${expense.description}"?`)
             if (ok) onDelete(expense.id)
           }}
         >
-          Delete
+          {t('card.delete')}
         </button>
       </div>
     </article>

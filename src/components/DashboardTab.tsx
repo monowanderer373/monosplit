@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useT } from '../lib/i18n'
 import { getPersonNameStyle } from '../lib/personTheme'
 import type { Group, PaymentInfo } from '../types'
 
@@ -13,6 +14,7 @@ export default function DashboardTab({
   onUpdatePersonPaymentInfo,
   onAddComment,
 }: Props) {
+  const t = useT()
   const defaultPersonId = group.people[0]?.id ?? ''
   const [selectedPersonId, setSelectedPersonId] = useState(defaultPersonId)
   const [commentPersonId, setCommentPersonId] = useState(defaultPersonId)
@@ -71,7 +73,7 @@ export default function DashboardTab({
   if (group.people.length === 0) {
     return (
       <section className="space-y-4 pb-24">
-        <div className="ms-card-soft text-sm text-[#6b6058]">Please add travellers in Profile first.</div>
+        <div className="ms-card-soft text-sm text-[#6b6058]">{t('dash.addFirst')}</div>
       </section>
     )
   }
@@ -80,17 +82,17 @@ export default function DashboardTab({
     <section className="space-y-4 pb-24 lg:pb-0">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)]">
       <div className="ms-card-soft">
-        <h3 className="ms-title mb-2">Dashboard</h3>
-        <p className="mb-3 text-xs text-[#6b6058]">Shared trip comments.</p>
+        <h3 className="ms-title mb-2">{t('dash.title')}</h3>
+        <p className="mb-3 text-xs text-[#6b6058]">{t('dash.sharedComments')}</p>
 
         <div className="mb-3 h-[48dvh] min-h-72 overflow-y-auto rounded-xl border border-[#d8d0c4] bg-[#faf8f4] p-3 lg:h-[56dvh]">
-          {comments.length === 0 ? <p className="text-sm text-[#6b6058]">No comments yet.</p> : null}
+          {comments.length === 0 ? <p className="text-sm text-[#6b6058]">{t('dash.noComments')}</p> : null}
           {comments.map((comment) => {
             const person = group.people.find((entry) => entry.id === comment.personId)
             return (
               <div key={comment.id} className="rounded-xl border border-[#e6e0d5] bg-[#f0ece3] p-3">
                 <p className="text-xs text-[#6b6058]">
-                  <span style={getPersonNameStyle(person)}>{person?.name ?? 'Unknown'}</span> · {new Date(comment.createdAt).toLocaleString()}
+                  <span style={getPersonNameStyle(person)}>{person?.name ?? t('dash.unknown')}</span> · {new Date(comment.createdAt).toLocaleString()}
                 </p>
                 <p className="mt-1 text-sm text-[#2c2520]">{comment.message}</p>
               </div>
@@ -101,7 +103,7 @@ export default function DashboardTab({
         <div className="relative grid grid-cols-[3rem_1fr] gap-2 sm:grid-cols-[3rem_1fr_auto] sm:items-center">
           <button
             className="flex h-12 w-12 items-center justify-center rounded-md border border-[#d8d0c4] bg-[#f0ece3] text-base font-bold text-[#3a3330]"
-            title={`Posting as ${commentPerson?.name ?? 'Unknown'} (tap to switch, long-press to pick)`}
+            title={`${t('dash.postingAs')} ${commentPerson?.name ?? t('dash.unknown')} ${t('dash.postingAsSuffix')}`}
             onPointerDown={startLongPress}
             onPointerUp={endLongPress}
             onPointerLeave={() => {
@@ -151,13 +153,13 @@ export default function DashboardTab({
                 className="mt-1 w-full rounded-lg px-2 py-1 text-xs text-[#6b6058] hover:bg-[#f0ece3]"
                 onClick={() => setMemberPickerOpen(false)}
               >
-                Close
+                {t('dash.closePicker')}
               </button>
             </div>
           ) : null}
           <input
             className="ms-input h-12"
-            placeholder="Write a message..."
+            placeholder={t('dash.placeholder')}
             value={commentInput}
             onChange={(e) => setCommentInput(e.target.value)}
             onKeyDown={(e) => {
@@ -177,16 +179,16 @@ export default function DashboardTab({
               setCommentInput('')
             }}
           >
-            Post
+            {t('dash.post')}
           </button>
         </div>
-        <p className="mt-1 text-xs text-[#6b6058]">Long press avatar to choose member.</p>
+        <p className="mt-1 text-xs text-[#6b6058]">{t('dash.longPressHint')}</p>
       </div>
 
       <div className="ms-card-soft">
-        <h2 className="ms-title mb-3">Payment Info</h2>
+        <h2 className="ms-title mb-3">{t('dash.paymentInfo')}</h2>
         <label className="text-sm text-[#6b6058]">
-          Member
+          {t('dash.member')}
           <select
             className="ms-input mt-1 w-full"
             value={selectedPersonId}
@@ -204,7 +206,7 @@ export default function DashboardTab({
           <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
             <input
               className="ms-input"
-              placeholder="Bank name"
+              placeholder={t('dash.bankName')}
               value={paymentDraft.bankName}
               disabled={!paymentEditing}
               onChange={(e) =>
@@ -219,7 +221,7 @@ export default function DashboardTab({
             />
             <input
               className="ms-input"
-              placeholder="Account holder"
+              placeholder={t('dash.accountHolder')}
               value={paymentDraft.accountHolder}
               disabled={!paymentEditing}
               onChange={(e) =>
@@ -234,7 +236,7 @@ export default function DashboardTab({
             />
             <input
               className="ms-input"
-              placeholder="Account number"
+              placeholder={t('dash.accountNumber')}
               value={paymentDraft.accountNumber}
               disabled={!paymentEditing}
               onChange={(e) =>
@@ -263,7 +265,7 @@ export default function DashboardTab({
                 setPaymentEditing(false)
               }}
             >
-              {paymentEditing ? 'Save' : 'Edit'}
+              {paymentEditing ? t('people.save') : t('dash.editBtn')}
             </button>
           </div>
         ) : null}

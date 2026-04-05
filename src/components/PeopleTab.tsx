@@ -3,6 +3,7 @@ import { CURRENCIES } from '../lib/currency'
 import { PRESET_AVATARS } from '../lib/avatars'
 import { getPersonNameStyle, PERSON_COLOR_PALETTE } from '../lib/personTheme'
 import { THEMES } from '../lib/themes'
+import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
 import { exportGroupAsJson, exportGroupAsCsv, parseImportedJson } from '../lib/export'
 import { generateGroupId } from '../lib/id'
@@ -17,6 +18,7 @@ type Props = {
 }
 
 export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
+  const t = useT()
   const [name, setName] = useState('')
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
@@ -37,7 +39,7 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_360px] xl:items-start">
       <div className="ms-card-soft">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="ms-title">Travellers</h2>
+          <h2 className="ms-title">{t('people.travellers')}</h2>
           <span className="rounded-full bg-[rgba(139,110,78,0.08)] px-2 py-1 text-xs text-[#74593c]">{group.people.length}</span>
         </div>
 
@@ -62,13 +64,13 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
               </span>
             </button>
           ))}
-          {group.people.length === 0 ? <p className="text-sm text-[#6b6058]">Add at least one traveller.</p> : null}
+          {group.people.length === 0 ? <p className="text-sm text-[#6b6058]">{t('people.addHint')}</p> : null}
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             className="ms-input flex-1"
-            placeholder="Add traveller..."
+            placeholder={t('people.addPlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
@@ -85,16 +87,16 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
               onAddPerson(value)
               setName('')
             }}>
-            Add
+            {t('people.add')}
           </button>
         </div>
       </div>
 
       <div className="ms-card-soft">
-        <h3 className="ms-title mb-3">Group Settings</h3>
+        <h3 className="ms-title mb-3">{t('people.groupSettings')}</h3>
         <div className="grid grid-cols-1 gap-3">
           <label className="text-sm text-[#6b6058]">
-            Default paid currency
+            {t('people.defaultPaid')}
             <select
               className="ms-input mt-1 w-full"
               value={group.defaultPaidCurrency}
@@ -109,7 +111,7 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
           </label>
 
           <label className="text-sm text-[#6b6058]">
-            Default repay currency
+            {t('people.defaultRepay')}
             <select
               className="ms-input mt-1 w-full"
               value={group.defaultRepayCurrency}
@@ -128,15 +130,17 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
 
       <ThemeCard />
 
+      <LanguageCard />
+
       <DataCard group={group} />
 
       {editingPerson ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">
           <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-[#faf8f4] p-4 lg:max-w-3xl">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="ms-title">Edit Member</h2>
+              <h2 className="ms-title">{t('people.editMember')}</h2>
               <button className="ms-btn-ghost" onClick={() => setEditingPersonId(null)}>
-                Close
+                {t('people.close')}
               </button>
             </div>
 
@@ -155,9 +159,9 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm text-[#6b6058]">Avatar</p>
+                  <p className="text-sm text-[#6b6058]">{t('people.avatar')}</p>
                   <button type="button" className="text-xs text-[#6b6058] underline" onClick={() => setDraftAvatarDataUrl(null)}>
-                    Clear avatar
+                    {t('people.clearAvatar')}
                   </button>
                 </div>
                 <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
@@ -179,7 +183,7 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
               </div>
 
               <label className="block text-sm text-[#6b6058]">
-                Member name
+                {t('people.memberName')}
                 <input
                   className="ms-input mt-1 w-full"
                   value={draftName}
@@ -188,7 +192,7 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
               </label>
 
               <div>
-                <p className="mb-2 text-sm text-[#6b6058]">Name color</p>
+                <p className="mb-2 text-sm text-[#6b6058]">{t('people.nameColor')}</p>
                 <div className="grid grid-cols-5 gap-2 sm:grid-cols-8 lg:grid-cols-10">
                   {PERSON_COLOR_PALETTE.map((color) => (
                     <button
@@ -201,7 +205,7 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
                 </div>
                 <div className="mt-2 flex items-center gap-2">
                   <button className="text-xs text-[#6b6058] underline" onClick={() => setDraftColor(null)}>
-                    Reset color
+                    {t('people.resetColor')}
                   </button>
                   <span className="text-sm font-semibold" style={getPersonNameStyle({ nameColor: draftColor })}>
                     {draftName || editingPerson.name}
@@ -222,7 +226,7 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
                   setEditingPersonId(null)
                 }}
               >
-                Save
+                {t('people.save')}
               </button>
               <button
                 className="ms-btn-ghost w-full py-2.5 text-sm font-semibold text-[#9e4a4a]"
@@ -231,7 +235,7 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
                   setEditingPersonId(null)
                 }}
               >
-                Remove Member
+                {t('people.removeMember')}
               </button>
             </div>
           </div>
@@ -242,6 +246,7 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
 }
 
 function DataCard({ group }: { group: Group }) {
+  const t = useT()
   const upsertGroup = useStore((s) => s.upsertGroup)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -252,12 +257,12 @@ function DataCard({ group }: { group: Group }) {
     reader.onload = () => {
       const parsed = parseImportedJson(reader.result as string)
       if (!parsed) {
-        window.alert('Invalid MonoSplit JSON file.')
+        window.alert(t('data.invalidFile'))
         return
       }
       const newId = generateGroupId()
       upsertGroup({ ...parsed, id: newId })
-      window.alert(`Imported "${parsed.name}" successfully!`)
+      window.alert(t('data.importSuccess'))
     }
     reader.readAsText(file)
     e.target.value = ''
@@ -265,18 +270,18 @@ function DataCard({ group }: { group: Group }) {
 
   return (
     <div className="ms-card-soft">
-      <h3 className="ms-title mb-1">Data</h3>
-      <p className="mb-4 text-xs text-[var(--ms-text-muted)]">Export or import group data for backup.</p>
+      <h3 className="ms-title mb-1">{t('data.title')}</h3>
+      <p className="mb-4 text-xs text-[var(--ms-text-muted)]">{t('data.desc')}</p>
 
       <div className="flex flex-wrap gap-2">
         <button className="ms-btn-primary" onClick={() => exportGroupAsJson(group)}>
-          Export JSON
+          {t('data.exportJson')}
         </button>
         <button className="ms-btn-ghost" onClick={() => exportGroupAsCsv(group)}>
-          Export CSV
+          {t('data.exportCsv')}
         </button>
         <button className="ms-btn-ghost" onClick={() => fileRef.current?.click()}>
-          Import JSON
+          {t('data.importJson')}
         </button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
       </div>
@@ -285,13 +290,14 @@ function DataCard({ group }: { group: Group }) {
 }
 
 function ThemeCard() {
+  const t = useT()
   const themeId = useStore((s) => s.themeId)
   const setThemeId = useStore((s) => s.setThemeId)
 
   return (
     <div className="ms-card-soft">
-      <h3 className="ms-title mb-1">Theme</h3>
-      <p className="mb-4 text-xs text-[var(--ms-text-muted)]">Choose the look and feel of the app.</p>
+      <h3 className="ms-title mb-1">{t('theme.title')}</h3>
+      <p className="mb-4 text-xs text-[var(--ms-text-muted)]">{t('theme.desc')}</p>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {THEMES.map((theme) => {
@@ -325,19 +331,45 @@ function ThemeCard() {
                     {theme.name}
                   </span>
                   {selected ? (
-                    <span className="ml-auto text-xs font-semibold text-[var(--ms-accent)]">Active</span>
+                    <span className="ml-auto text-xs font-semibold text-[var(--ms-accent)]">{t('theme.active')}</span>
                   ) : null}
                 </div>
                 <p className="mt-1 text-[11px] leading-snug text-[var(--ms-text-muted)]">
                   {theme.description}
                 </p>
                 <p className="mt-1.5 text-[10px] tracking-wider text-[var(--ms-text-muted)]">
-                  FONT: {theme.font}
+                  {t('theme.font')} {theme.font}
                 </p>
               </div>
             </button>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+function LanguageCard() {
+  const t = useT()
+  const lang = useStore((s) => s.lang)
+  const setLang = useStore((s) => s.setLang)
+  return (
+    <div className="ms-card-soft">
+      <h3 className="ms-title mb-1">{t('lang.title')}</h3>
+      <p className="mb-4 text-xs text-[var(--ms-text-muted)]">{t('lang.desc')}</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          className={`ms-btn-ghost ${lang === 'en' ? 'border-[var(--ms-accent)] text-[var(--ms-accent)]' : ''}`}
+          onClick={() => setLang('en')}
+        >
+          {t('lang.en')}
+        </button>
+        <button
+          className={`ms-btn-ghost ${lang === 'zh' ? 'border-[var(--ms-accent)] text-[var(--ms-accent)]' : ''}`}
+          onClick={() => setLang('zh')}
+        >
+          {t('lang.zh')}
+        </button>
       </div>
     </div>
   )

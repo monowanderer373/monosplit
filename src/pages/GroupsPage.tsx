@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
+import { useT } from '../lib/i18n'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 
 export default function GroupsPage() {
+  const t = useT()
   const navigate = useNavigate()
   const groups = useStore((s) => s.groups)
   const addGroup = useStore((s) => s.addGroup)
@@ -51,39 +53,39 @@ export default function GroupsPage() {
         return
       }
     }
-    window.alert('Group not found. Check the ID or link.')
+    window.alert(t('groups.notFound'))
   }
 
   return (
     <main className="ms-page">
       <header className="mb-6 max-w-3xl">
-        <h1 className="text-3xl font-bold text-[#2c2520]">MonoSplit</h1>
-        <p className="mt-1 text-sm text-[#6b6058]">Travel expense splitting, simple and fast.</p>
+        <h1 className="text-3xl font-bold text-[#2c2520]">{t('app.title')}</h1>
+        <p className="mt-1 text-sm text-[#6b6058]">{t('app.subtitle')}</p>
       </header>
 
       <section className="ms-card-soft mb-6 max-w-3xl p-3">
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             className="ms-input h-11 flex-1"
-            placeholder="Create a travel group..."
+            placeholder={t('groups.createPlaceholder')}
             value={newGroup}
             onChange={(e) => setNewGroup(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onCreate()}
           />
           <button className="ms-btn-primary h-11 sm:min-w-32" onClick={onCreate}>
-            Create
+            {t('groups.create')}
           </button>
         </div>
         <button
           className="mt-2 text-sm font-medium text-[#8b6e4e]"
           onClick={() => setDateExpanded((prev) => !prev)}
         >
-          {dateExpanded ? 'Hide trip date calendar' : 'Set trip start/end date'}
+          {dateExpanded ? t('groups.hideDate') : t('groups.setDate')}
         </button>
         {dateExpanded ? (
           <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-[#e6e0d5] bg-[#f0ece3] p-3 sm:grid-cols-2">
             <label className="text-xs text-[#6b6058]">
-              Start date
+              {t('groups.startDate')}
               <input
                 type="date"
                 className="ms-input mt-1 w-full"
@@ -92,7 +94,7 @@ export default function GroupsPage() {
               />
             </label>
             <label className="text-xs text-[#6b6058]">
-              End date
+              {t('groups.endDate')}
               <input
                 type="date"
                 className="ms-input mt-1 w-full"
@@ -107,11 +109,11 @@ export default function GroupsPage() {
 
       {supabaseEnabled ? (
         <section className="ms-card-soft mb-6 max-w-3xl p-3">
-          <p className="mb-2 text-sm font-semibold text-[#6b6058]">Join an existing group</p>
+          <p className="mb-2 text-sm font-semibold text-[#6b6058]">{t('groups.joinTitle')}</p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               className="ms-input h-11 flex-1"
-              placeholder="Paste group ID or link..."
+              placeholder={t('groups.joinPlaceholder')}
               value={joinId}
               onChange={(e) => {
                 const v = e.target.value
@@ -121,7 +123,7 @@ export default function GroupsPage() {
               onKeyDown={(e) => e.key === 'Enter' && onJoinGroup()}
             />
             <button className="ms-btn-ghost h-11 sm:min-w-24" onClick={onJoinGroup}>
-              Join
+              {t('groups.join')}
             </button>
           </div>
         </section>
@@ -130,7 +132,7 @@ export default function GroupsPage() {
       <section className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
         {sortedGroups.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-6 text-center text-sm text-[#6b6058] lg:col-span-2 2xl:col-span-3">
-            No groups yet. Create your first trip group.
+            {t('groups.empty')}
           </div>
         ) : null}
 
@@ -144,7 +146,7 @@ export default function GroupsPage() {
               <div>
                 <h2 className="text-lg font-semibold text-[#2c2520]">{group.name}</h2>
                 <p className="mt-1 text-sm text-[#6b6058]">
-                  {group.people.length} people · {group.expenses.length} expenses
+                  {group.people.length} {t('groups.people')} · {group.expenses.length} {t('groups.expenses')}
                 </p>
                 <p className="mt-1 text-xs text-[#9a9088]">
                   {group.defaultPaidCurrency} → {group.defaultRepayCurrency}
@@ -155,11 +157,11 @@ export default function GroupsPage() {
                 className="ms-btn-ghost text-[#6b6058]"
                 onClick={(e) => {
                   e.stopPropagation()
-                  const ok = window.confirm(`Delete "${group.name}"?`)
+                  const ok = window.confirm(`${t('groups.deleteConfirm')} "${group.name}"?`)
                   if (ok) deleteGroup(group.id)
                 }}
               >
-                Delete
+                {t('groups.delete')}
               </button>
             </div>
           </article>

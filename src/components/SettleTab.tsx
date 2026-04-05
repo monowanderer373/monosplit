@@ -3,6 +3,7 @@ import { getSettlements } from '../lib/settlement'
 import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
+import { useT } from '../lib/i18n'
 import type { Group } from '../types'
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 }
 
 export default function SettleTab({ group, onMarkPairRepaid }: Props) {
+  const t = useT()
   const settlements = useMemo(() => getSettlements(group.expenses), [group.expenses])
   const [debtorFilterId, setDebtorFilterId] = useState('all')
   const [payerFilterId, setPayerFilterId] = useState('all')
@@ -152,7 +154,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
   return (
     <section className="space-y-4 pb-20 lg:pb-0">
       <div className="ms-card-soft">
-        <h2 className="ms-title mb-3">Outstanding Dashboard</h2>
+        <h2 className="ms-title mb-3">{t('settle.title')}</h2>
 
         <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <select
@@ -160,7 +162,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
             value={payerFilterId}
             onChange={(e) => setPayerFilterId(e.target.value)}
           >
-            <option value="all">Payer · All</option>
+            <option value="all">{t('settle.payerAll')}</option>
             {group.people.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.name}
@@ -172,7 +174,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
             value={debtorFilterId}
             onChange={(e) => setDebtorFilterId(e.target.value)}
           >
-            <option value="all">Debtor · All</option>
+            <option value="all">{t('settle.debtorAll')}</option>
             {group.people.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.name}
@@ -181,7 +183,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
           </select>
         </div>
 
-        {filteredSettlements.length === 0 ? <p className="text-sm text-[#4a6a4a]">No outstanding balances for this filter.</p> : null}
+        {filteredSettlements.length === 0 ? <p className="text-sm text-[#4a6a4a]">{t('settle.noBalances')}</p> : null}
         <div className="space-y-2">
           {filteredSettlements.map((settlement) => {
             const debtorName = group.people.find((person) => person.id === settlement.debtorId)?.name ?? 'Unknown'
@@ -198,7 +200,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                       <span style={getPersonNameStyle(debtorPerson)}>{debtorName}</span> → <span style={getPersonNameStyle(creditorPerson)}>{creditorName}</span>
                     </p>
                     <p className="text-xs text-[#6b6058]">
-                      across {meta?.expenseCount ?? 0} expense(s), {meta?.splitCount ?? 0} split line(s)
+                      {t('settle.across')} {meta?.expenseCount ?? 0} {t('settle.expenseCount')}, {meta?.splitCount ?? 0} {t('settle.splitLines')}
                     </p>
                     <p className="text-lg font-bold text-[#9e4a4a]">
                       {getCurrencySymbol(settlement.currency)}
@@ -209,7 +211,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                     className="ms-btn-ghost min-h-11 px-3 py-2 text-xs font-medium text-[#8a3a3a]"
                     onClick={() => onMarkPairRepaid(settlement.debtorId, settlement.creditorId, settlement.currency, todayISO())}
                   >
-                    Mark as repaid
+                    {t('settle.markRepaid')}
                   </button>
                 </div>
               </div>
@@ -218,25 +220,27 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
         </div>
 
         <div className="mt-3 rounded-xl border border-[#e6e0d5] bg-[#faf8f4] p-3">
-          <h3 className="mb-2 text-sm font-semibold text-[#2c2520]">Total Summary</h3>
+          <h3 className="mb-2 text-sm font-semibold text-[#2c2520]">{t('settle.totalSummary')}</h3>
           {summary.mode === 'generic' ? (
             <div className="space-y-1">
-              <p className="text-xs text-[#6b6058]">Outstanding totals for current filters</p>
+              <p className="text-xs text-[#6b6058]">{t('settle.outstandingTotals')}</p>
               {Object.entries(summary.totalByCurrency).map(([currency, amount]) => (
                 <p key={currency} className="text-sm font-semibold text-[#9e4a4a]">
                   {getCurrencySymbol(currency)}
                   {formatMoney(amount)} {currency}
                 </p>
               ))}
-              {Object.keys(summary.totalByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">No outstanding amount.</p> : null}
+              {Object.keys(summary.totalByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noOutstanding')}</p> : null}
             </div>
           ) : (
             <div className="space-y-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Overall outstanding</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('settle.overallOutstanding')}</p>
                 <p className="text-xs text-[#6b6058]">
-                  <span style={getPersonNameStyle(group.people.find((person) => person.id === debtorFilterId))}>{selectedDebtorName}</span> owes{' '}
-                  <span style={getPersonNameStyle(group.people.find((person) => person.id === payerFilterId))}>{selectedPayerName}</span> before contra
+                  <span style={getPersonNameStyle(group.people.find((person) => person.id === debtorFilterId))}>{selectedDebtorName}</span>{' '}
+                  {t('settle.owes')}{' '}
+                  <span style={getPersonNameStyle(group.people.find((person) => person.id === payerFilterId))}>{selectedPayerName}</span>{' '}
+                  {t('settle.beforeContra')}
                 </p>
                 {Object.entries(summary.directByCurrency).map(([currency, amount]) => (
                   <p key={currency} className="mt-1 text-sm font-semibold text-[#9e4a4a]">
@@ -244,14 +248,16 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                     {formatMoney(amount)} {currency}
                   </p>
                 ))}
-                {Object.keys(summary.directByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">No direct debt found.</p> : null}
+                {Object.keys(summary.directByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noDirectDebt')}</p> : null}
               </div>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Contra (two-way, same currency)</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('settle.contra')}</p>
                 <p className="text-xs text-[#6b6058]">
-                  <span style={getPersonNameStyle(group.people.find((person) => person.id === payerFilterId))}>{selectedPayerName}</span> owes{' '}
-                  <span style={getPersonNameStyle(group.people.find((person) => person.id === debtorFilterId))}>{selectedDebtorName}</span> and can be offset
+                  <span style={getPersonNameStyle(group.people.find((person) => person.id === payerFilterId))}>{selectedPayerName}</span>{' '}
+                  {t('settle.owes')}{' '}
+                  <span style={getPersonNameStyle(group.people.find((person) => person.id === debtorFilterId))}>{selectedDebtorName}</span>{' '}
+                  {t('settle.canOffset')}
                 </p>
                 {Object.entries(summary.contraByCurrency).map(([currency, amount]) => (
                   <p key={currency} className="mt-1 text-sm font-semibold text-[#8b6e4e]">
@@ -259,16 +265,17 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                     {formatMoney(amount)} {currency}
                   </p>
                 ))}
-                {Object.keys(summary.contraByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">No contra amount.</p> : null}
+                {Object.keys(summary.contraByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noContra')}</p> : null}
               </div>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Net after contra</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('settle.netAfterContra')}</p>
                 {Object.entries(summary.netAfterContraByCurrency).map(([currency, amountAfterContra]) => {
                   if (Math.abs(amountAfterContra) < 0.0001) {
                     return (
                       <p key={currency} className="mt-1 text-sm font-semibold text-[#6b6058]">
-                        {selectedDebtorName} and {selectedPayerName} are settled in {currency} after contra.
+                        {selectedDebtorName} and {selectedPayerName} {t('settle.settledIn')} {currency}{' '}
+                        {t('settle.afterContra')}
                       </p>
                     )
                   }
@@ -277,7 +284,8 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                       <div key={currency} className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm font-semibold text-[#8a3a3a]">
                           {getCurrencySymbol(currency)}
-                          {formatMoney(Math.abs(amountAfterContra))} {currency} · {selectedDebtorName} still needs to pay {selectedPayerName}.
+                          {formatMoney(Math.abs(amountAfterContra))} {currency} · {selectedDebtorName} {t('settle.stillPay')}{' '}
+                          {selectedPayerName}.
                         </p>
                         <button
                           className="ms-btn-primary px-3 py-1 text-xs font-semibold"
@@ -291,7 +299,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                             })
                           }
                         >
-                          Repay all
+                          {t('settle.repayAll')}
                         </button>
                       </div>
                     )
@@ -299,11 +307,12 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                   return (
                     <p key={currency} className="mt-1 text-sm font-semibold text-[#4a6a4a]">
                       {getCurrencySymbol(currency)}
-                      {formatMoney(Math.abs(amountAfterContra))} {currency} · {selectedDebtorName} does not need to pay; {selectedPayerName} still owes {selectedDebtorName} after contra.
+                      {formatMoney(Math.abs(amountAfterContra))} {currency} · {selectedDebtorName} {t('settle.noNeedPay')} {selectedPayerName}{' '}
+                      {t('settle.stillOwes')} {selectedDebtorName} {t('settle.afterContra')}
                     </p>
                   )
                 })}
-                {Object.keys(summary.netAfterContraByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">No net amount.</p> : null}
+                {Object.keys(summary.netAfterContraByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noNet')}</p> : null}
               </div>
             </div>
           )}
@@ -311,9 +320,9 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
       </div>
 
       <div className="ms-card-soft">
-        <h3 className="ms-title mb-3" style={{ color: '#4a6a4a' }}>Recent Repaid</h3>
+        <h3 className="ms-title mb-3" style={{ color: '#4a6a4a' }}>{t('settle.recentRepaid')}</h3>
         <div className="space-y-2 md:grid md:grid-cols-2 md:gap-2 md:space-y-0 xl:grid-cols-3">
-          {repaidRows.length === 0 ? <p className="text-sm text-[#6b6058]">No repaid records yet.</p> : null}
+          {repaidRows.length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noRepaid')}</p> : null}
           {repaidRows.map((row) => (
             <div key={row.key} className="rounded-xl border border-[#a8c4a8] bg-[rgba(90,122,90,0.06)] p-3">
               <p className="text-sm font-semibold text-[#2c2520]">
@@ -324,7 +333,9 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                 {getCurrencySymbol(row.currency)}
                 {formatMoney(row.amount)}
               </p>
-              <p className="text-xs text-[#6b6058]">Repaid on {row.date}</p>
+              <p className="text-xs text-[#6b6058]">
+                {t('settle.repaidOn')} {row.date}
+              </p>
             </div>
           ))}
         </div>
@@ -333,32 +344,32 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
       {repayModal.open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/40 p-3 lg:items-center">
           <div className="w-full max-w-md rounded-3xl bg-[#faf8f4] p-5 shadow-xl">
-            <h3 className="text-2xl font-semibold text-[#2c2520]">Repay all matching shares</h3>
-            <p className="mt-3 text-base leading-8 text-[#3a3330]">
-              Confirm this payment to settle all matching unpaid lines for this payer/debtor pair in one action.
-            </p>
+            <h3 className="text-2xl font-semibold text-[#2c2520]">{t('settle.repayModal')}</h3>
+            <p className="mt-3 text-base leading-8 text-[#3a3330]">{t('settle.repayDesc')}</p>
 
             <p className="mt-3 text-2xl font-semibold text-[#2c2520]">
               <span style={getPersonNameStyle(group.people.find((person) => person.id === repayModal.debtorId))}>
                 {group.people.find((person) => person.id === repayModal.debtorId)?.name ?? 'Debtor'}
               </span>{' '}
-              pays{' '}
+              {t('settle.pays')}{' '}
               <span style={getPersonNameStyle(group.people.find((person) => person.id === repayModal.payerId))}>
                 {group.people.find((person) => person.id === repayModal.payerId)?.name ?? 'Payer'}
               </span>
             </p>
 
             <p className="mt-4 text-lg font-semibold text-[#8a3a3a]">
-              Amount to pay after contra:{' '}
+              {t('settle.amountAfterContra')}{' '}
               {getCurrencySymbol(repayModal.currency)}
               {formatMoney(Math.abs(repayModal.amountAfterContra))} {repayModal.currency}
             </p>
 
-            <p className="mt-2 text-base text-[#3a3330]">Lines to mark repaid: {repayAllLineCount}</p>
+            <p className="mt-2 text-base text-[#3a3330]">
+              {t('settle.linesToMark')} {repayAllLineCount}
+            </p>
 
             <div className="mt-4 flex items-center gap-3">
               <label htmlFor="repaid-date" className="text-lg text-[#3a3330]">
-                Repaid on
+                {t('settle.repaidOn')}
               </label>
               <input
                 id="repaid-date"
@@ -379,7 +390,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                   setRepaidDate(todayISO())
                 }}
               >
-                Confirm
+                {t('settle.confirm')}
               </button>
               <button
                 className="rounded-2xl border border-[#e6e0d5] bg-[#faf8f4] px-6 py-3 text-xl font-medium text-[#3a3330]"
@@ -388,7 +399,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                   setRepaidDate(todayISO())
                 }}
               >
-                Cancel
+                {t('expense.cancel')}
               </button>
             </div>
           </div>

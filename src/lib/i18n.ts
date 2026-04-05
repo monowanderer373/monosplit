@@ -1,0 +1,302 @@
+import { useStore } from '../store/useStore'
+
+export type Lang = 'en' | 'zh'
+
+const translations = {
+  // ── Bottom Tabs ──
+  'tab.summary': { en: 'Summary', zh: '摘要' },
+  'tab.dashboard': { en: 'Dash\nBoard', zh: '留言\n板' },
+  'tab.settle': { en: 'Settle', zh: '结算' },
+  'tab.profile': { en: 'Profile', zh: '设置' },
+  'tab.addExpense': { en: 'Add expense', zh: '添加支出' },
+
+  // ── Groups Page ──
+  'app.title': { en: 'MonoSplit', zh: 'MonoSplit' },
+  'app.subtitle': { en: 'Travel expense splitting, simple and fast.', zh: '旅行费用分摊，简单快捷。' },
+  'groups.createPlaceholder': { en: 'Create a travel group...', zh: '创建旅行群组...' },
+  'groups.create': { en: 'Create', zh: '创建' },
+  'groups.hideDate': { en: 'Hide trip date calendar', zh: '隐藏日期选择' },
+  'groups.setDate': { en: 'Set trip start/end date', zh: '设置旅程日期' },
+  'groups.startDate': { en: 'Start date', zh: '开始日期' },
+  'groups.endDate': { en: 'End date', zh: '结束日期' },
+  'groups.joinTitle': { en: 'Join an existing group', zh: '加入现有群组' },
+  'groups.joinPlaceholder': { en: 'Paste group ID or link...', zh: '粘贴群组ID或链接...' },
+  'groups.join': { en: 'Join', zh: '加入' },
+  'groups.notFound': { en: 'Group not found. Check the ID or link.', zh: '找不到群组。请检查ID或链接。' },
+  'groups.empty': { en: 'No groups yet. Create your first trip group.', zh: '暂无群组。创建你的第一个旅行群组。' },
+  'groups.people': { en: 'people', zh: '人' },
+  'groups.expenses': { en: 'expenses', zh: '笔支出' },
+  'groups.delete': { en: 'Delete', zh: '删除' },
+  'groups.deleteConfirm': { en: 'Delete', zh: '确认删除' },
+
+  // ── Group Page ──
+  'group.notFound': { en: 'Group not found.', zh: '找不到群组。' },
+  'group.backToGroups': { en: 'Back to groups', zh: '返回群组列表' },
+  'group.back': { en: 'Back', zh: '返回' },
+  'group.edit': { en: 'Edit', zh: '编辑' },
+  'group.shareLink': { en: 'Share Link', zh: '分享链接' },
+  'group.share': { en: 'Share', zh: '分享' },
+  'group.copied': { en: 'Copied!', zh: '已复制！' },
+  'group.copyPrompt': { en: 'Copy this link to share:', zh: '复制此链接以分享：' },
+  'group.synced': { en: 'Synced', zh: '已同步' },
+  'group.syncing': { en: 'Syncing...', zh: '同步中...' },
+  'group.localOnly': { en: 'Local only', zh: '仅本地' },
+  'group.local': { en: 'Local', zh: '本地' },
+  'group.syncError': { en: 'Sync error', zh: '同步错误' },
+  'group.editTrip': { en: 'Edit Trip', zh: '编辑旅程' },
+  'group.close': { en: 'Close', zh: '关闭' },
+  'group.tripName': { en: 'Trip name', zh: '旅程名称' },
+  'group.calendarRange': { en: 'Monthly calendar range', zh: '月历范围' },
+  'group.saveChanges': { en: 'Save changes', zh: '保存更改' },
+
+  // ── Desktop Tabs ──
+  'desktopTab.summary': { en: 'Summary', zh: '摘要' },
+  'desktopTab.dashboard': { en: 'Dashboard', zh: '留言板' },
+  'desktopTab.settle': { en: 'Settle-up', zh: '结算' },
+  'desktopTab.profile': { en: 'Profile', zh: '设置' },
+
+  // ── Expense Form ──
+  'expense.addTitle': { en: 'Add Expense', zh: '添加支出' },
+  'expense.editTitle': { en: 'Edit Expense', zh: '编辑支出' },
+  'expense.save': { en: 'Save Expense', zh: '保存支出' },
+  'expense.saveChanges': { en: 'Save Changes', zh: '保存更改' },
+  'expense.remove': { en: 'Remove Expense', zh: '删除支出' },
+  'expense.mobileQuick': { en: 'Mobile quick mode', zh: '手机快捷模式' },
+  'expense.description': { en: 'Description', zh: '描述' },
+  'expense.amount': { en: 'Amount', zh: '金额' },
+  'expense.manualRate': { en: 'Manual rate', zh: '手动汇率' },
+  'expense.autoRate': { en: 'Auto rate', zh: '自动汇率' },
+  'expense.fetchRate': { en: 'Fetch rate', zh: '获取汇率' },
+  'expense.loading': { en: 'Loading...', zh: '加载中...' },
+  'expense.paidBy': { en: 'Paid by', zh: '付款人' },
+  'expense.equal': { en: 'Equal', zh: '均分' },
+  'expense.itemized': { en: 'Itemized', zh: '逐项' },
+  'expense.splitBetween': { en: 'Split between', zh: '分摊人' },
+  'expense.selectAll': { en: 'Select all', zh: '全选' },
+  'expense.clear': { en: 'Clear', zh: '清除' },
+  'expense.cancel': { en: 'Cancel', zh: '取消' },
+  'expense.inputPretax': { en: 'Input pre-tax', zh: '输入税前金额' },
+  'expense.inputTotal': { en: 'Input total', zh: '输入总金额' },
+  'expense.serviceTax': { en: 'Service tax %', zh: '服务税 %' },
+  'expense.salesTax': { en: 'Sales tax %', zh: '销售税 %' },
+  'expense.tips': { en: 'Tips %', zh: '小费 %' },
+  'expense.totalTax': { en: 'Total tax', zh: '总税率' },
+  'expense.filled': { en: 'Filled', zh: '已填' },
+  'expense.persons': { en: 'person(s)', zh: '人' },
+  'expense.preTaxBudget': { en: 'Pre-tax budget', zh: '税前预算' },
+  'expense.from': { en: 'from', zh: '来自' },
+  'expense.incl': { en: 'incl.', zh: '含' },
+  'expense.tax': { en: 'tax', zh: '税' },
+  'expense.preTaxTotal': { en: 'Pre-tax total', zh: '税前合计' },
+  'expense.itemizedTotal': { en: 'Itemized total', zh: '逐项合计' },
+  'expense.afterTaxTotal': { en: 'After-tax total', zh: '税后合计' },
+  'expense.remaining': { en: 'Remaining', zh: '剩余' },
+  'expense.exceeds': { en: 'Exceeds', zh: '超出' },
+  'expense.each': { en: 'each', zh: '每人' },
+  'expense.withinTrip': { en: 'Within trip period', zh: '在旅程期间内' },
+  'expense.outsideTrip': { en: 'Outside trip period', zh: '旅程期间外' },
+  'expense.futureDate': { en: 'Future date — auto rate unavailable', zh: '未来日期 — 无法自动获取汇率' },
+  'expense.rateFrom': { en: 'rate from', zh: '汇率日期' },
+
+  // Expense form errors
+  'error.selectDate': { en: 'Please select a date first before fetching the rate.', zh: '请先选择日期再获取汇率。' },
+  'error.futureRate': { en: 'Cannot fetch future rate. Rates are only available up to today.', zh: '无法获取未来汇率。汇率仅可获取至今日。' },
+  'error.fetchFailed': { en: 'Failed to fetch rate', zh: '获取汇率失败' },
+  'error.fetchFailedFinal': { en: 'Failed after multiple attempts. Please switch to manual rate and enter the rate yourself.', zh: '多次尝试失败。请切换为手动汇率并自行输入。' },
+  'error.tryAgain': { en: 'Try again or use manual rate.', zh: '请重试或使用手动汇率。' },
+  'error.addTravellers': { en: 'Please add travellers first.', zh: '请先添加旅伴。' },
+  'error.enterDescription': { en: 'Please enter description.', zh: '请输入描述。' },
+  'error.validAmount': { en: 'Please enter a valid amount.', zh: '请输入有效金额。' },
+  'error.selectPayer': { en: 'Please select who paid.', zh: '请选择付款人。' },
+  'error.selectSplit': { en: 'Please select at least one split person.', zh: '请至少选择一位分摊人。' },
+  'error.validManualRate': { en: 'Please enter a valid manual rate.', zh: '请输入有效的手动汇率。' },
+  'error.fetchOrManual': { en: 'Please fetch rate or switch to manual mode.', zh: '请获取汇率或切换为手动模式。' },
+  'error.itemizedPayer': { en: 'In itemized mode, all payers must have a value.', zh: '逐项模式下，所有付款人必须填入金额。' },
+  'error.itemizedTally': { en: 'Please make totals tally before saving.', zh: '请确保金额匹配后再保存。' },
+  'error.cannotSave': { en: 'Cannot save expense.', zh: '无法保存支出。' },
+  'error.itemizedRemaining': { en: 'Itemized amounts are still remaining by', zh: '逐项金额仍剩余' },
+  'error.itemizedExceeding': { en: 'Itemized amounts are still exceeding by', zh: '逐项金额仍超出' },
+  'error.tallyNote': { en: 'so they do not tally with the total amount.', zh: '与总金额不匹配。' },
+
+  // ── Expense Card ──
+  'card.paidBy': { en: 'Paid by', zh: '付款人' },
+  'card.unknown': { en: 'Unknown', zh: '未知' },
+  'card.itemizedSplit': { en: 'Itemized split', zh: '逐项分摊' },
+  'card.equalSplit': { en: '-way equal split', zh: '人均分' },
+  'card.payer': { en: '(payer)', zh: '(付款人)' },
+  'card.repaid': { en: 'Repaid', zh: '已还款' },
+  'card.outstanding': { en: 'Outstanding', zh: '未还款' },
+  'card.undo': { en: 'Undo', zh: '撤销' },
+  'card.markRepaid': { en: 'Mark repaid', zh: '标记已还' },
+  'card.delete': { en: 'Delete', zh: '删除' },
+  'card.deleteConfirm': { en: 'Delete expense', zh: '确认删除支出' },
+
+  // ── Summary Tab ──
+  'summary.title': { en: 'Expense Summary', zh: '支出摘要' },
+  'summary.category': { en: 'Category:', zh: '类别：' },
+  'summary.date': { en: 'Date:', zh: '日期：' },
+  'summary.all': { en: 'All', zh: '全部' },
+  'summary.allDates': { en: 'All dates', zh: '所有日期' },
+  'summary.noRecords': { en: 'No expense records in selected filters.', zh: '当前筛选条件下无支出记录。' },
+  'summary.day': { en: 'Day', zh: '第' },
+  'summary.dayUnit': { en: '', zh: '天' },
+  'summary.expenseCount': { en: 'expense(s)', zh: '笔支出' },
+  'summary.converting': { en: '(converting...)', zh: '(转换中...)' },
+  'summary.payer': { en: 'Payer', zh: '付款人' },
+  'summary.paid': { en: 'Paid', zh: '已还' },
+  'summary.unpaid': { en: 'Unpaid', zh: '未还' },
+  'summary.settlementTitle': { en: 'Settlement Summary', zh: '结算摘要' },
+  'summary.settlementDesc': { en: 'Each row is one expense. Default shows items with unpaid balances. Repaid lines are shown as', zh: '每行为一笔支出。默认显示有未还余额的项目。已还款行显示为' },
+  'summary.inCyan': { en: 'in cyan and are excluded from total outstanding.', zh: '的青色标记，不计入总未还金额。' },
+  'summary.item': { en: 'Item', zh: '项目' },
+  'summary.outstandingRepay': { en: 'Outstanding Repay', zh: '未还金额' },
+  'summary.whoOwes': { en: 'Who owes', zh: '谁欠款' },
+  'summary.totalOutstanding': { en: 'Total outstanding', zh: '总未还' },
+  'summary.noSettlement': { en: 'No settlement rows for current filters.', zh: '当前筛选条件下无结算记录。' },
+  'summary.deleteConfirm': { en: 'Warning: Delete expense', zh: '警告：确认删除支出' },
+
+  // ── Settle Tab ──
+  'settle.title': { en: 'Outstanding Dashboard', zh: '未还款面板' },
+  'settle.payerAll': { en: 'Payer · All', zh: '付款人 · 全部' },
+  'settle.debtorAll': { en: 'Debtor · All', zh: '欠款人 · 全部' },
+  'settle.noBalances': { en: 'No outstanding balances for this filter.', zh: '当前筛选下无未还余额。' },
+  'settle.across': { en: 'across', zh: '跨' },
+  'settle.expenseCount': { en: 'expense(s)', zh: '笔支出' },
+  'settle.splitLines': { en: 'split line(s)', zh: '条分摊记录' },
+  'settle.markRepaid': { en: 'Mark as repaid', zh: '标记为已还' },
+  'settle.totalSummary': { en: 'Total Summary', zh: '总结' },
+  'settle.outstandingTotals': { en: 'Outstanding totals for current filters', zh: '当前筛选的未还总额' },
+  'settle.noOutstanding': { en: 'No outstanding amount.', zh: '无未还金额。' },
+  'settle.overallOutstanding': { en: 'Overall outstanding', zh: '总体未还' },
+  'settle.owes': { en: 'owes', zh: '欠' },
+  'settle.beforeContra': { en: 'before contra', zh: '抵消前' },
+  'settle.noDirectDebt': { en: 'No direct debt found.', zh: '未发现直接欠款。' },
+  'settle.contra': { en: 'Contra (two-way, same currency)', zh: '互抵（双向，同币种）' },
+  'settle.canOffset': { en: 'and can be offset', zh: '可用于抵消' },
+  'settle.noContra': { en: 'No contra amount.', zh: '无互抵金额。' },
+  'settle.netAfterContra': { en: 'Net after contra', zh: '抵消后净额' },
+  'settle.settledIn': { en: 'are settled in', zh: '已在' },
+  'settle.afterContra': { en: 'after contra.', zh: '中抵消结清。' },
+  'settle.stillPay': { en: 'still needs to pay', zh: '仍需支付给' },
+  'settle.repayAll': { en: 'Repay all', zh: '全部还款' },
+  'settle.noNeedPay': { en: 'does not need to pay;', zh: '不需要支付；' },
+  'settle.stillOwes': { en: 'still owes', zh: '仍欠' },
+  'settle.noNet': { en: 'No net amount.', zh: '无净额。' },
+  'settle.recentRepaid': { en: 'Recent Repaid', zh: '最近还款' },
+  'settle.noRepaid': { en: 'No repaid records yet.', zh: '暂无还款记录。' },
+  'settle.repaidOn': { en: 'Repaid on', zh: '还款日期' },
+  'settle.repayModal': { en: 'Repay all matching shares', zh: '偿还所有匹配分摊' },
+  'settle.repayDesc': { en: 'Confirm this payment to settle all matching unpaid lines for this payer/debtor pair in one action.', zh: '确认此付款以一次性结清该付款人/欠款人对的所有未还记录。' },
+  'settle.pays': { en: 'pays', zh: '支付给' },
+  'settle.amountAfterContra': { en: 'Amount to pay after contra:', zh: '抵消后需支付金额：' },
+  'settle.linesToMark': { en: 'Lines to mark repaid:', zh: '标记为已还的行数：' },
+  'settle.confirm': { en: 'Confirm', zh: '确认' },
+
+  // ── People / Profile Tab ──
+  'people.travellers': { en: 'Travellers', zh: '旅伴' },
+  'people.addHint': { en: 'Add at least one traveller.', zh: '请至少添加一位旅伴。' },
+  'people.addPlaceholder': { en: 'Add traveller...', zh: '添加旅伴...' },
+  'people.add': { en: 'Add', zh: '添加' },
+  'people.groupSettings': { en: 'Group Settings', zh: '群组设置' },
+  'people.defaultPaid': { en: 'Default paid currency', zh: '默认支付货币' },
+  'people.defaultRepay': { en: 'Default repay currency', zh: '默认还款货币' },
+  'people.editMember': { en: 'Edit Member', zh: '编辑成员' },
+  'people.close': { en: 'Close', zh: '关闭' },
+  'people.avatar': { en: 'Avatar', zh: '头像' },
+  'people.clearAvatar': { en: 'Clear avatar', zh: '清除头像' },
+  'people.memberName': { en: 'Member name', zh: '成员名称' },
+  'people.nameColor': { en: 'Name color', zh: '名称颜色' },
+  'people.resetColor': { en: 'Reset color', zh: '重置颜色' },
+  'people.save': { en: 'Save', zh: '保存' },
+  'people.removeMember': { en: 'Remove Member', zh: '移除成员' },
+  'people.usedInExpenses': { en: 'This traveller is used in expenses. Remove related expenses first.', zh: '此旅伴已在支出中使用。请先移除相关支出。' },
+  'people.removeConfirm': { en: 'Remove traveller?', zh: '确认移除旅伴？' },
+
+  // Data card
+  'data.title': { en: 'Data', zh: '数据' },
+  'data.desc': { en: 'Export or import group data for backup.', zh: '导出或导入群组数据以备份。' },
+  'data.exportJson': { en: 'Export JSON', zh: '导出 JSON' },
+  'data.exportCsv': { en: 'Export CSV', zh: '导出 CSV' },
+  'data.importJson': { en: 'Import JSON', zh: '导入 JSON' },
+  'data.invalidFile': { en: 'Invalid MonoSplit JSON file.', zh: '无效的 MonoSplit JSON 文件。' },
+  'data.importSuccess': { en: 'Imported successfully!', zh: '导入成功！' },
+
+  // Theme card
+  'theme.title': { en: 'Theme', zh: '主题' },
+  'theme.desc': { en: 'Choose the look and feel of the app.', zh: '选择应用的外观风格。' },
+  'theme.active': { en: 'Active', zh: '当前' },
+  'theme.font': { en: 'FONT:', zh: '字体：' },
+
+  // Language card
+  'lang.title': { en: 'Language', zh: '语言' },
+  'lang.desc': { en: 'Choose display language.', zh: '选择显示语言。' },
+  'lang.en': { en: 'English', zh: 'English' },
+  'lang.zh': { en: '简体中文', zh: '简体中文' },
+
+  // ── Dashboard Tab ──
+  'dash.title': { en: 'Dashboard', zh: '留言板' },
+  'dash.addFirst': { en: 'Please add travellers in Profile first.', zh: '请先在设置中添加旅伴。' },
+  'dash.sharedComments': { en: 'Shared trip comments.', zh: '旅程共享留言。' },
+  'dash.noComments': { en: 'No comments yet.', zh: '暂无留言。' },
+  'dash.unknown': { en: 'Unknown', zh: '未知' },
+  'dash.postingAs': { en: 'Posting as', zh: '以' },
+  'dash.postingAsSuffix': { en: '(tap to switch, long-press to pick)', zh: '发言（点击切换，长按选择）' },
+  'dash.placeholder': { en: 'Write a message...', zh: '写一条留言...' },
+  'dash.post': { en: 'Post', zh: '发送' },
+  'dash.longPressHint': { en: 'Long press avatar to choose member.', zh: '长按头像选择成员。' },
+  'dash.closePicker': { en: 'Close', zh: '关闭' },
+  'dash.paymentInfo': { en: 'Payment Info', zh: '付款信息' },
+  'dash.member': { en: 'Member', zh: '成员' },
+  'dash.bankName': { en: 'Bank name', zh: '银行名称' },
+  'dash.accountHolder': { en: 'Account holder', zh: '账户持有人' },
+  'dash.accountNumber': { en: 'Account number', zh: '账号' },
+  'dash.editBtn': { en: 'Edit', zh: '编辑' },
+
+  // ── Embed Page ──
+  'embed.notConfigured': { en: 'Supabase not configured or missing group ID.', zh: 'Supabase 未配置或缺少群组ID。' },
+  'embed.notFound': { en: 'Group not found.', zh: '找不到群组。' },
+  'embed.loading': { en: 'Loading...', zh: '加载中...' },
+  'embed.expenseSummary': { en: 'Expense Summary', zh: '支出摘要' },
+  'embed.settlementSummary': { en: 'Settlement Summary', zh: '结算摘要' },
+  'embed.noExpenses': { en: 'No expenses yet.', zh: '暂无支出。' },
+  'embed.noBalances': { en: 'No outstanding balances.', zh: '无未还余额。' },
+  'embed.noDate': { en: 'No date', zh: '无日期' },
+  'embed.poweredBy': { en: 'Powered by', zh: '由' },
+  'embed.poweredBySuffix': { en: '', zh: '提供支持' },
+
+  // ── Categories ──
+  'cat.Food': { en: 'Food', zh: '餐饮' },
+  'cat.Drinks': { en: 'Drinks', zh: '饮料' },
+  'cat.Groceries': { en: 'Groceries', zh: '杂货' },
+  'cat.Transportation': { en: 'Transportation', zh: '交通' },
+  'cat.Flight': { en: 'Flight', zh: '机票' },
+  'cat.Accommodation': { en: 'Accommodation', zh: '住宿' },
+  'cat.Shopping': { en: 'Shopping', zh: '购物' },
+  'cat.Sightseeing': { en: 'Sightseeing', zh: '观光' },
+  'cat.Activities': { en: 'Activities', zh: '活动' },
+  'cat.Other': { en: 'Other', zh: '其他' },
+} as const
+
+export type TranslationKey = keyof typeof translations
+
+export function t(key: TranslationKey, lang?: Lang): string {
+  const entry = translations[key]
+  const activeLang = lang ?? useStore.getState().lang
+  return entry?.[activeLang] ?? entry?.en ?? key
+}
+
+export function useT() {
+  const lang = useStore((s) => s.lang)
+  return (key: TranslationKey) => {
+    const entry = translations[key]
+    return entry?.[lang] ?? entry?.en ?? key
+  }
+}
+
+export function tCategory(category: string, lang?: Lang): string {
+  const key = `cat.${category}` as TranslationKey
+  const entry = translations[key as keyof typeof translations]
+  const activeLang = lang ?? useStore.getState().lang
+  if (entry) return entry[activeLang] ?? entry.en
+  return category
+}

@@ -1,3 +1,4 @@
+import { useT } from '../lib/i18n'
 import { spawnRipple } from '../lib/ripple'
 
 type Props = {
@@ -7,11 +8,12 @@ type Props = {
 }
 
 export default function BottomTabs({ active, onChange, onAddExpenseClick }: Props) {
+  const t = useT()
   const tabs: Array<{ id: Props['active']; label: string }> = [
-    { id: 'summary', label: 'Summary' },
-    { id: 'dashboard', label: 'Dash\nBoard' },
-    { id: 'settle', label: 'Settle' },
-    { id: 'profile', label: 'Profile' },
+    { id: 'summary', label: t('tab.summary') },
+    { id: 'dashboard', label: t('tab.dashboard') },
+    { id: 'settle', label: t('tab.settle') },
+    { id: 'profile', label: t('tab.profile') },
   ]
 
   return (
@@ -35,7 +37,7 @@ export default function BottomTabs({ active, onChange, onAddExpenseClick }: Prop
 
           <button
             className="ms-key ms-key-round h-[54px] w-[54px] shrink-0"
-            aria-label="Add expense"
+            aria-label={t('tab.addExpense')}
             onPointerDown={(e) => {
               spawnRipple(e)
               onAddExpenseClick()

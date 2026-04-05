@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useT } from '../lib/i18n'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney, formatDateRange } from '../lib/format'
@@ -14,6 +15,7 @@ function formatDateLabel(isoDate: string): string {
 }
 
 export default function EmbedPage() {
+  const t = useT()
   const { groupId } = useParams()
   const [group, setGroup] = useState<Group | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +23,7 @@ export default function EmbedPage() {
   // Fetch group from Supabase
   useEffect(() => {
     if (!groupId || !supabase || !supabaseEnabled) {
-      setError('Supabase not configured or missing group ID.')
+      setError(t('embed.notConfigured'))
       return
     }
 
@@ -42,7 +44,7 @@ export default function EmbedPage() {
       if (data?.data) {
         setGroup(data.data as unknown as Group)
       } else {
-        setError('Group not found.')
+        setError(t('embed.notFound'))
       }
     }
 
@@ -80,7 +82,7 @@ export default function EmbedPage() {
   if (!group) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white p-4">
-        <p className="text-sm text-gray-400">Loading...</p>
+        <p className="text-sm text-gray-400">{t('embed.loading')}</p>
       </div>
     )
   }
@@ -89,7 +91,8 @@ export default function EmbedPage() {
 }
 
 function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
-  const personName = (id: string) => group.people.find((p) => p.id === id)?.name ?? 'Unknown'
+  const t = useT()
+  const personName = (id: string) => group.people.find((p) => p.id === id)?.name ?? t('card.unknown')
 
   // Expense summary grouped by day
   const groupedDays = useMemo(() => {
@@ -122,7 +125,7 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
         <h1 className="text-xl font-bold text-gray-900">{group.name}</h1>
         <p className="text-xs text-gray-500">{formatDateRange(group.startDate, group.endDate)}</p>
         <p className="text-xs text-gray-500">
-          {group.people.length} people · {group.expenses.length} expenses
+          {group.people.length} {t('groups.people')} · {group.expenses.length} {t('groups.expenses')}
         </p>
         {grandTotals.length > 0 && (
           <div className="mt-1 flex gap-3">
@@ -136,9 +139,9 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
       </div>
 
       {/* Expense Summary */}
-      <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-600">Expense Summary</h2>
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-600">{t('embed.expenseSummary')}</h2>
       {groupedDays.length === 0 ? (
-        <p className="text-xs text-gray-400">No expenses yet.</p>
+        <p className="text-xs text-gray-400">{t('embed.noExpenses')}</p>
       ) : (
         <div className="mb-4 space-y-2">
           {groupedDays.map(([date, expenses]) => {
@@ -150,7 +153,7 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
               <div key={date} className="rounded border border-gray-200">
                 <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5">
                   <span className="text-xs font-semibold text-gray-700">
-                    {date === 'No date' ? date : formatDateLabel(date)} ({expenses.length})
+                    {date === 'No date' ? t('embed.noDate') : formatDateLabel(date)} ({expenses.length})
                   </span>
                   <span className="text-xs font-bold text-gray-800">
                     {Object.entries(dayTotal)
@@ -165,7 +168,9 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
                       <div key={e.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
                         <div>
                           <span className="font-medium text-gray-800">{e.description}</span>
-                          <span className="ml-2 text-gray-400">by {(e.payerIds ?? []).map((pid) => personName(pid)).join(', ') || 'Unknown'}</span>
+                          <span className="ml-2 text-gray-400">
+                            {t('card.paidBy')} {(e.payerIds ?? []).map((pid) => personName(pid)).join(', ') || t('card.unknown')}
+                          </span>
                         </div>
                         <span className="font-semibold text-gray-700">
                           {getCurrencySymbol(e.paidCurrency)}{formatMoney(e.amount)}
@@ -180,16 +185,16 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
       )}
 
       {/* Settlement Summary */}
-      <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-600">Settlement Summary</h2>
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-600">{t('embed.settlementSummary')}</h2>
       {settlements.length === 0 ? (
-        <p className="text-xs text-gray-400">No outstanding balances.</p>
+        <p className="text-xs text-gray-400">{t('embed.noBalances')}</p>
       ) : (
         <div className="space-y-1">
           {settlements.map((s, i) => (
             <div key={i} className="flex items-center justify-between rounded border border-gray-200 px-3 py-2 text-sm">
               <div>
                 <span className="font-semibold text-red-600">{personName(s.debtorId)}</span>
-                <span className="mx-1 text-gray-400">owes</span>
+                <span className="mx-1 text-gray-400">{t('settle.owes')}</span>
                 <span className="font-semibold text-green-700">{personName(s.creditorId)}</span>
               </div>
               <span className="font-bold text-gray-800">
@@ -202,7 +207,7 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
 
       {/* Footer */}
       <div className="mt-6 border-t border-gray-200 pt-3 text-center text-xs text-gray-400">
-        Powered by{' '}
+        {t('embed.poweredBy')}{' '}
         <a
           href={`${window.location.origin}/group/${groupId}`}
           target="_blank"

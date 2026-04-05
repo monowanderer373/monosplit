@@ -5,6 +5,7 @@ import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
 import type { Expense, Group, ItemizedInputMode, PaymentMethod, RateMode, SplitMode } from '../types'
 import { EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
+import { useT, tCategory } from '../lib/i18n'
 
 type Props = {
   group: Group
@@ -105,6 +106,7 @@ export default function ExpenseForm({
   onCancel,
   onRemove,
 }: Props) {
+  const t = useT()
   const [form, setForm] = useState<FormState>(() => (initialExpense ? expenseToForm(initialExpense) : blankForm(group)))
   const [rateInfo, setRateInfo] = useState<RateResult | null>(null)
   const [rateError, setRateError] = useState('')
@@ -146,11 +148,11 @@ export default function ExpenseForm({
       const paidSym = getCurrencySymbol(form.paidCurrency)
       const repaySym = getCurrencySymbol(form.repayCurrency)
       return converted
-        ? `${paidSym}${formatMoney(each)} each (≈ ${repaySym}${formatMoney(converted)})`
-        : `${paidSym}${formatMoney(each)} each`
+        ? `${paidSym}${formatMoney(each)} ${t('expense.each')} (≈ ${repaySym}${formatMoney(converted)})`
+        : `${paidSym}${formatMoney(each)} ${t('expense.each')}`
     }
     return ''
-  }, [effectiveRate, form.amount, form.paidCurrency, form.repayCurrency, form.splitMode, form.splitPersonIds.length])
+  }, [effectiveRate, form.amount, form.paidCurrency, form.repayCurrency, form.splitMode, form.splitPersonIds.length, t])
 
   const itemizedSummary = useMemo(() => {
     if (form.splitMode !== 'itemized') return null
@@ -224,7 +226,7 @@ export default function ExpenseForm({
     setRateError('')
 
     if (!form.date) {
-      setRateError('Please select a date first before fetching the rate.')
+      setRateError(t('error.selectDate'))
       return
     }
 
@@ -236,7 +238,7 @@ export default function ExpenseForm({
 
     const today = todayISO()
     if (form.date > today) {
-      setRateError(`Cannot fetch future rate (${form.date}). Rates are only available up to today (${today}).`)
+      setRateError(t('error.futureRate'))
       return
     }
 
@@ -248,9 +250,9 @@ export default function ExpenseForm({
       const next = fetchAttempts + 1
       setFetchAttempts(next)
       if (next >= 4) {
-        setRateError('Failed after multiple attempts. Please switch to manual rate and enter the rate yourself.')
+        setRateError(t('error.fetchFailedFinal'))
       } else {
-        setRateError(`Failed to fetch rate (attempt ${next}/4). Try again or use manual rate.`)
+        setRateError(`${t('error.fetchFailed')} (${next}/4). ${t('error.tryAgain')}`)
       }
       return
     }
@@ -263,32 +265,32 @@ export default function ExpenseForm({
     setError('')
     setRateError('')
     if (group.people.length === 0) {
-      setError('Please add travellers first.')
+      setError(t('error.addTravellers'))
       return
     }
     if (!form.description.trim()) {
-      setError('Please enter description.')
+      setError(t('error.enterDescription'))
       return
     }
     const amount = Number(form.amount)
     if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Please enter a valid amount.')
+      setError(t('error.validAmount'))
       return
     }
     if (form.payerIds.length === 0) {
-      setError('Please select who paid.')
+      setError(t('error.selectPayer'))
       return
     }
     if (form.splitPersonIds.length === 0) {
-      setError('Please select at least one split person.')
+      setError(t('error.selectSplit'))
       return
     }
     if (form.rateMode === 'manual' && (effectiveRate == null || effectiveRate <= 0)) {
-      setError('Please enter a valid manual rate.')
+      setError(t('error.validManualRate'))
       return
     }
     if (form.rateMode === 'auto' && form.paidCurrency !== form.repayCurrency && effectiveRate == null) {
-      setError('Please fetch rate or switch to manual mode.')
+      setError(t('error.fetchOrManual'))
       return
     }
     if (
@@ -298,10 +300,11 @@ export default function ExpenseForm({
       Math.abs(itemizedSummary.diff) > 0.5
     ) {
       const delta = `${getCurrencySymbol(form.paidCurrency)}${formatMoney(Math.abs(itemizedSummary.diff))}`
-      const modeLabel = itemizedSummary.diff > 0 ? 'remaining' : 'exceeding'
-      const warning = `Cannot save expense.\n\nItemized amounts are still ${modeLabel} by ${delta}, so they do not tally with the total amount.`
+      const modeLine =
+        itemizedSummary.diff > 0 ? t('error.itemizedRemaining') : t('error.itemizedExceeding')
+      const warning = `${t('error.cannotSave')}\n\n${modeLine} ${delta} ${t('error.tallyNote')}`
       window.alert(warning)
-      setError(`Itemized amounts are ${modeLabel} by ${delta}. Please make totals tally before saving.`)
+      setError(`${modeLine} ${delta}. ${t('error.itemizedTally')}`)
       return
     }
 
@@ -309,7 +312,7 @@ export default function ExpenseForm({
     if (form.splitMode === 'itemized') {
       const payerMissingValue = form.payerIds.some((pid) => !assertPayerHasItemizedValue(pid, form.itemizedInput))
       if (payerMissingValue) {
-        setError('In itemized mode, all payers must have a value.')
+        setError(t('error.itemizedPayer'))
         return
       }
       splits = calcItemizedSplits({
@@ -365,11 +368,11 @@ export default function ExpenseForm({
         <h2 className="ms-title">{title}</h2>
         {onRemove ? (
           <button className="ms-btn-ghost border-[#c49898] text-[#9e4a4a]" onClick={onRemove}>
-            Remove Expense
+            {t('expense.remove')}
           </button>
         ) : showModeBadge ? (
           <span className="rounded-full bg-[rgba(139,110,78,0.08)] px-2 py-1 text-[11px] font-medium text-[#74593c]">
-            Mobile quick mode
+            {t('expense.mobileQuick')}
           </span>
         ) : null}
       </div>
@@ -379,17 +382,17 @@ export default function ExpenseForm({
           <select className="ms-input" value={form.category} onChange={(e) => setField('category', e.target.value)}>
             {EXPENSE_CATEGORIES.map((category) => (
               <option key={category} value={category}>
-                {category}
+                {tCategory(category)}
               </option>
             ))}
           </select>
-          <input className="ms-input" placeholder="Description" value={form.description} onChange={(e) => setField('description', e.target.value)} />
+          <input className="ms-input" placeholder={t('expense.description')} value={form.description} onChange={(e) => setField('description', e.target.value)} />
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px]">
           <input
             className="ms-input"
-            placeholder="Amount"
+            placeholder={t('expense.amount')}
             inputMode="decimal"
             value={form.amount}
             onChange={(e) => setField('amount', e.target.value)}
@@ -430,7 +433,7 @@ export default function ExpenseForm({
             onClick={onFetchRate}
             disabled={loadingRate}
           >
-            {loadingRate ? 'Loading...' : 'Fetch rate'}
+            {loadingRate ? t('expense.loading') : t('expense.fetchRate')}
           </button>
         </div>
 
@@ -440,12 +443,12 @@ export default function ExpenseForm({
             value={form.rateMode}
             onChange={(e) => setField('rateMode', e.target.value as RateMode)}
           >
-            <option value="auto">Auto rate</option>
-            <option value="manual">Manual rate</option>
+            <option value="auto">{t('expense.autoRate')}</option>
+            <option value="manual">{t('expense.manualRate')}</option>
           </select>
           <input
             className="ms-input"
-            placeholder="Manual rate"
+            placeholder={t('expense.manualRate')}
             inputMode="decimal"
             disabled={form.rateMode !== 'manual'}
             value={form.manualRate}
@@ -457,14 +460,14 @@ export default function ExpenseForm({
           <p className="rounded-xl bg-[rgba(90,122,90,0.06)] px-3 py-2 text-xs text-[#4a6a4a]">
             1 {form.paidCurrency} = {formatMoney(effectiveRate, 6)} {form.repayCurrency}
             {rateInfo?.source && rateInfo.source !== 'same'
-              ? ` — ${rateInfo.source}, rate from ${rateInfo.date}`
+              ? ` — ${rateInfo.source}, ${t('expense.rateFrom')} ${rateInfo.date}`
               : ''}
           </p>
         ) : null}
 
         {rateError ? <p className="text-xs text-[#9e4a4a]">{rateError}</p> : null}
 
-        <label className="text-xs font-semibold uppercase text-[#6b6058] lg:col-span-2">Paid by</label>
+        <label className="text-xs font-semibold uppercase text-[#6b6058] lg:col-span-2">{t('expense.paidBy')}</label>
         <div className="flex flex-wrap gap-2 lg:col-span-2">
           {group.people.map((person) => {
             const active = form.payerIds.includes(person.id)
@@ -501,7 +504,7 @@ export default function ExpenseForm({
             }`}
             onClick={() => setField('splitMode', 'equal')}
           >
-            Equal
+            {t('expense.equal')}
           </button>
           <button
             className={`h-10 rounded-xl border text-sm font-medium ${
@@ -511,21 +514,21 @@ export default function ExpenseForm({
             }`}
             onClick={() => setField('splitMode', 'itemized')}
           >
-            Itemized
+            {t('expense.itemized')}
           </button>
         </div>
 
         <div className="flex items-center justify-between lg:col-span-2">
-          <label className="text-xs font-semibold uppercase text-[#6b6058]">Split between</label>
+          <label className="text-xs font-semibold uppercase text-[#6b6058]">{t('expense.splitBetween')}</label>
           <div className="flex items-center gap-2">
             <button
               className="text-xs text-[#8b6e4e]"
               onClick={() => setField('splitPersonIds', group.people.map((person) => person.id))}
             >
-              Select all
+              {t('expense.selectAll')}
             </button>
             <button className="text-xs text-[#6b6058]" onClick={() => setField('splitPersonIds', [])}>
-              Clear
+              {t('expense.clear')}
             </button>
           </div>
         </div>
@@ -556,12 +559,12 @@ export default function ExpenseForm({
                 value={form.itemizedInputMode}
                 onChange={(e) => setField('itemizedInputMode', e.target.value as ItemizedInputMode)}
               >
-                <option value="pretax">Input pre-tax</option>
-                <option value="total">Input total</option>
+                <option value="pretax">{t('expense.inputPretax')}</option>
+                <option value="total">{t('expense.inputTotal')}</option>
               </select>
               <input
                 className="h-9 rounded-lg border border-[#d8d0c4] px-2 text-sm outline-none focus:border-[#8b6e4e]"
-                placeholder="Service tax %"
+                placeholder={t('expense.serviceTax')}
                 value={form.serviceTaxPct}
                 onChange={(e) => setField('serviceTaxPct', e.target.value)}
               />
@@ -569,18 +572,20 @@ export default function ExpenseForm({
             <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input
                 className="h-9 rounded-lg border border-[#d8d0c4] px-2 text-sm outline-none focus:border-[#8b6e4e]"
-                placeholder="Sales tax %"
+                placeholder={t('expense.salesTax')}
                 value={form.salesTaxPct}
                 onChange={(e) => setField('salesTaxPct', e.target.value)}
               />
               <input
                 className="h-9 rounded-lg border border-[#d8d0c4] px-2 text-sm outline-none focus:border-[#8b6e4e]"
-                placeholder="Tips %"
+                placeholder={t('expense.tips')}
                 value={form.tipsPct}
                 onChange={(e) => setField('tipsPct', e.target.value)}
               />
             </div>
-            <p className="mb-2 text-xs text-[#6b6058]">Total tax: {formatMoney(totalTaxPct)}%</p>
+            <p className="mb-2 text-xs text-[#6b6058]">
+              {t('expense.totalTax')}: {formatMoney(totalTaxPct)}%
+            </p>
             <div className="space-y-2">
               {form.splitPersonIds.map((pid) => {
                 const person = group.people.find((p) => p.id === pid)
@@ -619,28 +624,34 @@ export default function ExpenseForm({
             </div>
             {itemizedSummary ? (
               <div className="mt-3 rounded-lg bg-[#faf8f4] px-3 py-2 text-xs text-[#6b6058]">
-                <p>Filled: {itemizedSummary.filledCount} person(s)</p>
+                <p>
+                  {t('expense.filled')}: {itemizedSummary.filledCount} {t('expense.persons')}
+                </p>
                 {itemizedSummary.isPretaxMode && itemizedSummary.preTaxBudget != null ? (
                   <p>
-                    Pre-tax budget: {getCurrencySymbol(form.paidCurrency)}
+                    {t('expense.preTaxBudget')}: {getCurrencySymbol(form.paidCurrency)}
                     {formatMoney(itemizedSummary.preTaxBudget)}
-                    <span className="text-[#9a9088]"> (from {getCurrencySymbol(form.paidCurrency)}{formatMoney(Number(form.amount))} incl. {formatMoney(totalTaxPct)}% tax)</span>
+                    <span className="text-[#9a9088]">
+                      {' '}
+                      ({t('expense.from')} {getCurrencySymbol(form.paidCurrency)}
+                      {formatMoney(Number(form.amount))} {t('expense.incl')} {formatMoney(totalTaxPct)}% {t('expense.tax')})
+                    </span>
                   </p>
                 ) : null}
                 <p>
-                  {itemizedSummary.isPretaxMode ? 'Pre-tax total' : 'Itemized total'}:{' '}
+                  {itemizedSummary.isPretaxMode ? t('expense.preTaxTotal') : t('expense.itemizedTotal')}:{' '}
                   {getCurrencySymbol(form.paidCurrency)}
                   {formatMoney(itemizedSummary.enteredTotal)}
                 </p>
                 {itemizedSummary.isPretaxMode ? (
                   <p>
-                    After-tax total: {getCurrencySymbol(form.paidCurrency)}
+                    {t('expense.afterTaxTotal')}: {getCurrencySymbol(form.paidCurrency)}
                     {formatMoney(itemizedSummary.enteredTaxIncTotal)}
                   </p>
                 ) : null}
                 {itemizedSummary.hasExpenseAmount && itemizedSummary.diff != null ? (
                   <p className={itemizedSummary.diff >= 0 ? 'text-[#4a6a4a]' : 'text-[#9e4a4a]'}>
-                    {itemizedSummary.diff >= 0 ? 'Remaining' : 'Exceeds'}:{' '}
+                    {itemizedSummary.diff >= 0 ? t('expense.remaining') : t('expense.exceeds')}:{' '}
                     {getCurrencySymbol(form.paidCurrency)}
                     {formatMoney(Math.abs(itemizedSummary.diff))}
                   </p>
@@ -675,12 +686,12 @@ export default function ExpenseForm({
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                 {hasTrip ? (
                   <span className={inTrip ? 'font-medium text-[#4a6a4a]' : 'text-[#9a9088]'}>
-                    {inTrip ? '● Within trip period' : '○ Outside trip period'}
+                    {inTrip ? `● ${t('expense.withinTrip')}` : `○ ${t('expense.outsideTrip')}`}
                     <span className="ml-1 text-[#9a9088]">({group.startDate} — {group.endDate})</span>
                   </span>
                 ) : null}
                 {isFuture ? (
-                  <span className="text-[#c49898]">Future date — auto rate unavailable</span>
+                  <span className="text-[#c49898]">{t('expense.futureDate')}</span>
                 ) : null}
               </div>
             )
@@ -695,7 +706,7 @@ export default function ExpenseForm({
           </button>
           {onCancel ? (
             <button className="ms-btn-ghost h-11" onClick={onCancel}>
-              Cancel
+              {t('expense.cancel')}
             </button>
           ) : null}
         </div>
