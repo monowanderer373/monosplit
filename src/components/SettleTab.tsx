@@ -4,6 +4,7 @@ import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
 import { useT } from '../lib/i18n'
+import { useStore } from '../store/useStore'
 import type { Group } from '../types'
 
 type Props = {
@@ -30,6 +31,14 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
     amountAfterContra: 0,
   })
   const [repaidDate, setRepaidDate] = useState(todayISO())
+  const setPersonSkipRepaidConfirm = useStore((s) => s.setPersonSkipRepaidConfirm)
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean
+    debtorId: string
+    creditorId: string
+    currency: string
+    dontShowAgain: boolean
+  }>({ open: false, debtorId: '', creditorId: '', currency: '', dontShowAgain: false })
   const selectedDebtorName = group.people.find((person) => person.id === debtorFilterId)?.name ?? 'Debtor'
   const selectedPayerName = group.people.find((person) => person.id === payerFilterId)?.name ?? 'Payer'
 
@@ -151,6 +160,23 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
     return rows.slice(-8).reverse()
   }, [group.expenses, group.people])
 
+  const handleMarkRepaid = (debtorId: string, creditorId: string, currency: string) => {
+    const debtor = group.people.find((p) => p.id === debtorId)
+    if (debtor?.skipRepaidConfirm) {
+      onMarkPairRepaid(debtorId, creditorId, currency, todayISO())
+      return
+    }
+    setConfirmModal({ open: true, debtorId, creditorId, currency, dontShowAgain: false })
+  }
+
+  const confirmRepaid = () => {
+    if (confirmModal.dontShowAgain) {
+      setPersonSkipRepaidConfirm(group.id, confirmModal.debtorId, true)
+    }
+    onMarkPairRepaid(confirmModal.debtorId, confirmModal.creditorId, confirmModal.currency, todayISO())
+    setConfirmModal({ open: false, debtorId: '', creditorId: '', currency: '', dontShowAgain: false })
+  }
+
   return (
     <section className="space-y-4 pb-20 lg:pb-0">
       <div className="ms-card-soft">
@@ -209,7 +235,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                   </div>
                   <button
                     className="ms-btn-ghost min-h-11 px-3 py-2 text-xs font-medium text-[#8a3a3a]"
-                    onClick={() => onMarkPairRepaid(settlement.debtorId, settlement.creditorId, settlement.currency, todayISO())}
+                    onClick={() => handleMarkRepaid(settlement.debtorId, settlement.creditorId, settlement.currency)}
                   >
                     {t('settle.markRepaid')}
                   </button>
@@ -398,6 +424,56 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                   setRepayModal({ open: false, debtorId: '', payerId: '', currency: '', amountAfterContra: 0 })
                   setRepaidDate(todayISO())
                 }}
+              >
+                {t('expense.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/40 p-3 lg:items-center">
+          <div className="w-full max-w-sm rounded-2xl bg-[#faf8f4] p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-[#2c2520]">{t('settle.confirmRepaid')}</h3>
+            <p className="mt-2 text-sm text-[#6b6058]">{t('settle.confirmRepaidDesc')}</p>
+
+            <div className="mt-3 rounded-xl border border-[#e6e0d5] bg-white p-3">
+              <p className="text-sm font-semibold text-[#2c2520]">
+                <span style={getPersonNameStyle(group.people.find((p) => p.id === confirmModal.debtorId))}>
+                  {group.people.find((p) => p.id === confirmModal.debtorId)?.name ?? '?'}
+                </span>
+                {' → '}
+                <span style={getPersonNameStyle(group.people.find((p) => p.id === confirmModal.creditorId))}>
+                  {group.people.find((p) => p.id === confirmModal.creditorId)?.name ?? '?'}
+                </span>
+              </p>
+              <p className="mt-1 text-base font-bold text-[#9e4a4a]">
+                {getCurrencySymbol(confirmModal.currency)}{' '}
+                {formatMoney(filteredSettlements.find(
+                  (s) => s.debtorId === confirmModal.debtorId && s.creditorId === confirmModal.creditorId && s.currency === confirmModal.currency,
+                )?.amount ?? 0)}
+                {' '}{confirmModal.currency}
+              </p>
+            </div>
+
+            <label className="mt-4 flex items-center gap-2 text-sm text-[#6b6058]">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[#8b6e4e]"
+                checked={confirmModal.dontShowAgain}
+                onChange={(e) => setConfirmModal((prev) => ({ ...prev, dontShowAgain: e.target.checked }))}
+              />
+              {t('settle.doNotShowAgain')}
+            </label>
+
+            <div className="mt-4 flex gap-2">
+              <button className="ms-btn-primary flex-1 py-2.5" onClick={confirmRepaid}>
+                {t('settle.confirm')}
+              </button>
+              <button
+                className="ms-btn-ghost flex-1 py-2.5"
+                onClick={() => setConfirmModal({ open: false, debtorId: '', creditorId: '', currency: '', dontShowAgain: false })}
               >
                 {t('expense.cancel')}
               </button>

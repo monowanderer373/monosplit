@@ -38,6 +38,7 @@ type AppState = {
   markSplitRepaid: (groupId: string, expenseId: string, splitIndex: number, repaidDate: string) => void
   unmarkSplitRepaid: (groupId: string, expenseId: string, splitIndex: number) => void
   markSettlementPairRepaid: (groupId: string, debtorId: string, creditorId: string, currency: string, repaidDate: string) => void
+  setPersonSkipRepaidConfirm: (groupId: string, personId: string, skip: boolean) => void
   addGroupComment: (groupId: string, personId: string, message: string) => void
 }
 
@@ -344,6 +345,16 @@ export const useStore = create<AppState>()(
                 }),
               }
             }),
+          })),
+        }))
+      },
+      setPersonSkipRepaidConfirm: (groupId, personId, skip) => {
+        set((state) => ({
+          groups: updateGroupById(state.groups, groupId, (group) => ({
+            ...group,
+            people: group.people.map((person) =>
+              person.id === personId ? { ...person, skipRepaidConfirm: skip } : person,
+            ),
           })),
         }))
       },

@@ -25,6 +25,7 @@ export interface Person {
   nameColor: string | null
   paymentInfo: PaymentInfo
   paymentProofs: PaymentProof[]
+  skipRepaidConfirm?: boolean
 }
 
 export interface Split {

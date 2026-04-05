@@ -191,6 +191,9 @@ const translations = {
   'settle.amountAfterContra': { en: 'Amount to pay after contra:', zh: '抵消后需支付金额：' },
   'settle.linesToMark': { en: 'Lines to mark repaid:', zh: '标记为已还的行数：' },
   'settle.confirm': { en: 'Confirm', zh: '确认' },
+  'settle.confirmRepaid': { en: 'Confirm Mark as Repaid', zh: '确认标记为已还' },
+  'settle.confirmRepaidDesc': { en: 'Are you sure you want to mark this settlement as repaid?', zh: '确定要将此结算标记为已还吗？' },
+  'settle.doNotShowAgain': { en: 'Do not show this again', zh: '不再显示此提示' },
 
   // ── People / Profile Tab ──
   'people.travellers': { en: 'Travellers', zh: '旅伴' },
