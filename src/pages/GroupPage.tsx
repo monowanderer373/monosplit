@@ -11,6 +11,7 @@ import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { spawnRipple } from '../lib/ripple'
 import { useGroupSync } from '../hooks/useGroupSync'
+import { useAuth } from '../hooks/useAuth'
 
 type Tab = 'summary' | 'dashboard' | 'settle' | 'profile'
 
@@ -25,8 +26,26 @@ export default function GroupPage() {
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
 
-  const { status: syncStatus } = useGroupSync(groupId)
+  const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId)
+  const { authUser, claimGroup } = useAuth()
+  const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [linkCopied, setLinkCopied] = useState(false)
+
+  const isOwned = ownerId === authUser?.id
+  const isUnclaimed = ownerId === null
+  const canClaim = !!authUser && isUnclaimed && claimStatus !== 'claimed'
+
+  const handleClaim = async () => {
+    if (!groupId || !authUser) return
+    setClaimStatus('claiming')
+    try {
+      await claimGroup(groupId)
+      setOwnerId(authUser.id)
+      setClaimStatus('claimed')
+    } catch {
+      setClaimStatus('idle')
+    }
+  }
 
   const group = useStore((state) => state.groups.find((entry) => entry.id === groupId))
   const addPerson = useStore((state) => state.addPerson)
@@ -234,6 +253,43 @@ export default function GroupPage() {
             />
           ) : null}
       </div>
+
+      {(canClaim || isOwned || claimStatus === 'claimed') && (
+        <div className={`mx-auto mb-4 max-w-3xl border p-3 text-sm ${
+          isOwned || claimStatus === 'claimed'
+            ? 'border-[var(--ms-success)] bg-[var(--ms-success-bg)] text-[var(--ms-success)]'
+            : 'border-[var(--ms-accent-light)] bg-[var(--ms-accent-bg)] text-[var(--ms-text-secondary)]'
+        }`}>
+          {isOwned || claimStatus === 'claimed' ? (
+            <span>● {t('auth.groupClaimed')}</span>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs">{t('auth.claimGroupHint')}</span>
+              <button
+                className="ms-btn-primary shrink-0 text-xs"
+                disabled={claimStatus === 'claiming'}
+                onClick={handleClaim}
+              >
+                {claimStatus === 'claiming' ? t('auth.claiming') : t('auth.claimGroup')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!authUser && (
+        <div className="mx-auto mb-4 max-w-3xl border border-[var(--ms-border)] bg-[var(--ms-surface-dim)] p-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-[var(--ms-text-secondary)]">{t('auth.signInToSave')}</span>
+            <button
+              className="ms-btn-ghost shrink-0 text-xs"
+              onClick={() => navigate('/login')}
+            >
+              {t('auth.signIn')}
+            </button>
+          </div>
+        </div>
+      )}
 
       <BottomTabs
         active={activeTab}

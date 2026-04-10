@@ -29,6 +29,24 @@ const legacyMap: Record<string, ExpenseCategory> = {
   other: 'Other',
 }
 
+export const CATEGORY_ICONS: Record<ExpenseCategory, string> = {
+  Food: '🍽️',
+  Drinks: '🥤',
+  Groceries: '🛒',
+  Transportation: '🚌',
+  Flight: '✈️',
+  Accommodation: '🏨',
+  Shopping: '🛍️',
+  Sightseeing: '🗺️',
+  Activities: '🎯',
+  Other: '📌',
+}
+
+export function getCategoryIcon(input: string): string {
+  const cat = normalizeCategory(input)
+  return CATEGORY_ICONS[cat] ?? '📌'
+}
+
 export function normalizeCategory(input: string): ExpenseCategory {
   const raw = String(input || '').trim()
   if (!raw) return 'Other'

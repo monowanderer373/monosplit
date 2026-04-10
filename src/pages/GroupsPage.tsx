@@ -4,10 +4,12 @@ import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { supabase, supabaseEnabled } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 
 export default function GroupsPage() {
   const t = useT()
   const navigate = useNavigate()
+  const { authUser } = useAuth()
   const groups = useStore((s) => s.groups)
   const addGroup = useStore((s) => s.addGroup)
   const deleteGroup = useStore((s) => s.deleteGroup)
@@ -59,8 +61,27 @@ export default function GroupsPage() {
   return (
     <main className="ms-page">
       <header className="mb-6 max-w-3xl">
-        <h1 className="text-3xl font-bold text-[#2c2520]">{t('app.title')}</h1>
-        <p className="mt-1 text-sm text-[#6b6058]">{t('app.subtitle')}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold text-[#2c2520]">{t('app.title')}</h1>
+            <p className="mt-1 text-sm text-[#6b6058]">{t('app.subtitle')}</p>
+          </div>
+          {authUser ? (
+            <button
+              className="ms-btn-ghost shrink-0 text-sm"
+              onClick={() => navigate('/profile')}
+            >
+              {authUser.displayName ?? authUser.email ?? t('auth.myAccount')}
+            </button>
+          ) : (
+            <button
+              className="ms-btn-ghost shrink-0 text-sm"
+              onClick={() => navigate('/login')}
+            >
+              {t('auth.signIn')}
+            </button>
+          )}
+        </div>
       </header>
 
       <section className="ms-card-soft mb-6 max-w-3xl p-3">

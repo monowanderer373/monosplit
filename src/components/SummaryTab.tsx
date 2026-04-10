@@ -19,9 +19,15 @@ function round2(value: number): number {
 }
 
 function formatDateLabel(isoDate: string): string {
+  const today = new Date()
+  const todayStr = today.toISOString().slice(0, 10)
+  const yesterday = new Date(today.getTime() - 86400000).toISOString().slice(0, 10)
+  if (isoDate === todayStr) return 'Today'
+  if (isoDate === yesterday) return 'Yesterday'
   return new Date(`${isoDate}T00:00:00`).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
+    year: new Date(`${isoDate}T00:00:00`).getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
   })
 }
 

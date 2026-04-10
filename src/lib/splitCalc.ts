@@ -103,6 +103,82 @@ export function calcItemizedSplits(args: {
   })
 }
 
+export function calcPercentageSplits(args: {
+  peopleIds: string[]
+  percentageInput: Record<string, string>
+  totalAmount: number
+  repayCurrency: string
+  rate: number | null
+  rateSource: string | null
+  rateDate: string | null
+}): Split[] {
+  const { peopleIds, percentageInput, totalAmount, repayCurrency, rate, rateSource, rateDate } = args
+  return peopleIds.map((personId) => {
+    const pct = Number(percentageInput[personId] || 0)
+    const amount = Number.isFinite(pct) && pct >= 0 ? round4(totalAmount * pct / 100) : 0
+    return {
+      personId, amount, baseAmount: null, taxAmount: null,
+      repayCurrency, convertedAmount: rate ? round2(amount * rate) : null,
+      rate, rateSource, rateDate, repaid: false, repaidAt: null, repaidDate: null,
+    }
+  })
+}
+
+export function calcSharesSplits(args: {
+  peopleIds: string[]
+  sharesInput: Record<string, string>
+  totalAmount: number
+  repayCurrency: string
+  rate: number | null
+  rateSource: string | null
+  rateDate: string | null
+}): Split[] {
+  const { peopleIds, sharesInput, totalAmount, repayCurrency, rate, rateSource, rateDate } = args
+  const totalShares = peopleIds.reduce((sum, pid) => {
+    const s = Number(sharesInput[pid] || 0)
+    return sum + (Number.isFinite(s) && s > 0 ? s : 0)
+  }, 0)
+  return peopleIds.map((personId) => {
+    const myShares = Number(sharesInput[personId] || 0)
+    const validShares = Number.isFinite(myShares) && myShares > 0 ? myShares : 0
+    const amount = totalShares > 0 ? round4(totalAmount * validShares / totalShares) : 0
+    return {
+      personId, amount, baseAmount: null, taxAmount: null,
+      repayCurrency, convertedAmount: rate ? round2(amount * rate) : null,
+      rate, rateSource, rateDate, repaid: false, repaidAt: null, repaidDate: null,
+    }
+  })
+}
+
+export function calcAdjustmentSplits(args: {
+  peopleIds: string[]
+  adjustmentInput: Record<string, string>
+  totalAmount: number
+  repayCurrency: string
+  rate: number | null
+  rateSource: string | null
+  rateDate: string | null
+}): Split[] {
+  const { peopleIds, adjustmentInput, totalAmount, repayCurrency, rate, rateSource, rateDate } = args
+  const n = peopleIds.length
+  if (n === 0) return []
+  const totalAdjustments = peopleIds.reduce((sum, pid) => {
+    const adj = Number(adjustmentInput[pid] || 0)
+    return sum + (Number.isFinite(adj) ? adj : 0)
+  }, 0)
+  const remainder = totalAmount - totalAdjustments
+  const baseEach = round4(remainder / n)
+  return peopleIds.map((personId) => {
+    const adj = Number(adjustmentInput[personId] || 0)
+    const amount = round4(baseEach + (Number.isFinite(adj) ? adj : 0))
+    return {
+      personId, amount, baseAmount: null, taxAmount: null,
+      repayCurrency, convertedAmount: rate ? round2(amount * rate) : null,
+      rate, rateSource, rateDate, repaid: false, repaidAt: null, repaidDate: null,
+    }
+  })
+}
+
 export function mergeRepaidState(nextSplits: Split[], previousSplits: Split[]): Split[] {
   const repaidByPerson = new Map(
     previousSplits.filter((split) => split.repaid).map((split) => [split.personId, split]),

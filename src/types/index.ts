@@ -1,4 +1,4 @@
-export type SplitMode = 'equal' | 'itemized'
+export type SplitMode = 'equal' | 'itemized' | 'percentage' | 'shares' | 'adjustment'
 export type ItemizedInputMode = 'pretax' | 'total'
 export type RateMode = 'auto' | 'manual'
 export type PaymentMethod = 'card' | 'cash'
@@ -94,4 +94,13 @@ export interface Currency {
   code: string
   label: string
   symbol: string
+}
+
+export interface UserProfile {
+  id: string
+  displayName: string | null
+  avatarUrl: string | null
+  lang: 'en' | 'zh'
+  themeId: string
+  email: string | undefined
 }

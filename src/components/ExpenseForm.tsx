@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CURRENCIES, fetchRate, getCurrencySymbol, type RateResult } from '../lib/currency'
-import { calcEqualSplits, calcItemizedSplits, assertPayerHasItemizedValue } from '../lib/splitCalc'
+import {
+  calcEqualSplits,
+  calcItemizedSplits,
+  calcPercentageSplits,
+  calcSharesSplits,
+  calcAdjustmentSplits,
+  assertPayerHasItemizedValue,
+} from '../lib/splitCalc'
 import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
 import type { Expense, Group, ItemizedInputMode, PaymentMethod, RateMode, SplitMode } from '../types'
 import { EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
 import { useT, tCategory } from '../lib/i18n'
+import AdjustSplitSheet, { type SplitSheetState } from './AdjustSplitSheet'
 
 type Props = {
   group: Group
@@ -30,6 +38,9 @@ type FormState = {
   splitPersonIds: string[]
   itemizedInputMode: ItemizedInputMode
   itemizedInput: Record<string, string>
+  percentageInput: Record<string, string>
+  sharesInput: Record<string, string>
+  adjustmentInput: Record<string, string>
   serviceTaxPct: string
   salesTaxPct: string
   tipsPct: string
@@ -53,6 +64,9 @@ function blankForm(group: Group): FormState {
     splitPersonIds: group.people.map((p) => p.id),
     itemizedInputMode: 'pretax',
     itemizedInput: {},
+    percentageInput: {},
+    sharesInput: {},
+    adjustmentInput: {},
     serviceTaxPct: '',
     salesTaxPct: '',
     tipsPct: '',
@@ -87,6 +101,16 @@ function expenseToForm(expense: Expense): FormState {
     splitPersonIds: expense.splits.map((split) => split.personId).filter(Boolean),
     itemizedInputMode: expense.itemizedInputMode || 'pretax',
     itemizedInput,
+    percentageInput: expense.splitMode === 'percentage' && expense.amount > 0
+      ? Object.fromEntries(
+          expense.splits.map((s) => [
+            s.personId,
+            s.amount != null ? formatMoney((s.amount / expense.amount) * 100, 2) : '0',
+          ]),
+        )
+      : {},
+    sharesInput: {},
+    adjustmentInput: {},
     serviceTaxPct: expense.serviceTaxPct != null ? String(expense.serviceTaxPct) : '',
     salesTaxPct: expense.salesTaxPct != null ? String(expense.salesTaxPct) : '',
     tipsPct: expense.tipsPct != null ? String(expense.tipsPct) : '',
@@ -113,6 +137,15 @@ export default function ExpenseForm({
   const [fetchAttempts, setFetchAttempts] = useState(0)
   const [error, setError] = useState('')
   const [loadingRate, setLoadingRate] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const SPLIT_MODE_LABELS: Record<SplitMode, string> = {
+    equal: 'Equally',
+    itemized: 'Unequally',
+    percentage: 'By percentages',
+    shares: 'By shares',
+    adjustment: 'By adjustment',
+  }
 
   useEffect(() => {
     if (initialExpense) {
@@ -141,18 +174,33 @@ export default function ExpenseForm({
 
   const perPersonPreview = useMemo(() => {
     const amount = Number(form.amount)
-    if (!Number.isFinite(amount) || amount <= 0 || form.splitPersonIds.length === 0) return ''
+    const n = form.splitPersonIds.length
+    const paidSym = getCurrencySymbol(form.paidCurrency)
+    const repaySym = getCurrencySymbol(form.repayCurrency)
+    if (!Number.isFinite(amount) || amount <= 0 || n === 0) return ''
     if (form.splitMode === 'equal') {
-      const each = amount / form.splitPersonIds.length
+      const each = amount / n
       const converted = effectiveRate ? each * effectiveRate : null
-      const paidSym = getCurrencySymbol(form.paidCurrency)
-      const repaySym = getCurrencySymbol(form.repayCurrency)
       return converted
         ? `${paidSym}${formatMoney(each)} ${t('expense.each')} (≈ ${repaySym}${formatMoney(converted)})`
         : `${paidSym}${formatMoney(each)} ${t('expense.each')}`
     }
+    if (form.splitMode === 'percentage') {
+      const total = form.splitPersonIds.reduce((s, pid) => s + Number(form.percentageInput[pid] || 0), 0)
+      return `${formatMoney(total, 1)}% of 100% — ${n} people`
+    }
+    if (form.splitMode === 'shares') {
+      const totalShares = form.splitPersonIds.reduce((s, pid) => s + Math.max(0, Number(form.sharesInput[pid] || 0)), 0)
+      return totalShares > 0 ? `${formatMoney(totalShares, 0)} total shares — ${n} people` : `${n} people`
+    }
+    if (form.splitMode === 'adjustment') {
+      return `Equal base + adjustments — ${n} people`
+    }
+    if (form.splitMode === 'itemized') {
+      return `Itemized split — ${n} people`
+    }
     return ''
-  }, [effectiveRate, form.amount, form.paidCurrency, form.repayCurrency, form.splitMode, form.splitPersonIds.length, t])
+  }, [effectiveRate, form.amount, form.paidCurrency, form.repayCurrency, form.splitMode, form.splitPersonIds, form.percentageInput, form.sharesInput, t])
 
   const itemizedSummary = useMemo(() => {
     if (form.splitMode !== 'itemized') return null
@@ -308,6 +356,35 @@ export default function ExpenseForm({
       return
     }
 
+    if (form.splitMode === 'percentage') {
+      const totalPct = form.splitPersonIds.reduce(
+        (s, pid) => s + Number(form.percentageInput[pid] || 0),
+        0,
+      )
+      if (Math.abs(totalPct - 100) > 0.5) {
+        setError(`Percentages must add up to 100% (currently ${formatMoney(totalPct, 1)}%).`)
+        return
+      }
+    }
+
+    if (form.splitMode === 'shares') {
+      const totalShares = form.splitPersonIds.reduce(
+        (s, pid) => s + Math.max(0, Number(form.sharesInput[pid] || 0)),
+        0,
+      )
+      if (totalShares <= 0) {
+        setError('Enter at least one share to split.')
+        return
+      }
+    }
+
+    const commonArgs = {
+      repayCurrency: form.repayCurrency,
+      rate: effectiveRate,
+      rateSource: form.rateMode === 'manual' ? 'manual' : rateInfo?.source ?? null,
+      rateDate: form.rateMode === 'manual' ? form.date : rateInfo?.date ?? null,
+    }
+
     let splits
     if (form.splitMode === 'itemized') {
       const payerMissingValue = form.payerIds.some((pid) => !assertPayerHasItemizedValue(pid, form.itemizedInput))
@@ -322,19 +399,34 @@ export default function ExpenseForm({
         serviceTaxPct: Number(form.serviceTaxPct || '0'),
         salesTaxPct: Number(form.salesTaxPct || '0'),
         tipsPct: Number(form.tipsPct || '0'),
-        repayCurrency: form.repayCurrency,
-        rate: effectiveRate,
-        rateSource: form.rateMode === 'manual' ? 'manual' : rateInfo?.source ?? null,
-        rateDate: form.rateMode === 'manual' ? form.date : rateInfo?.date ?? null,
+        ...commonArgs,
+      })
+    } else if (form.splitMode === 'percentage') {
+      splits = calcPercentageSplits({
+        peopleIds: form.splitPersonIds,
+        percentageInput: form.percentageInput,
+        totalAmount: amount,
+        ...commonArgs,
+      })
+    } else if (form.splitMode === 'shares') {
+      splits = calcSharesSplits({
+        peopleIds: form.splitPersonIds,
+        sharesInput: form.sharesInput,
+        totalAmount: amount,
+        ...commonArgs,
+      })
+    } else if (form.splitMode === 'adjustment') {
+      splits = calcAdjustmentSplits({
+        peopleIds: form.splitPersonIds,
+        adjustmentInput: form.adjustmentInput,
+        totalAmount: amount,
+        ...commonArgs,
       })
     } else {
       splits = calcEqualSplits({
         peopleIds: form.splitPersonIds,
         totalAmount: amount,
-        repayCurrency: form.repayCurrency,
-        rate: effectiveRate,
-        rateSource: form.rateMode === 'manual' ? 'manual' : rateInfo?.source ?? null,
-        rateDate: form.rateMode === 'manual' ? form.date : rateInfo?.date ?? null,
+        ...commonArgs,
       })
     }
 
@@ -497,173 +589,23 @@ export default function ExpenseForm({
           })}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 lg:col-span-2">
+        {/* Split mode trigger */}
+        <div className="lg:col-span-2">
           <button
-            className={`h-10 rounded-xl border text-sm font-medium transition ${
-              form.splitMode === 'equal' ? 'border-[#8b6e4e] bg-[rgba(139,110,78,0.08)] text-[#74593c]' : 'border-[#d8d0c4] text-[#6b6058]'
-            }`}
-            onClick={() => setField('splitMode', 'equal')}
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="flex h-11 w-full items-center justify-between rounded-xl border border-[#d8d0c4] px-4 text-sm transition hover:border-[#8b6e4e]"
           >
-            {t('expense.equal')}
+            <span>
+              <span className="text-[#9a9088]">Split: </span>
+              <span className="font-medium text-[#3a3330]">{SPLIT_MODE_LABELS[form.splitMode]}</span>
+            </span>
+            <span className="text-[#9a9088]">▾ Adjust</span>
           </button>
-          <button
-            className={`h-10 rounded-xl border text-sm font-medium ${
-              form.splitMode === 'itemized'
-                ? 'border-[#8b6e4e] bg-[rgba(139,110,78,0.08)] text-[#74593c]'
-                : 'border-[#d8d0c4] text-[#6b6058]'
-            }`}
-            onClick={() => setField('splitMode', 'itemized')}
-          >
-            {t('expense.itemized')}
-          </button>
+          {perPersonPreview ? (
+            <p className="mt-1.5 px-1 text-xs text-[#6b6058]">{perPersonPreview}</p>
+          ) : null}
         </div>
-
-        <div className="flex items-center justify-between lg:col-span-2">
-          <label className="text-xs font-semibold uppercase text-[#6b6058]">{t('expense.splitBetween')}</label>
-          <div className="flex items-center gap-2">
-            <button
-              className="text-xs text-[#8b6e4e]"
-              onClick={() => setField('splitPersonIds', group.people.map((person) => person.id))}
-            >
-              {t('expense.selectAll')}
-            </button>
-            <button className="text-xs text-[#6b6058]" onClick={() => setField('splitPersonIds', [])}>
-              {t('expense.clear')}
-            </button>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2 lg:col-span-2">
-          {group.people.map((person) => {
-            const active = form.splitPersonIds.includes(person.id)
-            return (
-              <button
-                key={person.id}
-                className={`ms-chip ${
-                  active ? 'ms-chip-active-emerald' : 'border-[#d8d0c4] text-[#6b6058]'
-                }`}
-                onClick={() => toggleSplitPerson(person.id)}
-                style={getPersonNameStyle(person)}
-              >
-                {active ? '✓ ' : ''}
-                {person.name}
-              </button>
-            )
-          })}
-        </div>
-
-        {form.splitMode === 'itemized' ? (
-          <div className="rounded-xl border border-[#e6e0d5] bg-[#f0ece3] p-3 lg:col-span-2">
-            <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <select
-                className="h-9 rounded-lg border border-[#d8d0c4] px-2 text-sm outline-none focus:border-[#8b6e4e]"
-                value={form.itemizedInputMode}
-                onChange={(e) => setField('itemizedInputMode', e.target.value as ItemizedInputMode)}
-              >
-                <option value="pretax">{t('expense.inputPretax')}</option>
-                <option value="total">{t('expense.inputTotal')}</option>
-              </select>
-              <input
-                className="h-9 rounded-lg border border-[#d8d0c4] px-2 text-sm outline-none focus:border-[#8b6e4e]"
-                placeholder={t('expense.serviceTax')}
-                value={form.serviceTaxPct}
-                onChange={(e) => setField('serviceTaxPct', e.target.value)}
-              />
-            </div>
-            <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <input
-                className="h-9 rounded-lg border border-[#d8d0c4] px-2 text-sm outline-none focus:border-[#8b6e4e]"
-                placeholder={t('expense.salesTax')}
-                value={form.salesTaxPct}
-                onChange={(e) => setField('salesTaxPct', e.target.value)}
-              />
-              <input
-                className="h-9 rounded-lg border border-[#d8d0c4] px-2 text-sm outline-none focus:border-[#8b6e4e]"
-                placeholder={t('expense.tips')}
-                value={form.tipsPct}
-                onChange={(e) => setField('tipsPct', e.target.value)}
-              />
-            </div>
-            <p className="mb-2 text-xs text-[#6b6058]">
-              {t('expense.totalTax')}: {formatMoney(totalTaxPct)}%
-            </p>
-            <div className="space-y-2">
-              {form.splitPersonIds.map((pid) => {
-                const person = group.people.find((p) => p.id === pid)
-                if (!person) return null
-                const rawVal = form.itemizedInput[pid]
-                const numVal = rawVal != null && rawVal !== '' ? Number(rawVal) : null
-                const taxFactor = totalTaxPct / 100
-                const afterTaxVal = numVal != null && Number.isFinite(numVal) && numVal >= 0 && form.itemizedInputMode === 'pretax' && taxFactor > 0
-                  ? numVal * (1 + taxFactor)
-                  : null
-                return (
-                  <div key={pid} className="grid items-center gap-2" style={{ gridTemplateColumns: afterTaxVal != null ? '1fr 100px auto' : '1fr 100px' }}>
-                    <span className="text-sm text-[#3a3330]" style={getPersonNameStyle(person)}>
-                      {person.name}
-                    </span>
-                    <input
-                      className="h-9 rounded-lg border border-[#d8d0c4] px-2 text-sm outline-none focus:border-[#8b6e4e]"
-                      placeholder="0"
-                      inputMode="decimal"
-                      value={form.itemizedInput[pid] ?? ''}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          itemizedInput: { ...prev.itemizedInput, [pid]: e.target.value },
-                        }))
-                      }
-                    />
-                    {afterTaxVal != null ? (
-                      <span className="whitespace-nowrap text-xs text-[#9a9088]">
-                        → {getCurrencySymbol(form.paidCurrency)}{formatMoney(afterTaxVal)}
-                      </span>
-                    ) : null}
-                  </div>
-                )
-              })}
-            </div>
-            {itemizedSummary ? (
-              <div className="mt-3 rounded-lg bg-[#faf8f4] px-3 py-2 text-xs text-[#6b6058]">
-                <p>
-                  {t('expense.filled')}: {itemizedSummary.filledCount} {t('expense.persons')}
-                </p>
-                {itemizedSummary.isPretaxMode && itemizedSummary.preTaxBudget != null ? (
-                  <p>
-                    {t('expense.preTaxBudget')}: {getCurrencySymbol(form.paidCurrency)}
-                    {formatMoney(itemizedSummary.preTaxBudget)}
-                    <span className="text-[#9a9088]">
-                      {' '}
-                      ({t('expense.from')} {getCurrencySymbol(form.paidCurrency)}
-                      {formatMoney(Number(form.amount))} {t('expense.incl')} {formatMoney(totalTaxPct)}% {t('expense.tax')})
-                    </span>
-                  </p>
-                ) : null}
-                <p>
-                  {itemizedSummary.isPretaxMode ? t('expense.preTaxTotal') : t('expense.itemizedTotal')}:{' '}
-                  {getCurrencySymbol(form.paidCurrency)}
-                  {formatMoney(itemizedSummary.enteredTotal)}
-                </p>
-                {itemizedSummary.isPretaxMode ? (
-                  <p>
-                    {t('expense.afterTaxTotal')}: {getCurrencySymbol(form.paidCurrency)}
-                    {formatMoney(itemizedSummary.enteredTaxIncTotal)}
-                  </p>
-                ) : null}
-                {itemizedSummary.hasExpenseAmount && itemizedSummary.diff != null ? (
-                  <p className={itemizedSummary.diff >= 0 ? 'text-[#4a6a4a]' : 'text-[#9e4a4a]'}>
-                    {itemizedSummary.diff >= 0 ? t('expense.remaining') : t('expense.exceeds')}:{' '}
-                    {getCurrencySymbol(form.paidCurrency)}
-                    {formatMoney(Math.abs(itemizedSummary.diff))}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {form.splitMode === 'equal' && perPersonPreview ? (
-          <p className="rounded-xl bg-[rgba(139,110,78,0.08)] px-3 py-2 text-sm text-[#74593c] lg:col-span-2">{perPersonPreview}</p>
-        ) : null}
 
         <div className="lg:col-span-2">
           <input
@@ -711,6 +653,41 @@ export default function ExpenseForm({
           ) : null}
         </div>
       </div>
+
+      <AdjustSplitSheet
+        isOpen={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onConfirm={(state: SplitSheetState) => {
+          setForm((prev) => ({
+            ...prev,
+            splitMode: state.splitMode,
+            splitPersonIds: state.splitPersonIds,
+            itemizedInput: state.itemizedInput,
+            itemizedInputMode: state.itemizedInputMode,
+            percentageInput: state.percentageInput,
+            sharesInput: state.sharesInput,
+            adjustmentInput: state.adjustmentInput,
+            serviceTaxPct: state.serviceTaxPct,
+            salesTaxPct: state.salesTaxPct,
+            tipsPct: state.tipsPct,
+          }))
+        }}
+        group={group}
+        totalAmount={Number(form.amount) || 0}
+        paidCurrency={form.paidCurrency}
+        initial={{
+          splitMode: form.splitMode,
+          splitPersonIds: form.splitPersonIds,
+          itemizedInput: form.itemizedInput,
+          itemizedInputMode: form.itemizedInputMode,
+          percentageInput: form.percentageInput,
+          sharesInput: form.sharesInput,
+          adjustmentInput: form.adjustmentInput,
+          serviceTaxPct: form.serviceTaxPct,
+          salesTaxPct: form.salesTaxPct,
+          tipsPct: form.tipsPct,
+        }}
+      />
     </section>
   )
 }

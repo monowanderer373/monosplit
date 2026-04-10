@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import type { Group } from '../types'
 
 type SyncStatus = 'idle' | 'loading' | 'synced' | 'offline' | 'error'
+type GroupRow = { data: unknown; version: number; owner_id: string | null }
 
 /**
  * Syncs a single group between the local Zustand store and Supabase.
@@ -18,6 +19,7 @@ export function useGroupSync(groupId: string | undefined) {
   const replaceGroup = useStore((s) => s.replaceGroup)
 
   const [status, setStatus] = useState<SyncStatus>('idle')
+  const [ownerId, setOwnerId] = useState<string | null>(null)
   const versionRef = useRef(0)
   const skipNextUpload = useRef(false)
   const lastUploadJson = useRef('')
@@ -72,6 +74,7 @@ export function useGroupSync(groupId: string | undefined) {
         }
         if (data?.data) {
           versionRef.current = data.version ?? 0
+          setOwnerId((data as unknown as GroupRow).owner_id ?? null)
           const remoteGroup = data.data as unknown as Group
           upsertGroup({ ...remoteGroup, id: groupId })
           setStatus('synced')
@@ -139,5 +142,5 @@ export function useGroupSync(groupId: string | undefined) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group])
 
-  return { status, supabaseEnabled }
+  return { status, supabaseEnabled, ownerId, setOwnerId }
 }

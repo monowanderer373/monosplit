@@ -5,7 +5,7 @@ export type Lang = 'en' | 'zh'
 const translations = {
   // ── Bottom Tabs ──
   'tab.summary': { en: 'Summary', zh: '摘要' },
-  'tab.dashboard': { en: 'Dash\nBoard', zh: '留言\n板' },
+  'tab.dashboard': { en: 'Group\nInfo', zh: '群组\n信息' },
   'tab.settle': { en: 'Settle', zh: '结算' },
   'tab.profile': { en: 'Profile', zh: '设置' },
   'tab.addExpense': { en: 'Add expense', zh: '添加支出' },
@@ -51,7 +51,7 @@ const translations = {
 
   // ── Desktop Tabs ──
   'desktopTab.summary': { en: 'Summary', zh: '摘要' },
-  'desktopTab.dashboard': { en: 'Dashboard', zh: '留言板' },
+  'desktopTab.dashboard': { en: 'Group Info', zh: '群组信息' },
   'desktopTab.settle': { en: 'Settle-up', zh: '结算' },
   'desktopTab.profile': { en: 'Profile', zh: '设置' },
 
@@ -237,7 +237,7 @@ const translations = {
   'lang.zh': { en: '简体中文', zh: '简体中文' },
 
   // ── Dashboard Tab ──
-  'dash.title': { en: 'Dashboard', zh: '留言板' },
+  'dash.title': { en: 'Group Info', zh: '群组信息' },
   'dash.addFirst': { en: 'Please add travellers in Profile first.', zh: '请先在设置中添加旅伴。' },
   'dash.sharedComments': { en: 'Shared trip comments.', zh: '旅程共享留言。' },
   'dash.noComments': { en: 'No comments yet.', zh: '暂无留言。' },
@@ -266,6 +266,46 @@ const translations = {
   'embed.noDate': { en: 'No date', zh: '无日期' },
   'embed.poweredBy': { en: 'Powered by', zh: '由' },
   'embed.poweredBySuffix': { en: '', zh: '提供支持' },
+
+  // ── Auth ──
+  'auth.signInTitle': { en: 'Welcome back', zh: '欢迎回来' },
+  'auth.signUpTitle': { en: 'Create your account', zh: '创建你的账号' },
+  'auth.email': { en: 'Email', zh: '邮箱' },
+  'auth.password': { en: 'Password', zh: '密码' },
+  'auth.displayName': { en: 'Display name', zh: '显示名称' },
+  'auth.emailPlaceholder': { en: 'your@email.com', zh: '你的邮箱' },
+  'auth.passwordPlaceholder': { en: 'Min. 6 characters', zh: '至少6个字符' },
+  'auth.displayNamePlaceholder': { en: 'Your name', zh: '你的名字' },
+  'auth.signIn': { en: 'Sign In', zh: '登录' },
+  'auth.signUp': { en: 'Sign Up', zh: '注册' },
+  'auth.signOut': { en: 'Sign Out', zh: '退出登录' },
+  'auth.signingIn': { en: 'Signing in...', zh: '登录中...' },
+  'auth.signingUp': { en: 'Creating account...', zh: '注册中...' },
+  'auth.google': { en: 'Continue with Google', zh: '使用谷歌账号' },
+  'auth.orDivider': { en: 'or', zh: '或' },
+  'auth.noAccount': { en: "Don't have an account?", zh: '还没有账号？' },
+  'auth.hasAccount': { en: 'Already have an account?', zh: '已有账号？' },
+  'auth.continueWithout': { en: 'Continue without account', zh: '无需账号继续' },
+  'auth.verifyEmail': { en: 'Account created! Check your email to verify before signing in.', zh: '账号已创建！请检查邮箱验证后再登录。' },
+  'auth.errorCredentials': { en: 'Invalid email or password.', zh: '邮箱或密码错误。' },
+  'auth.errorEmailTaken': { en: 'Email already in use.', zh: '该邮箱已被注册。' },
+  'auth.errorWeakPassword': { en: 'Password must be at least 6 characters.', zh: '密码至少需要6个字符。' },
+  'auth.errorGeneric': { en: 'Something went wrong. Please try again.', zh: '出现错误，请重试。' },
+  'auth.errorNotConfigured': { en: 'Auth not available — Supabase not configured.', zh: '认证不可用 — Supabase 未配置。' },
+  'auth.myAccount': { en: 'My Account', zh: '我的账号' },
+  'auth.account': { en: 'Account', zh: '账号' },
+  'auth.myGroups': { en: 'My Groups', zh: '我的群组' },
+  'auth.noOwnedGroups': { en: 'No groups saved to your account yet.', zh: '还没有群组保存到你的账号。' },
+  'auth.editDisplayName': { en: 'Display name', zh: '显示名称' },
+  'auth.saveProfile': { en: 'Save', zh: '保存' },
+  'auth.saving': { en: 'Saving...', zh: '保存中...' },
+  'auth.saved': { en: 'Saved!', zh: '已保存！' },
+  'auth.backToGroups': { en: 'Back to groups', zh: '返回群组列表' },
+  'auth.claimGroup': { en: 'Save to my account', zh: '保存到我的账号' },
+  'auth.claimGroupHint': { en: 'Access this group from any device when logged in.', zh: '登录后可在任何设备访问此群组。' },
+  'auth.groupClaimed': { en: 'Saved to account', zh: '已保存到账号' },
+  'auth.claiming': { en: 'Saving...', zh: '保存中...' },
+  'auth.signInToSave': { en: 'Sign in to save groups to your account.', zh: '登录以将群组保存到你的账号。' },
 
   // ── Categories ──
   'cat.Food': { en: 'Food', zh: '餐饮' },
