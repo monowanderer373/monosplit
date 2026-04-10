@@ -260,16 +260,6 @@ export default function ExpenseForm({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  const toggleSplitPerson = (personId: string) => {
-    setForm((prev) => {
-      const has = prev.splitPersonIds.includes(personId)
-      return {
-        ...prev,
-        splitPersonIds: has ? prev.splitPersonIds.filter((id) => id !== personId) : [...prev.splitPersonIds, personId],
-      }
-    })
-  }
-
   const onFetchRate = async () => {
     setRateError('')
 
