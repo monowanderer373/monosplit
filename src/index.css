@@ -864,10 +864,10 @@ body {
   --ms-info-bg: rgba(118, 153, 194, 0.10);
 
   /* ── Neumorphic shadow tokens ── */
-  --neu-light: rgba(255, 255, 255, 0.82);
-  --neu-dark:  rgba(26, 66, 110, 0.18);
-  --neu-light-sm: rgba(255, 255, 255, 0.78);
-  --neu-dark-sm:  rgba(26, 66, 110, 0.14);
+  --neu-light: rgba(255, 255, 255, 0.92);
+  --neu-dark:  rgba(26, 66, 110, 0.32);
+  --neu-light-sm: rgba(255, 255, 255, 0.86);
+  --neu-dark-sm:  rgba(26, 66, 110, 0.22);
 
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: var(--ms-text);
@@ -932,8 +932,8 @@ body {
   border: none;
   border-radius: 20px !important;
   box-shadow:
-    7px 7px 16px var(--neu-dark),
-    -7px -7px 16px var(--neu-light);
+    10px 10px 22px var(--neu-dark),
+    -10px -10px 22px var(--neu-light);
 }
 [data-theme="glacial"] .ms-card::before,
 [data-theme="glacial"] .ms-card::after,
@@ -1014,8 +1014,8 @@ body {
   border-radius: 12px !important;
   background: #E8EDF2;
   box-shadow:
-    4px 4px 9px var(--neu-dark),
-    -4px -4px 9px var(--neu-light);
+    6px 6px 13px var(--neu-dark),
+    -6px -6px 13px var(--neu-light);
   transition: box-shadow 0.10s ease, transform 0.08s ease;
 }
 [data-theme="glacial"] .ms-key:active,
@@ -1044,8 +1044,8 @@ body {
   border-radius: 14px !important;
   background: #E8EDF2;
   box-shadow:
-    4px 4px 8px var(--neu-dark-sm),
-    -4px -4px 8px var(--neu-light-sm);
+    5px 5px 11px var(--neu-dark-sm),
+    -5px -5px 11px var(--neu-light-sm);
   transition: box-shadow 0.10s ease, transform 0.08s ease;
 }
 [data-theme="glacial"] .ms-btn-ghost:active {
@@ -1061,8 +1061,8 @@ body {
   background: #E8EDF2;
   border: none;
   box-shadow:
-    3px 3px 6px var(--neu-dark-sm),
-    -3px -3px 6px var(--neu-light-sm);
+    4px 4px 9px var(--neu-dark-sm),
+    -4px -4px 9px var(--neu-light-sm);
 }
 [data-theme="glacial"] .ms-chip-active-indigo {
   background: linear-gradient(145deg, #1A426E, #265D9B);
@@ -1087,8 +1087,8 @@ body {
   border: none;
   border-radius: 24px !important;
   box-shadow:
-    8px 8px 18px var(--neu-dark),
-    -8px -8px 18px var(--neu-light);
+    12px 12px 26px var(--neu-dark),
+    -12px -12px 26px var(--neu-light);
 }
 [data-theme="glacial"] .ms-sketch-bar::before,
 [data-theme="glacial"] .ms-sketch-bar::after {
@@ -1150,7 +1150,7 @@ body {
 
 /* Shadow */
 [data-theme="glacial"] [class*="shadow-[0_10px_24px_rgba(139,110,78"] {
-  box-shadow: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light) !important;
+  box-shadow: 10px 10px 22px var(--neu-dark), -10px -10px 22px var(--neu-light) !important;
 }
 
 /* Primary-colored backgrounds */
