@@ -836,20 +836,22 @@ body {
 
 /* ═══════════════════════════════════════════════════════
    THEME: Glacial
-   Deep Arctic palette — navy, glacial blue, frosted glass
+   Deep Arctic palette — Neumorphic · Snow Texture solid base
+   Shadow tokens: --neu-light (white) · --neu-dark (navy)
    ═══════════════════════════════════════════════════════ */
 
 [data-theme="glacial"] {
-  --ms-bg: #F2F5F8;
-  --ms-bg-warm: #E8EDF2;
-  --ms-surface: #ffffff;
-  --ms-surface-dim: #EFF3F7;
-  --ms-border: rgba(118, 153, 194, 0.30);
-  --ms-border-light: rgba(118, 153, 194, 0.18);
+  /* ── Color tokens ── */
+  --ms-bg: #E8EDF2;
+  --ms-bg-warm: #DDE4EC;
+  --ms-surface: #E8EDF2;        /* Same as bg — neumorphism requires equal surface */
+  --ms-surface-dim: #DDE4EC;    /* Inset / pressed state */
+  --ms-border: transparent;
+  --ms-border-light: rgba(255, 255, 255, 0.60);
   --ms-text: #2D3A4B;
   --ms-text-secondary: rgba(45, 58, 75, 0.72);
   --ms-text-muted: rgba(45, 58, 75, 0.45);
-  --ms-sketch-line: rgba(118, 153, 194, 0.35);
+  --ms-sketch-line: transparent;
   --ms-accent: #1A426E;
   --ms-accent-hover: #112C4B;
   --ms-accent-light: #7699C2;
@@ -861,43 +863,54 @@ body {
   --ms-info: #7699C2;
   --ms-info-bg: rgba(118, 153, 194, 0.10);
 
+  /* ── Neumorphic shadow tokens ── */
+  --neu-light: rgba(255, 255, 255, 0.82);
+  --neu-dark:  rgba(26, 66, 110, 0.18);
+  --neu-light-sm: rgba(255, 255, 255, 0.78);
+  --neu-dark-sm:  rgba(26, 66, 110, 0.14);
+
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: var(--ms-text);
   font-synthesis: none;
 }
 
-/* ── Full-bleed arctic photo background ── */
+/* ── Solid background — no photo ── */
 [data-theme="glacial"] body {
-  background:
-    linear-gradient(to bottom, rgba(242,245,248,0.10) 0%, rgba(242,245,248,0.30) 100%),
-    url('/images/glacial-bg.png') center/cover fixed;
+  background: #E8EDF2;
   overflow-x: hidden;
 }
 
-/* ── Root: slight frosted overlay strip for readability ── */
 [data-theme="glacial"] #root {
   min-height: 100dvh;
-  background: transparent;
+  background: #E8EDF2;
   position: relative;
 }
 
-/* Subtle ambient glow — deep navy top-right, matching the dark water tone */
+/* Remove old glow overlay */
 [data-theme="glacial"] #root::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 80vw 50vh at 70% 20%, rgba(26, 66, 110, 0.07), transparent 70%),
-    radial-gradient(ellipse 60vw 40vh at 20% 80%, rgba(168, 208, 216, 0.06), transparent 70%);
+  display: none;
 }
-[data-theme="glacial"] .ms-page {
+
+/* ── Login page — arctic photo full-screen ── */
+[data-theme="glacial"] .glacial-login {
+  background: url('/images/glacial-bg.png') center/cover fixed;
+  position: relative;
+}
+[data-theme="glacial"] .glacial-login::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(232, 237, 242, 0.50);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 0;
+}
+[data-theme="glacial"] .glacial-login > * {
   position: relative;
   z-index: 1;
 }
 
-/* ── Rounded corners globally (20px as per palette spec) ── */
+/* ── Rounded corners globally ── */
 [data-theme="glacial"] input,
 [data-theme="glacial"] select,
 [data-theme="glacial"] textarea {
@@ -911,19 +924,16 @@ body {
   border-radius: 12px !important;
 }
 
-/* ── Cards: frosted glass ── */
+/* ── Neumorphic Cards ── */
 [data-theme="glacial"] .ms-card,
 [data-theme="glacial"] .ms-card-soft,
 [data-theme="glacial"] .ms-sketch {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  border: 1px solid rgba(118, 153, 194, 0.28);
+  background: #E8EDF2;
+  border: none;
   border-radius: 20px !important;
   box-shadow:
-    0 4px 6px -1px rgba(26, 66, 110, 0.08),
-    0 2px 4px -1px rgba(26, 66, 110, 0.05),
-    0 0 0 0.5px rgba(255, 255, 255, 0.60) inset;
+    7px 7px 16px var(--neu-dark),
+    -7px -7px 16px var(--neu-light);
 }
 [data-theme="glacial"] .ms-card::before,
 [data-theme="glacial"] .ms-card::after,
@@ -936,11 +946,12 @@ body {
 
 /* Remove inner card pencil filter */
 [data-theme="glacial"] .ms-card-soft div[class*="rounded-"][class*="border"],
+[data-theme="glacial"] .ms-card-soft button[class*="rounded-"][class*="border"],
 [data-theme="glacial"] .ms-sketch div[class*="rounded-"][class*="border"] {
   filter: none;
 }
 
-/* ── Title: Deep Abyss gradient ── */
+/* ── Title ── */
 [data-theme="glacial"] .ms-title {
   font-family: 'Inter', system-ui, sans-serif;
   font-weight: 700;
@@ -948,201 +959,7 @@ body {
   color: #1A426E;
 }
 
-/* ── Inputs: semi-transparent frosted ── */
-[data-theme="glacial"] .ms-input {
-  border-radius: 12px !important;
-  background: rgba(255, 255, 255, 0.80);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-color: rgba(118, 153, 194, 0.35);
-}
-[data-theme="glacial"] .ms-input:focus {
-  border-color: #7699C2;
-  box-shadow: 0 0 0 3px rgba(118, 153, 194, 0.18);
-}
-
-/* ── Primary button — Deep Abyss navy ── */
-[data-theme="glacial"] .ms-btn-primary {
-  border-radius: 12px !important;
-  background: linear-gradient(to bottom, #265D9B, #1A426E);
-  color: #ffffff;
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.15) inset,
-    0 -1px 0px 0px #112C4B inset,
-    0 4px 0px 0px #112C4B,
-    0 5px 2px 0px rgba(17, 44, 75, 0.20),
-    0 7px 16px 0px rgba(17, 44, 75, 0.14);
-}
-[data-theme="glacial"] .ms-btn-primary:hover {
-  background: linear-gradient(to bottom, #2d6aad, #1e4e82);
-}
-[data-theme="glacial"] .ms-btn-primary:active {
-  background: linear-gradient(to bottom, #1e4e82, #112C4B);
-  transform: translateY(3px);
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.12) inset,
-    0 -1px 0px 0px #112C4B inset,
-    0 1px 0px 0px #112C4B,
-    0 2px 4px 0px rgba(17, 44, 75, 0.12);
-}
-
-/* ── Key buttons ── */
-[data-theme="glacial"] .ms-key {
-  border-radius: 12px !important;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.90) inset,
-    0 -1px 0px 0px rgba(118, 153, 194, 0.30) inset,
-    1px 0 0px 0px rgba(118, 153, 194, 0.18) inset,
-    -1px 0 0px 0px rgba(118, 153, 194, 0.18) inset,
-    0 4px 0px 0px rgba(118, 153, 194, 0.35),
-    0 5px 2px 0px rgba(26, 66, 110, 0.10),
-    0 7px 12px 0px rgba(26, 66, 110, 0.06);
-}
-[data-theme="glacial"] .ms-key:active,
-[data-theme="glacial"] .ms-key.pressed {
-  background: rgba(242, 245, 248, 0.88);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.80) inset,
-    0 -1px 0px 0px rgba(118, 153, 194, 0.25) inset,
-    0 1px 0px 0px rgba(118, 153, 194, 0.28),
-    0 2px 3px 0px rgba(26, 66, 110, 0.06);
-}
-[data-theme="glacial"] .ms-key-active {
-  background: rgba(26, 66, 110, 0.90);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: #ffffff !important;
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.12) inset,
-    0 -1px 0px 0px #112C4B inset,
-    0 4px 0px 0px #112C4B,
-    0 5px 2px 0px rgba(17, 44, 75, 0.18),
-    0 7px 12px 0px rgba(17, 44, 75, 0.12);
-}
-[data-theme="glacial"] .ms-key-active:active,
-[data-theme="glacial"] .ms-key-active.pressed {
-  background: rgba(17, 44, 75, 0.92);
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.10) inset,
-    0 -1px 0px 0px #112C4B inset,
-    0 1px 0px 0px #112C4B,
-    0 2px 3px 0px rgba(17, 44, 75, 0.10);
-}
-
-/* ── Ghost button ── */
-[data-theme="glacial"] .ms-btn-ghost {
-  border-radius: 12px !important;
-  background: rgba(255, 255, 255, 0.70);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.90) inset,
-    0 -1px 0px 0px rgba(118, 153, 194, 0.28) inset,
-    0 3px 0px 0px rgba(118, 153, 194, 0.30),
-    0 4px 2px 0px rgba(26, 66, 110, 0.08),
-    0 5px 10px 0px rgba(26, 66, 110, 0.05);
-}
-[data-theme="glacial"] .ms-btn-ghost:active {
-  background: rgba(242, 245, 248, 0.85);
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.80) inset,
-    0 -1px 0px 0px rgba(118, 153, 194, 0.22) inset,
-    0 1px 0px 0px rgba(118, 153, 194, 0.25),
-    0 2px 3px 0px rgba(26, 66, 110, 0.05);
-}
-
-/* ── Chips ── */
-[data-theme="glacial"] .ms-chip {
-  border-radius: 10px !important;
-  background: rgba(255, 255, 255, 0.60);
-  border-color: rgba(118, 153, 194, 0.30);
-}
-[data-theme="glacial"] .ms-chip-active-indigo {
-  background: rgba(26, 66, 110, 0.88);
-  border-color: transparent;
-  color: #ffffff;
-}
-[data-theme="glacial"] .ms-chip-active-emerald {
-  background: rgba(74, 139, 139, 0.85);
-  border-color: transparent;
-  color: #ffffff;
-}
-
-/* ── Bottom nav: frosted bar ── */
-[data-theme="glacial"] .ms-sketch-bar {
-  background: rgba(242, 245, 248, 0.82);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  border: 1px solid rgba(118, 153, 194, 0.25);
-  border-radius: 20px !important;
-  box-shadow:
-    0 -2px 12px rgba(26, 66, 110, 0.06),
-    0 0 0 0.5px rgba(255, 255, 255, 0.70) inset;
-}
-[data-theme="glacial"] .ms-sketch-bar::before,
-[data-theme="glacial"] .ms-sketch-bar::after {
-  display: none !important;
-}
-
-/* ── Override hardcoded warm colors → glacial palette ── */
-
-/* Backgrounds */
-[data-theme="glacial"] [class*="bg-[#f5eed8]"] { background-color: rgba(255,255,255,0.72) !important; }
-[data-theme="glacial"] [class*="bg-[#faf8f4]"] { background-color: rgba(255,255,255,0.78) !important; }
-[data-theme="glacial"] [class*="bg-[#f0ece3]"] { background-color: rgba(242,245,248,0.82) !important; }
-[data-theme="glacial"] [class*="bg-[#f4f0e8]"] { background-color: var(--ms-bg) !important; }
-[data-theme="glacial"] [class*="bg-[#ede8dd]"] { background-color: var(--ms-bg-warm) !important; }
-
-/* Accent-tinted backgrounds */
-[data-theme="glacial"] [class*="bg-[rgba(139,110,78"] { background-color: rgba(26, 66, 110, 0.08) !important; }
-[data-theme="glacial"] [class*="bg-[rgba(90,122,90"] { background-color: rgba(74, 139, 139, 0.08) !important; }
-
-/* Borders */
-[data-theme="glacial"] [class*="border-[#e6e0d5]"] { border-color: rgba(118,153,194,0.28) !important; }
-[data-theme="glacial"] [class*="border-[#e6dcc0]"] { border-color: rgba(118,153,194,0.28) !important; }
-[data-theme="glacial"] [class*="border-[#d8d0c4]"] { border-color: rgba(118,153,194,0.28) !important; }
-[data-theme="glacial"] [class*="border-[#c49898]"] { border-color: rgba(194,139,139,0.45) !important; }
-[data-theme="glacial"] [class*="divide-[#e6e0d5]"] { --tw-divide-color: rgba(118,153,194,0.22); }
-
-/* Text */
-[data-theme="glacial"] [class*="text-[#2c2520]"] { color: var(--ms-text) !important; }
-[data-theme="glacial"] [class*="text-[#3a3330]"] { color: var(--ms-text) !important; }
-[data-theme="glacial"] [class*="text-[#6b6058]"] { color: var(--ms-text-secondary) !important; }
-[data-theme="glacial"] [class*="text-[#74593c]"] { color: var(--ms-accent) !important; }
-[data-theme="glacial"] [class*="text-[#9a9088]"] { color: var(--ms-text-muted) !important; }
-[data-theme="glacial"] [class*="text-[#8b6e4e]"] { color: var(--ms-accent) !important; }
-[data-theme="glacial"] [class*="text-[#8a3a3a]"] { color: #C28B8B !important; }
-[data-theme="glacial"] [class*="text-[#9e4a4a]"] { color: #C28B8B !important; }
-[data-theme="glacial"] [class*="text-[#4a6a4a]"] { color: #4A8B8B !important; }
-[data-theme="glacial"] [class*="text-[#5a7a8a]"] { color: var(--ms-info) !important; }
-
-/* Ring and focus */
-[data-theme="glacial"] [class*="ring-[rgba(139,110,78"] { --tw-ring-color: rgba(118,153,194,0.20) !important; }
-[data-theme="glacial"] [class*="border-[#8b6e4e]"] { border-color: var(--ms-accent) !important; }
-
-/* Shadow */
-[data-theme="glacial"] [class*="shadow-[0_10px_24px_rgba(139,110,78"] {
-  box-shadow: 0 10px 24px rgba(26, 66, 110, 0.18) !important;
-}
-
-/* Primary-colored button backgrounds */
-[data-theme="glacial"] [class*="bg-[#8b6e4e]"] { background-color: #1A426E !important; }
-
-/* Floating header: glassmorphism */
-[data-theme="glacial"] header,
-[data-theme="glacial"] [class*="sticky"][class*="top-0"] {
-  background: rgba(242, 245, 248, 0.78) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border-bottom: 1px solid rgba(118, 153, 194, 0.20) !important;
-}
-
-/* h1 heading — Glacial Blue gradient */
+/* ── h1 heading gradient ── */
 [data-theme="glacial"] h1[class*="font-bold"] {
   font-weight: 700;
   background: linear-gradient(to bottom, #7699C2, #1A426E 85%);
@@ -1151,10 +968,193 @@ body {
   color: transparent !important;
 }
 
-/* Ripple: navy-tinted */
-[data-theme="glacial"] .ms-key .ripple {
-  background: rgba(26, 66, 110, 0.12);
+/* ── Inputs: neumorphic inset ── */
+[data-theme="glacial"] .ms-input {
+  border-radius: 12px !important;
+  background: #DDE4EC;
+  border: none;
+  box-shadow:
+    inset 3px 3px 7px var(--neu-dark-sm),
+    inset -3px -3px 7px var(--neu-light-sm);
+  color: var(--ms-text);
 }
+[data-theme="glacial"] .ms-input:focus {
+  border: none;
+  box-shadow:
+    inset 3px 3px 7px var(--neu-dark-sm),
+    inset -3px -3px 7px var(--neu-light-sm),
+    0 0 0 2px rgba(26, 66, 110, 0.20);
+}
+
+/* ── Primary button: Deep Abyss navy gradient ── */
+[data-theme="glacial"] .ms-btn-primary {
+  border-radius: 14px !important;
+  background: linear-gradient(145deg, #265D9B, #1A426E);
+  color: #ffffff;
+  box-shadow:
+    4px 4px 10px rgba(26, 66, 110, 0.35),
+    -2px -2px 6px var(--neu-light);
+  transition: box-shadow 0.12s ease, transform 0.08s ease;
+}
+[data-theme="glacial"] .ms-btn-primary:hover {
+  background: linear-gradient(145deg, #2d6aad, #1e4e82);
+  box-shadow:
+    5px 5px 12px rgba(26, 66, 110, 0.40),
+    -2px -2px 6px var(--neu-light);
+}
+[data-theme="glacial"] .ms-btn-primary:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 3px 3px 7px rgba(17, 44, 75, 0.35),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.12);
+}
+
+/* ── Key buttons: neumorphic flat ── */
+[data-theme="glacial"] .ms-key {
+  border-radius: 12px !important;
+  background: #E8EDF2;
+  box-shadow:
+    4px 4px 9px var(--neu-dark),
+    -4px -4px 9px var(--neu-light);
+  transition: box-shadow 0.10s ease, transform 0.08s ease;
+}
+[data-theme="glacial"] .ms-key:active,
+[data-theme="glacial"] .ms-key.pressed {
+  transform: translateY(1px);
+  box-shadow:
+    inset 3px 3px 7px var(--neu-dark-sm),
+    inset -3px -3px 7px var(--neu-light-sm);
+}
+[data-theme="glacial"] .ms-key-active {
+  background: linear-gradient(145deg, #1A426E, #265D9B);
+  color: #ffffff !important;
+  box-shadow:
+    inset 2px 2px 5px rgba(17, 44, 75, 0.45),
+    3px 3px 8px rgba(26, 66, 110, 0.30);
+}
+[data-theme="glacial"] .ms-key-active:active,
+[data-theme="glacial"] .ms-key-active.pressed {
+  box-shadow:
+    inset 3px 3px 7px rgba(17, 44, 75, 0.50),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.10);
+}
+
+/* ── Ghost button ── */
+[data-theme="glacial"] .ms-btn-ghost {
+  border-radius: 14px !important;
+  background: #E8EDF2;
+  box-shadow:
+    4px 4px 8px var(--neu-dark-sm),
+    -4px -4px 8px var(--neu-light-sm);
+  transition: box-shadow 0.10s ease, transform 0.08s ease;
+}
+[data-theme="glacial"] .ms-btn-ghost:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 2px 2px 5px var(--neu-dark-sm),
+    inset -2px -2px 5px var(--neu-light-sm);
+}
+
+/* ── Chips ── */
+[data-theme="glacial"] .ms-chip {
+  border-radius: 50px !important;
+  background: #E8EDF2;
+  border: none;
+  box-shadow:
+    3px 3px 6px var(--neu-dark-sm),
+    -3px -3px 6px var(--neu-light-sm);
+}
+[data-theme="glacial"] .ms-chip-active-indigo {
+  background: linear-gradient(145deg, #1A426E, #265D9B);
+  border: none;
+  color: #ffffff;
+  box-shadow:
+    inset 2px 2px 4px rgba(17, 44, 75, 0.35),
+    2px 2px 6px rgba(26, 66, 110, 0.25);
+}
+[data-theme="glacial"] .ms-chip-active-emerald {
+  background: linear-gradient(145deg, #3d7a7a, #4A8B8B);
+  border: none;
+  color: #ffffff;
+  box-shadow:
+    inset 2px 2px 4px rgba(30, 70, 70, 0.30),
+    2px 2px 6px rgba(74, 139, 139, 0.25);
+}
+
+/* ── Bottom nav: neumorphic bar ── */
+[data-theme="glacial"] .ms-sketch-bar {
+  background: #E8EDF2;
+  border: none;
+  border-radius: 24px !important;
+  box-shadow:
+    8px 8px 18px var(--neu-dark),
+    -8px -8px 18px var(--neu-light);
+}
+[data-theme="glacial"] .ms-sketch-bar::before,
+[data-theme="glacial"] .ms-sketch-bar::after {
+  display: none !important;
+}
+
+/* ── Sticky header ── */
+[data-theme="glacial"] header,
+[data-theme="glacial"] [class*="sticky"][class*="top-0"] {
+  background: #E8EDF2 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: none !important;
+  box-shadow: 0 3px 10px rgba(26, 66, 110, 0.10) !important;
+}
+
+/* ── Ripple ── */
+[data-theme="glacial"] .ms-key .ripple,
+[data-theme="glacial"] .ms-btn-primary .ripple,
+[data-theme="glacial"] .ms-btn-ghost .ripple {
+  background: rgba(26, 66, 110, 0.10);
+}
+
+/* ── Override hardcoded warm colors → glacial palette ── */
+
+/* Backgrounds */
+[data-theme="glacial"] [class*="bg-[#f5eed8]"] { background-color: #E8EDF2 !important; }
+[data-theme="glacial"] [class*="bg-[#faf8f4]"] { background-color: #E8EDF2 !important; }
+[data-theme="glacial"] [class*="bg-[#f0ece3]"] { background-color: #DDE4EC !important; }
+[data-theme="glacial"] [class*="bg-[#f4f0e8]"] { background-color: #E8EDF2 !important; }
+[data-theme="glacial"] [class*="bg-[#ede8dd]"] { background-color: #DDE4EC !important; }
+
+/* Accent-tinted backgrounds */
+[data-theme="glacial"] [class*="bg-[rgba(139,110,78"] { background-color: rgba(26, 66, 110, 0.08) !important; }
+[data-theme="glacial"] [class*="bg-[rgba(90,122,90"] { background-color: rgba(74, 139, 139, 0.08) !important; }
+
+/* Borders */
+[data-theme="glacial"] [class*="border-[#e6e0d5]"] { border-color: rgba(26, 66, 110, 0.10) !important; }
+[data-theme="glacial"] [class*="border-[#e6dcc0]"] { border-color: rgba(26, 66, 110, 0.10) !important; }
+[data-theme="glacial"] [class*="border-[#d8d0c4]"] { border-color: rgba(26, 66, 110, 0.10) !important; }
+[data-theme="glacial"] [class*="border-[#c49898]"] { border-color: rgba(194, 139, 139, 0.40) !important; }
+[data-theme="glacial"] [class*="divide-[#e6e0d5]"] { --tw-divide-color: rgba(26, 66, 110, 0.08); }
+
+/* Text */
+[data-theme="glacial"] [class*="text-[#2c2520]"] { color: var(--ms-text) !important; }
+[data-theme="glacial"] [class*="text-[#3a3330]"] { color: var(--ms-text) !important; }
+[data-theme="glacial"] [class*="text-[#6b6058]"] { color: var(--ms-text-secondary) !important; }
+[data-theme="glacial"] [class*="text-[#74593c]"] { color: var(--ms-accent) !important; }
+[data-theme="glacial"] [class*="text-[#9a9088]"] { color: var(--ms-text-muted) !important; }
+[data-theme="glacial"] [class*="text-[#8b6e4e]"] { color: var(--ms-accent) !important; }
+[data-theme="glacial"] [class*="text-[#8a3a3a]"] { color: #B07070 !important; }
+[data-theme="glacial"] [class*="text-[#9e4a4a]"] { color: #B07070 !important; }
+[data-theme="glacial"] [class*="text-[#4a6a4a]"] { color: #4A8B8B !important; }
+[data-theme="glacial"] [class*="text-[#5a7a8a]"] { color: var(--ms-info) !important; }
+
+/* Ring / focus */
+[data-theme="glacial"] [class*="ring-[rgba(139,110,78"] { --tw-ring-color: rgba(26, 66, 110, 0.18) !important; }
+[data-theme="glacial"] [class*="border-[#8b6e4e]"] { border-color: var(--ms-accent) !important; }
+
+/* Shadow */
+[data-theme="glacial"] [class*="shadow-[0_10px_24px_rgba(139,110,78"] {
+  box-shadow: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light) !important;
+}
+
+/* Primary-colored backgrounds */
+[data-theme="glacial"] [class*="bg-[#8b6e4e]"] { background-color: #1A426E !important; }
 
 /* Active tab text */
 [data-theme="glacial"] [class*="text-[var(--ms-accent-hover)]"] {

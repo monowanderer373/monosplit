@@ -58,7 +58,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="ms-page flex min-h-dvh items-center justify-center pb-8">
+    <main className="glacial-login ms-page flex min-h-dvh items-center justify-center pb-8">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-[var(--ms-text)]">MonoSplit</h1>

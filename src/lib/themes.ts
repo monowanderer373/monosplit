@@ -3,6 +3,7 @@ export interface ThemeDefinition {
   name: string
   description: string
   font: string
+  wip?: boolean
   preview: {
     bg: string
     surface: string
@@ -16,10 +17,47 @@ export interface ThemeDefinition {
 
 export const THEMES: ThemeDefinition[] = [
   {
+    id: 'glacial',
+    name: 'Glacial',
+    description: 'Deep Arctic palette · Neumorphic soft shadows · Solid Snow Texture base · Login with arctic aerial photo.',
+    font: 'Inter',
+    preview: {
+      bg: '#E8EDF2',
+      surface: '#E8EDF2',
+      accent: '#1A426E',
+      text: '#2D3A4B',
+      border: 'rgba(255,255,255,0.82)',
+      sketchLine: 'rgba(26,66,110,0.18)',
+    },
+    cssVars: {
+      '--ms-bg': '#E8EDF2',
+      '--ms-bg-warm': '#DDE4EC',
+      '--ms-surface': '#E8EDF2',
+      '--ms-surface-dim': '#DDE4EC',
+      '--ms-border': 'transparent',
+      '--ms-border-light': 'rgba(255, 255, 255, 0.60)',
+      '--ms-text': '#2D3A4B',
+      '--ms-text-secondary': 'rgba(45, 58, 75, 0.72)',
+      '--ms-text-muted': 'rgba(45, 58, 75, 0.45)',
+      '--ms-sketch-line': 'transparent',
+      '--ms-accent': '#1A426E',
+      '--ms-accent-hover': '#112C4B',
+      '--ms-accent-light': '#7699C2',
+      '--ms-accent-bg': 'rgba(26, 66, 110, 0.08)',
+      '--ms-success': '#4A8B8B',
+      '--ms-success-bg': 'rgba(74, 139, 139, 0.10)',
+      '--ms-danger': '#C28B8B',
+      '--ms-danger-bg': 'rgba(194, 139, 139, 0.10)',
+      '--ms-info': '#7699C2',
+      '--ms-info-bg': 'rgba(118, 153, 194, 0.10)',
+    },
+  },
+  {
     id: 'solid-vintage',
     name: 'Solid Vintage',
     description: 'Warm parchment tones, pencil-sketch borders, keyboard-key buttons, Departure Mono typeface.',
     font: 'Departure Mono',
+    wip: true,
     preview: {
       bg: '#f4f0e8',
       surface: '#faf8f4',
@@ -56,6 +94,7 @@ export const THEMES: ThemeDefinition[] = [
     name: 'Calling of Dungeons',
     description: 'Silver-gray palette, teal accent, solid rounded borders, Inter + DM Sans typefaces, dark outer frame.',
     font: 'Inter / DM Sans',
+    wip: true,
     preview: {
       bg: '#ddd',
       surface: '#e5e5e5',
@@ -87,46 +126,10 @@ export const THEMES: ThemeDefinition[] = [
       '--ms-info-bg': 'rgba(58, 138, 154, 0.08)',
     },
   },
-  {
-    id: 'glacial',
-    name: 'Glacial',
-    description: 'Arctic aerial photography backdrop, frosted-glass cards, Deep Arctic color palette — Deep Abyss navy, Glacial Blue, Subdued Teal, Dust Rose.',
-    font: 'Inter',
-    preview: {
-      bg: '#F2F5F8',
-      surface: 'rgba(255,255,255,0.80)',
-      accent: '#1A426E',
-      text: '#2D3A4B',
-      border: 'rgba(118,153,194,0.30)',
-      sketchLine: 'rgba(118,153,194,0.35)',
-    },
-    cssVars: {
-      '--ms-bg': '#F2F5F8',
-      '--ms-bg-warm': '#E8EDF2',
-      '--ms-surface': '#ffffff',
-      '--ms-surface-dim': '#EFF3F7',
-      '--ms-border': 'rgba(118, 153, 194, 0.30)',
-      '--ms-border-light': 'rgba(118, 153, 194, 0.18)',
-      '--ms-text': '#2D3A4B',
-      '--ms-text-secondary': 'rgba(45, 58, 75, 0.72)',
-      '--ms-text-muted': 'rgba(45, 58, 75, 0.45)',
-      '--ms-sketch-line': 'rgba(118, 153, 194, 0.35)',
-      '--ms-accent': '#1A426E',
-      '--ms-accent-hover': '#112C4B',
-      '--ms-accent-light': '#7699C2',
-      '--ms-accent-bg': 'rgba(26, 66, 110, 0.08)',
-      '--ms-success': '#4A8B8B',
-      '--ms-success-bg': 'rgba(74, 139, 139, 0.10)',
-      '--ms-danger': '#C28B8B',
-      '--ms-danger-bg': 'rgba(194, 139, 139, 0.10)',
-      '--ms-info': '#7699C2',
-      '--ms-info-bg': 'rgba(118, 153, 194, 0.10)',
-    },
-  },
 ]
 
 export function getThemeById(id: string): ThemeDefinition | undefined {
   return THEMES.find((t) => t.id === id)
 }
 
-export const DEFAULT_THEME_ID = 'solid-vintage'
+export const DEFAULT_THEME_ID = 'glacial'

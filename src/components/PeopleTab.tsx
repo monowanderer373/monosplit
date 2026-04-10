@@ -302,12 +302,23 @@ function ThemeCard() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {THEMES.map((theme) => {
           const selected = themeId === theme.id
+          const isWip = theme.wip === true
           return (
             <button
               key={theme.id}
-              className={`ms-key relative flex flex-col items-stretch p-0 text-left ${selected ? 'ms-key-active' : ''}`}
-              onClick={() => setThemeId(theme.id)}
+              disabled={isWip}
+              className={`ms-key relative flex flex-col items-stretch p-0 text-left ${selected ? 'ms-key-active' : ''} ${isWip ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => !isWip && setThemeId(theme.id)}
             >
+              {/* WIP overlay badge */}
+              {isWip && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center">
+                  <span className="rounded-full bg-[var(--ms-text)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--ms-bg)]">
+                    Coming soon
+                  </span>
+                </div>
+              )}
+
               {/* Color swatch row */}
               <div className="flex h-10 w-full overflow-hidden">
                 <div className="flex-1" style={{ background: theme.preview.bg }} />

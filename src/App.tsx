@@ -8,16 +8,13 @@ import SignupPage from './pages/SignupPage'
 import ProfilePage from './pages/ProfilePage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import { useStore } from './store/useStore'
-import { DEFAULT_THEME_ID } from './lib/themes'
 
 export default function App() {
   const themeId = useStore((s) => s.themeId)
 
   useEffect(() => {
-    if (themeId && themeId !== DEFAULT_THEME_ID) {
+    if (themeId) {
       document.documentElement.setAttribute('data-theme', themeId)
-    } else {
-      document.documentElement.removeAttribute('data-theme')
     }
   }, [themeId])
 
