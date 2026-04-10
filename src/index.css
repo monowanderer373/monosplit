@@ -846,8 +846,8 @@ body {
   --ms-bg-warm: #DDE4EC;
   --ms-surface: #E8EDF2;        /* Same as bg — neumorphism requires equal surface */
   --ms-surface-dim: #DDE4EC;    /* Inset / pressed state */
-  --ms-border: transparent;
-  --ms-border-light: rgba(255, 255, 255, 0.60);
+  --ms-border: rgba(26, 66, 110, 0.12);
+  --ms-border-light: rgba(26, 66, 110, 0.07);
   --ms-text: #2D3A4B;
   --ms-text-secondary: rgba(45, 58, 75, 0.72);
   --ms-text-muted: rgba(45, 58, 75, 0.45);
@@ -1159,4 +1159,100 @@ body {
 /* Active tab text */
 [data-theme="glacial"] [class*="text-[var(--ms-accent-hover)]"] {
   color: #ffffff !important;
+}
+
+/* ══════════════════════════════════════════════════════
+   GLACIAL — Color Hierarchy (SummaryTab + ExpenseCard)
+   L1: Day header     → Deep Abyss dark navy gradient
+   L2: Expense card   → Frozen Mint light blue
+   L3: Detail rows    → Tinted by role (payer/owed/repaid)
+   ══════════════════════════════════════════════════════ */
+
+/* ── L1: Day group header button → Deep Abyss navy ── */
+[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"],
+[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"]:hover {
+  background: linear-gradient(145deg, #1A426E 0%, #265D9B 100%) !important;
+  color: #ffffff !important;
+  border-radius: 16px 16px 0 0;
+}
+[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"] p,
+[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"] span {
+  color: #ffffff !important;
+}
+/* Expense count badge on dark header */
+[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"] [class*="bg-[rgba(139"] {
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+}
+
+/* ── L2: Expense sub-card → Frozen Mint tinted ── */
+[data-theme="glacial"] .ms-sketch .ms-sketch {
+  background: #D8E8F0 !important;
+  box-shadow:
+    5px 5px 11px rgba(26, 66, 110, 0.16),
+    -5px -5px 11px rgba(255, 255, 255, 0.78) !important;
+}
+
+/* Category badge inside sub-cards */
+[data-theme="glacial"] .ms-sketch .ms-sketch [class*="bg-[rgba(139,110,78,0.12)"] {
+  background-color: rgba(118, 153, 194, 0.22) !important;
+  color: #1A426E !important;
+}
+
+/* ── L3a: Expanded payer row → Glacial Blue tint ── */
+[data-theme="glacial"] div[class*="bg-[#f5eed8]"][class*="border-[#e6dcc0]"] {
+  background: rgba(26, 66, 110, 0.10) !important;
+  border-color: rgba(26, 66, 110, 0.22) !important;
+}
+[data-theme="glacial"] div[class*="bg-[#f5eed8]"][class*="border-[#e6dcc0]"] p,
+[data-theme="glacial"] div[class*="bg-[#f5eed8]"][class*="border-[#e6dcc0]"] span {
+  color: var(--ms-text) !important;
+}
+[data-theme="glacial"] div[class*="bg-[#f5eed8]"][class*="border-[#e6dcc0]"] [class*="bg-[rgba(139"] {
+  background-color: rgba(26, 66, 110, 0.14) !important;
+  color: #1A426E !important;
+}
+
+/* ── L3b: Expanded split owed row → Dust Rose tint ── */
+[data-theme="glacial"] div[class*="bg-[#faf8f4]"][class*="border-[#e6e0d5]"] {
+  background: rgba(194, 139, 139, 0.09) !important;
+  border-color: rgba(194, 139, 139, 0.28) !important;
+}
+
+/* ── Settlement table header → Deep Abyss (echoes L1) ── */
+[data-theme="glacial"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] {
+  background: linear-gradient(145deg, #1A426E, #265D9B) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  border-radius: 12px !important;
+}
+[data-theme="glacial"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] > * {
+  color: #ffffff !important;
+}
+[data-theme="glacial"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] select {
+  color: var(--ms-text) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+/* ── Settlement alternating rows: Glacial Blue tints ── */
+[data-theme="glacial"] [class*="bg-[rgba(139,110,78,0.10)"] {
+  background: rgba(118, 153, 194, 0.09) !important;
+}
+[data-theme="glacial"] [class*="bg-[rgba(139,110,78,0.03)"] {
+  background: rgba(118, 153, 194, 0.03) !important;
+}
+
+/* ── General badge bg (not on dark header): Glacial Blue ── */
+[data-theme="glacial"] [class*="bg-[rgba(139,110,78,0.12)"] {
+  background-color: rgba(118, 153, 194, 0.18) !important;
+}
+
+/* ── Outer day card: slightly more contrast vs body ── */
+[data-theme="glacial"] .ms-sketch.overflow-hidden {
+  background: #EBF0F5 !important;
+}
+
+/* ── No-records empty state border ── */
+[data-theme="glacial"] [class*="border-dashed"][class*="border-[#d8d0c4]"] {
+  border-color: rgba(26, 66, 110, 0.18) !important;
 }
