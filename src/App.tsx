@@ -9,8 +9,9 @@ import ProfilePage from './pages/ProfilePage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import InvitePage from './pages/InvitePage'
 import { useStore } from './store/useStore'
+import { AuthProvider } from './hooks/useAuth'
 
-export default function App() {
+function AppRoutes() {
   const themeId = useStore((s) => s.themeId)
 
   useEffect(() => {
@@ -33,5 +34,13 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   )
 }

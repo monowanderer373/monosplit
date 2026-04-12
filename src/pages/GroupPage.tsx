@@ -29,7 +29,7 @@ export default function GroupPage() {
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false)
 
   const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId)
-  const { authUser, claimGroup } = useAuth()
+  const { authUser, loading: authLoading, claimGroup } = useAuth()
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [linkCopied, setLinkCopied] = useState(false)
 
@@ -268,7 +268,7 @@ export default function GroupPage() {
         </div>
       )}
 
-      {!authUser && (
+      {!authLoading && !authUser && (
         <div className="mx-auto mb-4 max-w-3xl border border-[var(--ms-border)] bg-[var(--ms-surface-dim)] p-3">
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs text-[var(--ms-text-secondary)]">{t('auth.signInToSave')}</span>

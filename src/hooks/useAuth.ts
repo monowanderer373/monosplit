@@ -1,10 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useContext, createContext } from 'react'
+import type { ReactNode } from 'react'
+import { createElement } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 import { useStore } from '../store/useStore'
 import type { Group, UserProfile } from '../types'
 
-function buildProfile(user: User, row?: { display_name?: string | null; avatar_url?: string | null } | null): UserProfile {
+function buildProfile(
+  user: User,
+  row?: { display_name?: string | null; avatar_url?: string | null } | null,
+): UserProfile {
   return {
     id: user.id,
     email: user.email,
@@ -19,42 +24,67 @@ function buildProfile(user: User, row?: { display_name?: string | null; avatar_u
   }
 }
 
-export function useAuth() {
+// ── Types ────────────────────────────────────────────────────────────────────
+
+type AuthContextValue = {
+  authUser: UserProfile | null
+  loading: boolean
+  signUp: (email: string, password: string, displayName: string) => Promise<unknown>
+  signIn: (email: string, password: string) => Promise<unknown>
+  signInWithGoogle: () => Promise<void>
+  signOut: () => Promise<void>
+  updateProfile: (updates: { displayName?: string }) => Promise<void>
+  claimGroup: (groupId: string) => Promise<void>
+  releaseGroup: (groupId: string) => Promise<void>
+}
+
+// ── Context ──────────────────────────────────────────────────────────────────
+
+const AuthContext = createContext<AuthContextValue | null>(null)
+
+// ── Provider (single instance for the whole app) ─────────────────────────────
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const upsertGroup = useStore((s) => s.upsertGroup)
 
-  const fetchProfileAndSet = useCallback(async (user: User) => {
-    // Set auth user immediately from session data — no DB round-trip needed to log in.
-    // This prevents the "flashes logged-out" issue on page refresh.
+  // Set auth user immediately from session token; enrich from DB in background
+  const fetchProfileAndSet = useCallback((user: User) => {
     setAuthUser(buildProfile(user))
 
     if (!supabase) return
-    // Then enrich with DB profile in the background (name, avatar from user_profiles table)
-    try {
-      const { data } = await supabase
+    void Promise.resolve(
+      supabase
         .from('user_profiles')
         .select('display_name, avatar_url')
         .eq('id', user.id)
-        .maybeSingle()
-      if (data) setAuthUser(buildProfile(user, data))
-    } catch {
-      // DB unavailable — basic profile is already set above, continue
-    }
+        .maybeSingle(),
+    )
+      .then(({ data }) => {
+        if (data) setAuthUser(buildProfile(user, data))
+      })
+      .catch(() => {
+        // DB unavailable — basic profile already set, continue
+      })
   }, [])
 
   const syncOwnedGroups = useCallback(
-    async (userId: string) => {
+    (userId: string) => {
       if (!supabase) return
-      const { data } = await supabase
-        .from('groups')
-        .select('id, data')
-        .eq('owner_id', userId)
-      if (data) {
-        data.forEach((row) => {
-          if (row.data) upsertGroup({ ...(row.data as Group), id: row.id, ownerId: userId })
+      void Promise.resolve(
+        supabase.from('groups').select('id, data').eq('owner_id', userId),
+      )
+        .then(({ data }) => {
+          if (data) {
+            data.forEach((row) => {
+              if (row.data) upsertGroup({ ...(row.data as Group), id: row.id, ownerId: userId })
+            })
+          }
         })
-      }
+        .catch((e: unknown) => {
+          console.warn('[auth] syncOwnedGroups error', e)
+        })
     },
     [upsertGroup],
   )
@@ -65,7 +95,6 @@ export function useAuth() {
       return
     }
 
-    // Only call setLoading(false) once, whichever path fires first
     let loadingResolved = false
     const resolveLoading = () => {
       if (!loadingResolved) {
@@ -74,51 +103,42 @@ export function useAuth() {
       }
     }
 
-    // Track whether INITIAL_SESSION fired so the fallback knows not to double-run
     let initialSessionFired = false
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      try {
-        if (session?.user) {
-          // fetchProfileAndSet sets authUser immediately (non-blocking DB enrich)
-          await fetchProfileAndSet(session.user)
-        } else {
-          setAuthUser(null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        // Synchronous: sets authUser immediately, DB enrich runs in background
+        fetchProfileAndSet(session.user)
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          syncOwnedGroups(session.user.id)
         }
-      } catch (e) {
-        console.warn('[auth] state change error', e)
-        if (session?.user) setAuthUser(buildProfile(session.user))
-      } finally {
-        // Resolve loading as soon as auth state is confirmed — do NOT wait for group sync
-        if (event === 'INITIAL_SESSION') {
-          initialSessionFired = true
-          resolveLoading()
-        }
+      } else {
+        setAuthUser(null)
       }
-      // Sync owned groups in the background (non-blocking — never delays loading state)
-      if (session?.user && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
-        void syncOwnedGroups(session.user.id)
+
+      if (event === 'INITIAL_SESSION') {
+        initialSessionFired = true
+        resolveLoading()
       }
     })
 
-    // Safety fallback: some mobile Chrome / PWA builds don't fire INITIAL_SESSION reliably.
-    // If it hasn't fired within 3 s, call getSession() directly as a backup.
-    const fallbackTimer = setTimeout(async () => {
+    // Safety fallback for mobile Chrome / PWA where INITIAL_SESSION sometimes misfires
+    const fallbackTimer = setTimeout(() => {
       if (initialSessionFired) return
-      console.warn('[auth] INITIAL_SESSION timeout — running getSession() fallback')
-      try {
-        const { data: { session } } = await supabase!.auth.getSession()
-        if (session?.user) {
-          await fetchProfileAndSet(session.user)
-          void syncOwnedGroups(session.user.id)
-        } else {
-          setAuthUser(null)
-        }
-      } catch (e) {
-        console.warn('[auth] fallback getSession error', e)
-      } finally {
-        resolveLoading()
-      }
+      console.warn('[auth] INITIAL_SESSION timeout — getSession() fallback')
+      void Promise.resolve(supabase!.auth.getSession())
+        .then(({ data: { session } }) => {
+          if (session?.user) {
+            fetchProfileAndSet(session.user)
+            syncOwnedGroups(session.user.id)
+          } else {
+            setAuthUser(null)
+          }
+        })
+        .catch((e: unknown) => {
+          console.warn('[auth] fallback error', e)
+        })
+        .finally(resolveLoading)
     }, 3000)
 
     return () => {
@@ -126,6 +146,8 @@ export function useAuth() {
       clearTimeout(fallbackTimer)
     }
   }, [fetchProfileAndSet, syncOwnedGroups])
+
+  // ── Auth methods ────────────────────────────────────────────────────────────
 
   const signUp = async (email: string, password: string, displayName: string) => {
     if (!supabase) throw new Error('not-configured')
@@ -166,7 +188,9 @@ export function useAuth() {
       .from('user_profiles')
       .upsert({ id: authUser.id, display_name: updates.displayName })
     if (error) throw error
-    setAuthUser((prev) => (prev ? { ...prev, displayName: updates.displayName ?? prev.displayName } : null))
+    setAuthUser((prev) =>
+      prev ? { ...prev, displayName: updates.displayName ?? prev.displayName } : null,
+    )
   }
 
   const claimGroup = async (groupId: string) => {
@@ -187,15 +211,29 @@ export function useAuth() {
     if (error) throw error
   }
 
-  return {
-    authUser,
-    loading,
-    signUp,
-    signIn,
-    signInWithGoogle,
-    signOut,
-    updateProfile,
-    claimGroup,
-    releaseGroup,
-  }
+  return createElement(
+    AuthContext.Provider,
+    {
+      value: {
+        authUser,
+        loading,
+        signUp,
+        signIn,
+        signInWithGoogle,
+        signOut,
+        updateProfile,
+        claimGroup,
+        releaseGroup,
+      },
+    },
+    children,
+  )
+}
+
+// ── Hook (reads from shared context — never creates its own state) ────────────
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
+  return ctx
 }
