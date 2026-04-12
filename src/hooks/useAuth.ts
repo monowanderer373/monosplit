@@ -80,12 +80,8 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
-          // fetchProfileAndSet sets authUser immediately, then enriches from DB
+          // fetchProfileAndSet sets authUser immediately (non-blocking DB enrich)
           await fetchProfileAndSet(session.user)
-          // Sync owned groups from Supabase on startup AND after sign-in
-          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-            await syncOwnedGroups(session.user.id)
-          }
         } else {
           setAuthUser(null)
         }
@@ -93,10 +89,15 @@ export function useAuth() {
         console.warn('[auth] state change error', e)
         if (session?.user) setAuthUser(buildProfile(session.user))
       } finally {
+        // Resolve loading as soon as auth state is confirmed — do NOT wait for group sync
         if (event === 'INITIAL_SESSION') {
           initialSessionFired = true
           resolveLoading()
         }
+      }
+      // Sync owned groups in the background (non-blocking — never delays loading state)
+      if (session?.user && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
+        void syncOwnedGroups(session.user.id)
       }
     })
 
@@ -109,7 +110,7 @@ export function useAuth() {
         const { data: { session } } = await supabase!.auth.getSession()
         if (session?.user) {
           await fetchProfileAndSet(session.user)
-          await syncOwnedGroups(session.user.id)
+          void syncOwnedGroups(session.user.id)
         } else {
           setAuthUser(null)
         }
