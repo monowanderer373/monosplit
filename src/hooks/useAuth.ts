@@ -25,13 +25,22 @@ export function useAuth() {
   const upsertGroup = useStore((s) => s.upsertGroup)
 
   const fetchProfileAndSet = useCallback(async (user: User) => {
+    // Set auth user immediately from session data — no DB round-trip needed to log in.
+    // This prevents the "flashes logged-out" issue on page refresh.
+    setAuthUser(buildProfile(user))
+
     if (!supabase) return
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('display_name, avatar_url')
-      .eq('id', user.id)
-      .maybeSingle()
-    setAuthUser(buildProfile(user, data))
+    // Then enrich with DB profile in the background (name, avatar from user_profiles table)
+    try {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('display_name, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (data) setAuthUser(buildProfile(user, data))
+    } catch {
+      // DB unavailable — basic profile is already set above, continue
+    }
   }, [])
 
   const syncOwnedGroups = useCallback(
@@ -56,16 +65,25 @@ export function useAuth() {
       return
     }
 
-    // Supabase v2: onAuthStateChange fires INITIAL_SESSION on subscription with the
-    // current persisted session — no separate getSession() call needed (that pattern
-    // creates race conditions that can lose the session on page refresh).
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Only call setLoading(false) once, whichever path fires first
+    let loadingResolved = false
+    const resolveLoading = () => {
+      if (!loadingResolved) {
+        loadingResolved = true
+        setLoading(false)
+      }
+    }
+
+    // Track whether INITIAL_SESSION fired so the fallback knows not to double-run
+    let initialSessionFired = false
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
+          // fetchProfileAndSet sets authUser immediately, then enriches from DB
           await fetchProfileAndSet(session.user)
-          if (event === 'SIGNED_IN') {
+          // Sync owned groups from Supabase on startup AND after sign-in
+          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
             await syncOwnedGroups(session.user.id)
           }
         } else {
@@ -73,17 +91,39 @@ export function useAuth() {
         }
       } catch (e) {
         console.warn('[auth] state change error', e)
-        // Fall back to a basic profile so the user is not stuck logged-out
         if (session?.user) setAuthUser(buildProfile(session.user))
       } finally {
-        // INITIAL_SESSION is the startup event; set loading false after it resolves
         if (event === 'INITIAL_SESSION') {
-          setLoading(false)
+          initialSessionFired = true
+          resolveLoading()
         }
       }
     })
 
-    return () => subscription.unsubscribe()
+    // Safety fallback: some mobile Chrome / PWA builds don't fire INITIAL_SESSION reliably.
+    // If it hasn't fired within 3 s, call getSession() directly as a backup.
+    const fallbackTimer = setTimeout(async () => {
+      if (initialSessionFired) return
+      console.warn('[auth] INITIAL_SESSION timeout — running getSession() fallback')
+      try {
+        const { data: { session } } = await supabase!.auth.getSession()
+        if (session?.user) {
+          await fetchProfileAndSet(session.user)
+          await syncOwnedGroups(session.user.id)
+        } else {
+          setAuthUser(null)
+        }
+      } catch (e) {
+        console.warn('[auth] fallback getSession error', e)
+      } finally {
+        resolveLoading()
+      }
+    }, 3000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(fallbackTimer)
+    }
   }, [fetchProfileAndSet, syncOwnedGroups])
 
   const signUp = async (email: string, password: string, displayName: string) => {

@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 export default function GroupsPage() {
   const t = useT()
   const navigate = useNavigate()
-  const { authUser } = useAuth()
+  const { authUser, loading: authLoading } = useAuth()
   const groups = useStore((s) => s.groups)
   const addGroup = useStore((s) => s.addGroup)
   const deleteGroup = useStore((s) => s.deleteGroup)
@@ -19,16 +19,20 @@ export default function GroupsPage() {
   const [endDate, setEndDate] = useState('')
 
   const sortedGroups = useMemo(() => {
-    const sorted = [...groups].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    if (!authUser) return sorted
-    // When logged in, show only: groups I own, groups I'm a member of, or local-only groups (no ownerId yet)
-    return sorted.filter(
-      (g) =>
-        !g.ownerId ||
-        g.ownerId === authUser.id ||
-        g.people.some((p) => p.authUserId === authUser.id),
-    )
-  }, [groups, authUser])
+    // While auth is resolving, show nothing to avoid flash of wrong state
+    if (authLoading) return []
+    // Not logged in → show no groups (groups are private to their owner)
+    if (!authUser) return []
+    // Logged in → show only groups I own, groups I'm a member of, or unowned local groups
+    return [...groups]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .filter(
+        (g) =>
+          !g.ownerId ||
+          g.ownerId === authUser.id ||
+          g.people.some((p) => p.authUserId === authUser.id),
+      )
+  }, [groups, authUser, authLoading])
 
   const [joinId, setJoinId] = useState('')
 
@@ -159,7 +163,24 @@ export default function GroupsPage() {
       ) : null}
 
       <section className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-        {sortedGroups.length === 0 ? (
+        {/* While auth resolves, show a subtle loading indicator */}
+        {authLoading ? (
+          <div className="flex items-center gap-2 p-2 text-sm text-[#9a9088] lg:col-span-2 2xl:col-span-3">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#9a9088] border-t-transparent" />
+            Loading…
+          </div>
+        ) : !authUser ? (
+          /* Not logged in — groups are private, prompt sign in */
+          <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-6 text-center lg:col-span-2 2xl:col-span-3">
+            <p className="mb-3 text-sm text-[#6b6058]">Sign in to see your travel groups.</p>
+            <button
+              className="ms-btn-primary text-sm"
+              onClick={() => navigate('/login')}
+            >
+              {t('auth.signIn')}
+            </button>
+          </div>
+        ) : sortedGroups.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-6 text-center text-sm text-[#6b6058] lg:col-span-2 2xl:col-span-3">
             {t('groups.empty')}
           </div>
