@@ -60,34 +60,55 @@ export function useGroupSync(groupId: string | undefined) {
     let cancelled = false
     setStatus('loading')
 
-    supabase
-      .from('groups')
-      .select('*')
-      .eq('id', groupId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          console.warn('[sync] fetch error:', error.message)
-          setStatus('error')
-          return
-        }
-        if (data?.data) {
-          versionRef.current = data.version ?? 0
-          setOwnerId((data as unknown as GroupRow).owner_id ?? null)
-          const remoteGroup = data.data as unknown as Group
-          upsertGroup({ ...remoteGroup, id: groupId })
-          setStatus('synced')
-        } else if (group) {
-          // Group exists locally but not in Supabase — push it
-          skipNextUpload.current = false
-          void uploadToSupabase(group)
-        } else {
-          setStatus('idle')
-        }
-      })
+    const controller = new AbortController()
+    // Treat as offline if the fetch hasn't resolved within 8 s on slow mobile
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        cancelled = true
+        controller.abort()
+        setStatus('offline')
+      }
+    }, 8000)
 
-    return () => { cancelled = true }
+    void Promise.resolve(
+      supabase
+        .from('groups')
+        .select('*')
+        .eq('id', groupId)
+        .maybeSingle()
+    ).then(({ data, error }) => {
+      clearTimeout(timeoutId)
+      if (cancelled) return
+      if (error) {
+        console.warn('[sync] fetch error:', error.message)
+        setStatus('error')
+        return
+      }
+      if (data?.data) {
+        versionRef.current = data.version ?? 0
+        setOwnerId((data as unknown as GroupRow).owner_id ?? null)
+        const remoteGroup = data.data as unknown as Group
+        upsertGroup({ ...remoteGroup, id: groupId })
+        setStatus('synced')
+      } else if (group) {
+        // Group exists locally but not in Supabase — push it
+        skipNextUpload.current = false
+        void uploadToSupabase(group)
+      } else {
+        setStatus('idle')
+      }
+    }).catch((e: unknown) => {
+      clearTimeout(timeoutId)
+      if (!cancelled) {
+        console.warn('[sync] fetch exception:', e)
+        setStatus('error')
+      }
+    })
+
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+    }
     // Only run on mount / groupId change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId])

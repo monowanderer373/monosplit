@@ -57,23 +57,38 @@ export function useAuth() {
     }
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await fetchProfileAndSet(session.user)
-        await syncOwnedGroups(session.user.id)
+      try {
+        if (session?.user) {
+          await fetchProfileAndSet(session.user)
+          await syncOwnedGroups(session.user.id)
+        }
+      } catch (e) {
+        console.warn('[auth] init error', e)
+        // Fall back to basic profile from session so auth resolves
+        if (session?.user) setAuthUser(buildProfile(session.user))
+      } finally {
+        setLoading(false)
       }
+    }).catch((e) => {
+      console.warn('[auth] getSession error', e)
       setLoading(false)
     })
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await fetchProfileAndSet(session.user)
-        if (event === 'SIGNED_IN') {
-          await syncOwnedGroups(session.user.id)
+      try {
+        if (session?.user) {
+          await fetchProfileAndSet(session.user)
+          if (event === 'SIGNED_IN') {
+            await syncOwnedGroups(session.user.id)
+          }
+        } else {
+          setAuthUser(null)
         }
-      } else {
-        setAuthUser(null)
+      } catch (e) {
+        console.warn('[auth] state change error', e)
+        if (session?.user) setAuthUser(buildProfile(session.user))
       }
     })
 
