@@ -245,7 +245,7 @@ export default function GroupPage() {
           ) : null}
       </div>
 
-      {(canClaim || isOwned || claimStatus === 'claimed') && (
+      {false && (canClaim || isOwned || claimStatus === 'claimed') && (
         <div className={`mx-auto mb-4 max-w-3xl border p-3 text-sm ${
           isOwned || claimStatus === 'claimed'
             ? 'border-[var(--ms-success)] bg-[var(--ms-success-bg)] text-[var(--ms-success)]'
