@@ -9,7 +9,6 @@ type Props = {
   onSave: (expense: Omit<Expense, 'id' | 'createdAt'>) => void
 }
 
-// Zigzag SVG edge at the BOTTOM of the receipt — teeth pointing downward
 function ReceiptEdgeBottom() {
   const teeth = 24
   const w = 480
@@ -23,7 +22,6 @@ function ReceiptEdgeBottom() {
     pts += ` ${x},${y}`
   }
   pts += ' 0,0'
-
   return (
     <svg
       className="block w-full"
@@ -41,26 +39,37 @@ function ReceiptEdgeBottom() {
 export default function ExpenseSheet({ group, isOpen, onClose, onSave }: Props) {
   const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(false)
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Prevents the backdrop from being tappable for 500 ms after open.
+  // Fixes the "ghost click" bug: on mobile, pointerdown opens the sheet, then the
+  // browser fires a click event at the same coordinates which would hit the backdrop
+  // and immediately close the sheet — causing the flash/bounce effect.
+  const [backdropActive, setBackdropActive] = useState(false)
+
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const clearTimers = () => {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+  }
+  const later = (fn: () => void, ms: number) => {
+    const t = setTimeout(fn, ms)
+    timers.current.push(t)
+    return t
+  }
 
   useEffect(() => {
-    if (closeTimer.current) clearTimeout(closeTimer.current)
-    if (openTimer.current) clearTimeout(openTimer.current)
-
+    clearTimers()
     if (isOpen) {
+      setBackdropActive(false)
       setMounted(true)
-      // Use setTimeout instead of double-RAF — more reliable on mobile Chrome
-      openTimer.current = setTimeout(() => setVisible(true), 20)
+      later(() => setVisible(true), 20)
+      // Only allow backdrop-close after animation completes + a 100 ms buffer
+      later(() => setBackdropActive(true), 520)
     } else {
+      setBackdropActive(false)
       setVisible(false)
-      closeTimer.current = setTimeout(() => setMounted(false), 480)
+      later(() => setMounted(false), 480)
     }
-
-    return () => {
-      if (closeTimer.current) clearTimeout(closeTimer.current)
-      if (openTimer.current) clearTimeout(openTimer.current)
-    }
+    return clearTimers
   }, [isOpen])
 
   if (!mounted) return null
@@ -70,38 +79,34 @@ export default function ExpenseSheet({ group, isOpen, onClose, onSave }: Props) 
       className="fixed inset-0 z-40"
       role="dialog"
       aria-modal="true"
-      // Prevent body scroll bleed-through on iOS
+      // Block all scroll/touch events from reaching the body beneath the overlay
       style={{ touchAction: 'none' }}
     >
-      {/* Backdrop */}
+      {/* Backdrop — only closes after backdropActive */}
       <div
         className={`absolute inset-0 bg-[#2c2520]/60 transition-opacity duration-300 ${
           visible ? 'opacity-100' : 'opacity-0'
         }`}
-        onClick={onClose}
+        onClick={backdropActive ? onClose : undefined}
       />
 
-      {/* Receipt panel — drops down from the top */}
+      {/* Receipt panel — drops from top */}
       <div
         className={`absolute inset-x-0 top-0 mx-auto w-full max-w-lg transition-transform duration-[450ms] ease-out ${
           visible ? 'translate-y-0' : '-translate-y-full'
         }`}
-        // Isolate GPU layer; no inline transform override so Tailwind classes win
         style={{ willChange: 'transform' }}
-        // Stop clicks on the panel from reaching the backdrop below
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Scrollable form — "paper" of the receipt */}
+        {/* Scrollable form */}
         <div
           className="overflow-y-auto bg-[var(--ms-bg)]"
           style={{
-            // svh = "small viewport height" — stable, does NOT change when the
-            // mobile keyboard opens or the browser chrome shows/hides.
-            // dvh was the culprit: it recomputed on every scroll causing constant flashing.
-            maxHeight: 'min(85svh, 85vh)',
+            // svh = small viewport height — stable, never changes when keyboard
+            // opens or browser chrome shows/hides (unlike dvh which caused the flash)
+            maxHeight: 'min(92svh, 92vh)',
             overscrollBehavior: 'contain',
             WebkitOverflowScrolling: 'touch',
-            // Only allow vertical panning inside the form, not the outer page
             touchAction: 'pan-y',
           }}
         >
@@ -115,7 +120,6 @@ export default function ExpenseSheet({ group, isOpen, onClose, onSave }: Props) 
           </div>
         </div>
 
-        {/* Torn receipt edge */}
         <ReceiptEdgeBottom />
       </div>
     </div>

@@ -99,10 +99,8 @@ export default function BottomTabs({ active, onChange, onAddExpenseClick }: Prop
       <button
         className="ms-fab"
         aria-label={t('tab.addExpense')}
-        onPointerDown={(e) => {
-          spawnRipple(e)
-          onAddExpenseClick()
-        }}
+        onPointerDown={(e) => spawnRipple(e)}
+        onClick={() => onAddExpenseClick()}
       >
         <AddExpenseIcon />
       </button>
