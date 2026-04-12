@@ -17,6 +17,7 @@
   --ms-surface: #faf8f4;
   --ms-surface-dim: #f0ece3;
   --ms-border: #d8d0c4;
+  --ms-day-bar: #e8d5cc;
   --ms-border-light: #e6e0d5;
   --ms-text: #2c2520;
   --ms-text-secondary: #6b6058;
@@ -380,10 +381,13 @@ body {
   .ms-fab {
     position: fixed;
     right: 1.25rem;
-    bottom: calc(env(safe-area-inset-bottom) + 58px);
+    bottom: calc(env(safe-area-inset-bottom) + 64px);
     z-index: 31;
     width: 54px;
     height: 54px;
+    min-width: 54px;
+    min-height: 54px;
+    border-radius: 50%;
     background: var(--ms-accent);
     border: none;
     padding: 0;
@@ -394,22 +398,23 @@ body {
     justify-content: center;
     overflow: hidden;
     box-shadow:
-      0 1px 0px 0px rgba(255,255,255,0.14) inset,
-      0 -1px 0px 0px var(--ms-accent-hover) inset,
       0 6px 18px rgba(44, 37, 32, 0.45),
       0 3px 8px rgba(44, 37, 32, 0.28);
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    transition: box-shadow 0.12s ease, opacity 0.12s ease;
   }
   .ms-fab:active {
-    transform: scale(0.93) translateY(2px);
+    opacity: 0.82;
     box-shadow:
-      0 1px 0px 0px rgba(255,255,255,0.10) inset,
-      0 -1px 0px 0px var(--ms-accent-hover) inset,
       0 2px 8px rgba(44, 37, 32, 0.32),
       0 1px 4px rgba(44, 37, 32, 0.20);
   }
   .ms-fab .ripple {
+    position: absolute;
+    border-radius: 50%;
     background: rgba(255, 255, 255, 0.18);
+    transform: scale(0);
+    animation: ms-ripple 0.4s ease-out forwards;
+    pointer-events: none;
   }
 
   .ms-chip {
@@ -418,10 +423,95 @@ body {
     color: var(--ms-text-secondary);
   }
 
+  /* ── Split Expander (CodePen expanding panel mechanic) ── */
+  /* Wrapper uses CSS grid trick: grid-template-rows 0fr→1fr animates to real content height */
+  .ms-split-grid {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.5s linear;
+  }
+  .ms-split-grid.ms-split-grid--open {
+    grid-template-rows: 1fr;
+  }
+  /* Inner div must have overflow:hidden for the grid trick to clip correctly */
+  .ms-split-inner {
+    overflow: hidden;
+  }
+  /* Content fades in after expansion (0.3s delay on open, instant on close — matches CodePen) */
+  .ms-split-content {
+    opacity: 0;
+    transition: opacity 0.15s ease-in;
+  }
+  .ms-split-grid--open .ms-split-content {
+    opacity: 1;
+    transition: opacity 0.2s ease-in 0.3s;
+  }
+  /* Active split tab underline */
+  .ms-split-tab {
+    position: relative;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ms-text-muted);
+    letter-spacing: 0.03em;
+    transition: color 0.15s;
+    border-bottom: 2px solid transparent;
+  }
+  .ms-split-tab.active {
+    color: var(--ms-accent);
+    border-bottom-color: var(--ms-accent);
+  }
+
   .ms-chip-active-indigo {
     border-color: var(--ms-accent);
     background: var(--ms-accent-bg);
     color: var(--ms-accent-hover);
+  }
+
+  /* ── Expense Summary Cards (CodePen card expand mechanic) ── */
+  .ms-day-card {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(139,110,78,0.18);
+    transition: box-shadow 0.28s ease, transform 0.28s ease;
+  }
+  .ms-day-card:hover {
+    box-shadow: 0 4px 22px rgba(44,37,32,0.11);
+    transform: translateY(-1px);
+  }
+  .ms-day-card--open {
+    box-shadow: 0 6px 30px rgba(44,37,32,0.15);
+    transform: translateY(-2px);
+  }
+  .ms-expense-card {
+    border-radius: 8px;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+  }
+  .ms-expense-card:hover {
+    box-shadow: 0 2px 12px rgba(44,37,32,0.09);
+  }
+  .ms-expense-card--open {
+    box-shadow: 0 4px 16px rgba(44,37,32,0.12);
+  }
+  .ms-exp-grid {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .ms-exp-grid--open {
+    grid-template-rows: 1fr;
+  }
+  .ms-exp-inner {
+    overflow: hidden;
+  }
+  .ms-day-chevron {
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+  }
+  .ms-day-chevron--open {
+    transform: rotate(180deg);
   }
 
   .ms-chip-active-emerald {
@@ -610,9 +700,8 @@ body {
 }
 [data-theme="calling-of-dungeons"] .ms-fab {
   background: var(--ms-accent);
+  border-radius: 50%;
   box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.10) inset,
-    0 -1px 0px 0px #25505a inset,
     0 6px 18px rgba(0,0,0,0.35),
     0 3px 8px rgba(0,0,0,0.22);
 }
@@ -1190,6 +1279,7 @@ body {
 }
 [data-theme="glacial"] .ms-fab {
   background: var(--ms-accent);
+  border-radius: 50%;
   box-shadow:
     6px 6px 15px rgba(26, 66, 110, 0.40),
     -3px -3px 8px rgba(255, 255, 255, 0.55);

@@ -1,11 +1,27 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getSettlements } from '../lib/settlement'
-import { getCurrencySymbol } from '../lib/currency'
+import { fetchRate, getCurrencySymbol } from '../lib/currency'
 import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
 import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
 import type { Group } from '../types'
+
+function round2(value: number): number {
+  return Number(value.toFixed(2))
+}
+
+function calcConvertedSplitAmount(
+  split: { convertedAmount: number | null; amount: number | null; rate: number | null },
+  expenseRate: number | null,
+  sameCurrency: boolean,
+): number | null {
+  if (split.convertedAmount != null) return split.convertedAmount
+  if (sameCurrency) return split.amount
+  if (split.amount != null && split.rate != null) return round2(split.amount * split.rate)
+  if (split.amount != null && expenseRate != null) return round2(split.amount * expenseRate)
+  return null
+}
 
 type Props = {
   group: Group
@@ -177,8 +193,211 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
     setConfirmModal({ open: false, debtorId: '', creditorId: '', currency: '', dontShowAgain: false })
   }
 
+  // ── Settlement Overview (per-expense view) ──
+  const [onlineRateByExpenseId, setOnlineRateByExpenseId] = useState<Record<string, number>>({})
+  const [settlePayerFilterId, setSettlePayerFilterId] = useState('all')
+  const [settleRepayFilterId, setSettleRepayFilterId] = useState('all')
+
+  useEffect(() => {
+    setSettlePayerFilterId('all')
+    setSettleRepayFilterId('all')
+  }, [group.id])
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      const targets = group.expenses.filter((expense) => {
+        if (expense.paidCurrency === expense.repayCurrency) return false
+        const storedRate = expense.splits.find((split) => split.rate != null)?.rate
+        return storedRate == null && onlineRateByExpenseId[expense.id] == null
+      })
+      if (targets.length === 0) return
+      const results = await Promise.all(
+        targets.map(async (expense) => {
+          const result = await fetchRate(expense.paidCurrency, expense.repayCurrency, expense.date || 'latest')
+          return { expenseId: expense.id, rate: result?.rate ?? null }
+        }),
+      )
+      if (cancelled) return
+      setOnlineRateByExpenseId((prev) => {
+        const next = { ...prev }
+        for (const row of results) {
+          if (row.rate != null) next[row.expenseId] = row.rate
+        }
+        return next
+      })
+    }
+    void run()
+    return () => { cancelled = true }
+  }, [group.expenses, onlineRateByExpenseId])
+
+  const getExpenseRate = (expenseId: string, fallbackRate: number | null): number | null =>
+    fallbackRate ?? onlineRateByExpenseId[expenseId] ?? null
+
+  const personNameById = useMemo(() => {
+    const map: Record<string, string> = {}
+    group.people.forEach((person) => { map[person.id] = person.name })
+    return map
+  }, [group.people])
+
+  const settlementRows = useMemo(() => {
+    const showOnlyOutstanding = settlePayerFilterId === 'all' && settleRepayFilterId === 'all'
+    return group.expenses
+      .slice()
+      .sort((a, b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime())
+      .map((expense) => {
+        if (settlePayerFilterId !== 'all' && !(expense.payerIds ?? []).includes(settlePayerFilterId)) return null
+        const storedRate = expense.splits.find((split) => split.rate != null)?.rate ?? null
+        const expenseRate = getExpenseRate(expense.id, storedRate)
+        const allRows = expense.splits
+          .filter((split) => !(expense.payerIds ?? []).includes(split.personId))
+          .filter((split) => settleRepayFilterId === 'all' || split.personId === settleRepayFilterId)
+          .map((split) => {
+            const convertedAmount = calcConvertedSplitAmount(
+              split,
+              expenseRate,
+              expense.paidCurrency === expense.repayCurrency,
+            )
+            return { personId: split.personId, amount: convertedAmount ?? 0, repaid: split.repaid }
+          })
+        if (allRows.length === 0) return null
+        const outstandingTotal = allRows.filter((row) => !row.repaid).reduce((sum, row) => sum + row.amount, 0)
+        if (showOnlyOutstanding && outstandingTotal <= 0) return null
+        const paidCount = allRows.filter((row) => row.repaid).length
+        return {
+          expenseId: expense.id,
+          description: expense.description,
+          date: expense.date,
+          payerIds: expense.payerIds,
+          amount: expense.amount,
+          paidCurrency: expense.paidCurrency,
+          repayCurrency: expense.repayCurrency,
+          rows: allRows,
+          outstandingTotal,
+          paidCount,
+        }
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null)
+  }, [group.expenses, settlePayerFilterId, settleRepayFilterId, getExpenseRate])
+
   return (
     <section className="space-y-4 pb-20 lg:pb-0">
+
+      {/* ── Settlement Overview ── */}
+      <div className="ms-card-soft">
+        <h2 className="ms-title mb-2">{t('summary.settlementTitle')}</h2>
+        <p className="mb-3 text-sm text-[#6b6058]">
+          {t('summary.settlementDesc')}{' '}
+          <span className="mx-1 font-semibold text-[#5a7a8a]">{t('summary.paid')}</span>{' '}
+          {t('summary.inCyan')}
+        </p>
+
+        <div className="grid grid-cols-1 gap-2 rounded-xl border border-[#e6e0d5] bg-[#f0ece3] p-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058] md:grid-cols-12">
+          <div className="md:col-span-4">{t('summary.item')}</div>
+          <div className="md:col-span-3">
+            <label className="mb-1 block">{t('summary.payer')}</label>
+            <select
+              className="ms-input h-8 w-full py-0 text-sm normal-case tracking-normal"
+              value={settlePayerFilterId}
+              onChange={(e) => setSettlePayerFilterId(e.target.value)}
+            >
+              <option value="all">{t('summary.all')}</option>
+              {group.people.map((person) => (
+                <option key={person.id} value={person.id}>{person.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-5">
+            <label className="mb-1 block">{t('summary.outstandingRepay')}</label>
+            <select
+              className="ms-input h-8 w-full py-0 text-sm normal-case tracking-normal"
+              value={settleRepayFilterId}
+              onChange={(e) => setSettleRepayFilterId(e.target.value)}
+            >
+              <option value="all">{t('summary.all')}</option>
+              {group.people.map((person) => (
+                <option key={person.id} value={person.id}>{person.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-2 space-y-1">
+          {settlementRows.length === 0 ? (
+            <div className="py-4 text-sm text-[#6b6058]">{t('summary.noSettlement')}</div>
+          ) : null}
+          {settlementRows.map((row, rowIdx) => (
+            <div
+              key={row.expenseId}
+              className={`grid grid-cols-1 gap-3 rounded-lg px-3 py-3 md:grid-cols-12 md:gap-2 ${
+                rowIdx % 2 === 0
+                  ? 'bg-[rgba(139,110,78,0.10)]'
+                  : 'bg-[rgba(139,110,78,0.03)]'
+              }`}
+            >
+              <div className="md:col-span-4">
+                <p className="text-base font-semibold text-[#2c2520]">{row.description}</p>
+                <p className="text-sm text-[#6b6058]">{row.date}</p>
+              </div>
+              <div className="md:col-span-3">
+                <p className="text-base font-semibold text-[#2c2520]">
+                  {row.payerIds.map((pid, i) => (
+                    <span key={pid} style={getPersonNameStyle(group.people.find((person) => person.id === pid))}>
+                      {i > 0 ? ', ' : ''}
+                      {personNameById[pid] ?? t('card.unknown')}
+                    </span>
+                  ))}
+                </p>
+                <p className="text-lg font-bold text-[#2c2520]">
+                  {getCurrencySymbol(row.paidCurrency)}
+                  {formatMoney(row.amount)}
+                </p>
+              </div>
+              <div className="md:col-span-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('summary.whoOwes')}</p>
+                <ul className="mt-1 space-y-1">
+                  {row.rows.map((line, idx) => (
+                    <li key={`${row.expenseId}-${line.personId}-${idx}`} className="flex items-center justify-between text-sm">
+                      <span
+                        className="font-semibold text-[#3a3330]"
+                        style={getPersonNameStyle(group.people.find((person) => person.id === line.personId))}
+                      >
+                        {personNameById[line.personId] ?? t('card.unknown')}
+                      </span>
+                      {line.repaid ? (
+                        <span className="font-semibold text-[#5a7a8a]">
+                          {t('summary.paid')} (
+                          {getCurrencySymbol(row.repayCurrency)}
+                          {formatMoney(line.amount)})
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-[#8a3a3a]">
+                          {getCurrencySymbol(row.repayCurrency)}
+                          {formatMoney(line.amount)}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('summary.totalOutstanding')}</p>
+                {row.outstandingTotal > 0 ? (
+                  <p className="text-2xl font-bold text-[#8a3a3a]">
+                    {getCurrencySymbol(row.repayCurrency)}
+                    {formatMoney(row.outstandingTotal)}
+                  </p>
+                ) : (
+                  <p className="text-lg font-bold text-[#5a7a8a]">
+                    {t('summary.paid')}
+                    {row.paidCount > 0 ? ` (${row.paidCount})` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Outstanding Dashboard ── */}
       <div className="ms-card-soft">
         <h2 className="ms-title mb-3">{t('settle.title')}</h2>
 

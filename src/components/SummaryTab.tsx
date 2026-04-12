@@ -1,12 +1,25 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchRate, getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { tCategory, useT } from '../lib/i18n'
 import { getPersonNameStyle } from '../lib/personTheme'
 import { useStore } from '../store/useStore'
 import type { Expense, Group } from '../types'
-import { EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
+import { CATEGORY_ICONS, EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
 import ExpenseForm from './ExpenseForm'
+
+const CATEGORY_COLORS: Record<string, { bg: string; accent: string; border: string; left: string }> = {
+  Food:           { bg: 'rgba(195,100,40,0.08)',   accent: '#a04818', border: 'rgba(195,100,40,0.28)',  left: '#c06428' },
+  Drinks:         { bg: 'rgba(160,60,60,0.08)',    accent: '#8a2828', border: 'rgba(160,60,60,0.28)',   left: '#a03c3c' },
+  Groceries:      { bg: 'rgba(40,120,60,0.08)',    accent: '#1e5830', border: 'rgba(40,120,60,0.28)',   left: '#287840' },
+  Transportation: { bg: 'rgba(40,80,160,0.08)',    accent: '#1e3e9a', border: 'rgba(40,80,160,0.28)',   left: '#2850c0' },
+  Flight:         { bg: 'rgba(60,120,200,0.08)',   accent: '#184898', border: 'rgba(60,120,200,0.28)',  left: '#2860b8' },
+  Accommodation:  { bg: 'rgba(100,60,160,0.08)',   accent: '#4e2888', border: 'rgba(100,60,160,0.28)',  left: '#7040b0' },
+  Shopping:       { bg: 'rgba(200,140,20,0.08)',   accent: '#8c5e00', border: 'rgba(200,140,20,0.28)',  left: '#b07810' },
+  Sightseeing:    { bg: 'rgba(20,140,140,0.08)',   accent: '#0a5858', border: 'rgba(20,140,140,0.28)', left: '#0e7878' },
+  Activities:     { bg: 'rgba(180,80,20,0.08)',    accent: '#8c2c00', border: 'rgba(180,80,20,0.28)',   left: '#b04010' },
+  Other:          { bg: 'rgba(120,100,80,0.08)',   accent: '#5a4830', border: 'rgba(120,100,80,0.28)',  left: '#786050' },
+}
 
 type Props = {
   group: Group
@@ -48,21 +61,27 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
   const lang = useStore((s) => s.lang)
   const [categoryFilter, setCategoryFilter] = useState<'All' | (typeof EXPENSE_CATEGORIES)[number]>('All')
   const [selectedDate, setSelectedDate] = useState<'All' | string>('All')
-  const [settlePayerFilterId, setSettlePayerFilterId] = useState('all')
-  const [settleRepayFilterId, setSettleRepayFilterId] = useState('all')
   const [openDateMap, setOpenDateMap] = useState<Record<string, boolean>>({})
   const [openExpenseMap, setOpenExpenseMap] = useState<Record<string, boolean>>({})
   const [onlineRateByExpenseId, setOnlineRateByExpenseId] = useState<Record<string, number>>({})
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false)
+  const [showDateFilter, setShowDateFilter] = useState(false)
+  const categoryFilterRef = useRef<HTMLDivElement>(null)
+  const dateFilterRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setSelectedDate('All')
   }, [group.id, group.startDate, group.endDate])
 
   useEffect(() => {
-    setSettlePayerFilterId('all')
-    setSettleRepayFilterId('all')
-  }, [group.id])
+    const handler = (e: MouseEvent) => {
+      if (categoryFilterRef.current && !categoryFilterRef.current.contains(e.target as Node)) setShowCategoryFilter(false)
+      if (dateFilterRef.current && !dateFilterRef.current.contains(e.target as Node)) setShowDateFilter(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -147,399 +166,318 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
   const getExpenseRate = (expenseId: string, fallbackRate: number | null): number | null =>
     fallbackRate ?? onlineRateByExpenseId[expenseId] ?? null
 
-  const personNameById = useMemo(() => {
-    const map: Record<string, string> = {}
-    group.people.forEach((person) => {
-      map[person.id] = person.name
-    })
-    return map
-  }, [group.people])
-
-  const settlementRows = useMemo(() => {
-    const showOnlyOutstanding = settlePayerFilterId === 'all' && settleRepayFilterId === 'all'
-    return group.expenses
-      .slice()
-      .sort((a, b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime())
-      .map((expense) => {
-        if (settlePayerFilterId !== 'all' && !(expense.payerIds ?? []).includes(settlePayerFilterId)) return null
-
-        const storedRate = expense.splits.find((split) => split.rate != null)?.rate ?? null
-        const expenseRate = getExpenseRate(expense.id, storedRate)
-        const allRows = expense.splits
-          .filter((split) => !(expense.payerIds ?? []).includes(split.personId))
-          .filter((split) => settleRepayFilterId === 'all' || split.personId === settleRepayFilterId)
-          .map((split) => {
-            const convertedAmount = calcConvertedSplitAmount(
-              split,
-              expenseRate,
-              expense.paidCurrency === expense.repayCurrency,
-            )
-            return {
-              personId: split.personId,
-              amount: convertedAmount ?? 0,
-              repaid: split.repaid,
-            }
-          })
-
-        if (allRows.length === 0) return null
-        const outstandingTotal = allRows.filter((row) => !row.repaid).reduce((sum, row) => sum + row.amount, 0)
-        if (showOnlyOutstanding && outstandingTotal <= 0) return null
-        const paidCount = allRows.filter((row) => row.repaid).length
-
-        return {
-          expenseId: expense.id,
-          description: expense.description,
-          date: expense.date,
-          payerIds: expense.payerIds,
-          amount: expense.amount,
-          paidCurrency: expense.paidCurrency,
-          repayCurrency: expense.repayCurrency,
-          rows: allRows,
-          outstandingTotal,
-          paidCount,
-        }
-      })
-      .filter((row): row is NonNullable<typeof row> => row != null)
-  }, [group.expenses, settlePayerFilterId, settleRepayFilterId, getExpenseRate])
-
   return (
-    <section className="space-y-4 pb-24 lg:pb-0">
+    <section className="space-y-3 pb-24 lg:pb-0">
+
+      {/* ── Header with icon filter buttons ── */}
       <div className="ms-card-soft">
-        <div className="mb-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center justify-between">
           <h2 className="ms-title">{t('summary.title')}</h2>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <span className="text-sm text-[#6b6058]">{t('summary.category')}</span>
-            <select
-              className="ms-input h-9 min-w-0 py-0 text-sm sm:min-w-36"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value as 'All' | (typeof EXPENSE_CATEGORIES)[number])}
-            >
-              <option value="All">{t('summary.all')}</option>
-              {EXPENSE_CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {tCategory(category)}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-center gap-1">
+
+            {/* Category filter icon */}
+            <div ref={categoryFilterRef} className="relative">
+              <button
+                className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                  showCategoryFilter || categoryFilter !== 'All'
+                    ? 'bg-[var(--ms-accent,#8b6e4e)] text-white'
+                    : 'text-[#6b6058] hover:bg-[rgba(139,110,78,0.12)]'
+                }`}
+                onClick={() => { setShowCategoryFilter((v) => !v); setShowDateFilter(false) }}
+                title={t('summary.category')}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>
+                </svg>
+              </button>
+              {showCategoryFilter && (
+                <div className="absolute right-0 top-full z-30 mt-1 w-44 rounded-xl border border-[#e6e0d5] bg-[var(--ms-bg,#fdfaf5)] p-2 shadow-lg">
+                  <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wider text-[#6b6058]">{t('summary.category')}</p>
+                  <select
+                    className="ms-input h-8 w-full py-0 text-sm"
+                    value={categoryFilter}
+                    onChange={(e) => { setCategoryFilter(e.target.value as 'All' | (typeof EXPENSE_CATEGORIES)[number]); setShowCategoryFilter(false) }}
+                  >
+                    <option value="All">{t('summary.all')}</option>
+                    {EXPENSE_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>{tCategory(cat)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Date filter icon */}
+            <div ref={dateFilterRef} className="relative">
+              <button
+                className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                  showDateFilter || selectedDate !== 'All'
+                    ? 'bg-[var(--ms-accent,#8b6e4e)] text-white'
+                    : 'text-[#6b6058] hover:bg-[rgba(139,110,78,0.12)]'
+                }`}
+                onClick={() => { setShowDateFilter((v) => !v); setShowCategoryFilter(false) }}
+                title={t('summary.date')}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/>
+                </svg>
+              </button>
+              {showDateFilter && (
+                <div className="absolute right-0 top-full z-30 mt-1 w-52 rounded-xl border border-[#e6e0d5] bg-[var(--ms-bg,#fdfaf5)] p-2 shadow-lg">
+                  <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wider text-[#6b6058]">{t('summary.date')}</p>
+                  <select
+                    className="ms-input h-8 w-full py-0 text-sm"
+                    value={selectedDate}
+                    onChange={(e) => { setSelectedDate(e.target.value); setShowDateFilter(false) }}
+                  >
+                    <option value="All">{t('summary.allDates')}</option>
+                    {availableDateOptions.map((d) => (
+                      <option key={d} value={d}>{formatDateLabel(d)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <span className="text-sm text-[#6b6058]">{t('summary.date')}</span>
-          <select
-            className="ms-input h-9 min-w-0 py-0 text-sm sm:min-w-56"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          >
-            <option value="All">{t('summary.allDates')}</option>
-            {availableDateOptions.map((date) => (
-              <option key={date} value={date}>
-                {(() => {
-                  const d = new Date(`${date}T00:00:00`)
-                  const day = d.getDate()
-                  const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'
-                  const month = d.toLocaleDateString(undefined, { month: 'long' })
-                  return `${day}${suffix} / ${month} / ${d.getFullYear()}`
-                })()}
-              </option>
-            ))}
-          </select>
-        </div>
+
+        {/* Active filter chips */}
+        {(categoryFilter !== 'All' || selectedDate !== 'All') && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {categoryFilter !== 'All' && (
+              <button
+                className="flex items-center gap-1 rounded-full bg-[rgba(139,110,78,0.14)] px-2.5 py-0.5 text-xs font-medium text-[#6b6058]"
+                onClick={() => setCategoryFilter('All')}
+              >
+                {CATEGORY_ICONS[categoryFilter as keyof typeof CATEGORY_ICONS] ?? ''} {tCategory(categoryFilter as (typeof EXPENSE_CATEGORIES)[number])} ×
+              </button>
+            )}
+            {selectedDate !== 'All' && (
+              <button
+                className="flex items-center gap-1 rounded-full bg-[rgba(139,110,78,0.14)] px-2.5 py-0.5 text-xs font-medium text-[#6b6058]"
+                onClick={() => setSelectedDate('All')}
+              >
+                📅 {formatDateLabel(selectedDate)} ×
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="space-y-3">
-        {groupedDays.length === 0 ? (
+      {/* ── Day cards ── */}
+      <div className="space-y-2">
+        {groupedDays.length === 0 && (
           <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-4 text-center text-sm text-[#6b6058]">
             {t('summary.noRecords')}
           </div>
-        ) : null}
+        )}
 
         {groupedDays.map(([date, expenses], dayIndex) => {
           const dayTotalByPaidCurrency: Record<string, number> = {}
           expenses.forEach((expense) => {
             dayTotalByPaidCurrency[expense.paidCurrency] = (dayTotalByPaidCurrency[expense.paidCurrency] || 0) + expense.amount
           })
-
           const openDay = openDateMap[date]
-          const dayNumber = dayBase ? Math.floor((new Date(date).getTime() - new Date(dayBase).getTime()) / 86400000) + 1 : dayIndex + 1
+          const dayNumber = dayBase
+            ? Math.floor((new Date(date).getTime() - new Date(dayBase).getTime()) / 86400000) + 1
+            : dayIndex + 1
 
           return (
-            <div key={date} className="ms-sketch overflow-hidden !p-0">
+            <div key={date} className={`ms-day-card ${openDay ? 'ms-day-card--open' : ''}`}>
+
+              {/* Day header bar */}
               <button
-                className="flex w-full flex-col gap-3 bg-[#f5eed8] px-4 py-3 text-left sm:flex-row sm:items-center sm:justify-between"
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                style={{ background: 'var(--ms-day-bar, #e8d5cc)' }}
                 onClick={() => setOpenDateMap((prev) => ({ ...prev, [date]: !prev[date] }))}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#6b6058]">{openDay ? '▾' : '▸'}</span>
-                  <p className="text-lg font-semibold text-[#2c2520]">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="font-semibold text-[#2c2520]">
                     {lang === 'zh'
-                      ? `${t('summary.day')}${dayNumber}${t('summary.dayUnit')} (${formatDateLabel(date)})`
-                      : `${t('summary.day')} ${dayNumber} (${formatDateLabel(date)})`}
-                  </p>
-                  <span className="rounded-full bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs text-[#74593c]">
+                      ? `${t('summary.day')}${dayNumber}${t('summary.dayUnit')}`
+                      : `${t('summary.day')} ${dayNumber}`}
+                  </span>
+                  <span className="text-sm text-[#6b6058]">({formatDateLabel(date)})</span>
+                  <span className="rounded-full bg-[rgba(44,37,32,0.1)] px-2 py-0.5 text-xs text-[#5a4838]">
                     {expenses.length} {t('summary.expenseCount')}
                   </span>
                 </div>
-                <div className="text-right">
-                  {Object.entries(dayTotalByPaidCurrency).map(([currency, total]) => (
-                    <p key={currency} className="text-base font-bold text-[#2c2520]">
-                      {getCurrencySymbol(currency)}
-                      {formatMoney(total)}
-                    </p>
-                  ))}
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="text-right">
+                    {Object.entries(dayTotalByPaidCurrency).map(([currency, total]) => (
+                      <p key={currency} className="text-base font-bold text-[#2c2520]">
+                        {getCurrencySymbol(currency)}{formatMoney(total)}
+                      </p>
+                    ))}
+                  </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                    fill="none" stroke="#6b6058" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    className={`ms-day-chevron ${openDay ? 'ms-day-chevron--open' : ''}`}
+                  >
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
                 </div>
               </button>
 
-              {openDay ? (
-                <div className="space-y-3 p-3">
-                  {expenses
-                    .slice()
-                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-                    .map((expense) => {
-                      const payers = (expense.payerIds ?? []).map((pid) => group.people.find((p) => p.id === pid)).filter(Boolean)
-                      const storedRate = expense.splits.find((split) => split.rate != null)?.rate ?? null
-                      const expenseRate = getExpenseRate(expense.id, storedRate)
-                      const openExpense = openExpenseMap[expense.id] ?? false
-                      const convertedTotal =
-                        expense.paidCurrency === expense.repayCurrency
-                          ? expense.amount
-                          : expenseRate != null
-                            ? expense.amount * expenseRate
-                            : null
+              {/* Expandable expenses list */}
+              <div className={`ms-exp-grid ${openDay ? 'ms-exp-grid--open' : ''}`}>
+                <div className="ms-exp-inner">
+                  <div className="space-y-1.5 bg-[var(--ms-bg,#fdfaf5)] p-2">
+                    {expenses
+                      .slice()
+                      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                      .map((expense) => {
+                        const cat = normalizeCategory(expense.category)
+                        const cc = CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.Other
+                        const payers = (expense.payerIds ?? []).map((pid) => group.people.find((p) => p.id === pid)).filter(Boolean)
+                        const storedRate = expense.splits.find((s) => s.rate != null)?.rate ?? null
+                        const expenseRate = getExpenseRate(expense.id, storedRate)
+                        const openExpense = openExpenseMap[expense.id] ?? false
+                        const sameCurrency = expense.paidCurrency === expense.repayCurrency
 
-                      return (
-                        <div key={expense.id} className="ms-sketch !p-0">
-                          <div className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
+                        const outstandingTotal = expense.splits
+                          .filter((s) => !(expense.payerIds ?? []).includes(s.personId) && !s.repaid)
+                          .reduce((sum, s) => sum + (calcConvertedSplitAmount(s, expenseRate, sameCurrency) ?? 0), 0)
+
+                        return (
+                          <div
+                            key={expense.id}
+                            className={`ms-expense-card ${openExpense ? 'ms-expense-card--open' : ''}`}
+                            style={{
+                              background: cc.bg,
+                              border: `1px solid ${cc.border}`,
+                              borderLeftWidth: '3px',
+                              borderLeftColor: cc.left,
+                            }}
+                          >
+                            {/* Expense row header */}
                             <button
-                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
                               onClick={() => setOpenExpenseMap((prev) => ({ ...prev, [expense.id]: !openExpense }))}
                             >
-                              <span className="text-xs text-[#6b6058]">{openExpense ? '▾' : '▸'}</span>
-                              <p className="truncate text-lg font-semibold text-[#2c2520]">{expense.description}</p>
-                              <span className="rounded-md bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs text-[#74593c]">
-                                {tCategory(normalizeCategory(expense.category))}
+                              <span className="shrink-0 text-base">{CATEGORY_ICONS[cat]}</span>
+                              <span className="min-w-0 flex-1 truncate font-medium text-[#2c2520]">{expense.description}</span>
+                              <span
+                                className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold"
+                                style={{ background: cc.border, color: cc.accent }}
+                              >
+                                {tCategory(cat)}
                               </span>
+                              <span className="shrink-0 font-bold text-[#2c2520]">
+                                {getCurrencySymbol(expense.paidCurrency)}{formatMoney(expense.amount)}
+                              </span>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="#6b6058" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                className={`ms-day-chevron shrink-0 ${openExpense ? 'ms-day-chevron--open' : ''}`}
+                              >
+                                <polyline points="6 9 12 15 18 9"/>
+                              </svg>
                             </button>
-                            <div className="text-left md:text-right">
-                              <p className="text-base font-semibold text-[#2c2520]">
-                                {getCurrencySymbol(expense.paidCurrency)}
-                                {formatMoney(expense.amount)}
-                                {convertedTotal != null ? (
-                                  <span className="ml-1 text-sm font-medium text-[#6b6058]">
-                                    ({getCurrencySymbol(expense.repayCurrency)}
-                                    {formatMoney(convertedTotal)})
-                                  </span>
-                                ) : (
-                                  <span className="ml-1 text-xs font-medium text-[#9a9088]">{t('summary.converting')}</span>
-                                )}
-                              </p>
-                              <div className="mt-1 flex gap-2 md:justify-end">
-                                <button className="ms-btn-ghost" onClick={() => setEditingExpenseId(expense.id)}>
-                                  {t('group.edit')}
-                                </button>
+
+                            {/* Expandable split detail */}
+                            <div className={`ms-exp-grid ${openExpense ? 'ms-exp-grid--open' : ''}`}>
+                              <div className="ms-exp-inner">
+                                <div
+                                  className="space-y-2 px-3 pb-3 pt-2"
+                                  style={{ borderTop: `1px solid ${cc.border}` }}
+                                >
+                                  {/* Top row: paid-by + edit button */}
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="min-w-0 flex-1 text-xs text-[#6b6058]">
+                                      {t('card.paidBy')}{' '}
+                                      {payers.map((p, i) => (
+                                        <span key={p!.id}>
+                                          {i > 0 ? ', ' : ''}
+                                          <span className="font-semibold" style={getPersonNameStyle(p)}>{p!.name}</span>
+                                        </span>
+                                      ))}
+                                      {payers.length === 0 ? t('card.unknown') : ''}
+                                      {' '}· {expense.date}
+                                    </p>
+                                    <button
+                                      className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#6b6058] hover:bg-[rgba(0,0,0,0.06)] active:opacity-70"
+                                      onClick={(e) => { e.stopPropagation(); setEditingExpenseId(expense.id) }}
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                      </svg>
+                                      {t('group.edit')}
+                                    </button>
+                                  </div>
+
+                                  {/* Payer rows */}
+                                  {payers.map((payer) => {
+                                    const payerSplit = expense.splits.find((s) => s.personId === payer!.id)
+                                    const payerAmt = payerSplit != null
+                                      ? calcConvertedSplitAmount(payerSplit, expenseRate, sameCurrency)
+                                      : null
+                                    return (
+                                      <div key={payer!.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.5)' }}>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-sm font-semibold" style={getPersonNameStyle(payer)}>{payer!.name}</span>
+                                          <span className="rounded px-1 py-0.5 text-xs font-semibold" style={{ background: cc.border, color: cc.accent }}>
+                                            {t('summary.payer')}
+                                          </span>
+                                        </div>
+                                        <span className="text-sm font-semibold text-[#2c2520]">
+                                          {payerAmt != null ? `${getCurrencySymbol(expense.repayCurrency)}${formatMoney(payerAmt)}` : '-'}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+
+                                  {/* Debtor rows */}
+                                  {expense.splits
+                                    .filter((s) => !(expense.payerIds ?? []).includes(s.personId))
+                                    .map((split, idx) => {
+                                      const person = group.people.find((entry) => entry.id === split.personId)
+                                      const convAmt = calcConvertedSplitAmount(split, expenseRate, sameCurrency)
+                                      return (
+                                        <div key={`${expense.id}-${split.personId}-${idx}`} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.35)' }}>
+                                          <span className="text-sm font-medium" style={getPersonNameStyle(person)}>
+                                            {person?.name ?? t('card.unknown')}
+                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-xs font-semibold ${split.repaid ? 'text-[#3a6a3a]' : 'text-[#9e4a4a]'}`}>
+                                              {split.repaid ? t('summary.paid') : t('summary.unpaid')}
+                                            </span>
+                                            <span className="text-sm font-semibold text-[#2c2520]">
+                                              {convAmt != null ? `${getCurrencySymbol(expense.repayCurrency)}${formatMoney(convAmt)}` : '-'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+
+                                  {/* Balance to repay */}
+                                  {outstandingTotal > 0 && (
+                                    <>
+                                      <div style={{ borderTop: `1px solid ${cc.border}` }} className="mt-1" />
+                                      <div className="flex items-center justify-between px-1">
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Balance to repay</span>
+                                        <span className="font-bold text-[#9e4a4a]">
+                                          {getCurrencySymbol(expense.repayCurrency)}{formatMoney(outstandingTotal)}
+                                        </span>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
-
-                          {openExpense ? (
-                            <div className="space-y-2 border-t border-[#e6e0d5] px-3 py-3">
-                              <p className="text-sm text-[#6b6058]">
-                                {t('card.paidBy')}{' '}
-                                {payers.map((p, i) => (
-                                  <span key={p!.id}>
-                                    {i > 0 ? ', ' : ''}
-                                    <span className="font-semibold text-[#3a3330]" style={getPersonNameStyle(p)}>{p!.name}</span>
-                                  </span>
-                                ))}
-                                {payers.length === 0 ? t('card.unknown') : ''}
-                                {' '}· {expense.date}
-                                {expenseRate != null ? ` · Rate 1 ${expense.paidCurrency} = ${formatMoney(expenseRate, 6)} ${expense.repayCurrency}` : ''}
-                              </p>
-
-                              {payers.map((payer) => {
-                                const payerSplit = expense.splits.find((split) => split.personId === payer!.id)
-                                const payerAmount =
-                                  payerSplit != null
-                                    ? calcConvertedSplitAmount(
-                                        payerSplit,
-                                        expenseRate,
-                                        expense.paidCurrency === expense.repayCurrency,
-                                      )
-                                    : null
-                                return (
-                                  <div key={payer!.id} className="flex items-center justify-between rounded-xl border border-[#e6dcc0] bg-[#f5eed8] px-3 py-2">
-                                    <p className="font-medium text-[#2c2520]" style={getPersonNameStyle(payer)}>{payer!.name}</p>
-                                    <div className="flex items-center gap-2">
-                                      <span className="rounded-full bg-[rgba(139,110,78,0.12)] px-2 py-0.5 text-xs font-medium text-[#74593c]">
-                                        {t('summary.payer')}
-                                      </span>
-                                      <span className="text-sm font-semibold text-[#3a3330]">
-                                        {payerAmount != null
-                                          ? `${getCurrencySymbol(expense.repayCurrency)}${formatMoney(payerAmount)}`
-                                          : '-'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )
-                              })}
-
-                              {expense.splits
-                                .filter((split) => !(expense.payerIds ?? []).includes(split.personId))
-                                .map((split, idx) => {
-                                  const person = group.people.find((entry) => entry.id === split.personId)
-                                  const convertedAmount = calcConvertedSplitAmount(
-                                    split,
-                                    expenseRate,
-                                    expense.paidCurrency === expense.repayCurrency,
-                                  )
-                                  return (
-                                    <div key={`${expense.id}-${split.personId}-${idx}`} className="flex items-center justify-between rounded-xl border border-[#e6e0d5] bg-[#faf8f4] px-3 py-2">
-                                      <div>
-                                        <p className="text-base font-medium text-[#2c2520]" style={getPersonNameStyle(person)}>
-                                          {person?.name ?? t('card.unknown')}
-                                        </p>
-                                        <p className="text-sm text-[#6b6058]">
-                                          {convertedAmount != null
-                                            ? `${getCurrencySymbol(expense.repayCurrency)}${formatMoney(convertedAmount)}`
-                                            : '-'}
-                                        </p>
-                                      </div>
-                                      <span className={`text-sm font-semibold ${split.repaid ? 'text-[#5a7a5a]' : 'text-[#9e4a4a]'}`}>
-                                        {split.repaid ? t('summary.paid') : t('summary.unpaid')}
-                                      </span>
-                                    </div>
-                                  )
-                                })}
-
-                            </div>
-                          ) : null}
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                  </div>
                 </div>
-              ) : null}
+              </div>
             </div>
           )
         })}
       </div>
 
-      <div className="ms-card-soft">
-        <h2 className="ms-title mb-2">{t('summary.settlementTitle')}</h2>
-        <p className="mb-3 text-sm text-[#6b6058]">
-          {t('summary.settlementDesc')}{' '}
-          <span className="mx-1 font-semibold text-[#5a7a8a]">{t('summary.paid')}</span>{' '}
-          {t('summary.inCyan')}
-        </p>
-
-        <div className="grid grid-cols-1 gap-2 rounded-xl border border-[#e6e0d5] bg-[#f0ece3] p-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058] md:grid-cols-12">
-          <div className="md:col-span-4">{t('summary.item')}</div>
-          <div className="md:col-span-3">
-            <label className="mb-1 block">{t('summary.payer')}</label>
-            <select
-              className="ms-input h-8 w-full py-0 text-sm normal-case tracking-normal"
-              value={settlePayerFilterId}
-              onChange={(e) => setSettlePayerFilterId(e.target.value)}
-            >
-              <option value="all">{t('summary.all')}</option>
-              {group.people.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-5">
-            <label className="mb-1 block">{t('summary.outstandingRepay')}</label>
-            <select
-              className="ms-input h-8 w-full py-0 text-sm normal-case tracking-normal"
-              value={settleRepayFilterId}
-              onChange={(e) => setSettleRepayFilterId(e.target.value)}
-            >
-              <option value="all">{t('summary.all')}</option>
-              {group.people.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-2 space-y-1">
-          {settlementRows.length === 0 ? (
-            <div className="py-4 text-sm text-[#6b6058]">{t('summary.noSettlement')}</div>
-          ) : null}
-          {settlementRows.map((row, rowIdx) => (
-            <div
-              key={row.expenseId}
-              className={`grid grid-cols-1 gap-3 rounded-lg px-3 py-3 md:grid-cols-12 md:gap-2 ${
-                rowIdx % 2 === 0
-                  ? 'bg-[rgba(139,110,78,0.10)]'
-                  : 'bg-[rgba(139,110,78,0.03)]'
-              }`}
-            >
-              <div className="md:col-span-4">
-                <p className="text-base font-semibold text-[#2c2520]">{row.description}</p>
-                <p className="text-sm text-[#6b6058]">{row.date}</p>
-              </div>
-              <div className="md:col-span-3">
-                <p className="text-base font-semibold text-[#2c2520]">
-                  {row.payerIds.map((pid, i) => (
-                    <span key={pid} style={getPersonNameStyle(group.people.find((person) => person.id === pid))}>
-                      {i > 0 ? ', ' : ''}
-                      {personNameById[pid] ?? t('card.unknown')}
-                    </span>
-                  ))}
-                </p>
-                <p className="text-lg font-bold text-[#2c2520]">
-                  {getCurrencySymbol(row.paidCurrency)}
-                  {formatMoney(row.amount)}
-                </p>
-              </div>
-              <div className="md:col-span-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('summary.whoOwes')}</p>
-                <ul className="mt-1 space-y-1">
-                  {row.rows.map((line, idx) => (
-                    <li key={`${row.expenseId}-${line.personId}-${idx}`} className="flex items-center justify-between text-sm">
-                      <span
-                        className="font-semibold text-[#3a3330]"
-                        style={getPersonNameStyle(group.people.find((person) => person.id === line.personId))}
-                      >
-                        {personNameById[line.personId] ?? t('card.unknown')}
-                      </span>
-                      {line.repaid ? (
-                        <span className="font-semibold text-[#5a7a8a]">
-                          {t('summary.paid')} (
-                          {getCurrencySymbol(row.repayCurrency)}
-                          {formatMoney(line.amount)})
-                        </span>
-                      ) : (
-                        <span className="font-semibold text-[#8a3a3a]">
-                          {getCurrencySymbol(row.repayCurrency)}
-                          {formatMoney(line.amount)}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('summary.totalOutstanding')}</p>
-                {row.outstandingTotal > 0 ? (
-                  <p className="text-2xl font-bold text-[#8a3a3a]">
-                    {getCurrencySymbol(row.repayCurrency)}
-                    {formatMoney(row.outstandingTotal)}
-                  </p>
-                ) : (
-                  <p className="text-lg font-bold text-[#5a7a8a]">
-                    {t('summary.paid')}
-                    {row.paidCount > 0 ? ` (${row.paidCount})` : ''}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
+      {/* Edit expense modal */}
       {editingExpense ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">
           <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-2 lg:max-w-3xl">
