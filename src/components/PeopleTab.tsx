@@ -11,14 +11,16 @@ import type { Group, Person } from '../types'
 
 type Props = {
   group: Group
+  authUserId?: string
   onAddPerson: (name: string) => void
   onUpdatePersonProfile: (personId: string, updates: Partial<Pick<Person, 'name' | 'avatarDataUrl' | 'nameColor'>>) => void
   onRemovePerson: (personId: string) => void
   onUpdateGroupCurrency: (paid: string, repay: string) => void
 }
 
-export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
+export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
   const t = useT()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
@@ -34,6 +36,18 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
     setDraftColor(person.nameColor || null)
   }
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const result = ev.target?.result
+      if (typeof result === 'string') setDraftAvatarDataUrl(result)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
   return (
     <section className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_360px] xl:items-start">
@@ -44,26 +58,38 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
         </div>
 
         <div className="mb-3 flex flex-wrap gap-2">
-          {group.people.map((person) => (
-            <button
-              key={person.id}
-              className="flex items-center gap-2 rounded-full border border-[#e6e0d5] bg-[#f0ece3] px-3 py-1.5"
-              onClick={() => openEditPerson(person)}
-            >
-              {person.avatarDataUrl ? (
-                <span className="flex h-6 w-6 overflow-hidden rounded-full">
-                  <img src={person.avatarDataUrl} alt={person.name} className="h-6 w-6 scale-[1.7] object-cover object-center" />
+          {group.people.map((person) => {
+            const isMe = authUserId && person.authUserId === authUserId
+            return (
+              <button
+                key={person.id}
+                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 transition-shadow ${
+                  isMe
+                    ? 'border-[var(--ms-accent,#8b6e4e)] bg-[var(--ms-accent-bg,rgba(139,110,78,0.1))] ring-1 ring-[var(--ms-accent,#8b6e4e)]/30'
+                    : 'border-[#e6e0d5] bg-[#f0ece3]'
+                }`}
+                onClick={() => openEditPerson(person)}
+              >
+                {person.avatarDataUrl ? (
+                  <span className="flex h-6 w-6 overflow-hidden rounded-full">
+                    <img src={person.avatarDataUrl} alt={person.name} className="h-6 w-6 scale-[1.7] object-cover object-center" />
+                  </span>
+                ) : (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#e6e0d5] bg-[#faf8f4] text-xs font-semibold text-[#3a3330]">
+                    {person.name.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <span className="text-sm font-medium" style={getPersonNameStyle(person)}>
+                  {person.name}
                 </span>
-              ) : (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#e6e0d5] bg-[#faf8f4] text-xs font-semibold text-[#3a3330]">
-                  {person.name.slice(0, 1).toUpperCase()}
-                </span>
-              )}
-              <span className="text-sm font-medium" style={getPersonNameStyle(person)}>
-                {person.name}
-              </span>
-            </button>
-          ))}
+                {isMe && (
+                  <span className="ml-0.5 rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wider" style={{ background: 'var(--ms-accent,#8b6e4e)', color: '#fdfaf5' }}>
+                    {t('people.you')}
+                  </span>
+                )}
+              </button>
+            )
+          })}
           {group.people.length === 0 ? <p className="text-sm text-[#6b6058]">{t('people.addHint')}</p> : null}
         </div>
 
@@ -157,12 +183,33 @@ export default function PeopleTab({ group, onAddPerson, onUpdatePersonProfile, o
                 )}
               </div>
 
+              {/* Hidden file input for photo upload */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={handleFileUpload}
+              />
+
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm text-[#6b6058]">{t('people.avatar')}</p>
-                  <button type="button" className="text-xs text-[#6b6058] underline" onClick={() => setDraftAvatarDataUrl(null)}>
-                    {t('people.clearAvatar')}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 rounded-lg border border-[#d8d0c4] bg-[#f0ece3] px-2 py-1 text-xs font-medium text-[#5a4838] transition-colors hover:bg-[#e8e0d0]"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>
+                      </svg>
+                      {t('people.uploadPhoto')}
+                    </button>
+                    <button type="button" className="text-xs text-[#6b6058] underline" onClick={() => setDraftAvatarDataUrl(null)}>
+                      {t('people.clearAvatar')}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
                   {PRESET_AVATARS.map((avatar) => {

@@ -21,12 +21,12 @@ type AppState = {
   deleteGroup: (groupId: string) => void
   replaceGroup: (groupId: string, data: Group) => void
   upsertGroup: (data: Group) => void
-  addPerson: (groupId: string, name: string) => void
+  addPerson: (groupId: string, name: string, authUserId?: string) => void
   updatePerson: (groupId: string, personId: string, name: string) => void
   updatePersonProfile: (
     groupId: string,
     personId: string,
-    updates: Partial<Pick<Person, 'name' | 'avatarDataUrl' | 'nameColor'>>,
+    updates: Partial<Pick<Person, 'name' | 'avatarDataUrl' | 'nameColor' | 'authUserId'>>,
   ) => void
   removePerson: (groupId: string, personId: string) => void
   updatePersonPaymentInfo: (groupId: string, personId: string, updates: Partial<PaymentInfo>) => void
@@ -141,7 +141,7 @@ export const useStore = create<AppState>()(
           return { groups: [...state.groups, migrated] }
         })
       },
-      addPerson: (groupId, name) => {
+      addPerson: (groupId, name, authUserId) => {
         const safeName = sanitizeName(name)
         if (!safeName) return
         set((state) => ({
@@ -154,6 +154,7 @@ export const useStore = create<AppState>()(
                 name: safeName,
                 avatarDataUrl: null,
                 nameColor: null,
+                authUserId: authUserId || undefined,
                 paymentInfo: defaultPaymentInfo(),
                 paymentProofs: [],
               },

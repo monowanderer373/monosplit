@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import BottomTabs from '../components/BottomTabs'
 import PeopleTab from '../components/PeopleTab'
 import SettleTab from '../components/SettleTab'
 import SummaryTab from '../components/SummaryTab'
 import DashboardTab from '../components/DashboardTab'
-import ExpenseForm from '../components/ExpenseForm'
+import ExpenseSheet from '../components/ExpenseSheet'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
@@ -19,12 +19,14 @@ export default function GroupPage() {
   const t = useT()
   const { groupId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<Tab>('summary')
   const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
   const [groupEditOpen, setGroupEditOpen] = useState(false)
   const [editName, setEditName] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false)
 
   const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId)
   const { authUser, claimGroup } = useAuth()
@@ -49,6 +51,19 @@ export default function GroupPage() {
 
   const group = useStore((state) => state.groups.find((entry) => entry.id === groupId))
   const addPerson = useStore((state) => state.addPerson)
+
+  // Auto-join: when arriving via invite link (?autoJoin=true) and logged in, add user as person
+  useEffect(() => {
+    if (searchParams.get('autoJoin') !== 'true') return
+    if (!authUser || !group || !groupId) return
+    const alreadyMember = group.people.some((p) => p.authUserId === authUser.id)
+    if (!alreadyMember) {
+      const name = authUser.displayName ?? authUser.email ?? 'Traveller'
+      addPerson(groupId, name, authUser.id)
+    }
+    // Clean up the query param without re-rendering
+    navigate(`/group/${groupId}`, { replace: true })
+  }, [searchParams, authUser, group, groupId, addPerson, navigate])
   const updatePersonProfile = useStore((state) => state.updatePersonProfile)
   const removePerson = useStore((state) => state.removePerson)
   const updatePersonPaymentInfo = useStore((state) => state.updatePersonPaymentInfo)
@@ -60,12 +75,6 @@ export default function GroupPage() {
   const addGroupComment = useStore((state) => state.addGroupComment)
 
   const totalExpenses = useMemo(() => group?.expenses.length ?? 0, [group?.expenses.length])
-  const desktopTabs: Array<{ id: Tab; label: string }> = [
-    { id: 'summary', label: t('desktopTab.summary') },
-    { id: 'dashboard', label: t('desktopTab.dashboard') },
-    { id: 'settle', label: t('desktopTab.settle') },
-    { id: 'profile', label: t('desktopTab.profile') },
-  ]
 
   const openEditPanel = () => {
     if (!group) return
@@ -81,6 +90,17 @@ export default function GroupPage() {
       await navigator.clipboard.writeText(url)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      window.prompt(t('group.copyPrompt'), url)
+    }
+  }
+
+  const copyInviteLink = async () => {
+    const url = `${window.location.origin}/invite/${groupId}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setInviteLinkCopied(true)
+      setTimeout(() => setInviteLinkCopied(false), 2000)
     } catch {
       window.prompt(t('group.copyPrompt'), url)
     }
@@ -111,6 +131,9 @@ export default function GroupPage() {
               <button className="ms-btn-ghost" onClick={copyShareLink}>
                 {linkCopied ? t('group.copied') : t('group.shareLink')}
               </button>
+              <button className="ms-btn-ghost" onClick={copyInviteLink} title={t('auth.inviteLink')}>
+                {inviteLinkCopied ? t('group.copied') : t('auth.invite')}
+              </button>
               <button className="ms-btn-ghost" onClick={openEditPanel}>
                 {t('group.edit')}
               </button>
@@ -130,52 +153,6 @@ export default function GroupPage() {
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 hidden px-4 pb-3 lg:block">
-        <div className="ms-sketch-bar mx-auto max-w-4xl bg-[var(--ms-bg)] px-3">
-          <div className="flex h-[82px] items-center justify-center gap-2">
-            {desktopTabs.slice(0, 2).map((tab) => (
-              <button
-                key={tab.id}
-                className={`ms-key h-[52px] flex-1 text-[1rem] font-semibold leading-none tracking-[0.01em] ${
-                  activeTab === tab.id ? 'ms-key-active text-[var(--ms-accent-hover)]' : 'text-[var(--ms-text-muted)]'
-                }`}
-                onPointerDown={(e) => {
-                  spawnRipple(e)
-                  setActiveTab(tab.id)
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-
-            <button
-              className="ms-key ms-key-round h-[60px] w-[60px] shrink-0"
-              aria-label={t('tab.addExpense')}
-              onPointerDown={(e) => {
-                spawnRipple(e)
-                setExpenseComposerOpen(true)
-              }}
-            >
-              <span className="-translate-y-[1px] text-[2rem] font-light leading-none text-[var(--ms-text)]">+</span>
-            </button>
-
-            {desktopTabs.slice(2).map((tab) => (
-              <button
-                key={tab.id}
-                className={`ms-key h-[52px] flex-1 text-[1rem] font-semibold leading-none tracking-[0.01em] ${
-                  activeTab === tab.id ? 'ms-key-active text-[var(--ms-accent-hover)]' : 'text-[var(--ms-text-muted)]'
-                }`}
-                onPointerDown={(e) => {
-                  spawnRipple(e)
-                  setActiveTab(tab.id)
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
 
       <div className="min-w-0">
           {activeTab === 'summary' ? (
@@ -187,6 +164,9 @@ export default function GroupPage() {
                 <div className="flex items-center gap-2">
                   <button className="ms-btn-ghost" onClick={copyShareLink}>
                     {linkCopied ? t('group.copied') : t('group.share')}
+                  </button>
+                  <button className="ms-btn-ghost" onClick={copyInviteLink}>
+                    {inviteLinkCopied ? t('group.copied') : t('auth.invite')}
                   </button>
                   <button className="ms-btn-ghost" onClick={openEditPanel}>
                     {t('group.edit')}
@@ -209,6 +189,7 @@ export default function GroupPage() {
           {activeTab === 'profile' ? (
             <PeopleTab
               group={group}
+              authUserId={authUser?.id}
               onAddPerson={(name) => addPerson(group.id, name)}
               onUpdatePersonProfile={(personId, updates) => updatePersonProfile(group.id, personId, updates)}
               onRemovePerson={(personId) => {
@@ -297,21 +278,15 @@ export default function GroupPage() {
         onAddExpenseClick={() => setExpenseComposerOpen(true)}
       />
 
-      {expenseComposerOpen ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">
-          <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-2 lg:max-w-3xl">
-            <ExpenseForm
-              group={group}
-              showModeBadge={false}
-              onSave={(expense) => {
-                addExpense(group.id, expense)
-                setExpenseComposerOpen(false)
-              }}
-              onCancel={() => setExpenseComposerOpen(false)}
-            />
-          </div>
-        </div>
-      ) : null}
+      <ExpenseSheet
+        group={group}
+        isOpen={expenseComposerOpen}
+        onClose={() => setExpenseComposerOpen(false)}
+        onSave={(expense) => {
+          addExpense(group.id, expense)
+          setExpenseComposerOpen(false)
+        }}
+      />
 
       {groupEditOpen ? (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">

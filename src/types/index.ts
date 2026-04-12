@@ -23,6 +23,7 @@ export interface Person {
   name: string
   avatarDataUrl: string | null
   nameColor: string | null
+  authUserId?: string
   paymentInfo: PaymentInfo
   paymentProofs: PaymentProof[]
   skipRepaidConfirm?: boolean

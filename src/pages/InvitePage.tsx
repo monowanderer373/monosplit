@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
-import { supabaseEnabled } from '../lib/supabase'
+import { supabase, supabaseEnabled } from '../lib/supabase'
+import type { Group } from '../types'
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -20,18 +21,45 @@ function mapAuthError(err: unknown, t: ReturnType<typeof useT>): string {
   return t('auth.errorGeneric')
 }
 
-export default function LoginPage() {
+export default function InvitePage() {
   const t = useT()
+  const { groupId } = useParams<{ groupId: string }>()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const redirect = searchParams.get('redirect') ?? '/'
-  const { signIn, signInWithGoogle } = useAuth()
+  const { authUser, loading: authLoading, signIn, signInWithGoogle } = useAuth()
 
+  const [groupName, setGroupName] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+
+  const groupUrl = `/group/${groupId}?autoJoin=true`
+
+  // If already logged in, go straight to the group
+  useEffect(() => {
+    if (!authLoading && authUser) {
+      navigate(groupUrl, { replace: true })
+    }
+  }, [authLoading, authUser, groupUrl, navigate])
+
+  // Fetch group name for the invite context
+  useEffect(() => {
+    if (!groupId) return
+    if (supabase && supabaseEnabled) {
+      supabase
+        .from('groups')
+        .select('data')
+        .eq('id', groupId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.data) {
+            const group = data.data as Group
+            setGroupName(group.name ?? null)
+          }
+        })
+    }
+  }, [groupId])
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,7 +68,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await signIn(email.trim(), password)
-      navigate(redirect, { replace: true })
+      navigate(groupUrl, { replace: true })
     } catch (err) {
       setError(mapAuthError(err, t))
     } finally {
@@ -53,10 +81,19 @@ export default function LoginPage() {
     setGoogleLoading(true)
     try {
       await signInWithGoogle()
+      // Google redirects via OAuth callback, which should eventually land on groupUrl
     } catch (err) {
       setError(mapAuthError(err, t))
       setGoogleLoading(false)
     }
+  }
+
+  if (authLoading) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center" style={{ background: 'var(--ms-bg, #f4f0e8)' }}>
+        <p className="text-sm" style={{ color: 'var(--ms-text-secondary, #6b6058)' }}>{t('auth.signingIn')}</p>
+      </main>
+    )
   }
 
   return (
@@ -64,7 +101,7 @@ export default function LoginPage() {
       className="flex min-h-dvh flex-col items-center justify-center px-4 py-10"
       style={{ background: 'var(--ms-bg, #f4f0e8)' }}
     >
-      {/* Logo + title */}
+      {/* Logo + invite context */}
       <div className="mb-8 flex flex-col items-center gap-3 text-center">
         <div
           className="flex h-16 w-16 items-center justify-center rounded-2xl text-3xl shadow-md"
@@ -78,12 +115,17 @@ export default function LoginPage() {
         >
           Mono Split
         </h1>
-        <p
-          className="text-xs uppercase tracking-widest"
-          style={{ color: 'var(--ms-text-secondary, #6b6058)', fontFamily: "'Departure Mono', monospace" }}
+        <div
+          className="mt-1 rounded-xl border px-4 py-2 text-center"
+          style={{ borderColor: 'var(--ms-border, #d8d0c4)', background: 'var(--ms-surface, #faf8f4)' }}
         >
-          {t('auth.loginTagline')}
-        </p>
+          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--ms-text-muted, #9a9088)', fontFamily: "'Departure Mono', monospace" }}>
+            {t('auth.invitedTo')}
+          </p>
+          <p className="mt-0.5 font-semibold" style={{ color: 'var(--ms-text, #2c2520)' }}>
+            {groupName ?? t('auth.aTrip')}
+          </p>
+        </div>
       </div>
 
       {/* Login card */}
@@ -94,6 +136,10 @@ export default function LoginPage() {
           borderColor: 'var(--ms-border, #d8d0c4)',
         }}
       >
+        <p className="mb-5 text-center text-sm" style={{ color: 'var(--ms-text-secondary, #6b6058)' }}>
+          {t('auth.inviteSignInPrompt')}
+        </p>
+
         {!supabaseEnabled && (
           <p
             className="mb-4 rounded-lg border p-2 text-xs"
@@ -109,7 +155,7 @@ export default function LoginPage() {
             type="button"
             disabled={googleLoading}
             onClick={handleGoogle}
-            className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border font-medium transition-colors"
+            className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border font-medium transition-opacity"
             style={{
               borderColor: 'var(--ms-border, #d8d0c4)',
               color: 'var(--ms-text, #2c2520)',
@@ -190,30 +236,20 @@ export default function LoginPage() {
               fontSize: '0.8rem',
             }}
           >
-            {loading ? t('auth.signingIn') : t('auth.signIn')}
+            {loading ? t('auth.signingIn') : t('auth.joinTrip')}
           </button>
         </form>
 
         <p className="mt-4 text-center text-xs" style={{ color: 'var(--ms-text-secondary, #6b6058)' }}>
           {t('auth.noAccount')}{' '}
-          <Link
-            to={`/signup${redirect !== '/' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`}
+          <a
+            href={`/signup?redirect=${encodeURIComponent(groupUrl)}`}
             className="font-semibold underline-offset-2 hover:underline"
             style={{ color: 'var(--ms-accent, #8b6e4e)' }}
           >
             {t('auth.signUp')}
-          </Link>
+          </a>
         </p>
-      </div>
-
-      <div className="mt-5 text-center">
-        <Link
-          to={redirect !== '/' ? redirect : '/'}
-          className="text-xs underline-offset-2 hover:underline"
-          style={{ color: 'var(--ms-text-muted, #9a9088)' }}
-        >
-          {t('auth.continueWithout')}
-        </Link>
       </div>
     </main>
   )
