@@ -55,11 +55,11 @@ function ProfileIcon({ active }: { active: boolean }) {
   )
 }
 
-// FAB icon — circle-with-pointed-corner + plus sign (ZUDI7 design)
+// FAB icon — ZUDI7 design (circle with pointed corner + plus)
 function AddExpenseIcon() {
   return (
     <svg
-      className="h-[28px] w-[28px] text-[#faf8f4]"
+      className="h-[30px] w-[30px] text-[#faf8f4]"
       viewBox="0 0 800 800"
       fill="currentColor"
       fillRule="evenodd"
@@ -96,7 +96,7 @@ export default function BottomTabs({ active, onChange, onAddExpenseClick }: Prop
     <>
       {/* Floating Action Button — fixed above nav bar, bottom-right */}
       <button
-        className="ms-fab lg:hidden"
+        className="ms-fab"
         aria-label={t('tab.addExpense')}
         onPointerDown={(e) => {
           spawnRipple(e)
@@ -107,8 +107,8 @@ export default function BottomTabs({ active, onChange, onAddExpenseClick }: Prop
       </button>
 
       {/* Bottom nav pill */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] lg:hidden">
-        <div className="ms-sketch-bar relative mx-auto bg-[var(--ms-bg)]">
+      <nav className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)]">
+        <div className="ms-sketch-bar relative mx-auto max-w-2xl bg-[var(--ms-bg)]">
           <div className="flex h-[78px] items-center justify-center px-[21px]">
             {/* Pill container */}
             <div className="flex h-[54px] w-full gap-[3px] bg-[var(--ms-surface)] p-1">
