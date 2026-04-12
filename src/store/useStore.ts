@@ -16,7 +16,7 @@ type AppState = {
   themeId: string
   setThemeId: (id: string) => void
   groups: Group[]
-  addGroup: (name: string, options?: NewGroupOptions) => string
+  addGroup: (name: string, options?: NewGroupOptions, ownerId?: string) => string
   updateGroup: (groupId: string, updates: Partial<Group>) => void
   deleteGroup: (groupId: string) => void
   replaceGroup: (groupId: string, data: Group) => void
@@ -92,7 +92,7 @@ export const useStore = create<AppState>()(
       themeId: 'solid-vintage',
       setThemeId: (id: string) => set({ themeId: id }),
       groups: [],
-      addGroup: (name, options) => {
+      addGroup: (name, options, ownerId) => {
         const safeName = sanitizeName(name)
         const groupId = generateGroupId()
         if (!safeName) return groupId
@@ -112,6 +112,7 @@ export const useStore = create<AppState>()(
               expenses: [],
               comments: [],
               createdAt: new Date().toISOString(),
+              ownerId: ownerId ?? undefined,
             },
           ],
         }))

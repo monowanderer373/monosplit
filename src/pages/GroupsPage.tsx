@@ -18,20 +18,28 @@ export default function GroupsPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
-  const sortedGroups = useMemo(
-    () => [...groups].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [groups],
-  )
+  const sortedGroups = useMemo(() => {
+    const sorted = [...groups].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    if (!authUser) return sorted
+    // When logged in, show only: groups I own, groups I'm a member of, or local-only groups (no ownerId yet)
+    return sorted.filter(
+      (g) =>
+        !g.ownerId ||
+        g.ownerId === authUser.id ||
+        g.people.some((p) => p.authUserId === authUser.id),
+    )
+  }, [groups, authUser])
 
   const [joinId, setJoinId] = useState('')
 
   const onCreate = () => {
     const name = newGroup.trim()
     if (!name) return
-    const id = addGroup(name, {
-      startDate: startDate || null,
-      endDate: endDate || null,
-    })
+    const id = addGroup(
+      name,
+      { startDate: startDate || null, endDate: endDate || null },
+      authUser?.id,
+    )
     setNewGroup('')
     setStartDate('')
     setEndDate('')

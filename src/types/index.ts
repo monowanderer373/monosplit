@@ -75,6 +75,7 @@ export interface Group {
   expenses: Expense[]
   comments: GroupComment[]
   createdAt: string
+  ownerId?: string
 }
 
 export interface GroupComment {

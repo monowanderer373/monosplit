@@ -33,11 +33,16 @@ export function useGroupSync(groupId: string | undefined) {
       if (jsonData === lastUploadJson.current) return
       lastUploadJson.current = jsonData
 
+      // Strip local-only ownerId field from the JSONB payload — owner is tracked in the owner_id column
+      const { ownerId: _ownerId, ...groupData } = data
+
       const { error } = await supabase.from('groups').upsert({
         id: data.id,
-        data: data as unknown as Record<string, unknown>,
+        data: groupData as unknown as Record<string, unknown>,
         version: nextVersion,
         updated_at: new Date().toISOString(),
+        // Only set owner_id when we know who owns this group (avoids overwriting others' ownership)
+        ...(data.ownerId ? { owner_id: data.ownerId } : {}),
       })
       if (!error) {
         versionRef.current = nextVersion

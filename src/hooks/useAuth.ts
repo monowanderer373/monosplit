@@ -43,7 +43,7 @@ export function useAuth() {
         .eq('owner_id', userId)
       if (data) {
         data.forEach((row) => {
-          if (row.data) upsertGroup({ ...(row.data as Group), id: row.id })
+          if (row.data) upsertGroup({ ...(row.data as Group), id: row.id, ownerId: userId })
         })
       }
     },
@@ -56,24 +56,9 @@ export function useAuth() {
       return
     }
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      try {
-        if (session?.user) {
-          await fetchProfileAndSet(session.user)
-          await syncOwnedGroups(session.user.id)
-        }
-      } catch (e) {
-        console.warn('[auth] init error', e)
-        // Fall back to basic profile from session so auth resolves
-        if (session?.user) setAuthUser(buildProfile(session.user))
-      } finally {
-        setLoading(false)
-      }
-    }).catch((e) => {
-      console.warn('[auth] getSession error', e)
-      setLoading(false)
-    })
-
+    // Supabase v2: onAuthStateChange fires INITIAL_SESSION on subscription with the
+    // current persisted session — no separate getSession() call needed (that pattern
+    // creates race conditions that can lose the session on page refresh).
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -88,7 +73,13 @@ export function useAuth() {
         }
       } catch (e) {
         console.warn('[auth] state change error', e)
+        // Fall back to a basic profile so the user is not stuck logged-out
         if (session?.user) setAuthUser(buildProfile(session.user))
+      } finally {
+        // INITIAL_SESSION is the startup event; set loading false after it resolves
+        if (event === 'INITIAL_SESSION') {
+          setLoading(false)
+        }
       }
     })
 

@@ -50,6 +50,16 @@ export default function GroupPage() {
   }
 
   const group = useStore((state) => state.groups.find((entry) => entry.id === groupId))
+
+  // Auto-claim: when a logged-in user opens an unclaimed group, silently claim it
+  useEffect(() => {
+    if (!authUser || !groupId) return
+    if (claimStatus !== 'idle') return
+    if (syncStatus !== 'synced' && syncStatus !== 'error') return
+    if (ownerId !== null) return
+    void handleClaim()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id, groupId, syncStatus, ownerId, claimStatus])
   const addPerson = useStore((state) => state.addPerson)
 
   // Auto-join: when arriving via invite link (?autoJoin=true) and logged in, add user as person
