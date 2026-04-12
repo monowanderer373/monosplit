@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CURRENCIES, fetchRate, getCurrencySymbol, type RateResult } from '../lib/currency'
+import { CURRENCIES, getCurrencySymbol, type RateResult } from '../lib/currency'
 import { detectCategory } from '../lib/autoCategory'
 import {
   calcEqualSplits,
@@ -15,7 +15,7 @@ import type { Expense, Group, ItemizedInputMode, PaymentMethod, RateMode, SplitM
 import { EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
 import { useT, tCategory } from '../lib/i18n'
 import SplitExpander from './SplitExpander'
-import type { SplitSheetState } from './AdjustSplitSheet'
+
 
 type Props = {
   group: Group
@@ -135,10 +135,7 @@ export default function ExpenseForm({
   const t = useT()
   const [form, setForm] = useState<FormState>(() => (initialExpense ? expenseToForm(initialExpense) : blankForm(group)))
   const [rateInfo, setRateInfo] = useState<RateResult | null>(null)
-  const [rateError, setRateError] = useState('')
-  const [fetchAttempts, setFetchAttempts] = useState(0)
   const [error, setError] = useState('')
-  const [loadingRate, setLoadingRate] = useState(false)
   // tracks whether the current category was set by auto-detection
   const [autoCatActive, setAutoCatActive] = useState(false)
 
@@ -149,7 +146,6 @@ export default function ExpenseForm({
       setForm(blankForm(group))
     }
     setRateInfo(null)
-    setRateError('')
     setError('')
     setAutoCatActive(false)
   }, [group, initialExpense])
@@ -179,36 +175,6 @@ export default function ExpenseForm({
     }
     return rateInfo?.rate ?? null
   }, [form.manualRate, form.paidCurrency, form.rateMode, form.repayCurrency, rateInfo])
-
-  const perPersonPreview = useMemo(() => {
-    const amount = Number(form.amount)
-    const n = form.splitPersonIds.length
-    const paidSym = getCurrencySymbol(form.paidCurrency)
-    const repaySym = getCurrencySymbol(form.repayCurrency)
-    if (!Number.isFinite(amount) || amount <= 0 || n === 0) return ''
-    if (form.splitMode === 'equal') {
-      const each = amount / n
-      const converted = effectiveRate ? each * effectiveRate : null
-      return converted
-        ? `${paidSym}${formatMoney(each)} ${t('expense.each')} (≈ ${repaySym}${formatMoney(converted)})`
-        : `${paidSym}${formatMoney(each)} ${t('expense.each')}`
-    }
-    if (form.splitMode === 'percentage') {
-      const total = form.splitPersonIds.reduce((s, pid) => s + Number(form.percentageInput[pid] || 0), 0)
-      return `${formatMoney(total, 1)}% of 100% — ${n} people`
-    }
-    if (form.splitMode === 'shares') {
-      const totalShares = form.splitPersonIds.reduce((s, pid) => s + Math.max(0, Number(form.sharesInput[pid] || 0)), 0)
-      return totalShares > 0 ? `${formatMoney(totalShares, 0)} total shares — ${n} people` : `${n} people`
-    }
-    if (form.splitMode === 'adjustment') {
-      return `Equal base + adjustments — ${n} people`
-    }
-    if (form.splitMode === 'itemized') {
-      return `Itemized split — ${n} people`
-    }
-    return ''
-  }, [effectiveRate, form.amount, form.paidCurrency, form.repayCurrency, form.splitMode, form.splitPersonIds, form.percentageInput, form.sharesInput, t])
 
   const itemizedSummary = useMemo(() => {
     if (form.splitMode !== 'itemized') return null
@@ -268,48 +234,8 @@ export default function ExpenseForm({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  const onFetchRate = async () => {
-    setRateError('')
-
-    if (!form.date) {
-      setRateError(t('error.selectDate'))
-      return
-    }
-
-    if (form.paidCurrency === form.repayCurrency) {
-      setRateInfo({ rate: 1, source: 'same', date: form.date })
-      setFetchAttempts(0)
-      return
-    }
-
-    const today = todayISO()
-    if (form.date > today) {
-      setRateError(t('error.futureRate'))
-      return
-    }
-
-    setLoadingRate(true)
-    const result = await fetchRate(form.paidCurrency, form.repayCurrency, form.date)
-    setLoadingRate(false)
-
-    if (!result) {
-      const next = fetchAttempts + 1
-      setFetchAttempts(next)
-      if (next >= 4) {
-        setRateError(t('error.fetchFailedFinal'))
-      } else {
-        setRateError(`${t('error.fetchFailed')} (${next}/4). ${t('error.tryAgain')}`)
-      }
-      return
-    }
-
-    setFetchAttempts(0)
-    setRateInfo(result)
-  }
-
   const submit = () => {
     setError('')
-    setRateError('')
     if (group.people.length === 0) {
       setError(t('error.addTravellers'))
       return
@@ -441,7 +367,6 @@ export default function ExpenseForm({
 
     setForm(blankForm(group))
     setRateInfo(null)
-    setRateError('')
     setError('')
   }
 

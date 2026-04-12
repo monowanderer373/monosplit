@@ -9,7 +9,7 @@ import ExpenseSheet from '../components/ExpenseSheet'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
-import { spawnRipple } from '../lib/ripple'
+
 import { useGroupSync } from '../hooks/useGroupSync'
 import { useAuth } from '../hooks/useAuth'
 

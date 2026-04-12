@@ -1,3 +1,4 @@
+import React from 'react'
 import { useT } from '../lib/i18n'
 import { spawnRipple } from '../lib/ripple'
 
@@ -84,7 +85,7 @@ export default function BottomTabs({ active, onChange, onAddExpenseClick }: Prop
   const tabs: Array<{
     id: Props['active']
     label: string
-    Icon: (props: { active: boolean }) => JSX.Element
+    Icon: (props: { active: boolean }) => React.ReactElement
   }> = [
     { id: 'summary', label: t('tab.summary'), Icon: SummaryIcon },
     { id: 'dashboard', label: t('tab.dashboard'), Icon: DashboardIcon },
