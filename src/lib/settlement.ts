@@ -10,8 +10,9 @@ export function getSettlements(expenses: Expense[]): Settlement[] {
     for (const split of expense.splits) {
       if (payerIds.includes(split.personId) || split.repaid) continue
 
-      const currency = split.repayCurrency || expense.paidCurrency
-      const totalOwed = split.convertedAmount ?? split.amount
+      // Always use the recorded paid currency — repayment conversion is handled in the UI
+      const currency = expense.paidCurrency
+      const totalOwed = split.amount
       if (totalOwed == null || Number.isNaN(totalOwed)) continue
 
       const perPayer = totalOwed / numPayers

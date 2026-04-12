@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { CURRENCIES } from '../lib/currency'
 import { PRESET_AVATARS } from '../lib/avatars'
-import { getPersonNameStyle, PERSON_COLOR_PALETTE } from '../lib/personTheme'
+import { getPersonNameStyle } from '../lib/personTheme'
 import { THEMES } from '../lib/themes'
 import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
@@ -25,15 +25,12 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftAvatarDataUrl, setDraftAvatarDataUrl] = useState<string | null>(null)
-  const [draftColor, setDraftColor] = useState<string | null>(null)
-
   const editingPerson = editingPersonId ? group.people.find((person) => person.id === editingPersonId) || null : null
 
   const openEditPerson = (person: Person) => {
     setEditingPersonId(person.id)
     setDraftName(person.name)
     setDraftAvatarDataUrl(person.avatarDataUrl || null)
-    setDraftColor(person.nameColor || null)
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,28 +235,6 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
                 />
               </label>
 
-              <div>
-                <p className="mb-2 text-sm text-[#6b6058]">{t('people.nameColor')}</p>
-                <div className="grid grid-cols-5 gap-2 sm:grid-cols-8 lg:grid-cols-10">
-                  {PERSON_COLOR_PALETTE.map((color) => (
-                    <button
-                      key={color}
-                      className={`h-8 rounded-full border ${draftColor === color ? 'border-[#2c2520]' : 'border-[#e6e0d5]'}`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setDraftColor(color)}
-                    />
-                  ))}
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <button className="text-xs text-[#6b6058] underline" onClick={() => setDraftColor(null)}>
-                    {t('people.resetColor')}
-                  </button>
-                  <span className="text-sm font-semibold" style={getPersonNameStyle({ nameColor: draftColor })}>
-                    {draftName || editingPerson.name}
-                  </span>
-                </div>
-              </div>
-
               <button
                 className="ms-btn-primary w-full"
                 onClick={() => {
@@ -268,7 +243,7 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
                   onUpdatePersonProfile(editingPerson.id, {
                     name: cleanName,
                     avatarDataUrl: draftAvatarDataUrl,
-                    nameColor: draftColor,
+                    nameColor: null,
                   })
                   setEditingPersonId(null)
                 }}

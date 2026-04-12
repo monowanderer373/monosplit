@@ -152,28 +152,42 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
   }, [group.expenses, repayModal])
 
   const repaidRows = useMemo(() => {
-    const rows: Array<{ key: string; debtorId: string; debtorName: string; creditorId: string; creditorName: string; amount: number; currency: string; date: string }> = []
+    // Aggregate: one entry per (debtor, creditor, currency, repaidDate)
+    const map = new Map<string, { key: string; debtorId: string; debtorName: string; creditorId: string; creditorName: string; amount: number; currency: string; date: string; repaidAt: string }>()
     group.expenses.forEach((expense) => {
       const payerIds = expense.payerIds ?? []
       expense.splits.forEach((split) => {
         if (!split.repaid || payerIds.includes(split.personId)) return
-        const debtorName = group.people.find((person) => person.id === split.personId)?.name ?? 'Unknown'
+        const debtorName = group.people.find((p) => p.id === split.personId)?.name ?? 'Unknown'
+        const currency = expense.paidCurrency
+        const splitAmt = (split.amount ?? 0) / (payerIds.length || 1)
         for (const payerId of payerIds) {
-          const creditorName = group.people.find((person) => person.id === payerId)?.name ?? 'Unknown'
-          rows.push({
-            key: `${expense.id}-${split.personId}-${payerId}`,
-            debtorId: split.personId,
-            debtorName,
-            creditorId: payerId,
-            creditorName,
-            amount: (split.convertedAmount ?? split.amount ?? 0) / payerIds.length,
-            currency: split.repayCurrency || expense.paidCurrency,
-            date: split.repaidDate ?? '',
-          })
+          const creditorName = group.people.find((p) => p.id === payerId)?.name ?? 'Unknown'
+          const date = split.repaidDate ?? ''
+          const aggKey = `${split.personId}|${payerId}|${currency}|${date}`
+          const existing = map.get(aggKey)
+          if (existing) {
+            existing.amount += splitAmt
+          } else {
+            map.set(aggKey, {
+              key: aggKey,
+              debtorId: split.personId,
+              debtorName,
+              creditorId: payerId,
+              creditorName,
+              amount: splitAmt,
+              currency,
+              date,
+              repaidAt: split.repaidAt ?? date,
+            })
+          }
         }
       })
     })
-    return rows.slice(-8).reverse()
+    return [...map.values()]
+      .sort((a, b) => a.repaidAt.localeCompare(b.repaidAt))
+      .slice(-8)
+      .reverse()
   }, [group.expenses, group.people])
 
   const handleMarkRepaid = (debtorId: string, creditorId: string, currency: string) => {
@@ -285,116 +299,121 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
 
       {/* ── Settlement Overview ── */}
       <div className="ms-card-soft">
-        <h2 className="ms-title mb-2">{t('summary.settlementTitle')}</h2>
-        <p className="mb-3 text-sm text-[#6b6058]">
-          {t('summary.settlementDesc')}{' '}
-          <span className="mx-1 font-semibold text-[#5a7a8a]">{t('summary.paid')}</span>{' '}
-          {t('summary.inCyan')}
-        </p>
-
-        <div className="grid grid-cols-1 gap-2 rounded-xl border border-[#e6e0d5] bg-[#f0ece3] p-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058] md:grid-cols-12">
-          <div className="md:col-span-4">{t('summary.item')}</div>
-          <div className="md:col-span-3">
-            <label className="mb-1 block">{t('summary.payer')}</label>
-            <select
-              className="ms-input h-8 w-full py-0 text-sm normal-case tracking-normal"
-              value={settlePayerFilterId}
-              onChange={(e) => setSettlePayerFilterId(e.target.value)}
-            >
-              <option value="all">{t('summary.all')}</option>
-              {group.people.map((person) => (
-                <option key={person.id} value={person.id}>{person.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-5">
-            <label className="mb-1 block">{t('summary.outstandingRepay')}</label>
-            <select
-              className="ms-input h-8 w-full py-0 text-sm normal-case tracking-normal"
-              value={settleRepayFilterId}
-              onChange={(e) => setSettleRepayFilterId(e.target.value)}
-            >
-              <option value="all">{t('summary.all')}</option>
-              {group.people.map((person) => (
-                <option key={person.id} value={person.id}>{person.name}</option>
-              ))}
-            </select>
-          </div>
+        {/* Header row: title + filters inline */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h2 className="ms-title mr-auto">{t('summary.settlementTitle')}</h2>
+          <select
+            className="ms-input h-8 py-0 text-xs"
+            value={settlePayerFilterId}
+            onChange={(e) => setSettlePayerFilterId(e.target.value)}
+          >
+            <option value="all">All payers</option>
+            {group.people.map((person) => (
+              <option key={person.id} value={person.id}>{person.name}</option>
+            ))}
+          </select>
+          <select
+            className="ms-input h-8 py-0 text-xs"
+            value={settleRepayFilterId}
+            onChange={(e) => setSettleRepayFilterId(e.target.value)}
+          >
+            <option value="all">All members</option>
+            {group.people.map((person) => (
+              <option key={person.id} value={person.id}>{person.name}</option>
+            ))}
+          </select>
         </div>
 
-        <div className="mt-2 space-y-1">
-          {settlementRows.length === 0 ? (
-            <div className="py-4 text-sm text-[#6b6058]">{t('summary.noSettlement')}</div>
-          ) : null}
-          {settlementRows.map((row, rowIdx) => (
-            <div
-              key={row.expenseId}
-              className={`grid grid-cols-1 gap-3 rounded-lg px-3 py-3 md:grid-cols-12 md:gap-2 ${
-                rowIdx % 2 === 0
-                  ? 'bg-[rgba(139,110,78,0.10)]'
-                  : 'bg-[rgba(139,110,78,0.03)]'
-              }`}
-            >
-              <div className="md:col-span-4">
-                <p className="text-base font-semibold text-[#2c2520]">{row.description}</p>
-                <p className="text-sm text-[#6b6058]">{row.date}</p>
-              </div>
-              <div className="md:col-span-3">
-                <p className="text-base font-semibold text-[#2c2520]">
-                  {row.payerIds.map((pid, i) => (
-                    <span key={pid} style={getPersonNameStyle(group.people.find((person) => person.id === pid))}>
-                      {i > 0 ? ', ' : ''}
-                      {personNameById[pid] ?? t('card.unknown')}
-                    </span>
-                  ))}
-                </p>
-                <p className="text-lg font-bold text-[#2c2520]">
-                  {getCurrencySymbol(row.paidCurrency)}
-                  {formatMoney(row.amount)}
-                </p>
-              </div>
-              <div className="md:col-span-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('summary.whoOwes')}</p>
-                <ul className="mt-1 space-y-1">
-                  {row.rows.map((line, idx) => (
-                    <li key={`${row.expenseId}-${line.personId}-${idx}`} className="flex items-center justify-between text-sm">
-                      <span
-                        className="font-semibold text-[#3a3330]"
-                        style={getPersonNameStyle(group.people.find((person) => person.id === line.personId))}
-                      >
-                        {personNameById[line.personId] ?? t('card.unknown')}
-                      </span>
-                      {line.repaid ? (
-                        <span className="font-semibold text-[#5a7a8a]">
-                          {t('summary.paid')} (
-                          {getCurrencySymbol(row.repayCurrency)}
-                          {formatMoney(line.amount)})
+        {settlementRows.length === 0 ? (
+          <div className="py-6 text-center text-sm text-[#6b6058]">{t('summary.noSettlement')}</div>
+        ) : (
+          <div className="space-y-3">
+            {settlementRows.map((row) => {
+              const isFullySettled = row.outstandingTotal <= 0
+              return (
+                <div
+                  key={row.expenseId}
+                  className="overflow-hidden rounded-2xl border"
+                  style={{
+                    borderColor: isFullySettled ? 'rgba(80,106,70,0.30)' : 'rgba(158,74,74,0.22)',
+                    background: isFullySettled ? 'rgba(80,106,70,0.05)' : 'rgba(158,74,74,0.04)',
+                  }}
+                >
+                  {/* Card header */}
+                  <div
+                    className="flex items-center gap-3 px-4 py-3"
+                    style={{ borderBottom: `1px solid ${isFullySettled ? 'rgba(80,106,70,0.18)' : 'rgba(158,74,74,0.12)'}` }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-[#2c2520]">{row.description}</p>
+                      <p className="text-xs text-[#9a9088]">
+                        Paid by{' '}
+                        {row.payerIds.map((pid, i) => (
+                          <span key={pid} className="font-medium text-[#6b6058]">
+                            {i > 0 ? ', ' : ''}{personNameById[pid] ?? '?'}
+                          </span>
+                        ))}
+                        {' '}· {row.date}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-bold text-[#2c2520]">
+                        {getCurrencySymbol(row.paidCurrency)}{formatMoney(row.amount)}
+                      </p>
+                      {isFullySettled ? (
+                        <span className="inline-block rounded-full bg-[rgba(80,106,70,0.15)] px-2 py-0.5 text-[10px] font-semibold text-[#4e6642]">
+                          ✓ Settled
                         </span>
                       ) : (
-                        <span className="font-semibold text-[#8a3a3a]">
-                          {getCurrencySymbol(row.repayCurrency)}
-                          {formatMoney(line.amount)}
-                        </span>
+                        <p className="text-xs font-bold text-[#9e4a4a]">
+                          {getCurrencySymbol(row.paidCurrency)}{formatMoney(row.outstandingTotal)} due
+                        </p>
                       )}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('summary.totalOutstanding')}</p>
-                {row.outstandingTotal > 0 ? (
-                  <p className="text-2xl font-bold text-[#8a3a3a]">
-                    {getCurrencySymbol(row.repayCurrency)}
-                    {formatMoney(row.outstandingTotal)}
-                  </p>
-                ) : (
-                  <p className="text-lg font-bold text-[#5a7a8a]">
-                    {t('summary.paid')}
-                    {row.paidCount > 0 ? ` (${row.paidCount})` : ''}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+                    </div>
+                  </div>
+
+                  {/* Debtor rows */}
+                  <div>
+                    {row.rows.map((line, idx) => {
+                      const person = group.people.find((p) => p.id === line.personId)
+                      const initial = (person?.name ?? '?').slice(0, 1).toUpperCase()
+                      return (
+                        <div
+                          key={`${row.expenseId}-${line.personId}-${idx}`}
+                          className="flex items-center gap-3 px-4 py-2.5"
+                          style={{
+                            borderTop: idx > 0 ? `1px solid ${isFullySettled ? 'rgba(80,106,70,0.10)' : 'rgba(139,110,78,0.10)'}` : undefined,
+                            background: line.repaid ? 'rgba(80,106,70,0.04)' : 'transparent',
+                          }}
+                        >
+                          <div
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                            style={{
+                              background: line.repaid ? 'rgba(80,106,70,0.15)' : 'rgba(139,110,78,0.12)',
+                              color: line.repaid ? '#4e6642' : '#5a4838',
+                            }}
+                          >
+                            {initial}
+                          </div>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#2c2520]">
+                            {person?.name ?? t('card.unknown')}
+                          </span>
+                          {line.repaid ? (
+                            <span className="shrink-0 text-sm font-semibold text-[#4e6642]">✓ Paid</span>
+                          ) : (
+                            <span className="shrink-0 text-sm font-bold text-[#9e4a4a]">
+                              {getCurrencySymbol(row.paidCurrency)}{formatMoney(line.amount)}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Outstanding Dashboard ── */}

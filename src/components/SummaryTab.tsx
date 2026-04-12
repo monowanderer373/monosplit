@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchRate, getCurrencySymbol } from '../lib/currency'
+import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { tCategory, useT } from '../lib/i18n'
 import { getPersonNameStyle } from '../lib/personTheme'
@@ -22,14 +22,18 @@ const CATEGORY_COLORS: Record<string, { bg: string; accent: string; border: stri
   Other:          { bg: 'rgba(110,92,72,0.07)',   accent: '#56432a', border: 'rgba(110,92,72,0.20)',   left: '#6e5838' },  // warm stone
 }
 
+// Settled bill overlay — muted olive-sage, warm and readable, not overpowering
+const SETTLED_COLORS = {
+  bg:     'rgba(80, 106, 70, 0.11)',   // soft sage wash
+  border: 'rgba(80, 106, 70, 0.30)',   // sage border
+  left:   '#617a52',                   // olive-sage left bar
+  accent: '#4e6642',                   // muted sage text
+}
+
 type Props = {
   group: Group
   onDeleteExpense: (expenseId: string) => void
   onEditExpense: (expenseId: string, updates: Partial<Expense>) => void
-}
-
-function round2(value: number): number {
-  return Number(value.toFixed(2))
 }
 
 function formatDateLabel(isoDate: string): string {
@@ -45,18 +49,6 @@ function formatDateLabel(isoDate: string): string {
   })
 }
 
-function calcConvertedSplitAmount(
-  split: { convertedAmount: number | null; amount: number | null; rate: number | null },
-  expenseRate: number | null,
-  sameCurrency: boolean,
-): number | null {
-  if (split.convertedAmount != null) return split.convertedAmount
-  if (sameCurrency) return split.amount
-  if (split.amount != null && split.rate != null) return round2(split.amount * split.rate)
-  if (split.amount != null && expenseRate != null) return round2(split.amount * expenseRate)
-  return null
-}
-
 export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Props) {
   const t = useT()
   const lang = useStore((s) => s.lang)
@@ -64,7 +56,6 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
   const [selectedDate, setSelectedDate] = useState<'All' | string>('All')
   const [openDateMap, setOpenDateMap] = useState<Record<string, boolean>>({})
   const [openExpenseMap, setOpenExpenseMap] = useState<Record<string, boolean>>({})
-  const [onlineRateByExpenseId, setOnlineRateByExpenseId] = useState<Record<string, number>>({})
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [showCategoryFilter, setShowCategoryFilter] = useState(false)
   const [showDateFilter, setShowDateFilter] = useState(false)
@@ -84,37 +75,6 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    const run = async () => {
-      const targets = group.expenses.filter((expense) => {
-        if (expense.paidCurrency === expense.repayCurrency) return false
-        const storedRate = expense.splits.find((split) => split.rate != null)?.rate
-        return storedRate == null && onlineRateByExpenseId[expense.id] == null
-      })
-      if (targets.length === 0) return
-
-      const results = await Promise.all(
-        targets.map(async (expense) => {
-          const result = await fetchRate(expense.paidCurrency, expense.repayCurrency, expense.date || 'latest')
-          return { expenseId: expense.id, rate: result?.rate ?? null }
-        }),
-      )
-      if (cancelled) return
-
-      setOnlineRateByExpenseId((prev) => {
-        const next = { ...prev }
-        for (const row of results) {
-          if (row.rate != null) next[row.expenseId] = row.rate
-        }
-        return next
-      })
-    }
-    void run()
-    return () => {
-      cancelled = true
-    }
-  }, [group.expenses, onlineRateByExpenseId])
 
   const filteredExpenses = useMemo(() => {
     return group.expenses.filter((expense) => {
@@ -163,9 +123,6 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
   }, [group.endDate, group.expenses, group.startDate])
 
   const editingExpense = editingExpenseId ? group.expenses.find((expense) => expense.id === editingExpenseId) || null : null
-
-  const getExpenseRate = (expenseId: string, fallbackRate: number | null): number | null =>
-    fallbackRate ?? onlineRateByExpenseId[expenseId] ?? null
 
   return (
     <section className="space-y-3 pb-24 lg:pb-0">
@@ -332,49 +289,65 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                         const cat = normalizeCategory(expense.category)
                         const cc = CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.Other
                         const payers = (expense.payerIds ?? []).map((pid) => group.people.find((p) => p.id === pid)).filter(Boolean)
-                        const storedRate = expense.splits.find((s) => s.rate != null)?.rate ?? null
-                        const expenseRate = getExpenseRate(expense.id, storedRate)
                         const openExpense = openExpenseMap[expense.id] ?? false
-                        const sameCurrency = expense.paidCurrency === expense.repayCurrency
+                        // Always show in paidCurrency — repayment conversion only happens in Settle-up
+                        const displayCurrency = expense.paidCurrency
 
-                        const outstandingTotal = expense.splits
-                          .filter((s) => !(expense.payerIds ?? []).includes(s.personId) && !s.repaid)
-                          .reduce((sum, s) => sum + (calcConvertedSplitAmount(s, expenseRate, sameCurrency) ?? 0), 0)
+                        const debtorSplits = expense.splits.filter((s) => !(expense.payerIds ?? []).includes(s.personId))
+                        const isFullySettled = debtorSplits.length > 0 && debtorSplits.every((s) => s.repaid)
+                        const activeColors = isFullySettled ? SETTLED_COLORS : cc
+
+                        const outstandingTotal = debtorSplits
+                          .filter((s) => !s.repaid)
+                          .reduce((sum, s) => sum + (s.amount ?? 0), 0)
 
                         return (
                           <div
                             key={expense.id}
                             className={`ms-expense-card ${openExpense ? 'ms-expense-card--open' : ''}`}
                             style={{
-                              background: cc.bg,
-                              border: `1px solid ${cc.border}`,
+                              background: activeColors.bg,
+                              border: `1px solid ${activeColors.border}`,
                               borderLeftWidth: '3px',
-                              borderLeftColor: cc.left,
+                              borderLeftColor: activeColors.left,
                             }}
                           >
                             {/* Expense row header */}
                             <button
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
+                              className="flex w-full flex-col gap-1 px-3 py-2.5 text-left"
                               onClick={() => setOpenExpenseMap((prev) => ({ ...prev, [expense.id]: !openExpense }))}
                             >
-                              <span className="shrink-0 text-base">{CATEGORY_ICONS[cat]}</span>
-                              <span className="min-w-0 flex-1 truncate font-medium text-[#2c2520]">{expense.description}</span>
-                              <span
-                                className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold"
-                                style={{ background: cc.border, color: cc.accent }}
-                              >
-                                {tCategory(cat)}
-                              </span>
-                              <span className="shrink-0 font-bold text-[#2c2520]">
-                                {getCurrencySymbol(expense.paidCurrency)}{formatMoney(expense.amount)}
-                              </span>
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="#6b6058" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                                className={`ms-day-chevron shrink-0 ${openExpense ? 'ms-day-chevron--open' : ''}`}
-                              >
-                                <polyline points="6 9 12 15 18 9"/>
-                              </svg>
+                              {/* Row 1: icon + description + chevron */}
+                              <div className="flex w-full items-center gap-2">
+                                <span className="shrink-0 text-base leading-none">{CATEGORY_ICONS[cat]}</span>
+                                <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-[#2c2520]">
+                                  {expense.description}
+                                </span>
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                  fill="none" stroke="#6b6058" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                  className={`ms-day-chevron shrink-0 ${openExpense ? 'ms-day-chevron--open' : ''}`}
+                                >
+                                  <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                              </div>
+                              {/* Row 2: category badge + settled badge + amount */}
+                              <div className="flex items-center gap-2 pl-6">
+                                <span
+                                  className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold"
+                                  style={{ background: activeColors.border, color: activeColors.accent }}
+                                >
+                                  {tCategory(cat)}
+                                </span>
+                                {isFullySettled && (
+                                  <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold" style={{ background: 'rgba(80,106,70,0.18)', color: '#4e6642' }}>
+                                    ✓ Settled
+                                  </span>
+                                )}
+                                <span className="ml-auto shrink-0 text-sm font-bold text-[#2c2520]">
+                                  {getCurrencySymbol(expense.paidCurrency)}{formatMoney(expense.amount)}
+                                </span>
+                              </div>
                             </button>
 
                             {/* Expandable split detail */}
@@ -382,7 +355,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                               <div className="ms-exp-inner">
                                 <div
                                   className="space-y-2 px-3 pb-3 pt-2"
-                                  style={{ borderTop: `1px solid ${cc.border}` }}
+                                  style={{ borderTop: `1px solid ${activeColors.border}` }}
                                 >
                                   {/* Top row: paid-by + edit button */}
                                   <div className="flex items-center justify-between gap-2">
@@ -411,55 +384,56 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                   {/* Payer rows */}
                                   {payers.map((payer) => {
                                     const payerSplit = expense.splits.find((s) => s.personId === payer!.id)
-                                    const payerAmt = payerSplit != null
-                                      ? calcConvertedSplitAmount(payerSplit, expenseRate, sameCurrency)
-                                      : null
+                                    const payerAmt = payerSplit?.amount ?? null
                                     return (
                                       <div key={payer!.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(240,234,222,0.7)' }}>
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-sm font-semibold" style={getPersonNameStyle(payer)}>{payer!.name}</span>
-                                          <span className="rounded px-1 py-0.5 text-xs font-semibold" style={{ background: cc.border, color: cc.accent }}>
+                                          <span className="rounded px-1 py-0.5 text-xs font-semibold" style={{ background: activeColors.border, color: activeColors.accent }}>
                                             {t('summary.payer')}
                                           </span>
                                         </div>
                                         <span className="text-sm font-semibold text-[#2c2520]">
-                                          {payerAmt != null ? `${getCurrencySymbol(expense.repayCurrency)}${formatMoney(payerAmt)}` : '-'}
+                                          {payerAmt != null ? `${getCurrencySymbol(displayCurrency)}${formatMoney(payerAmt)}` : '-'}
                                         </span>
                                       </div>
                                     )
                                   })}
 
-                                  {/* Debtor rows */}
+                                  {/* Debtor rows — paid first, unpaid below */}
                                   {expense.splits
                                     .filter((s) => !(expense.payerIds ?? []).includes(s.personId))
+                                    .slice()
+                                    .sort((a, b) => (b.repaid ? 1 : 0) - (a.repaid ? 1 : 0))
                                     .map((split, idx) => {
                                       const person = group.people.find((entry) => entry.id === split.personId)
-                                      const convAmt = calcConvertedSplitAmount(split, expenseRate, sameCurrency)
+                                      const amtStr = split.amount != null ? `${getCurrencySymbol(displayCurrency)}${formatMoney(split.amount)}` : '-'
                                       return (
                                         <div key={`${expense.id}-${split.personId}-${idx}`} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(240,234,222,0.45)' }}>
                                           <span className="text-sm font-medium" style={getPersonNameStyle(person)}>
                                             {person?.name ?? t('card.unknown')}
                                           </span>
-                                          <div className="flex items-center gap-2">
-                                            <span className={`text-xs font-semibold ${split.repaid ? 'text-[#3a6a3a]' : 'text-[#9e4a4a]'}`}>
-                                              {split.repaid ? t('summary.paid') : t('summary.unpaid')}
+                                          {split.repaid ? (
+                                            <span className="text-sm font-semibold text-[#3a6a3a]">
+                                              {t('summary.paid')} ({amtStr})
                                             </span>
-                                            <span className="text-sm font-semibold text-[#2c2520]">
-                                              {convAmt != null ? `${getCurrencySymbol(expense.repayCurrency)}${formatMoney(convAmt)}` : '-'}
+                                          ) : (
+                                            <span className="text-sm font-bold text-[#9e4a4a]">
+                                              {amtStr}
                                             </span>
-                                          </div>
+                                          )}
                                         </div>
                                       )
                                     })}
 
-                                  {/* Balance to repay */}
+                                  {/* Outstanding amount */}
                                   {outstandingTotal > 0 && (
                                     <>
-                                      <div style={{ borderTop: `1px solid ${cc.border}` }} className="mt-1" />
+                                      <div style={{ borderTop: `1px solid ${activeColors.border}` }} className="mt-1" />
                                       <div className="flex items-center justify-between px-1">
-                                        <span className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Balance to repay</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">Outstanding Amount</span>
                                         <span className="font-bold text-[#9e4a4a]">
-                                          {getCurrencySymbol(expense.repayCurrency)}{formatMoney(outstandingTotal)}
+                                          {getCurrencySymbol(displayCurrency)}{formatMoney(outstandingTotal)}
                                         </span>
                                       </div>
                                     </>

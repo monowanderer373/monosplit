@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useT } from '../lib/i18n'
 import { spawnRipple } from '../lib/ripple'
 
@@ -71,16 +71,61 @@ function AddExpenseIcon() {
   )
 }
 
+// FAB icon — payment card (Settle Up page)
+function SettlePayIcon() {
+  return (
+    <svg
+      className="h-[26px] w-[26px] text-[#faf8f4]"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
+    </svg>
+  )
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 type Props = {
   active: 'summary' | 'dashboard' | 'settle' | 'profile'
   onChange: (tab: 'summary' | 'dashboard' | 'settle' | 'profile') => void
   onAddExpenseClick: () => void
+  onSettlePayClick: () => void
+  /** When true the FAB is visually hidden so the morph circle can take over */
+  fabHidden?: boolean
 }
 
-export default function BottomTabs({ active, onChange, onAddExpenseClick }: Props) {
+export default function BottomTabs({ active, onChange, onAddExpenseClick, onSettlePayClick, fabHidden = false }: Props) {
   const t = useT()
+
+  // Which icon the FAB currently shows (lags behind `active` during morph)
+  const [fabIcon, setFabIcon] = useState<'add' | 'settle'>(active === 'settle' ? 'settle' : 'add')
+  // When true → scale-0 (shrinking out); when false → scale-100 (growing in)
+  const [fabShrunk, setFabShrunk] = useState(false)
+  const prevIsSettle = useRef(active === 'settle')
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  useEffect(() => {
+    const isSettle = active === 'settle'
+    if (isSettle === prevIsSettle.current) return
+    prevIsSettle.current = isSettle
+
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+
+    // Step 1: shrink FAB to zero
+    setFabShrunk(true)
+    // Step 2: halfway through — swap icon while invisible, then grow back
+    timers.current.push(
+      setTimeout(() => {
+        setFabIcon(isSettle ? 'settle' : 'add')
+        setFabShrunk(false)
+      }, 180),
+    )
+
+    return () => timers.current.forEach(clearTimeout)
+  }, [active])
 
   const tabs: Array<{
     id: Props['active']
@@ -95,14 +140,27 @@ export default function BottomTabs({ active, onChange, onAddExpenseClick }: Prop
 
   return (
     <>
-      {/* Floating Action Button — fixed above nav bar, bottom-right */}
+      {/* Floating Action Button — morphs icon when switching to/from Settle Up */}
       <button
         className="ms-fab"
-        aria-label={t('tab.addExpense')}
-        onPointerDown={(e) => spawnRipple(e)}
-        onClick={() => onAddExpenseClick()}
+        aria-label={fabIcon === 'settle' ? 'Record payment' : t('tab.addExpense')}
+        onPointerDown={(e) => { if (!fabHidden) spawnRipple(e) }}
+        onClick={() => {
+          if (fabHidden) return
+          if (fabIcon === 'settle') {
+            onSettlePayClick()
+          } else {
+            onAddExpenseClick()
+          }
+        }}
+        style={{
+          transform: fabShrunk || fabHidden ? 'scale(0)' : 'scale(1)',
+          transition: 'transform 180ms cubic-bezier(0.4, 0, 0.2, 1)',
+          willChange: 'transform',
+          pointerEvents: fabHidden ? 'none' : 'auto',
+        }}
       >
-        <AddExpenseIcon />
+        {fabIcon === 'settle' ? <SettlePayIcon /> : <AddExpenseIcon />}
       </button>
 
       {/* Bottom nav pill */}

@@ -38,6 +38,8 @@ type AppState = {
   markSplitRepaid: (groupId: string, expenseId: string, splitIndex: number, repaidDate: string) => void
   unmarkSplitRepaid: (groupId: string, expenseId: string, splitIndex: number) => void
   markSettlementPairRepaid: (groupId: string, debtorId: string, creditorId: string, currency: string, repaidDate: string) => void
+  markAllDebtorSplitsRepaid: (groupId: string, debtorId: string, repaidDate: string) => void
+  markRedirectRepaid: (groupId: string, fromCreditorIds: string[], toPersonId: string, amountInPaidCurrency: number, currency: string, repaidDate: string) => void
   setPersonSkipRepaidConfirm: (groupId: string, personId: string, skip: boolean) => void
   addGroupComment: (groupId: string, personId: string, message: string) => void
 }
@@ -335,7 +337,7 @@ export const useStore = create<AppState>()(
               return {
                 ...expense,
                 splits: expense.splits.map((split) => {
-                  const cur = split.repayCurrency || expense.paidCurrency
+                  const cur = expense.paidCurrency
                   const shouldMark = split.personId === debtorId && !split.repaid && cur === currency
                   if (!shouldMark) return split
                   return {
@@ -347,6 +349,55 @@ export const useStore = create<AppState>()(
                 }),
               }
             }),
+          })),
+        }))
+      },
+      markRedirectRepaid: (groupId, fromCreditorIds, toPersonId, amountInPaidCurrency, currency, repaidDate) => {
+        set((state) => ({
+          groups: updateGroupById(state.groups, groupId, (group) => {
+            let remaining = amountInPaidCurrency
+            return {
+              ...group,
+              expenses: group.expenses.map((expense) => {
+                if (remaining <= 0.001) return expense
+                if (!(expense.payerIds ?? []).includes(toPersonId)) return expense
+                if (expense.paidCurrency !== currency) return expense
+                return {
+                  ...expense,
+                  splits: expense.splits.map((split) => {
+                    if (remaining <= 0.001) return split
+                    if (!fromCreditorIds.includes(split.personId) || split.repaid) return split
+                    const splitAmt = split.amount ?? 0
+                    remaining -= splitAmt
+                    return {
+                      ...split,
+                      repaid: true,
+                      repaidAt: new Date().toISOString(),
+                      repaidDate: repaidDate || todayISO(),
+                    }
+                  }),
+                }
+              }),
+            }
+          }),
+        }))
+      },
+      markAllDebtorSplitsRepaid: (groupId, debtorId, repaidDate) => {
+        set((state) => ({
+          groups: updateGroupById(state.groups, groupId, (group) => ({
+            ...group,
+            expenses: group.expenses.map((expense) => ({
+              ...expense,
+              splits: expense.splits.map((split) => {
+                if (split.personId !== debtorId || split.repaid) return split
+                return {
+                  ...split,
+                  repaid: true,
+                  repaidAt: new Date().toISOString(),
+                  repaidDate: repaidDate || todayISO(),
+                }
+              }),
+            })),
           })),
         }))
       },

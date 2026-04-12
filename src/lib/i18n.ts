@@ -51,7 +51,7 @@ const translations = {
 
   // ── Desktop Tabs ──
   'desktopTab.summary': { en: 'Summary', zh: '摘要' },
-  'desktopTab.dashboard': { en: 'Group Info', zh: '群组信息' },
+  'desktopTab.dashboard': { en: 'Dashboard', zh: '仪表盘' },
   'desktopTab.settle': { en: 'Settle-up', zh: '结算' },
   'desktopTab.profile': { en: 'Profile', zh: '设置' },
 
@@ -242,7 +242,7 @@ const translations = {
   'lang.zh': { en: '简体中文', zh: '简体中文' },
 
   // ── Dashboard Tab ──
-  'dash.title': { en: 'Group Info', zh: '群组信息' },
+  'dash.title': { en: 'Dashboard', zh: '仪表盘' },
   'dash.addFirst': { en: 'Please add travellers in Profile first.', zh: '请先在设置中添加旅伴。' },
   'dash.sharedComments': { en: 'Shared trip comments.', zh: '旅程共享留言。' },
   'dash.noComments': { en: 'No comments yet.', zh: '暂无留言。' },

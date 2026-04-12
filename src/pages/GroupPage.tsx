@@ -6,6 +6,7 @@ import SettleTab from '../components/SettleTab'
 import SummaryTab from '../components/SummaryTab'
 import DashboardTab from '../components/DashboardTab'
 import ExpenseSheet from '../components/ExpenseSheet'
+import SettlePaySheet from '../components/SettlePaySheet'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
@@ -22,11 +23,11 @@ export default function GroupPage() {
   const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<Tab>('summary')
   const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
+  const [settlePayOpen, setSettlePayOpen] = useState(false)
   const [groupEditOpen, setGroupEditOpen] = useState(false)
   const [editName, setEditName] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
-  const [inviteLinkCopied, setInviteLinkCopied] = useState(false)
 
   const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId)
   const { authUser, loading: authLoading, claimGroup } = useAuth()
@@ -62,18 +63,22 @@ export default function GroupPage() {
   }, [authUser?.id, groupId, syncStatus, ownerId, claimStatus])
   const addPerson = useStore((state) => state.addPerson)
 
-  // Auto-join: when arriving via invite link (?autoJoin=true) and logged in, add user as person
+  // Auto-join: add logged-in user as a group member if they aren't one yet.
+  // Triggered by invite link (?autoJoin=true) OR when the user is the group owner.
   useEffect(() => {
-    if (searchParams.get('autoJoin') !== 'true') return
     if (!authUser || !group || !groupId) return
+    const isInviteJoin = searchParams.get('autoJoin') === 'true'
+    const isOwner = group.ownerId === authUser.id || ownerId === authUser.id
+    if (!isInviteJoin && !isOwner) return
     const alreadyMember = group.people.some((p) => p.authUserId === authUser.id)
     if (!alreadyMember) {
-      const name = authUser.displayName ?? authUser.email ?? 'Traveller'
+      const name = authUser.displayName ?? authUser.email?.split('@')[0] ?? 'Traveller'
       addPerson(groupId, name, authUser.id)
     }
-    // Clean up the query param without re-rendering
-    navigate(`/group/${groupId}`, { replace: true })
-  }, [searchParams, authUser, group, groupId, addPerson, navigate])
+    if (isInviteJoin) {
+      navigate(`/group/${groupId}`, { replace: true })
+    }
+  }, [searchParams, authUser, group, groupId, addPerson, navigate, ownerId])
   const updatePersonProfile = useStore((state) => state.updatePersonProfile)
   const removePerson = useStore((state) => state.removePerson)
   const updatePersonPaymentInfo = useStore((state) => state.updatePersonPaymentInfo)
@@ -105,16 +110,6 @@ export default function GroupPage() {
     }
   }
 
-  const copyInviteLink = async () => {
-    const url = `${window.location.origin}/invite/${groupId}`
-    try {
-      await navigator.clipboard.writeText(url)
-      setInviteLinkCopied(true)
-      setTimeout(() => setInviteLinkCopied(false), 2000)
-    } catch {
-      window.prompt(t('group.copyPrompt'), url)
-    }
-  }
 
   if (!group) {
     return (
@@ -140,9 +135,6 @@ export default function GroupPage() {
             <div className="flex items-center gap-2">
               <button className="ms-btn-ghost" onClick={copyShareLink}>
                 {linkCopied ? t('group.copied') : t('group.shareLink')}
-              </button>
-              <button className="ms-btn-ghost" onClick={copyInviteLink} title={t('auth.inviteLink')}>
-                {inviteLinkCopied ? t('group.copied') : t('auth.invite')}
               </button>
               <button className="ms-btn-ghost" onClick={openEditPanel}>
                 {t('group.edit')}
@@ -174,9 +166,6 @@ export default function GroupPage() {
                 <div className="flex items-center gap-2">
                   <button className="ms-btn-ghost" onClick={copyShareLink}>
                     {linkCopied ? t('group.copied') : t('group.share')}
-                  </button>
-                  <button className="ms-btn-ghost" onClick={copyInviteLink}>
-                    {inviteLinkCopied ? t('group.copied') : t('auth.invite')}
                   </button>
                   <button className="ms-btn-ghost" onClick={openEditPanel}>
                     {t('group.edit')}
@@ -230,6 +219,7 @@ export default function GroupPage() {
           {activeTab === 'dashboard' ? (
             <DashboardTab
               group={group}
+              authUserId={authUser?.id}
               onUpdatePersonPaymentInfo={(personId, updates) => updatePersonPaymentInfo(group.id, personId, updates)}
               onAddComment={(personId, message) => addGroupComment(group.id, personId, message)}
             />
@@ -286,6 +276,15 @@ export default function GroupPage() {
         active={activeTab}
         onChange={setActiveTab}
         onAddExpenseClick={() => setExpenseComposerOpen(true)}
+        onSettlePayClick={() => setSettlePayOpen(true)}
+        fabHidden={settlePayOpen}
+      />
+
+      <SettlePaySheet
+        isOpen={settlePayOpen}
+        group={group}
+        authUserId={authUser?.id}
+        onClose={() => setSettlePayOpen(false)}
       />
 
       <ExpenseSheet
