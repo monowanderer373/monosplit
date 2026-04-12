@@ -4,10 +4,10 @@ export type Lang = 'en' | 'zh'
 
 const translations = {
   // ── Bottom Tabs ──
-  'tab.summary': { en: 'Summary', zh: '摘要' },
-  'tab.dashboard': { en: 'Group\nInfo', zh: '群组\n信息' },
-  'tab.settle': { en: 'Settle', zh: '结算' },
-  'tab.profile': { en: 'Profile', zh: '设置' },
+  'tab.summary': { en: 'SUMMARY', zh: '摘要' },
+  'tab.dashboard': { en: 'DASHBOARD', zh: '群组' },
+  'tab.settle': { en: 'SETTLE UP', zh: '结算' },
+  'tab.profile': { en: 'PROFILE', zh: '设置' },
   'tab.addExpense': { en: 'Add expense', zh: '添加支出' },
 
   // ── Groups Page ──

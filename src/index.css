@@ -351,6 +351,67 @@ body {
       0 2px 3px 0px rgba(44, 37, 32, 0.06);
   }
 
+  /* ── Nav pill — dark active tab (Solid Vintage design) ── */
+  .ms-nav-active {
+    background: var(--ms-text) !important;
+    box-shadow:
+      0 1px 0px 0px rgba(255,255,255,0.10) inset,
+      0 -1px 0px 0px rgba(0,0,0,0.45) inset,
+      1px 0 0px 0px rgba(255,255,255,0.06) inset,
+      -1px 0 0px 0px rgba(255,255,255,0.06) inset,
+      0 4px 0px 0px rgba(0,0,0,0.55),
+      0 5px 2px 0px rgba(0,0,0,0.18),
+      0 7px 12px 0px rgba(0,0,0,0.14) !important;
+  }
+  .ms-nav-active:active,
+  .ms-nav-active.pressed {
+    background: var(--ms-text) !important;
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0px 0px rgba(255,255,255,0.10) inset,
+      0 -1px 0px 0px rgba(0,0,0,0.45) inset,
+      1px 0 0px 0px rgba(255,255,255,0.06) inset,
+      -1px 0 0px 0px rgba(255,255,255,0.06) inset,
+      0 1px 0px 0px rgba(0,0,0,0.55),
+      0 2px 3px 0px rgba(0,0,0,0.12) !important;
+  }
+
+  /* ── Floating Action Button ── */
+  .ms-fab {
+    position: fixed;
+    right: 1.25rem;
+    bottom: calc(env(safe-area-inset-bottom) + 58px);
+    z-index: 31;
+    width: 54px;
+    height: 54px;
+    background: var(--ms-accent);
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0px 0px rgba(255,255,255,0.14) inset,
+      0 -1px 0px 0px var(--ms-accent-hover) inset,
+      0 6px 18px rgba(44, 37, 32, 0.45),
+      0 3px 8px rgba(44, 37, 32, 0.28);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .ms-fab:active {
+    transform: scale(0.93) translateY(2px);
+    box-shadow:
+      0 1px 0px 0px rgba(255,255,255,0.10) inset,
+      0 -1px 0px 0px var(--ms-accent-hover) inset,
+      0 2px 8px rgba(44, 37, 32, 0.32),
+      0 1px 4px rgba(44, 37, 32, 0.20);
+  }
+  .ms-fab .ripple {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
   .ms-chip {
     @apply border px-3 py-1.5 text-sm;
     border-color: var(--ms-border);
@@ -522,6 +583,38 @@ body {
 /* Chip: rounded pill */
 [data-theme="calling-of-dungeons"] .ms-chip {
   border-radius: 10px !important;
+}
+
+/* Nav active: teal dark for Dungeons */
+[data-theme="calling-of-dungeons"] .ms-nav-active {
+  background: #2e5a64 !important;
+  box-shadow:
+    0 1px 0px 0px rgba(255,255,255,0.10) inset,
+    0 -1px 0px 0px #254a54 inset,
+    1px 0 0px 0px #2a5058 inset,
+    -1px 0 0px 0px #2a5058 inset,
+    0 4px 0px 0px #1e4048,
+    0 5px 2px 0px rgba(0,0,0,0.16),
+    0 7px 12px 0px rgba(0,0,0,0.10) !important;
+}
+[data-theme="calling-of-dungeons"] .ms-nav-active:active,
+[data-theme="calling-of-dungeons"] .ms-nav-active.pressed {
+  background: #264e58 !important;
+  box-shadow:
+    0 1px 0px 0px rgba(255,255,255,0.10) inset,
+    0 -1px 0px 0px #254a54 inset,
+    1px 0 0px 0px #2a5058 inset,
+    -1px 0 0px 0px #2a5058 inset,
+    0 1px 0px 0px #1e4048,
+    0 2px 3px 0px rgba(0,0,0,0.10) !important;
+}
+[data-theme="calling-of-dungeons"] .ms-fab {
+  background: var(--ms-accent);
+  box-shadow:
+    0 1px 0px 0px rgba(255,255,255,0.10) inset,
+    0 -1px 0px 0px #25505a inset,
+    0 6px 18px rgba(0,0,0,0.35),
+    0 3px 8px rgba(0,0,0,0.22);
 }
 
 /* Bottom bar: solid rounded border, no pencil */
@@ -1079,6 +1172,32 @@ body {
   box-shadow:
     inset 2px 2px 4px rgba(30, 70, 70, 0.30),
     2px 2px 6px rgba(74, 139, 139, 0.25);
+}
+
+/* ── Nav active: deep navy for Glacial ── */
+[data-theme="glacial"] .ms-nav-active {
+  background: linear-gradient(145deg, #1A426E, #265D9B) !important;
+  box-shadow:
+    inset 2px 2px 5px rgba(17, 44, 75, 0.45),
+    3px 3px 8px rgba(26, 66, 110, 0.30) !important;
+}
+[data-theme="glacial"] .ms-nav-active:active,
+[data-theme="glacial"] .ms-nav-active.pressed {
+  background: linear-gradient(145deg, #1A426E, #265D9B) !important;
+  box-shadow:
+    inset 3px 3px 7px rgba(17, 44, 75, 0.50),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.10) !important;
+}
+[data-theme="glacial"] .ms-fab {
+  background: var(--ms-accent);
+  box-shadow:
+    6px 6px 15px rgba(26, 66, 110, 0.40),
+    -3px -3px 8px rgba(255, 255, 255, 0.55);
+}
+[data-theme="glacial"] .ms-fab:active {
+  box-shadow:
+    inset 3px 3px 7px rgba(17, 44, 75, 0.40),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.12);
 }
 
 /* ── Bottom nav: neumorphic bar ── */

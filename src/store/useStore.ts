@@ -89,7 +89,7 @@ export const useStore = create<AppState>()(
     (set) => ({
       lang: 'en' as 'en' | 'zh',
       setLang: (lang: 'en' | 'zh') => set({ lang }),
-      themeId: 'glacial',
+      themeId: 'solid-vintage',
       setThemeId: (id: string) => set({ themeId: id }),
       groups: [],
       addGroup: (name, options) => {
