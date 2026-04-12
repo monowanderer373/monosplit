@@ -17,7 +17,7 @@
   --ms-surface: #faf8f4;
   --ms-surface-dim: #f0ece3;
   --ms-border: #d8d0c4;
-  --ms-day-bar: #e8d5cc;
+  --ms-day-bar: #ddd4b8;
   --ms-border-light: #e6e0d5;
   --ms-text: #2c2520;
   --ms-text-secondary: #6b6058;
@@ -473,15 +473,15 @@ body {
   .ms-day-card {
     border-radius: 14px;
     overflow: hidden;
-    border: 1px solid rgba(139,110,78,0.18);
+    border: 1px solid rgba(139,110,78,0.25);
     transition: box-shadow 0.28s ease, transform 0.28s ease;
   }
   .ms-day-card:hover {
-    box-shadow: 0 4px 22px rgba(44,37,32,0.11);
+    box-shadow: 0 4px 22px rgba(44,37,32,0.10);
     transform: translateY(-1px);
   }
   .ms-day-card--open {
-    box-shadow: 0 6px 30px rgba(44,37,32,0.15);
+    box-shadow: 0 6px 28px rgba(44,37,32,0.13);
     transform: translateY(-2px);
   }
   .ms-expense-card {

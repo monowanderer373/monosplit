@@ -8,17 +8,18 @@ import type { Expense, Group } from '../types'
 import { CATEGORY_ICONS, EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
 import ExpenseForm from './ExpenseForm'
 
+// Muted vintage-ink palette — all tones aged on warm cream, no vivid hues
 const CATEGORY_COLORS: Record<string, { bg: string; accent: string; border: string; left: string }> = {
-  Food:           { bg: 'rgba(195,100,40,0.08)',   accent: '#a04818', border: 'rgba(195,100,40,0.28)',  left: '#c06428' },
-  Drinks:         { bg: 'rgba(160,60,60,0.08)',    accent: '#8a2828', border: 'rgba(160,60,60,0.28)',   left: '#a03c3c' },
-  Groceries:      { bg: 'rgba(40,120,60,0.08)',    accent: '#1e5830', border: 'rgba(40,120,60,0.28)',   left: '#287840' },
-  Transportation: { bg: 'rgba(40,80,160,0.08)',    accent: '#1e3e9a', border: 'rgba(40,80,160,0.28)',   left: '#2850c0' },
-  Flight:         { bg: 'rgba(60,120,200,0.08)',   accent: '#184898', border: 'rgba(60,120,200,0.28)',  left: '#2860b8' },
-  Accommodation:  { bg: 'rgba(100,60,160,0.08)',   accent: '#4e2888', border: 'rgba(100,60,160,0.28)',  left: '#7040b0' },
-  Shopping:       { bg: 'rgba(200,140,20,0.08)',   accent: '#8c5e00', border: 'rgba(200,140,20,0.28)',  left: '#b07810' },
-  Sightseeing:    { bg: 'rgba(20,140,140,0.08)',   accent: '#0a5858', border: 'rgba(20,140,140,0.28)', left: '#0e7878' },
-  Activities:     { bg: 'rgba(180,80,20,0.08)',    accent: '#8c2c00', border: 'rgba(180,80,20,0.28)',   left: '#b04010' },
-  Other:          { bg: 'rgba(120,100,80,0.08)',   accent: '#5a4830', border: 'rgba(120,100,80,0.28)',  left: '#786050' },
+  Food:           { bg: 'rgba(139,90,40,0.07)',   accent: '#7a4a1a', border: 'rgba(139,90,40,0.20)',   left: '#9a6030' },  // burnt amber
+  Drinks:         { bg: 'rgba(130,55,65,0.07)',   accent: '#7a2830', border: 'rgba(130,55,65,0.20)',   left: '#8a3840' },  // dusty wine
+  Groceries:      { bg: 'rgba(65,95,55,0.07)',    accent: '#3a5828', border: 'rgba(65,95,55,0.20)',    left: '#4a6838' },  // sage ink
+  Transportation: { bg: 'rgba(55,75,100,0.07)',   accent: '#2e4460', border: 'rgba(55,75,100,0.20)',   left: '#3e5870' },  // slate ink
+  Flight:         { bg: 'rgba(65,85,115,0.07)',   accent: '#344460', border: 'rgba(65,85,115,0.20)',   left: '#445870' },  // steel dusk
+  Accommodation:  { bg: 'rgba(95,65,95,0.07)',    accent: '#583258', border: 'rgba(95,65,95,0.20)',    left: '#684468' },  // dusty mauve
+  Shopping:       { bg: 'rgba(135,100,25,0.07)',  accent: '#7a5808', border: 'rgba(135,100,25,0.20)',  left: '#8a6a18' },  // antique gold
+  Sightseeing:    { bg: 'rgba(35,95,95,0.07)',    accent: '#1e5050', border: 'rgba(35,95,95,0.20)',    left: '#2e6060' },  // vintage teal
+  Activities:     { bg: 'rgba(135,65,35,0.07)',   accent: '#7a3818', border: 'rgba(135,65,35,0.20)',   left: '#8a4828' },  // terracotta
+  Other:          { bg: 'rgba(110,92,72,0.07)',   accent: '#56432a', border: 'rgba(110,92,72,0.20)',   left: '#6e5838' },  // warm stone
 }
 
 type Props = {
@@ -323,7 +324,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
               {/* Expandable expenses list */}
               <div className={`ms-exp-grid ${openDay ? 'ms-exp-grid--open' : ''}`}>
                 <div className="ms-exp-inner">
-                  <div className="space-y-1.5 bg-[var(--ms-bg,#fdfaf5)] p-2">
+                  <div className="space-y-1.5 p-2" style={{ background: 'var(--ms-surface-dim, #f0ece3)' }}>
                     {expenses
                       .slice()
                       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
@@ -414,7 +415,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                       ? calcConvertedSplitAmount(payerSplit, expenseRate, sameCurrency)
                                       : null
                                     return (
-                                      <div key={payer!.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.5)' }}>
+                                      <div key={payer!.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(240,234,222,0.7)' }}>
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-sm font-semibold" style={getPersonNameStyle(payer)}>{payer!.name}</span>
                                           <span className="rounded px-1 py-0.5 text-xs font-semibold" style={{ background: cc.border, color: cc.accent }}>
@@ -435,7 +436,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                       const person = group.people.find((entry) => entry.id === split.personId)
                                       const convAmt = calcConvertedSplitAmount(split, expenseRate, sameCurrency)
                                       return (
-                                        <div key={`${expense.id}-${split.personId}-${idx}`} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.35)' }}>
+                                        <div key={`${expense.id}-${split.personId}-${idx}`} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(240,234,222,0.45)' }}>
                                           <span className="text-sm font-medium" style={getPersonNameStyle(person)}>
                                             {person?.name ?? t('card.unknown')}
                                           </span>
