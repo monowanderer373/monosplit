@@ -57,7 +57,6 @@ export const THEMES: ThemeDefinition[] = [
     name: 'Solid Vintage',
     description: 'Warm parchment tones, pencil-sketch borders, keyboard-key buttons, Departure Mono typeface.',
     font: 'Departure Mono',
-    wip: true,
     preview: {
       bg: '#f4f0e8',
       surface: '#faf8f4',
@@ -132,4 +131,4 @@ export function getThemeById(id: string): ThemeDefinition | undefined {
   return THEMES.find((t) => t.id === id)
 }
 
-export const DEFAULT_THEME_ID = 'glacial'
+export const DEFAULT_THEME_ID = 'solid-vintage'

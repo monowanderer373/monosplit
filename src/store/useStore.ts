@@ -379,7 +379,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'monosplit-storage',
-      version: 2,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
         if (version < 2 && Array.isArray(state?.groups)) {
@@ -396,6 +396,10 @@ export const useStore = create<AppState>()(
                 })
               : [],
           }))
+        }
+        // v3: reset themeId to solid-vintage if it was still the old glacial default
+        if (version < 3 && state.themeId === 'glacial') {
+          state.themeId = 'solid-vintage'
         }
         return state
       },
