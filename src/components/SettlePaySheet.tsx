@@ -256,7 +256,9 @@ function RecordPaymentView({
       return expense.splits.flatMap((split) => {
         if (!creditorIds.includes(split.personId) || split.repaid || split.amount == null) return []
         if ((expense.payerIds ?? []).includes(split.personId)) return []
-        return [{ expense, split, personId: split.personId, amount: split.amount }]
+        const recipientCount = Math.max(1, (expense.payerIds ?? []).length)
+        const pairShare = split.amount / recipientCount
+        return [{ expense, split, personId: split.personId, amount: pairShare }]
       })
     })
   }, [debtorId, creditorIds, group.expenses, primaryCurrency])
