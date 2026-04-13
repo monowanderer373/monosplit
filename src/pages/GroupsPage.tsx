@@ -48,17 +48,36 @@ export default function GroupsPage() {
     // Always remove from local store immediately
     deleteGroup(group.id)
 
+    // #region agent log
+    fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'delete started',data:{groupId:group.id,groupName:group.name,isOwner,authUserId:authUser?.id,groupOwnerId:group.ownerId},hypothesisId:'H-A,H-B',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     if (supabase && supabaseEnabled && authUser) {
       // Remove this user's membership from user_groups
-      await supabase
+      const ugResult = await supabase
         .from('user_groups')
         .delete()
         .eq('user_id', authUser.id)
         .eq('group_id', group.id)
 
+      // #region agent log
+      fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'user_groups delete result',data:{error:ugResult.error?.message??null,status:ugResult.status},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
       if (isOwner) {
-        // Owner: delete the group entirely from Supabase so it's gone for everyone
-        await supabase.from('groups').delete().eq('id', group.id)
+        // Owner: first remove ALL memberships for this group (prevents FK constraint violation),
+        // then delete the group row entirely so it's gone for everyone.
+        await supabase.from('user_groups').delete().eq('group_id', group.id)
+
+        const grpResult = await supabase.from('groups').delete().eq('id', group.id)
+
+        // #region agent log
+        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'groups table delete result',data:{error:grpResult.error?.message??null,status:grpResult.status},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+
+        if (grpResult.error) {
+          console.error('[delete] groups table delete failed:', grpResult.error.message)
+        }
       }
     }
   }

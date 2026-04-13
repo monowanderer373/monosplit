@@ -32,6 +32,10 @@ export function useGroupSync(groupId: string | undefined) {
       const nextVersion = versionRef.current + 1
       const jsonData = JSON.stringify(data)
 
+      // #region agent log
+      fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload attempt',data:{groupId:data.id,peopleCount:data.people?.length,nextVersion,sameAsLast:jsonData===lastUploadJson.current},hypothesisId:'H-D,H-E',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
       if (jsonData === lastUploadJson.current) return
       lastUploadJson.current = jsonData
 
@@ -46,11 +50,15 @@ export function useGroupSync(groupId: string | undefined) {
         // Only set owner_id when we know who owns this group (avoids overwriting others' ownership)
         ...(data.ownerId ? { owner_id: data.ownerId } : {}),
       })
+      // #region agent log
+      fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload result',data:{groupId:data.id,error:error?.message??null,newVersion:nextVersion},hypothesisId:'H-D',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (!error) {
         versionRef.current = nextVersion
         setStatus('synced')
       } else {
-        console.warn('[sync] upload error:', error.message)
+        // RLS or network failure — log with full detail so we can diagnose in DevTools
+        console.error('[sync] upload blocked:', error.message, '| code:', error.code, '| hint:', error.hint)
         setStatus('error')
       }
     },
@@ -205,6 +213,9 @@ export function useGroupSync(groupId: string | undefined) {
   // Debounced upload on local changes
   useEffect(() => {
     if (!group || !supabase || !supabaseEnabled) return
+    // #region agent log
+    fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:debouncedEffect',message:'effect ran',data:{groupId:group.id,skipNextUpload:skipNextUpload.current,peopleCount:group.people?.length},hypothesisId:'H-C,H-E',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (skipNextUpload.current) {
       skipNextUpload.current = false
       return
