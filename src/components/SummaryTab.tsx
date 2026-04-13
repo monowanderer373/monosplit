@@ -238,7 +238,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
       </div>
 
       {/* ── Day cards ── */}
-      <div className="space-y-2">
+      <div className="space-y-5">
         {groupedDays.length === 0 && (
           <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-4 text-center text-sm text-[#6b6058]">
             {t('summary.noRecords')}
@@ -296,7 +296,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
               {/* Expandable expenses list */}
               <div className={`ms-exp-grid ${openDay ? 'ms-exp-grid--open' : ''}`}>
                 <div className="ms-exp-inner">
-                  <div className="space-y-1.5 p-2" style={{ background: 'var(--ms-surface-dim, #f0ece3)' }}>
+                  <div className="space-y-4 px-3 py-4" style={{ background: 'var(--ms-surface-dim, #f0ece3)' }}>
                     {expenses
                       .slice()
                       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
@@ -324,11 +324,10 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                             key={expense.id}
                             className={`ms-expense-card ${openExpense ? 'ms-expense-card--open' : ''}`}
                             style={{
-                              background: activeColors.bg,
-                              border: `1px solid ${activeColors.border}`,
-                              borderLeftWidth: '3px',
-                              borderLeftColor: activeColors.left,
-                            }}
+                              '--ec-bg': activeColors.bg,
+                              '--ec-border': activeColors.border,
+                              '--ec-left': activeColors.left,
+                            } as React.CSSProperties}
                           >
                             {/* Expense row header */}
                             <button
