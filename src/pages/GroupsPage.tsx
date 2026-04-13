@@ -36,6 +36,7 @@ export default function GroupsPage() {
           g.ownerId === authUser.id ||
           g.people.some((p) => p.authUserId === authUser.id),
       )
+      .filter((g) => !g.deletedAt)
       .filter((g) => !hiddenDeletedGroupIds.includes(g.id))
   }, [groups, authUser, authLoading, hiddenDeletedGroupIds])
 
@@ -51,7 +52,14 @@ export default function GroupsPage() {
 
     // Always remove from local store immediately
     hideDeletedGroup(group.id)
-    deleteGroup(group.id)
+    if (isOwner && authUser) {
+      useStore.getState().updateGroup(group.id, {
+        deletedAt: new Date().toISOString(),
+        deletedBy: authUser.id,
+      })
+    } else {
+      deleteGroup(group.id)
+    }
 
     // #region agent log
     fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'delete started',data:{groupId:group.id,groupName:group.name,isOwner,authUserId:authUser?.id,groupOwnerId:group.ownerId,ownerIdMatch:group.ownerId===authUser?.id},hypothesisId:'H-A,H-B',timestamp:Date.now()})}).catch(()=>{});
@@ -62,20 +70,27 @@ export default function GroupsPage() {
 
     if (supabase && supabaseEnabled && authUser) {
       if (isOwner) {
-        // Owner: best-effort hard delete in backend.
-        // If backend constraints/RLS fail, the hiddenDeletedGroupIds fallback still
-        // prevents reappearing in this account after refresh.
-        const ugAllResult = await supabase.from('user_groups').delete().eq('group_id', group.id)
-        const grpResult = await supabase.from('groups').delete().eq('id', group.id)
+        // Owner: soft delete the group in shared payload to avoid DB FK/RLS mismatch.
+        const payload = {
+          ...group,
+          deletedAt: new Date().toISOString(),
+          deletedBy: authUser.id,
+        }
+        const { ownerId: _ownerId, ...groupData } = payload
+        const upsertResult = await supabase.from('groups').upsert({
+          id: group.id,
+          data: groupData as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+          ...(group.ownerId ? { owner_id: group.ownerId } : {}),
+        })
 
         // #region agent log
-        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'owner hard delete result',data:{userGroupsError:ugAllResult.error?.message??null,groupsError:grpResult.error?.message??null,isOwner,groupOwnerId:group.ownerId,authUserId:authUser.id},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'owner soft delete upsert result',data:{error:upsertResult.error?.message??null,isOwner,groupOwnerId:group.ownerId,authUserId:authUser.id},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
         // #endregion
 
-        if (ugAllResult.error || grpResult.error) {
-          console.warn('[delete] owner hard delete warning', {
-            userGroupsError: ugAllResult.error?.message,
-            groupsError: grpResult.error?.message,
+        if (upsertResult.error) {
+          console.warn('[delete] owner soft delete warning', {
+            error: upsertResult.error?.message,
           })
         }
       } else {

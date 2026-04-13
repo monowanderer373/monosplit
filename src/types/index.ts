@@ -79,6 +79,8 @@ export interface Group {
   comments: GroupComment[]
   createdAt: string
   ownerId?: string
+  deletedAt?: string | null
+  deletedBy?: string | null
 }
 
 export interface GroupComment {
