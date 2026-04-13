@@ -63,30 +63,26 @@ export default function GroupPage() {
   }, [authUser?.id, groupId, syncStatus, ownerId, claimStatus])
   const addPerson = useStore((state) => state.addPerson)
 
-  // Auto-join: add logged-in user as a group member if they aren't one yet.
-  // Triggered by invite link (?autoJoin=true) OR when the user is the group owner.
-  // Also registers membership in the server-side user_groups table so the group
-  // persists across devices on next login.
+  // Auto-join: any logged-in user who opens the group is added as a member.
+  // In MonoSplit the group URL is the invitation — no separate invite code needed.
+  // Also registers membership in user_groups so the group persists across devices.
   useEffect(() => {
     if (!authUser || !group || !groupId) return
-    const isInviteJoin = searchParams.get('autoJoin') === 'true'
+
     const isOwner = group.ownerId === authUser.id || ownerId === authUser.id
     const isMember = group.people.some((p) => p.authUserId === authUser.id)
 
-    if (!isInviteJoin && !isOwner && !isMember) return
-
-    // Add to the people list if not already there
     if (!isMember) {
+      // New visitor — add them as a traveller using their account display name
       const name = authUser.displayName ?? authUser.email?.split('@')[0] ?? 'Traveller'
       addPerson(groupId, name, authUser.id)
     }
 
-    // Register in user_groups table (idempotent upsert) so the group appears on
-    // all the user's devices after their next login
-    const role = isOwner ? 'owner' : 'member'
-    void registerGroupMembership(groupId, role)
+    // Register server-side membership (idempotent) so group shows on all devices
+    void registerGroupMembership(groupId, isOwner ? 'owner' : 'member')
 
-    if (isInviteJoin) {
+    // Clean up ?autoJoin param from URL if present
+    if (searchParams.get('autoJoin') === 'true') {
       navigate(`/group/${groupId}`, { replace: true })
     }
   }, [searchParams, authUser, group, groupId, addPerson, navigate, ownerId, registerGroupMembership])
