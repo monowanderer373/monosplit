@@ -59,18 +59,23 @@ export default function GroupsPage() {
       if (isOwner) {
         // Owner: call SECURITY DEFINER function that bypasses RLS and atomically
         // deletes all memberships + the group row.
-        const { error: rpcError } = await supabase.rpc('delete_group_and_memberships', {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('delete_group_and_memberships', {
           p_group_id: group.id,
           p_user_id: authUser.id,
         })
 
         // #region agent log
-        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'rpc delete result',data:{error:rpcError?.message??null,isOwner,groupOwnerId:group.ownerId,authUserId:authUser.id},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'rpc delete result',data:{rpcData,error:rpcError?.message??null,isOwner,groupOwnerId:group.ownerId,authUserId:authUser.id},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
         // #endregion
 
-        if (rpcError) {
-          console.error('[delete] RPC failed:', rpcError.message)
-          window.alert(`Delete failed: ${rpcError.message}\n\nPlease make sure you ran the SQL function in Supabase.`)
+        const result = rpcData as { error?: string; stored_owner_id?: string; p_user_id?: string; success?: boolean } | null
+        if (rpcError || result?.error) {
+          const msg = rpcError?.message ?? result?.error ?? 'unknown'
+          const detail = result?.stored_owner_id
+            ? `\n\nDB owner_id: "${result.stored_owner_id}"\nYour auth ID: "${result.p_user_id}"`
+            : ''
+          console.error('[delete] RPC failed:', msg, result)
+          window.alert(`Delete failed: ${msg}${detail}`)
         }
       } else {
         // Member: just remove own membership row
