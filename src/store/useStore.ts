@@ -197,16 +197,22 @@ export const useStore = create<AppState>()(
       },
       removePerson: (groupId, personId) => {
         set((state) => ({
-          groups: updateGroupById(state.groups, groupId, (group) => ({
-            ...group,
-            people: group.people.filter((person) => person.id !== personId),
-            comments: group.comments.filter((comment) => comment.personId !== personId),
-            expenses: group.expenses.map((expense) => ({
-              ...expense,
-              payerIds: (expense.payerIds ?? []).filter((pid) => pid !== personId),
-              splits: expense.splits.filter((split) => split.personId !== personId),
-            })),
-          })),
+          groups: updateGroupById(state.groups, groupId, (group) => {
+            // Strip the person from all expenses, then drop expenses that become payer-less
+            const updatedExpenses = group.expenses
+              .map((expense) => ({
+                ...expense,
+                payerIds: (expense.payerIds ?? []).filter((pid) => pid !== personId),
+                splits: expense.splits.filter((split) => split.personId !== personId),
+              }))
+              .filter((expense) => expense.payerIds.length > 0)
+            return {
+              ...group,
+              people: group.people.filter((person) => person.id !== personId),
+              comments: group.comments.filter((comment) => comment.personId !== personId),
+              expenses: updatedExpenses,
+            }
+          }),
         }))
       },
       updatePersonPaymentInfo: (groupId, personId, updates) => {

@@ -219,6 +219,7 @@ const translations = {
   'people.removeMember': { en: 'Remove Member', zh: '移除成员' },
   'people.usedInExpenses': { en: 'This traveller is used in expenses. Remove related expenses first.', zh: '此旅伴已在支出中使用。请先移除相关支出。' },
   'people.removeConfirm': { en: 'Remove traveller?', zh: '确认移除旅伴？' },
+  'people.removeConfirmWithExpenses': { en: 'This member is linked to expenses. Removing them will also delete all their related expense rows and any bills they paid alone. Continue?', zh: '此成员已关联支出记录。移除后将同时删除其所有相关分账行及其独自支付的账单。确定继续？' },
 
   // Data card
   'data.title': { en: 'Data', zh: '数据' },

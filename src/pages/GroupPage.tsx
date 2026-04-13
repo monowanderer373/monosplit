@@ -195,11 +195,10 @@ export default function GroupPage() {
                 const used = group.expenses.some(
                   (expense) => expense.payerIds?.includes(personId) || expense.splits.some((split) => split.personId === personId),
                 )
-                if (used) {
-                  window.alert(t('people.usedInExpenses'))
-                  return
-                }
-                const ok = window.confirm(t('people.removeConfirm'))
+                const confirmMsg = used
+                  ? t('people.removeConfirmWithExpenses')
+                  : t('people.removeConfirm')
+                const ok = window.confirm(confirmMsg)
                 if (ok) removePerson(group.id, personId)
               }}
               onUpdateGroupCurrency={(paid, repay) =>
