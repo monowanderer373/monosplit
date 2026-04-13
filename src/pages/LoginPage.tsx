@@ -51,8 +51,9 @@ export default function LoginPage() {
   const handleGoogle = async () => {
     setError('')
     setGoogleLoading(true)
+    if (redirect && redirect !== '/') window.localStorage.setItem('ms_post_auth_redirect', redirect)
     try {
-      await signInWithGoogle()
+      await signInWithGoogle(redirect !== '/' ? redirect : undefined)
     } catch (err) {
       setError(mapAuthError(err, t))
       setGoogleLoading(false)

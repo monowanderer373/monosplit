@@ -30,7 +30,7 @@ export default function GroupPage() {
   const [editEndDate, setEditEndDate] = useState('')
 
   const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId)
-  const { authUser, loading: authLoading, claimGroup } = useAuth()
+  const { authUser, loading: authLoading, claimGroup, registerGroupMembership } = useAuth()
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [linkCopied, setLinkCopied] = useState(false)
 
@@ -65,20 +65,31 @@ export default function GroupPage() {
 
   // Auto-join: add logged-in user as a group member if they aren't one yet.
   // Triggered by invite link (?autoJoin=true) OR when the user is the group owner.
+  // Also registers membership in the server-side user_groups table so the group
+  // persists across devices on next login.
   useEffect(() => {
     if (!authUser || !group || !groupId) return
     const isInviteJoin = searchParams.get('autoJoin') === 'true'
     const isOwner = group.ownerId === authUser.id || ownerId === authUser.id
-    if (!isInviteJoin && !isOwner) return
-    const alreadyMember = group.people.some((p) => p.authUserId === authUser.id)
-    if (!alreadyMember) {
+    const isMember = group.people.some((p) => p.authUserId === authUser.id)
+
+    if (!isInviteJoin && !isOwner && !isMember) return
+
+    // Add to the people list if not already there
+    if (!isMember) {
       const name = authUser.displayName ?? authUser.email?.split('@')[0] ?? 'Traveller'
       addPerson(groupId, name, authUser.id)
     }
+
+    // Register in user_groups table (idempotent upsert) so the group appears on
+    // all the user's devices after their next login
+    const role = isOwner ? 'owner' : 'member'
+    void registerGroupMembership(groupId, role)
+
     if (isInviteJoin) {
       navigate(`/group/${groupId}`, { replace: true })
     }
-  }, [searchParams, authUser, group, groupId, addPerson, navigate, ownerId])
+  }, [searchParams, authUser, group, groupId, addPerson, navigate, ownerId, registerGroupMembership])
   const updatePersonProfile = useStore((state) => state.updatePersonProfile)
   const removePerson = useStore((state) => state.removePerson)
   const updatePersonPaymentInfo = useStore((state) => state.updatePersonPaymentInfo)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
 import { supabaseEnabled } from '../lib/supabase'
@@ -24,7 +24,11 @@ function mapAuthError(err: unknown, t: (k: Parameters<ReturnType<typeof useT>>[0
 export default function SignupPage() {
   const t = useT()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { signUp, signInWithGoogle } = useAuth()
+
+  // Preserve the intended destination (e.g. /group/:id?autoJoin=true from invite link)
+  const redirectPath = searchParams.get('redirect') || null
 
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
@@ -43,8 +47,12 @@ export default function SignupPage() {
     }
     setError('')
     setLoading(true)
+    // Build emailRedirectTo so the confirmation email lands on the right page
+    const emailRedirectTo = redirectPath
+      ? `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`
+      : `${window.location.origin}/auth/callback`
     try {
-      await signUp(email.trim(), password, displayName.trim())
+      await signUp(email.trim(), password, displayName.trim(), emailRedirectTo)
       setSuccess(true)
     } catch (err) {
       setError(mapAuthError(err, t))
@@ -56,8 +64,10 @@ export default function SignupPage() {
   const handleGoogle = async () => {
     setError('')
     setGoogleLoading(true)
+    // Store as localStorage fallback in case the OAuth redirect strips query params
+    if (redirectPath) window.localStorage.setItem('ms_post_auth_redirect', redirectPath)
     try {
-      await signInWithGoogle()
+      await signInWithGoogle(redirectPath ?? undefined)
     } catch (err) {
       setError(mapAuthError(err, t))
       setGoogleLoading(false)
@@ -177,7 +187,10 @@ export default function SignupPage() {
 
           <p className="text-center text-xs text-[var(--ms-text-secondary)]">
             {t('auth.hasAccount')}{' '}
-            <Link to="/login" className="font-semibold text-[var(--ms-accent)]">
+            <Link
+              to={redirectPath ? `/login?redirect=${encodeURIComponent(redirectPath)}` : '/login'}
+              className="font-semibold text-[var(--ms-accent)]"
+            >
               {t('auth.signIn')}
             </Link>
           </p>

@@ -79,9 +79,10 @@ export default function InvitePage() {
   const handleGoogle = async () => {
     setError('')
     setGoogleLoading(true)
+    // Store as localStorage fallback in case the OAuth redirect strips query params
+    window.localStorage.setItem('ms_post_auth_redirect', groupUrl)
     try {
-      await signInWithGoogle()
-      // Google redirects via OAuth callback, which should eventually land on groupUrl
+      await signInWithGoogle(groupUrl)
     } catch (err) {
       setError(mapAuthError(err, t))
       setGoogleLoading(false)

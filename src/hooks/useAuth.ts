@@ -29,13 +29,14 @@ function buildProfile(
 type AuthContextValue = {
   authUser: UserProfile | null
   loading: boolean
-  signUp: (email: string, password: string, displayName: string) => Promise<unknown>
+  signUp: (email: string, password: string, displayName: string, emailRedirectTo?: string) => Promise<unknown>
   signIn: (email: string, password: string) => Promise<unknown>
-  signInWithGoogle: () => Promise<void>
+  signInWithGoogle: (afterLoginPath?: string) => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: { displayName?: string }) => Promise<void>
   claimGroup: (groupId: string) => Promise<void>
   releaseGroup: (groupId: string) => Promise<void>
+  registerGroupMembership: (groupId: string, role?: string) => Promise<void>
 }
 
 // ── Context ──────────────────────────────────────────────────────────────────
@@ -89,6 +90,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [upsertGroup],
   )
 
+  // Fetch groups the user has joined as a member (via user_groups table)
+  const syncMemberGroups = useCallback(
+    (userId: string) => {
+      if (!supabase) return
+      void Promise.resolve(
+        supabase.from('user_groups').select('group_id').eq('user_id', userId),
+      )
+        .then(async ({ data: memberships, error }) => {
+          if (error) {
+            // user_groups table may not exist yet — fail silently
+            console.warn('[auth] syncMemberGroups error', error.message)
+            return
+          }
+          if (!memberships?.length) return
+          const groupIds = memberships.map((m: { group_id: string }) => m.group_id)
+          const { data: rows } = await supabase!
+            .from('groups')
+            .select('id, data, owner_id')
+            .in('id', groupIds)
+          if (rows) {
+            rows.forEach((row: { id: string; data: unknown; owner_id: string | null }) => {
+              if (row.data) {
+                upsertGroup({
+                  ...(row.data as Group),
+                  id: row.id,
+                  ...(row.owner_id ? { ownerId: row.owner_id } : {}),
+                })
+              }
+            })
+          }
+        })
+        .catch((e: unknown) => {
+          console.warn('[auth] syncMemberGroups exception', e)
+        })
+    },
+    [upsertGroup],
+  )
+
   useEffect(() => {
     if (!supabase || !supabaseEnabled) {
       setLoading(false)
@@ -111,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchProfileAndSet(session.user)
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
           syncOwnedGroups(session.user.id)
+          syncMemberGroups(session.user.id)
         }
       } else {
         setAuthUser(null)
@@ -131,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session?.user) {
             fetchProfileAndSet(session.user)
             syncOwnedGroups(session.user.id)
+            syncMemberGroups(session.user.id)
           } else {
             setAuthUser(null)
           }
@@ -145,16 +186,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe()
       clearTimeout(fallbackTimer)
     }
-  }, [fetchProfileAndSet, syncOwnedGroups])
+  }, [fetchProfileAndSet, syncOwnedGroups, syncMemberGroups])
 
   // ── Auth methods ────────────────────────────────────────────────────────────
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = async (email: string, password: string, displayName: string, emailRedirectTo?: string) => {
     if (!supabase) throw new Error('not-configured')
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: displayName } },
+      options: {
+        data: { display_name: displayName },
+        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+      },
     })
     if (error) throw error
     return data
@@ -167,13 +211,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data
   }
 
-  const signInWithGoogle = async () => {
+  // afterLoginPath: optional path to redirect to after OAuth completes (e.g. /group/:id?autoJoin=true)
+  const signInWithGoogle = async (afterLoginPath?: string) => {
     if (!supabase) throw new Error('not-configured')
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`)
+    if (afterLoginPath) callbackUrl.searchParams.set('redirect', afterLoginPath)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl.toString() },
     })
     if (error) throw error
+  }
+
+  // Register the current user as a member of a group in the user_groups table.
+  // This makes the group persist across devices on next login.
+  const registerGroupMembership = async (groupId: string, role = 'member') => {
+    if (!supabase || !supabase.auth) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) return
+    const { error } = await supabase
+      .from('user_groups')
+      .upsert(
+        { user_id: session.user.id, group_id: groupId, role },
+        { onConflict: 'user_id,group_id' },
+      )
+    if (error) console.warn('[auth] registerGroupMembership error', error.message)
   }
 
   const signOut = async () => {
@@ -224,6 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateProfile,
         claimGroup,
         releaseGroup,
+        registerGroupMembership,
       },
     },
     children,
