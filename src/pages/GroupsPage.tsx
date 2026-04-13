@@ -49,8 +49,11 @@ export default function GroupsPage() {
     deleteGroup(group.id)
 
     // #region agent log
-    fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'delete started',data:{groupId:group.id,groupName:group.name,isOwner,authUserId:authUser?.id,groupOwnerId:group.ownerId},hypothesisId:'H-A,H-B',timestamp:Date.now()})}).catch(()=>{});
+    fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'delete started',data:{groupId:group.id,groupName:group.name,isOwner,authUserId:authUser?.id,groupOwnerId:group.ownerId,ownerIdMatch:group.ownerId===authUser?.id},hypothesisId:'H-A,H-B',timestamp:Date.now()})}).catch(()=>{});
     // #endregion
+
+    // Debug: show ownership info in console
+    console.log('[delete] isOwner:', isOwner, '| group.ownerId:', group.ownerId, '| authUser.id:', authUser?.id)
 
     if (supabase && supabaseEnabled && authUser) {
       if (isOwner) {
@@ -62,11 +65,12 @@ export default function GroupsPage() {
         })
 
         // #region agent log
-        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'rpc delete result',data:{error:rpcError?.message??null},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'rpc delete result',data:{error:rpcError?.message??null,isOwner,groupOwnerId:group.ownerId,authUserId:authUser.id},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
         // #endregion
 
         if (rpcError) {
-          console.error('[delete] RPC delete_group_and_memberships failed:', rpcError.message)
+          console.error('[delete] RPC failed:', rpcError.message)
+          window.alert(`Delete failed: ${rpcError.message}\n\nPlease make sure you ran the SQL function in Supabase.`)
         }
       } else {
         // Member: just remove own membership row
