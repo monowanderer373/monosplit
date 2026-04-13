@@ -92,10 +92,19 @@ function CurrencyRatePanel({
         style={{ zIndex: 72 }}
         onClick={onClose}
       />
-      {/* Panel */}
+      {/* Panel — translate3d for GPU compositing on iOS Safari */}
       <div
-        className={`fixed inset-x-0 bottom-0 rounded-t-2xl bg-[var(--ms-bg,#f4f0e8)] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 ease-out ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}
-        style={{ zIndex: 73, maxHeight: '80svh', overflowY: 'auto' }}
+        className="fixed inset-x-0 bottom-0 rounded-t-2xl bg-[var(--ms-bg,#f4f0e8)] px-5 pb-8 pt-5 shadow-2xl"
+        style={{
+          zIndex: 73,
+          maxHeight: '80svh',
+          overflowY: 'auto',
+          transform: isOpen ? 'translate3d(0,0,0)' : 'translate3d(0,100%,0)',
+          transition: isOpen
+            ? 'transform 360ms cubic-bezier(0.32,0.72,0,1)'
+            : 'transform 300ms cubic-bezier(0.55,0,1,0.45)',
+          willChange: 'transform',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle */}
@@ -599,8 +608,15 @@ function RecordPaymentView({
         onClick={() => setRedirectPanelOpen(false)}
       />
       <div
-        className={`fixed inset-x-0 bottom-0 mx-auto max-w-lg rounded-t-2xl bg-[var(--ms-bg,#f4f0e8)] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 ease-out ${redirectPanelOpen ? 'translate-y-0' : 'translate-y-full'}`}
-        style={{ zIndex: 77 }}
+        className="fixed inset-x-0 bottom-0 mx-auto max-w-lg rounded-t-2xl bg-[var(--ms-bg,#f4f0e8)] px-5 pb-8 pt-5 shadow-2xl"
+        style={{
+          zIndex: 77,
+          transform: redirectPanelOpen ? 'translate3d(0,0,0)' : 'translate3d(0,100%,0)',
+          transition: redirectPanelOpen
+            ? 'transform 360ms cubic-bezier(0.32,0.72,0,1)'
+            : 'transform 300ms cubic-bezier(0.55,0,1,0.45)',
+          willChange: 'transform',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--ms-border,#d8d0c4)]" />

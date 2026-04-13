@@ -90,12 +90,18 @@ export default function ExpenseSheet({ group, isOpen, onClose, onSave }: Props) 
         onClick={backdropActive ? onClose : undefined}
       />
 
-      {/* Receipt panel — drops from top */}
+      {/* Receipt panel — drops from top.
+          Uses translate3d (not Tailwind transform utilities) so iOS Safari
+          promotes the layer to a GPU compositor track and animates at 60 fps. */}
       <div
-        className={`absolute inset-x-0 top-0 mx-auto w-full max-w-lg transition-transform duration-[450ms] ease-out ${
-          visible ? 'translate-y-0' : '-translate-y-full'
-        }`}
-        style={{ willChange: 'transform' }}
+        className="absolute inset-x-0 top-0 mx-auto w-full max-w-lg"
+        style={{
+          transform: visible ? 'translate3d(0,0,0)' : 'translate3d(0,-100%,0)',
+          transition: visible
+            ? 'transform 460ms cubic-bezier(0.32,0.72,0,1)'
+            : 'transform 400ms cubic-bezier(0.55,0,1,0.45)',
+          willChange: 'transform',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Scrollable form */}
