@@ -233,6 +233,12 @@ const translations = {
   // Theme card
   'theme.title': { en: 'Theme', zh: '主题' },
   'theme.desc': { en: 'Choose the look and feel of the app.', zh: '选择应用的外观风格。' },
+
+  // Font selection
+  'font.title': { en: 'Font', zh: '字体' },
+  'font.desc': { en: 'Choose a typeface for the app. Applies to English UI only.', zh: '选择应用字体（仅影响英文界面）。' },
+  'font.default': { en: 'Default', zh: '默认' },
+  'font.active': { en: 'Active', zh: '已启用' },
   'theme.active': { en: 'Active', zh: '当前' },
   'theme.font': { en: 'FONT:', zh: '字体：' },
 

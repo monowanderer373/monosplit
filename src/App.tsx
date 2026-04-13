@@ -13,12 +13,24 @@ import { AuthProvider } from './hooks/useAuth'
 
 function AppRoutes() {
   const themeId = useStore((s) => s.themeId)
+  const fontId = useStore((s) => s.fontId)
+  const lang = useStore((s) => s.lang)
 
   useEffect(() => {
     if (themeId) {
       document.documentElement.setAttribute('data-theme', themeId)
     }
   }, [themeId])
+
+  useEffect(() => {
+    // Font override only applies when UI language is English.
+    // Chinese keeps the default Departure Mono (system fallbacks handle CJK glyphs).
+    if (lang === 'en' && fontId && fontId !== 'departure-mono') {
+      document.documentElement.setAttribute('data-font', fontId)
+    } else {
+      document.documentElement.removeAttribute('data-font')
+    }
+  }, [fontId, lang])
 
   return (
     <BrowserRouter>

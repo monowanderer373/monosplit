@@ -15,6 +15,8 @@ type AppState = {
   setLang: (lang: 'en' | 'zh') => void
   themeId: string
   setThemeId: (id: string) => void
+  fontId: string
+  setFontId: (id: string) => void
   groups: Group[]
   addGroup: (name: string, options?: NewGroupOptions, ownerId?: string) => string
   updateGroup: (groupId: string, updates: Partial<Group>) => void
@@ -93,6 +95,8 @@ export const useStore = create<AppState>()(
       setLang: (lang: 'en' | 'zh') => set({ lang }),
       themeId: 'solid-vintage',
       setThemeId: (id: string) => set({ themeId: id }),
+      fontId: 'departure-mono',
+      setFontId: (id: string) => set({ fontId: id }),
       groups: [],
       addGroup: (name, options, ownerId) => {
         const safeName = sanitizeName(name)
@@ -460,11 +464,16 @@ export const useStore = create<AppState>()(
         if (version < 3 && state.themeId === 'glacial') {
           state.themeId = 'solid-vintage'
         }
+        // v4: ensure fontId exists for existing users
+        if (!state.fontId) {
+          state.fontId = 'departure-mono'
+        }
         return state
       },
       partialize: (state) => ({
         lang: state.lang,
         themeId: state.themeId,
+        fontId: state.fontId,
         groups: state.groups.map((group) => ({
           ...group,
           startDate: group.startDate || null,

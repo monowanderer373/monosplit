@@ -153,6 +153,8 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
 
       <ThemeCard />
 
+      <FontCard />
+
       <LanguageCard />
 
       <DataCard group={group} />
@@ -373,6 +375,98 @@ function ThemeCard() {
                 <p className="mt-1.5 text-[10px] tracking-wider text-[var(--ms-text-muted)]">
                   {t('theme.font')} {theme.font}
                 </p>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+const FONT_OPTIONS = [
+  {
+    id: 'departure-mono',
+    name: 'Departure Mono',
+    label: 'Default',
+    sample: 'Aa — MonoSplit',
+    desc: 'Retro monospace · Built-in',
+    family: "'Departure Mono', monospace",
+  },
+  {
+    id: 'source-code-pro',
+    name: 'Source Code Pro',
+    label: 'Source Code Pro',
+    sample: 'Aa — MonoSplit',
+    desc: 'Clean monospace · Developer',
+    family: "'Source Code Pro', monospace",
+  },
+  {
+    id: 'modern-antiqua',
+    name: 'Modern Antiqua',
+    label: 'Modern Antiqua',
+    sample: 'Aa — MonoSplit',
+    desc: 'Elegant serif · Antiquarian',
+    family: "'Modern Antiqua', Georgia, serif",
+  },
+  {
+    id: 'bebas-neue',
+    name: 'Bebas Neue',
+    label: 'Bebas Neue',
+    sample: 'Aa — MonoSplit',
+    desc: 'Bold condensed · Display',
+    family: "'Bebas Neue', sans-serif",
+  },
+  {
+    id: 'caesar-dressing',
+    name: 'Caesar Dressing',
+    label: 'Caesar Dressing',
+    sample: 'Aa — MonoSplit',
+    desc: 'Decorative · Historical Roman',
+    family: "'Caesar Dressing', serif",
+  },
+] as const
+
+function FontCard() {
+  const t = useT()
+  const fontId = useStore((s) => s.fontId)
+  const setFontId = useStore((s) => s.setFontId)
+
+  return (
+    <div className="ms-card-soft">
+      <h3 className="ms-title mb-1">{t('font.title')}</h3>
+      <p className="mb-4 text-xs text-[var(--ms-text-muted)]">{t('font.desc')}</p>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {FONT_OPTIONS.map((font) => {
+          const selected = fontId === font.id || (!fontId && font.id === 'departure-mono')
+          return (
+            <button
+              key={font.id}
+              className={`ms-key relative flex flex-col items-stretch p-0 text-left ${selected ? 'ms-key-active' : ''}`}
+              onClick={() => setFontId(font.id)}
+            >
+              {/* Sample text rendered in that font */}
+              <div
+                className="flex h-14 w-full items-center justify-center border-b border-[var(--ms-border)]"
+                style={{ fontFamily: font.family, background: 'var(--ms-surface-dim)' }}
+              >
+                <span className="text-xl font-normal text-[var(--ms-text)]" style={{ fontFamily: font.family }}>
+                  {font.sample}
+                </span>
+              </div>
+
+              {/* Info */}
+              <div className="px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-[var(--ms-text)]">{font.label}</span>
+                  {selected && (
+                    <span className="ml-auto rounded-full bg-[var(--ms-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--ms-accent)]">
+                      {t('font.active')}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-[11px] text-[var(--ms-text-muted)]">{font.desc}</p>
               </div>
             </button>
           )

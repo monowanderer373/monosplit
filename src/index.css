@@ -9,6 +9,54 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('/fonts/BebasNeue-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Caesar Dressing';
+  src: url('/fonts/CaesarDressing-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Modern Antiqua';
+  src: url('/fonts/ModernAntiqua-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Source Code Pro';
+  src: url('/fonts/SourceCodePro-Regular.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Font overrides applied via data-font attribute (English only) ── */
+[data-font="bebas-neue"] {
+  font-family: 'Bebas Neue', 'Departure Mono', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+[data-font="caesar-dressing"] {
+  font-family: 'Caesar Dressing', Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.02em;
+}
+[data-font="modern-antiqua"] {
+  font-family: 'Modern Antiqua', Georgia, 'Times New Roman', serif;
+}
+[data-font="source-code-pro"] {
+  font-family: 'Source Code Pro', 'Courier New', monospace;
+}
+
 :root {
   font-family: 'Departure Mono', Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 
