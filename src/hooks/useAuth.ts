@@ -77,6 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from('groups').select('id, data').eq('owner_id', userId),
       )
         .then(({ data }) => {
+          const remoteOwnedIds = new Set((data || []).map((row) => row.id))
+          // Prune stale local owned groups that no longer exist remotely
+          // (e.g., deleted from another device).
+          useStore.setState((state) => ({
+            groups: state.groups.filter((g) => !(g.ownerId === userId && !remoteOwnedIds.has(g.id))),
+          }))
           if (data) {
             data.forEach((row) => {
               if (row.data) upsertGroup({ ...(row.data as Group), id: row.id, ownerId: userId })
@@ -109,6 +115,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .from('groups')
             .select('id, data, owner_id')
             .in('id', groupIds)
+          const remoteMemberIds = new Set((rows || []).map((row: { id: string }) => row.id))
+          // Prune stale local member groups (non-owned) that were removed/left remotely.
+          useStore.setState((state) => ({
+            groups: state.groups.filter((g) => {
+              const isOwnedByUser = g.ownerId === userId
+              if (isOwnedByUser) return true
+              const hasLinkedPerson = g.people.some((p) => p.authUserId === userId)
+              if (!hasLinkedPerson) return true
+              return remoteMemberIds.has(g.id)
+            }),
+          }))
           if (rows) {
             rows.forEach((row: { id: string; data: unknown; owner_id: string | null }) => {
               if (row.data) {
