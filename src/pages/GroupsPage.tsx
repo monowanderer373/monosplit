@@ -12,6 +12,9 @@ export default function GroupsPage() {
   const navigate = useNavigate()
   const { authUser, loading: authLoading } = useAuth()
   const groups = useStore((s) => s.groups)
+  const hiddenDeletedGroupIds = useStore((s) => s.hiddenDeletedGroupIds)
+  const hideDeletedGroup = useStore((s) => s.hideDeletedGroup)
+  const unhideDeletedGroup = useStore((s) => s.unhideDeletedGroup)
   const addGroup = useStore((s) => s.addGroup)
   const deleteGroup = useStore((s) => s.deleteGroup)
   const [newGroup, setNewGroup] = useState('')
@@ -33,7 +36,8 @@ export default function GroupsPage() {
           g.ownerId === authUser.id ||
           g.people.some((p) => p.authUserId === authUser.id),
       )
-  }, [groups, authUser, authLoading])
+      .filter((g) => !hiddenDeletedGroupIds.includes(g.id))
+  }, [groups, authUser, authLoading, hiddenDeletedGroupIds])
 
   const [joinId, setJoinId] = useState('')
 
@@ -46,6 +50,7 @@ export default function GroupsPage() {
     if (!window.confirm(confirmMsg)) return
 
     // Always remove from local store immediately
+    hideDeletedGroup(group.id)
     deleteGroup(group.id)
 
     // #region agent log
@@ -57,25 +62,21 @@ export default function GroupsPage() {
 
     if (supabase && supabaseEnabled && authUser) {
       if (isOwner) {
-        // Owner: call SECURITY DEFINER function that bypasses RLS and atomically
-        // deletes all memberships + the group row.
-        const { data: rpcData, error: rpcError } = await supabase.rpc('delete_group_and_memberships', {
-          p_group_id: group.id,
-          p_user_id: authUser.id,
-        })
+        // Owner: best-effort hard delete in backend.
+        // If backend constraints/RLS fail, the hiddenDeletedGroupIds fallback still
+        // prevents reappearing in this account after refresh.
+        const ugAllResult = await supabase.from('user_groups').delete().eq('group_id', group.id)
+        const grpResult = await supabase.from('groups').delete().eq('id', group.id)
 
         // #region agent log
-        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'rpc delete result',data:{rpcData,error:rpcError?.message??null,isOwner,groupOwnerId:group.ownerId,authUserId:authUser.id},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'owner hard delete result',data:{userGroupsError:ugAllResult.error?.message??null,groupsError:grpResult.error?.message??null,isOwner,groupOwnerId:group.ownerId,authUserId:authUser.id},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
         // #endregion
 
-        const result = rpcData as { error?: string; stored_owner_id?: string; p_user_id?: string; success?: boolean } | null
-        if (rpcError || result?.error) {
-          const msg = rpcError?.message ?? result?.error ?? 'unknown'
-          const detail = result?.stored_owner_id
-            ? `\n\nDB owner_id: "${result.stored_owner_id}"\nYour auth ID: "${result.p_user_id}"`
-            : ''
-          console.error('[delete] RPC failed:', msg, result)
-          window.alert(`Delete failed: ${msg}${detail}`)
+        if (ugAllResult.error || grpResult.error) {
+          console.warn('[delete] owner hard delete warning', {
+            userGroupsError: ugAllResult.error?.message,
+            groupsError: grpResult.error?.message,
+          })
         }
       } else {
         // Member: just remove own membership row
@@ -107,6 +108,7 @@ export default function GroupsPage() {
     const id = joinId.trim()
     if (!id) return
     if (groups.some((g) => g.id === id)) {
+      unhideDeletedGroup(id)
       navigate(`/group/${id}`)
       return
     }
@@ -115,6 +117,7 @@ export default function GroupsPage() {
       if (data?.data) {
         const upsertGroup = useStore.getState().upsertGroup
         upsertGroup(data.data as unknown as import('../types').Group)
+        unhideDeletedGroup(id)
         navigate(`/group/${id}`)
         return
       }

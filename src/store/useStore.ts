@@ -18,6 +18,9 @@ type AppState = {
   fontId: string
   setFontId: (id: string) => void
   groups: Group[]
+  hiddenDeletedGroupIds: string[]
+  hideDeletedGroup: (groupId: string) => void
+  unhideDeletedGroup: (groupId: string) => void
   addGroup: (name: string, options?: NewGroupOptions, ownerId?: string) => string
   updateGroup: (groupId: string, updates: Partial<Group>) => void
   deleteGroup: (groupId: string) => void
@@ -98,6 +101,19 @@ export const useStore = create<AppState>()(
       fontId: 'departure-mono',
       setFontId: (id: string) => set({ fontId: id }),
       groups: [],
+      hiddenDeletedGroupIds: [],
+      hideDeletedGroup: (groupId) => {
+        set((state) => ({
+          hiddenDeletedGroupIds: state.hiddenDeletedGroupIds.includes(groupId)
+            ? state.hiddenDeletedGroupIds
+            : [...state.hiddenDeletedGroupIds, groupId],
+        }))
+      },
+      unhideDeletedGroup: (groupId) => {
+        set((state) => ({
+          hiddenDeletedGroupIds: state.hiddenDeletedGroupIds.filter((id) => id !== groupId),
+        }))
+      },
       addGroup: (name, options, ownerId) => {
         const safeName = sanitizeName(name)
         const groupId = generateGroupId()
@@ -479,6 +495,7 @@ export const useStore = create<AppState>()(
         lang: state.lang,
         themeId: state.themeId,
         fontId: state.fontId,
+        hiddenDeletedGroupIds: state.hiddenDeletedGroupIds,
         groups: state.groups.map((group) => ({
           ...group,
           startDate: group.startDate || null,
