@@ -21,6 +21,7 @@ export const THEMES: ThemeDefinition[] = [
     name: 'Glacial',
     description: 'Deep Arctic palette · Neumorphic soft shadows · Solid Snow Texture base · Login with arctic aerial photo.',
     font: 'Inter',
+    wip: true,
     preview: {
       bg: '#E8EDF2',
       surface: '#E8EDF2',
