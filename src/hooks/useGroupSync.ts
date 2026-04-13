@@ -21,7 +21,9 @@ export function useGroupSync(groupId: string | undefined) {
   const [status, setStatus] = useState<SyncStatus>('idle')
   const [ownerId, setOwnerId] = useState<string | null>(null)
   const versionRef = useRef(0)
-  const skipNextUpload = useRef(false)
+  // Start as true: skip the very first debounced-upload effect that fires from
+  // existing localStorage data on mount.  Only real local mutations should upload.
+  const skipNextUpload = useRef(true)
   const lastUploadJson = useRef('')
 
   const uploadToSupabase = useCallback(
@@ -93,7 +95,15 @@ export function useGroupSync(groupId: string | undefined) {
         versionRef.current = data.version ?? 0
         setOwnerId((data as unknown as GroupRow).owner_id ?? null)
         const remoteGroup = data.data as unknown as Group
-        upsertGroup({ ...remoteGroup, id: groupId })
+        // Skip the debounced upload triggered by this upsert — we just fetched
+        // the authoritative version, there is nothing new to push back.
+        skipNextUpload.current = true
+        upsertGroup({
+          ...remoteGroup,
+          id: groupId,
+          // Preserve ownerId from the owner_id column (not stored in JSONB)
+          ownerId: (data as unknown as GroupRow).owner_id ?? undefined,
+        })
         setStatus('synced')
       } else if (group) {
         // Group exists locally but not in Supabase — push it
@@ -133,15 +143,20 @@ export function useGroupSync(groupId: string | undefined) {
           filter: `id=eq.${groupId}`,
         },
         (payload) => {
-          const incoming = payload.new as { data: unknown; version: number } | undefined
+          const incoming = payload.new as { data: unknown; version: number; owner_id?: string | null } | undefined
           if (!incoming?.data) return
           const incomingVersion = incoming.version ?? 0
           if (incomingVersion <= versionRef.current) return
 
           versionRef.current = incomingVersion
+          // Keep ownerId from the separate owner_id column (not stored in JSONB)
+          if (incoming.owner_id !== undefined) setOwnerId(incoming.owner_id ?? null)
           skipNextUpload.current = true
           const remoteGroup = incoming.data as unknown as Group
-          replaceGroup(groupId, remoteGroup)
+          replaceGroup(groupId, {
+            ...remoteGroup,
+            ownerId: incoming.owner_id ?? undefined,
+          })
           setStatus('synced')
         },
       )

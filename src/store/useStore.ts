@@ -135,7 +135,12 @@ export const useStore = create<AppState>()(
       replaceGroup: (groupId, data) => {
         const migrated = migrateGroupData({ ...data, id: groupId })
         set((state) => ({
-          groups: state.groups.map((g) => (g.id === groupId ? migrated : g)),
+          groups: state.groups.map((g) =>
+            g.id === groupId
+              // ownerId is not in the JSONB payload — keep whichever side has it
+              ? { ...migrated, ownerId: migrated.ownerId ?? g.ownerId }
+              : g,
+          ),
         }))
       },
       upsertGroup: (data) => {
