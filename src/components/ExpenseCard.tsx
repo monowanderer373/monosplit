@@ -15,21 +15,34 @@ type Props = {
 
 export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, onUnmarkRepaid }: Props) {
   const t = useT()
+  const isRefund = expense.type === 'refund'
   const payers = (expense.payerIds ?? []).map((pid) => group.people.find((p) => p.id === pid)).filter(Boolean)
   const paidSymbol = getCurrencySymbol(expense.paidCurrency)
   const repaySymbol = getCurrencySymbol(expense.repayCurrency)
   const categoryIcon = getCategoryIcon(expense.category)
 
   return (
-    <article className="ms-card-soft">
+    <article
+      className="ms-card-soft"
+      style={isRefund ? { borderColor: 'rgba(30,90,90,0.25)', background: 'rgba(30,90,90,0.03)' } : undefined}
+    >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-base leading-none" aria-hidden="true">{categoryIcon}</span>
+            {isRefund ? (
+              <span
+                className="rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
+                style={{ background: 'rgba(30,90,90,0.14)', color: '#1e5a5a' }}
+              >
+                ↩ {t('card.refundLabel')}
+              </span>
+            ) : (
+              <span className="text-base leading-none" aria-hidden="true">{categoryIcon}</span>
+            )}
             <h3 className="truncate text-base font-semibold text-[var(--ms-text)]">{expense.description}</h3>
           </div>
           <p className="mt-1 text-xs text-[var(--ms-text-secondary)]">
-            {t('card.paidBy')}{' '}
+            {isRefund ? t('card.refundedTo') : t('card.paidBy')}{' '}
             {payers.map((p, i) => (
               <span key={p!.id}>
                 {i > 0 ? ', ' : ''}
@@ -37,15 +50,19 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
               </span>
             ))}
             {payers.length === 0 ? t('card.unknown') : ''}
-            {' '}· {expense.date} · {expense.paymentMethod}
+            {' '}· {expense.date}
           </p>
           <p className="mt-1 text-xs text-[var(--ms-text-muted)]">
-            {expense.splitMode === 'itemized' ? t('card.itemizedSplit') : `${expense.splits.length}${t('card.equalSplit')}`}
+            {isRefund
+              ? `${expense.splits.length} ${t('card.equalSplit')}`
+              : expense.splitMode === 'itemized'
+                ? t('card.itemizedSplit')
+                : `${expense.splits.length}${t('card.equalSplit')}`}
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-lg font-bold text-[var(--ms-text)]">
-            {paidSymbol}{formatMoney(expense.amount)}
+          <p className="text-lg font-bold" style={{ color: isRefund ? '#1e5a5a' : 'var(--ms-text)' }}>
+            {isRefund ? '-' : ''}{paidSymbol}{formatMoney(expense.amount)}
           </p>
           <p className="text-xs text-[var(--ms-text-muted)]">
             {expense.paidCurrency} → {expense.repayCurrency}

@@ -24,10 +24,25 @@ const CATEGORY_COLORS: Record<string, { bg: string; accent: string; border: stri
 
 // Settled bill overlay — muted olive-sage, warm and readable, not overpowering
 const SETTLED_COLORS = {
-  bg:     'rgba(80, 106, 70, 0.11)',   // soft sage wash
-  border: 'rgba(80, 106, 70, 0.30)',   // sage border
-  left:   '#617a52',                   // olive-sage left bar
-  accent: '#4e6642',                   // muted sage text
+  bg:     'rgba(80, 106, 70, 0.11)',
+  border: 'rgba(80, 106, 70, 0.30)',
+  left:   '#617a52',
+  accent: '#4e6642',
+}
+
+// Refund expense — cool teal palette, distinct from vintage warm tones
+const REFUND_COLORS = {
+  bg:     'rgba(30, 90, 90, 0.06)',
+  border: 'rgba(30, 90, 90, 0.22)',
+  left:   '#2e6060',
+  accent: '#1e5a5a',
+}
+
+const REFUND_SETTLED_COLORS = {
+  bg:     'rgba(46, 96, 96, 0.12)',
+  border: 'rgba(46, 96, 96, 0.35)',
+  left:   '#1e5a5a',
+  accent: '#164848',
 }
 
 type Props = {
@@ -287,7 +302,8 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                       .map((expense) => {
                         const cat = normalizeCategory(expense.category)
-                        const cc = CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.Other
+                        const isRefundExpense = expense.type === 'refund'
+                        const cc = isRefundExpense ? REFUND_COLORS : (CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.Other)
                         const payers = (expense.payerIds ?? []).map((pid) => group.people.find((p) => p.id === pid)).filter(Boolean)
                         const openExpense = openExpenseMap[expense.id] ?? false
                         // Always show in paidCurrency — repayment conversion only happens in Settle-up
@@ -295,7 +311,9 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
 
                         const debtorSplits = expense.splits.filter((s) => !(expense.payerIds ?? []).includes(s.personId))
                         const isFullySettled = debtorSplits.length > 0 && debtorSplits.every((s) => s.repaid)
-                        const activeColors = isFullySettled ? SETTLED_COLORS : cc
+                        const activeColors = isFullySettled
+                          ? (isRefundExpense ? REFUND_SETTLED_COLORS : SETTLED_COLORS)
+                          : cc
 
                         const outstandingTotal = debtorSplits
                           .filter((s) => !s.repaid)
@@ -331,21 +349,36 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                   <polyline points="6 9 12 15 18 9"/>
                                 </svg>
                               </div>
-                              {/* Row 2: category badge + settled badge + amount */}
+                              {/* Row 2: category/refund badge + settled badge + amount */}
                               <div className="flex items-center gap-2 pl-6">
-                                <span
-                                  className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold"
-                                  style={{ background: activeColors.border, color: activeColors.accent }}
-                                >
-                                  {tCategory(cat)}
-                                </span>
+                                {isRefundExpense ? (
+                                  <span
+                                    className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold"
+                                    style={{ background: activeColors.border, color: activeColors.accent }}
+                                  >
+                                    ↩ {t('cat.Refund')}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold"
+                                    style={{ background: activeColors.border, color: activeColors.accent }}
+                                  >
+                                    {tCategory(cat)}
+                                  </span>
+                                )}
                                 {isFullySettled && (
-                                  <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold" style={{ background: 'rgba(80,106,70,0.18)', color: '#4e6642' }}>
+                                  <span
+                                    className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold"
+                                    style={{
+                                      background: isRefundExpense ? 'rgba(30,90,90,0.18)' : 'rgba(80,106,70,0.18)',
+                                      color: isRefundExpense ? '#1e5a5a' : '#4e6642',
+                                    }}
+                                  >
                                     ✓ Settled
                                   </span>
                                 )}
-                                <span className="ml-auto shrink-0 text-sm font-bold text-[#2c2520]">
-                                  {getCurrencySymbol(expense.paidCurrency)}{formatMoney(expense.amount)}
+                                <span className="ml-auto shrink-0 text-sm font-bold" style={{ color: isRefundExpense ? '#1e5a5a' : '#2c2520' }}>
+                                  {isRefundExpense ? '-' : ''}{getCurrencySymbol(expense.paidCurrency)}{formatMoney(expense.amount)}
                                 </span>
                               </div>
                             </button>
@@ -360,7 +393,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                   {/* Top row: paid-by + edit button */}
                                   <div className="flex items-center justify-between gap-2">
                                     <p className="min-w-0 flex-1 text-xs text-[#6b6058]">
-                                      {t('card.paidBy')}{' '}
+                                      {isRefundExpense ? t('card.refundedTo') : t('card.paidBy')}{' '}
                                       {payers.map((p, i) => (
                                         <span key={p!.id}>
                                           {i > 0 ? ', ' : ''}

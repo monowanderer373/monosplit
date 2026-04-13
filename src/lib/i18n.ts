@@ -331,6 +331,23 @@ const translations = {
   'cat.Sightseeing': { en: 'Sightseeing', zh: '观光' },
   'cat.Activities': { en: 'Activities', zh: '活动' },
   'cat.Other': { en: 'Other', zh: '其他' },
+  'cat.Refund': { en: 'Refund', zh: '退款' },
+
+  // Refund expense type
+  'expense.typeExpense': { en: 'Expense', zh: '支出' },
+  'expense.typeRefund': { en: 'Refund', zh: '退款' },
+  'expense.refundedTo': { en: 'Refunded to', zh: '退款给' },
+  'expense.refundedToHint': { en: 'Who gets money back?', zh: '谁收到退款？' },
+  'expense.paidBackBy': { en: 'Paid back by', zh: '退款人' },
+  'expense.paidBackByHint': { en: 'Who sends the money?', zh: '谁付退款？' },
+  'expense.totalRefundAmt': { en: 'Total refund amount', zh: '退款总额' },
+  'expense.saveRefund': { en: 'Save Refund', zh: '保存退款' },
+  'expense.editRefundTitle': { en: 'Edit Refund', zh: '编辑退款' },
+  'expense.addRefundTitle': { en: 'Add Refund', zh: '添加退款' },
+  'expense.refundEqualHint': { en: 'per recipient', zh: '每位收款人' },
+  'expense.refundSummaryNone': { en: 'Fill in the details above to see a summary.', zh: '请填写上方信息以查看摘要。' },
+  'card.refundedTo': { en: 'Refunded to', zh: '退款给' },
+  'card.refundLabel': { en: 'Refund', zh: '退款' },
 } as const
 
 export type TranslationKey = keyof typeof translations

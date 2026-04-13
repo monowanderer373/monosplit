@@ -11,8 +11,8 @@ import {
 } from '../lib/splitCalc'
 import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
-import type { Expense, Group, ItemizedInputMode, PaymentMethod, RateMode, SplitMode } from '../types'
-import { EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
+import type { Expense, ExpenseType, Group, ItemizedInputMode, PaymentMethod, RateMode, SplitMode } from '../types'
+import { SELECTABLE_EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
 import { useT, tCategory } from '../lib/i18n'
 import SplitExpander from './SplitExpander'
 
@@ -29,6 +29,7 @@ type Props = {
 }
 
 type FormState = {
+  expenseType: ExpenseType
   category: string
   description: string
   payerIds: string[]
@@ -53,8 +54,8 @@ type FormState = {
 
 function blankForm(group: Group): FormState {
   const today = todayISO()
-  const initialDate = today
   return {
+    expenseType: 'expense',
     category: 'Other',
     description: '',
     payerIds: group.people[0] ? [group.people[0].id] : [],
@@ -74,7 +75,7 @@ function blankForm(group: Group): FormState {
     tipsPct: '',
     rateMode: 'auto',
     manualRate: '',
-    date: initialDate,
+    date: today,
   }
 }
 
@@ -92,6 +93,7 @@ function expenseToForm(expense: Expense): FormState {
   }
   const firstSplit = expense.splits[0]
   return {
+    expenseType: expense.type ?? 'expense',
     category: normalizeCategory(expense.category),
     description: expense.description || '',
     payerIds: expense.payerIds?.length ? expense.payerIds : [],
@@ -176,6 +178,57 @@ export default function ExpenseForm({
     return rateInfo?.rate ?? null
   }, [form.manualRate, form.paidCurrency, form.rateMode, form.repayCurrency, rateInfo])
 
+  // ── Refund type toggle handler ──────────────────────────────────────────
+  const switchExpenseType = (newType: ExpenseType) => {
+    if (newType === form.expenseType) return
+    if (newType === 'refund') {
+      // Current payer(s) become who pays back; everyone else becomes recipients
+      const payerBackIds = form.payerIds.length > 0 ? form.payerIds : group.people[0] ? [group.people[0].id] : []
+      const recipientIds = group.people.filter((p) => !payerBackIds.includes(p.id)).map((p) => p.id)
+      setForm((prev) => ({
+        ...prev,
+        expenseType: 'refund',
+        category: 'Refund',
+        payerIds: recipientIds.length > 0 ? recipientIds : group.people.map((p) => p.id),
+        splitPersonIds: payerBackIds,
+        splitMode: 'equal',
+      }))
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        expenseType: 'expense',
+        category: 'Other',
+        payerIds: prev.splitPersonIds.length > 0 ? [prev.splitPersonIds[0]] : group.people[0] ? [group.people[0].id] : [],
+        splitPersonIds: group.people.map((p) => p.id),
+      }))
+    }
+  }
+
+  // ── Refund summary line ──────────────────────────────────────────────────
+  const refundSummary = useMemo(() => {
+    if (form.expenseType !== 'refund') return null
+    const amount = Number(form.amount)
+    if (!amount || form.payerIds.length === 0 || form.splitPersonIds.length === 0) return null
+    const symbol = getCurrencySymbol(form.paidCurrency)
+    const perRecipient = amount / form.payerIds.length
+    const recipients = form.payerIds
+      .map((id) => group.people.find((p) => p.id === id)?.name)
+      .filter(Boolean) as string[]
+    const payers = form.splitPersonIds
+      .map((id) => group.people.find((p) => p.id === id)?.name)
+      .filter(Boolean) as string[]
+
+    const recipientStr =
+      recipients.length === 1
+        ? recipients[0]
+        : recipients.length === 2
+          ? `${recipients[0]} & ${recipients[1]}`
+          : `${recipients.slice(0, -1).join(', ')} & ${recipients[recipients.length - 1]}`
+
+    const payerStr = payers.join(', ')
+    return `${payerStr} pays ${symbol}${formatMoney(perRecipient)} each to ${recipientStr}`
+  }, [form.expenseType, form.amount, form.payerIds, form.splitPersonIds, form.paidCurrency, group.people])
+
   const itemizedSummary = useMemo(() => {
     if (form.splitMode !== 'itemized') return null
     const expenseAmount = Number(form.amount)
@@ -250,7 +303,7 @@ export default function ExpenseForm({
       return
     }
     if (form.payerIds.length === 0) {
-      setError(t('error.selectPayer'))
+      setError(form.expenseType === 'refund' ? t('error.selectPayer') : t('error.selectPayer'))
       return
     }
     if (form.splitPersonIds.length === 0) {
@@ -259,6 +312,7 @@ export default function ExpenseForm({
     }
     // Rate validation skipped — rate UI is hidden; rate will be set in Settle Up later
     if (
+      form.expenseType !== 'refund' &&
       form.splitMode === 'itemized' &&
       itemizedSummary?.hasExpenseAmount &&
       itemizedSummary.diff != null &&
@@ -303,7 +357,10 @@ export default function ExpenseForm({
     }
 
     let splits
-    if (form.splitMode === 'itemized') {
+    // Refund always uses simple equal split among "paid back by" people
+    if (form.expenseType === 'refund') {
+      splits = calcEqualSplits({ peopleIds: form.splitPersonIds, totalAmount: amount, ...commonArgs })
+    } else if (form.splitMode === 'itemized') {
       const payerMissingValue = form.payerIds.some((pid) => !assertPayerHasItemizedValue(pid, form.itemizedInput))
       if (payerMissingValue) {
         setError(t('error.itemizedPayer'))
@@ -348,19 +405,20 @@ export default function ExpenseForm({
     }
 
     onSave({
-      category: normalizeCategory(form.category),
+      type: form.expenseType,
+      category: form.expenseType === 'refund' ? 'Refund' : normalizeCategory(form.category),
       description: form.description.trim(),
       payerIds: form.payerIds,
       amount,
       paidCurrency: form.paidCurrency,
       repayCurrency: form.repayCurrency,
       paymentMethod: form.paymentMethod,
-      splitMode: form.splitMode,
-      itemizedInputMode: form.splitMode === 'itemized' ? form.itemizedInputMode : null,
-      serviceTaxPct: form.splitMode === 'itemized' ? Number(form.serviceTaxPct || '0') : null,
-      salesTaxPct: form.splitMode === 'itemized' ? Number(form.salesTaxPct || '0') : null,
-      tipsPct: form.splitMode === 'itemized' ? Number(form.tipsPct || '0') : null,
-      taxPctTotal: form.splitMode === 'itemized' ? totalTaxPct : null,
+      splitMode: form.expenseType === 'refund' ? 'equal' : form.splitMode,
+      itemizedInputMode: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? form.itemizedInputMode : null,
+      serviceTaxPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.serviceTaxPct || '0') : null,
+      salesTaxPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.salesTaxPct || '0') : null,
+      tipsPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.tipsPct || '0') : null,
+      taxPctTotal: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? totalTaxPct : null,
       date: form.date,
       splits,
     })
@@ -370,10 +428,16 @@ export default function ExpenseForm({
     setError('')
   }
 
+  const isRefund = form.expenseType === 'refund'
+
   return (
-    <section className="ms-card-soft">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="ms-title">{title}</h2>
+    <section className={`ms-card-soft ${isRefund ? 'border-[rgba(30,90,90,0.25)] bg-[rgba(30,90,90,0.03)]' : ''}`}>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="ms-title">
+          {isRefund
+            ? (initialExpense ? t('expense.editRefundTitle') : t('expense.addRefundTitle'))
+            : title}
+        </h2>
         {onRemove ? (
           <button className="ms-btn-ghost border-[#c49898] text-[#9e4a4a]" onClick={onRemove}>
             {t('expense.remove')}
@@ -385,6 +449,26 @@ export default function ExpenseForm({
         ) : null}
       </div>
 
+      {/* ── Expense / Refund toggle ──────────────────────────────────── */}
+      <div className="mb-4 flex overflow-hidden rounded-xl border border-[#d8d0c4]">
+        <button
+          className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-semibold transition-colors ${
+            !isRefund ? 'bg-[#8b6e4e] text-white' : 'text-[#6b6058] hover:bg-[rgba(139,110,78,0.06)]'
+          }`}
+          onClick={() => switchExpenseType('expense')}
+        >
+          💸 {t('expense.typeExpense')}
+        </button>
+        <button
+          className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-semibold transition-colors ${
+            isRefund ? 'bg-[#2e6060] text-white' : 'text-[#6b6058] hover:bg-[rgba(30,90,90,0.06)]'
+          }`}
+          onClick={() => switchExpenseType('refund')}
+        >
+          ↩ {t('expense.typeRefund')}
+        </button>
+      </div>
+
       <div className="flex flex-col gap-4">
 
         {/* ── Description (full width) ────────────────────────────────── */}
@@ -394,7 +478,7 @@ export default function ExpenseForm({
           </label>
           <input
             className="ms-input w-full"
-            placeholder="e.g. Team dinner, taxi, Lawson..."
+            placeholder={isRefund ? 'e.g. Airbnb rebate, overpayment refund...' : 'e.g. Team dinner, taxi, Lawson...'}
             value={form.description}
             onChange={(e) => setField('description', e.target.value)}
             autoFocus
@@ -405,7 +489,7 @@ export default function ExpenseForm({
         <div className="grid grid-cols-[1fr_100px] gap-2">
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#6b6058]">
-              {t('expense.amount')}
+              {isRefund ? t('expense.totalRefundAmt') : t('expense.amount')}
             </label>
             <input
               className="ms-input w-full"
@@ -436,102 +520,195 @@ export default function ExpenseForm({
           </div>
         </div>
 
-        {/* ── Category (auto-detected from description) ──────────────── */}
-        <div>
-          <div className="mb-1.5 flex items-center gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">
-              {t('expense.category')}
-            </label>
-            {autoCatActive && (
-              <span className="rounded bg-[rgba(139,110,78,0.12)] px-1.5 py-0.5 text-[10px] font-medium text-[#74593c]">
-                ✦ auto
-              </span>
-            )}
+        {/* ── Category — hidden for refunds (auto-set to Refund) ─────── */}
+        {!isRefund && (
+          <div>
+            <div className="mb-1.5 flex items-center gap-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">
+                {t('expense.category')}
+              </label>
+              {autoCatActive && (
+                <span className="rounded bg-[rgba(139,110,78,0.12)] px-1.5 py-0.5 text-[10px] font-medium text-[#74593c]">
+                  ✦ auto
+                </span>
+              )}
+            </div>
+            <select
+              className="ms-input w-full"
+              value={form.category}
+              onChange={(e) => {
+                setField('category', e.target.value)
+                setAutoCatActive(false)
+              }}
+            >
+              {SELECTABLE_EXPENSE_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {tCategory(category)}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            className="ms-input w-full"
-            value={form.category}
-            onChange={(e) => {
-              setField('category', e.target.value)
-              setAutoCatActive(false)
-            }}
-          >
-            {EXPENSE_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {tCategory(category)}
-              </option>
-            ))}
-          </select>
-        </div>
+        )}
 
-        {/* ── Paid by ─────────────────────────────────────────────────── */}
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#6b6058]">
-            {t('expense.paidBy')}
-          </label>
-          <div className="flex flex-wrap gap-2">
-          {group.people.map((person) => {
-            const active = form.payerIds.includes(person.id)
-            return (
-              <button
-                key={person.id}
-                className={`ms-chip ${
-                  active ? 'ms-chip-active-indigo' : 'border-[#d8d0c4] text-[#6b6058]'
-                }`}
-                onClick={() => {
-                  setForm((prev) => {
-                    const has = prev.payerIds.includes(person.id)
-                    return {
-                      ...prev,
-                      payerIds: has
-                        ? prev.payerIds.filter((id) => id !== person.id)
-                        : [...prev.payerIds, person.id],
-                    }
-                  })
-                }}
-                style={getPersonNameStyle(person)}
-              >
-          {active ? '✓ ' : ''}
-              {person.name}
-            </button>
-            )
-          })}
-          </div>
-        </div>
+        {/* ── REFUND MODE: Refunded to + Paid back by ─────────────────── */}
+        {isRefund ? (
+          <>
+            {/* Recipients — who gets money back (payerIds) */}
+            <div>
+              <div className="mb-1.5 flex items-center gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-[#2e6060]">
+                  ↩ {t('expense.refundedTo')}
+                </label>
+                <span className="text-[10px] text-[#6b9090]">{t('expense.refundedToHint')}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {group.people.map((person) => {
+                  const active = form.payerIds.includes(person.id)
+                  return (
+                    <button
+                      key={person.id}
+                      className={`ms-chip transition-colors ${
+                        active
+                          ? 'border-[rgba(30,90,90,0.6)] bg-[rgba(30,90,90,0.12)] text-[#1e5a5a]'
+                          : 'border-[#d8d0c4] text-[#6b6058]'
+                      }`}
+                      onClick={() =>
+                        setForm((prev) => {
+                          const has = prev.payerIds.includes(person.id)
+                          return {
+                            ...prev,
+                            payerIds: has
+                              ? prev.payerIds.filter((id) => id !== person.id)
+                              : [...prev.payerIds, person.id],
+                          }
+                        })
+                      }
+                    >
+                      {active ? '✓ ' : ''}{person.name}
+                    </button>
+                  )
+                })}
+              </div>
+              {form.payerIds.length > 0 && Number(form.amount) > 0 && (
+                <p className="mt-1.5 text-xs text-[#4a8080]">
+                  {getCurrencySymbol(form.paidCurrency)}{formatMoney(Number(form.amount) / form.payerIds.length)}{' '}
+                  {t('expense.refundEqualHint')}
+                </p>
+              )}
+            </div>
 
-        {/* ── Split ───────────────────────────────────────────────────── */}
-        <SplitExpander
-          state={{
-            splitMode: form.splitMode,
-            splitPersonIds: form.splitPersonIds,
-            itemizedInput: form.itemizedInput,
-            itemizedInputMode: form.itemizedInputMode,
-            percentageInput: form.percentageInput,
-            sharesInput: form.sharesInput,
-            adjustmentInput: form.adjustmentInput,
-            serviceTaxPct: form.serviceTaxPct,
-            salesTaxPct: form.salesTaxPct,
-            tipsPct: form.tipsPct,
-          }}
-          onChange={(next) =>
-            setForm((prev) => ({
-              ...prev,
-              splitMode: next.splitMode,
-              splitPersonIds: next.splitPersonIds,
-              itemizedInput: next.itemizedInput,
-              itemizedInputMode: next.itemizedInputMode,
-              percentageInput: next.percentageInput,
-              sharesInput: next.sharesInput,
-              adjustmentInput: next.adjustmentInput,
-              serviceTaxPct: next.serviceTaxPct,
-              salesTaxPct: next.salesTaxPct,
-              tipsPct: next.tipsPct,
-            }))
-          }
-          group={group}
-          totalAmount={Number(form.amount) || 0}
-          paidCurrency={form.paidCurrency}
-        />
+            {/* Payers — who sends the refund back (splitPersonIds) */}
+            <div>
+              <div className="mb-1.5 flex items-center gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">
+                  ↑ {t('expense.paidBackBy')}
+                </label>
+                <span className="text-[10px] text-[#9a9088]">{t('expense.paidBackByHint')}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {group.people.map((person) => {
+                  const active = form.splitPersonIds.includes(person.id)
+                  return (
+                    <button
+                      key={person.id}
+                      className={`ms-chip transition-colors ${
+                        active ? 'ms-chip-active-indigo' : 'border-[#d8d0c4] text-[#6b6058]'
+                      }`}
+                      onClick={() =>
+                        setForm((prev) => {
+                          const has = prev.splitPersonIds.includes(person.id)
+                          return {
+                            ...prev,
+                            splitPersonIds: has
+                              ? prev.splitPersonIds.filter((id) => id !== person.id)
+                              : [...prev.splitPersonIds, person.id],
+                          }
+                        })
+                      }
+                    >
+                      {active ? '✓ ' : ''}{person.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Summary line */}
+            <div className="rounded-xl border border-[rgba(30,90,90,0.20)] bg-[rgba(30,90,90,0.06)] px-4 py-3">
+              <p className="text-sm font-medium text-[#1e5a5a]">
+                {refundSummary ?? t('expense.refundSummaryNone')}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* ── EXPENSE MODE: Paid by ─────────────────────────────────── */}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#6b6058]">
+                {t('expense.paidBy')}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {group.people.map((person) => {
+                  const active = form.payerIds.includes(person.id)
+                  return (
+                    <button
+                      key={person.id}
+                      className={`ms-chip ${active ? 'ms-chip-active-indigo' : 'border-[#d8d0c4] text-[#6b6058]'}`}
+                      onClick={() => {
+                        setForm((prev) => {
+                          const has = prev.payerIds.includes(person.id)
+                          return {
+                            ...prev,
+                            payerIds: has
+                              ? prev.payerIds.filter((id) => id !== person.id)
+                              : [...prev.payerIds, person.id],
+                          }
+                        })
+                      }}
+                      style={getPersonNameStyle(person)}
+                    >
+                      {active ? '✓ ' : ''}{person.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* ── Split ─────────────────────────────────────────────────── */}
+            <SplitExpander
+              state={{
+                splitMode: form.splitMode,
+                splitPersonIds: form.splitPersonIds,
+                itemizedInput: form.itemizedInput,
+                itemizedInputMode: form.itemizedInputMode,
+                percentageInput: form.percentageInput,
+                sharesInput: form.sharesInput,
+                adjustmentInput: form.adjustmentInput,
+                serviceTaxPct: form.serviceTaxPct,
+                salesTaxPct: form.salesTaxPct,
+                tipsPct: form.tipsPct,
+              }}
+              onChange={(next) =>
+                setForm((prev) => ({
+                  ...prev,
+                  splitMode: next.splitMode,
+                  splitPersonIds: next.splitPersonIds,
+                  itemizedInput: next.itemizedInput,
+                  itemizedInputMode: next.itemizedInputMode,
+                  percentageInput: next.percentageInput,
+                  sharesInput: next.sharesInput,
+                  adjustmentInput: next.adjustmentInput,
+                  serviceTaxPct: next.serviceTaxPct,
+                  salesTaxPct: next.salesTaxPct,
+                  tipsPct: next.tipsPct,
+                }))
+              }
+              group={group}
+              totalAmount={Number(form.amount) || 0}
+              paidCurrency={form.paidCurrency}
+            />
+          </>
+        )}
 
         {/* ── Date ────────────────────────────────────────────────────── */}
         <div>
@@ -573,8 +750,13 @@ export default function ExpenseForm({
 
         {/* ── Action buttons ──────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <button className="ms-btn-primary h-11" onClick={submit}>
-            {submitLabel}
+          <button
+            className={`h-11 rounded-xl font-semibold text-white transition-colors ${
+              isRefund ? 'bg-[#2e6060] hover:bg-[#245050]' : 'ms-btn-primary'
+            }`}
+            onClick={submit}
+          >
+            {isRefund ? t('expense.saveRefund') : submitLabel}
           </button>
           {onCancel ? (
             <button className="ms-btn-ghost h-11" onClick={onCancel}>

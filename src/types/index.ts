@@ -44,8 +44,11 @@ export interface Split {
   repaidDate: string | null
 }
 
+export type ExpenseType = 'expense' | 'refund'
+
 export interface Expense {
   id: string
+  type?: ExpenseType
   category: string
   description: string
   payerIds: string[]
