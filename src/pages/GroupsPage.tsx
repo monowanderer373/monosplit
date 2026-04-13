@@ -5,6 +5,7 @@ import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import type { Group } from '../types'
 
 export default function GroupsPage() {
   const t = useT()
@@ -35,6 +36,32 @@ export default function GroupsPage() {
   }, [groups, authUser, authLoading])
 
   const [joinId, setJoinId] = useState('')
+
+  // Delete (owner) or Leave (member) a group
+  const handleRemoveGroup = async (group: Group) => {
+    const isOwner = !!authUser && group.ownerId === authUser.id
+    const confirmMsg = isOwner
+      ? `Delete "${group.name}" for everyone? This cannot be undone.`
+      : `Leave "${group.name}"? You can rejoin via the share link.`
+    if (!window.confirm(confirmMsg)) return
+
+    // Always remove from local store immediately
+    deleteGroup(group.id)
+
+    if (supabase && supabaseEnabled && authUser) {
+      // Remove this user's membership from user_groups
+      await supabase
+        .from('user_groups')
+        .delete()
+        .eq('user_id', authUser.id)
+        .eq('group_id', group.id)
+
+      if (isOwner) {
+        // Owner: delete the group entirely from Supabase so it's gone for everyone
+        await supabase.from('groups').delete().eq('id', group.id)
+      }
+    }
+  }
 
   const onCreate = () => {
     const name = newGroup.trim()
@@ -207,11 +234,10 @@ export default function GroupsPage() {
                 className="ms-btn-ghost text-[#6b6058]"
                 onClick={(e) => {
                   e.stopPropagation()
-                  const ok = window.confirm(`${t('groups.deleteConfirm')} "${group.name}"?`)
-                  if (ok) deleteGroup(group.id)
+                  void handleRemoveGroup(group)
                 }}
               >
-                {t('groups.delete')}
+                {authUser && group.ownerId === authUser.id ? t('groups.delete') : 'Leave'}
               </button>
             </div>
           </article>

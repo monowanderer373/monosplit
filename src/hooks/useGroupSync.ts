@@ -146,7 +146,8 @@ export function useGroupSync(groupId: string | undefined) {
           const incoming = payload.new as { data: unknown; version: number; owner_id?: string | null } | undefined
           if (!incoming?.data) return
           const incomingVersion = incoming.version ?? 0
-          if (incomingVersion <= versionRef.current) return
+          // Use strict < so equal-version events (write conflicts) still get processed
+          if (incomingVersion < versionRef.current) return
 
           versionRef.current = incomingVersion
           // Keep ownerId from the separate owner_id column (not stored in JSONB)
@@ -166,6 +167,40 @@ export function useGroupSync(groupId: string | undefined) {
       supabase!.removeChannel(channel)
     }
   }, [groupId, replaceGroup])
+
+  // Re-fetch when the tab/app comes back to the foreground.
+  // This is the Realtime fallback: on mobile, WebSocket connections drop when
+  // the user switches apps. Without this, members never see each other's changes
+  // unless they close and reopen the group page.
+  useEffect(() => {
+    if (!groupId || !supabase || !supabaseEnabled) return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      void Promise.resolve(
+        supabase!.from('groups').select('*').eq('id', groupId).maybeSingle(),
+      ).then(({ data }) => {
+        if (!data?.data) return
+        const incomingVersion = (data.version as number) ?? 0
+        // Always apply on visibility change — user explicitly returned to the page
+        if (incomingVersion < versionRef.current) return
+        versionRef.current = incomingVersion
+        if ((data as unknown as { owner_id?: string | null }).owner_id !== undefined) {
+          setOwnerId((data as unknown as { owner_id: string | null }).owner_id ?? null)
+        }
+        skipNextUpload.current = true
+        upsertGroup({
+          ...(data.data as unknown as Group),
+          id: groupId,
+          ownerId: (data as unknown as { owner_id?: string | null }).owner_id ?? undefined,
+        })
+        setStatus('synced')
+      })
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [groupId, upsertGroup])
 
   // Debounced upload on local changes
   useEffect(() => {
