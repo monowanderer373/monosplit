@@ -223,14 +223,14 @@ export const useStore = create<AppState>()(
       removePerson: (groupId, personId) => {
         set((state) => ({
           groups: updateGroupById(state.groups, groupId, (group) => {
-            // Strip the person from all expenses, then drop expenses that become payer-less
+            // If the removed person was any payer on an expense, delete the whole bill.
+            // If they were only a debtor, keep the bill and remove just their split row.
             const updatedExpenses = group.expenses
+              .filter((expense) => !(expense.payerIds ?? []).includes(personId))
               .map((expense) => ({
                 ...expense,
-                payerIds: (expense.payerIds ?? []).filter((pid) => pid !== personId),
                 splits: expense.splits.filter((split) => split.personId !== personId),
               }))
-              .filter((expense) => expense.payerIds.length > 0)
             return {
               ...group,
               people: group.people.filter((person) => person.id !== personId),
