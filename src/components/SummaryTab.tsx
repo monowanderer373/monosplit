@@ -50,6 +50,7 @@ type Props = {
   group: Group
   onDeleteExpense: (expenseId: string) => void
   onEditExpense: (expenseId: string, updates: Partial<Expense>) => void
+  canEdit?: boolean
 }
 
 function formatDateLabel(isoDate: string): string {
@@ -65,7 +66,7 @@ function formatDateLabel(isoDate: string): string {
   })
 }
 
-export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Props) {
+export default function SummaryTab({ group, onDeleteExpense, onEditExpense, canEdit = true }: Props) {
   const t = useT()
   const lang = useStore((s) => s.lang)
   const [categoryFilter, setCategoryFilter] = useState<'All' | (typeof EXPENSE_CATEGORIES)[number]>('All')
@@ -402,15 +403,17 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                       {payers.length === 0 ? t('card.unknown') : ''}
                                       {' '}· {expense.date}
                                     </p>
-                                    <button
-                                      className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#6b6058] hover:bg-[rgba(0,0,0,0.06)] active:opacity-70"
-                                      onClick={(e) => { e.stopPropagation(); setEditingExpenseId(expense.id) }}
-                                    >
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                                      </svg>
-                                      {t('group.edit')}
-                                    </button>
+                                    {canEdit ? (
+                                      <button
+                                        className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#6b6058] hover:bg-[rgba(0,0,0,0.06)] active:opacity-70"
+                                        onClick={(e) => { e.stopPropagation(); setEditingExpenseId(expense.id) }}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                        </svg>
+                                        {t('group.edit')}
+                                      </button>
+                                    ) : null}
                                   </div>
 
                                   {/* Payer rows */}
@@ -493,7 +496,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
       </div>
 
       {/* Edit expense modal */}
-      {editingExpense ? (
+      {editingExpense && canEdit ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">
           <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-2 lg:max-w-3xl">
             <ExpenseForm

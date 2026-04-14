@@ -2,35 +2,44 @@ import { useRef, useState } from 'react'
 import { CURRENCIES } from '../lib/currency'
 import { PRESET_AVATARS } from '../lib/avatars'
 import { getPersonNameStyle } from '../lib/personTheme'
+import { canEditGroup, canManageManualTravellers, isManualTraveller } from '../lib/permissions'
 import { THEMES } from '../lib/themes'
 import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
 import { exportGroupAsJson, exportGroupAsCsv, parseImportedJson } from '../lib/export'
 import { generateGroupId } from '../lib/id'
-import type { Group, Person } from '../types'
+import type { Group, GroupMembership, GroupRole, Person } from '../types'
 
 type Props = {
   group: Group
   authUserId?: string
+  role: GroupRole | null
+  membershipByUserId: Record<string, GroupMembership | undefined>
   onAddPerson: (name: string) => void
+  onUpdateMembershipRole: (userId: string, role: Exclude<GroupRole, 'owner'>) => void
   onUpdatePersonProfile: (personId: string, updates: Partial<Pick<Person, 'name' | 'avatarDataUrl' | 'nameColor'>>) => void
   onRemovePerson: (personId: string) => void
   onUpdateGroupCurrency: (paid: string, repay: string) => void
 }
 
-export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
+export default function PeopleTab({ group, authUserId, role, membershipByUserId, onAddPerson, onUpdateMembershipRole, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
   const t = useT()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftAvatarDataUrl, setDraftAvatarDataUrl] = useState<string | null>(null)
+  const [draftLinkedRole, setDraftLinkedRole] = useState<Exclude<GroupRole, 'owner'>>('view')
   const editingPerson = editingPersonId ? group.people.find((person) => person.id === editingPersonId) || null : null
+  const canManageTravellers = canManageManualTravellers(role)
+  const canEditTrip = canEditGroup(role)
 
   const openEditPerson = (person: Person) => {
     setEditingPersonId(person.id)
     setDraftName(person.name)
     setDraftAvatarDataUrl(person.avatarDataUrl || null)
+    const linkedRole = person.authUserId ? membershipByUserId[person.authUserId]?.role : null
+    setDraftLinkedRole(linkedRole === 'full_access' ? 'full_access' : 'view')
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,6 +66,16 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
         <div className="mb-3 flex flex-wrap gap-2">
           {group.people.map((person) => {
             const isMe = authUserId && person.authUserId === authUserId
+            const membership = person.authUserId ? membershipByUserId[person.authUserId] : undefined
+            const roleLabel = group.ownerId && person.authUserId === group.ownerId
+              ? t('people.roleOwner')
+              : membership?.role === 'full_access'
+                ? t('people.roleFullAccess')
+                : membership?.role === 'view'
+                  ? t('people.roleView')
+                  : isManualTraveller(person)
+                    ? t('people.roleTraveller')
+                    : null
             return (
               <button
                 key={person.id}
@@ -84,35 +103,44 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
                     {t('people.you')}
                   </span>
                 )}
+                {roleLabel && (
+                  <span className="ml-0.5 rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[#e8e0d0] text-[#74593c]">
+                    {roleLabel}
+                  </span>
+                )}
               </button>
             )
           })}
           {group.people.length === 0 ? <p className="text-sm text-[#6b6058]">{t('people.addHint')}</p> : null}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            className="ms-input flex-1"
-            placeholder={t('people.addPlaceholder')}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter') return
-              const value = name.trim()
-              if (!value) return
-              onAddPerson(value)
-              setName('')
-            }}
-          />
-          <button className="ms-btn-primary h-11 sm:min-w-28" onClick={() => {
-              const value = name.trim()
-              if (!value) return
-              onAddPerson(value)
-              setName('')
-            }}>
-            {t('people.add')}
-          </button>
-        </div>
+        {canManageTravellers ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              className="ms-input flex-1"
+              placeholder={t('people.addPlaceholder')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                const value = name.trim()
+                if (!value) return
+                onAddPerson(value)
+                setName('')
+              }}
+            />
+            <button className="ms-btn-primary h-11 sm:min-w-28" onClick={() => {
+                const value = name.trim()
+                if (!value) return
+                onAddPerson(value)
+                setName('')
+              }}>
+              {t('people.add')}
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-[#6b6058]">{t('people.manualTravellerHint')}</p>
+        )}
       </div>
 
       <div className="ms-card-soft">
@@ -123,6 +151,7 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
             <select
               className="ms-input mt-1 w-full"
               value={group.defaultPaidCurrency}
+              disabled={!canEditTrip}
               onChange={(e) => onUpdateGroupCurrency(e.target.value, group.defaultRepayCurrency)}
             >
               {CURRENCIES.map((currency) => (
@@ -138,6 +167,7 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
             <select
               className="ms-input mt-1 w-full"
               value={group.defaultRepayCurrency}
+              disabled={!canEditTrip}
               onChange={(e) => onUpdateGroupCurrency(group.defaultPaidCurrency, e.target.value)}
             >
               {CURRENCIES.map((currency) => (
@@ -157,7 +187,7 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
 
       <LanguageCard />
 
-      <DataCard group={group} />
+      {canEditTrip ? <DataCard group={group} /> : null}
 
       {editingPerson ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">
@@ -168,6 +198,12 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
                 {t('people.close')}
               </button>
             </div>
+
+            {!isManualTraveller(editingPerson) && (
+              <div className="mb-3 rounded-xl border border-[#e6e0d5] bg-[#f0ece3] px-3 py-2 text-sm text-[#6b6058]">
+                {t('people.linkedMemberReadonly')}
+              </div>
+            )}
 
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -198,6 +234,7 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
                     <button
                       type="button"
                       className="flex items-center gap-1 rounded-lg border border-[#d8d0c4] bg-[#f0ece3] px-2 py-1 text-xs font-medium text-[#5a4838] transition-colors hover:bg-[#e8e0d0]"
+                      disabled={!canManageTravellers || !isManualTraveller(editingPerson)}
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -205,7 +242,7 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
                       </svg>
                       {t('people.uploadPhoto')}
                     </button>
-                    <button type="button" className="text-xs text-[#6b6058] underline" onClick={() => setDraftAvatarDataUrl(null)}>
+                    <button type="button" className="text-xs text-[#6b6058] underline disabled:opacity-50" disabled={!canManageTravellers || !isManualTraveller(editingPerson)} onClick={() => setDraftAvatarDataUrl(null)}>
                       {t('people.clearAvatar')}
                     </button>
                   </div>
@@ -218,6 +255,7 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
                         key={avatar.id}
                         type="button"
                         title={avatar.label}
+                        disabled={!canManageTravellers || !isManualTraveller(editingPerson)}
                         className={`overflow-hidden rounded-xl border-2 p-0 transition ${selected ? 'border-[#8b6e4e] ring-2 ring-[rgba(139,110,78,0.15)]' : 'border-[#e6e0d5]'}`}
                         onClick={() => setDraftAvatarDataUrl(avatar.src)}
                       >
@@ -233,34 +271,65 @@ export default function PeopleTab({ group, authUserId, onAddPerson, onUpdatePers
                 <input
                   className="ms-input mt-1 w-full"
                   value={draftName}
+                  disabled={!canManageTravellers || !isManualTraveller(editingPerson)}
                   onChange={(e) => setDraftName(e.target.value)}
                 />
               </label>
 
-              <button
-                className="ms-btn-primary w-full"
-                onClick={() => {
-                  const cleanName = draftName.trim()
-                  if (!cleanName) return
-                  onUpdatePersonProfile(editingPerson.id, {
-                    name: cleanName,
-                    avatarDataUrl: draftAvatarDataUrl,
-                    nameColor: null,
-                  })
-                  setEditingPersonId(null)
-                }}
-              >
-                {t('people.save')}
-              </button>
-              <button
-                className="ms-btn-ghost w-full py-2.5 text-sm font-semibold text-[#9e4a4a]"
-                onClick={() => {
-                  onRemovePerson(editingPerson.id)
-                  setEditingPersonId(null)
-                }}
-              >
-                {t('people.removeMember')}
-              </button>
+              {role === 'owner' && editingPerson.authUserId && editingPerson.authUserId !== group.ownerId ? (
+                <label className="block text-sm text-[#6b6058]">
+                  {t('people.memberPermission')}
+                  <select
+                    className="ms-input mt-1 w-full"
+                    value={draftLinkedRole}
+                    onChange={(e) => setDraftLinkedRole(e.target.value === 'full_access' ? 'full_access' : 'view')}
+                  >
+                    <option value="full_access">Full Access</option>
+                    <option value="view">View</option>
+                  </select>
+                </label>
+              ) : null}
+
+              {canManageTravellers && isManualTraveller(editingPerson) ? (
+                <>
+                  <button
+                    className="ms-btn-primary w-full"
+                    onClick={() => {
+                      const cleanName = draftName.trim()
+                      if (!cleanName) return
+                      onUpdatePersonProfile(editingPerson.id, {
+                        name: cleanName,
+                        avatarDataUrl: draftAvatarDataUrl,
+                        nameColor: null,
+                      })
+                      setEditingPersonId(null)
+                    }}
+                  >
+                    {t('people.save')}
+                  </button>
+                  <button
+                    className="ms-btn-ghost w-full py-2.5 text-sm font-semibold text-[#9e4a4a]"
+                    onClick={() => {
+                      onRemovePerson(editingPerson.id)
+                      setEditingPersonId(null)
+                    }}
+                  >
+                    {t('people.removeMember')}
+                  </button>
+                </>
+              ) : null}
+
+              {role === 'owner' && editingPerson.authUserId && editingPerson.authUserId !== group.ownerId ? (
+                <button
+                  className="ms-btn-primary w-full"
+                  onClick={() => {
+                    onUpdateMembershipRole(editingPerson.authUserId!, draftLinkedRole)
+                    setEditingPersonId(null)
+                  }}
+                >
+                  {t('people.updateMemberPermission')}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

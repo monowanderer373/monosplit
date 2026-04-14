@@ -2,6 +2,7 @@ export type SplitMode = 'equal' | 'itemized' | 'percentage' | 'shares' | 'adjust
 export type ItemizedInputMode = 'pretax' | 'total'
 export type RateMode = 'auto' | 'manual'
 export type PaymentMethod = 'card' | 'cash'
+export type GroupRole = 'owner' | 'full_access' | 'view'
 
 export interface PaymentInfo {
   qrCodeDataUrl: string | null
@@ -24,6 +25,7 @@ export interface Person {
   avatarDataUrl: string | null
   nameColor: string | null
   authUserId?: string
+  bio?: string | null
   paymentInfo: PaymentInfo
   paymentProofs: PaymentProof[]
   skipRepaidConfirm?: boolean
@@ -82,6 +84,22 @@ export interface Group {
   ownerId?: string
   deletedAt?: string | null
   deletedBy?: string | null
+}
+
+export interface GroupMembership {
+  groupId: string
+  userId: string
+  role: GroupRole
+}
+
+export interface GroupInviteLink {
+  token: string
+  groupId: string
+  role: Exclude<GroupRole, 'owner'>
+  createdBy: string
+  active: boolean
+  createdAt: string
+  expiresAt?: string | null
 }
 
 export interface GroupComment {

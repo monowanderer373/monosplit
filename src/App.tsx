@@ -42,7 +42,7 @@ function AppRoutes() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
-        <Route path="/invite/:groupId" element={<InvitePage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

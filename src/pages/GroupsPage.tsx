@@ -10,7 +10,7 @@ import type { Group } from '../types'
 export default function GroupsPage() {
   const t = useT()
   const navigate = useNavigate()
-  const { authUser, loading: authLoading } = useAuth()
+  const { authUser, loading: authLoading, memberships, transferGroupOwnership } = useAuth()
   const groups = useStore((s) => s.groups)
   const hiddenDeletedGroupIds = useStore((s) => s.hiddenDeletedGroupIds)
   const hideDeletedGroup = useStore((s) => s.hideDeletedGroup)
@@ -34,21 +34,42 @@ export default function GroupsPage() {
         (g) =>
           !g.ownerId ||
           g.ownerId === authUser.id ||
-          g.people.some((p) => p.authUserId === authUser.id),
+          g.people.some((p) => p.authUserId === authUser.id) ||
+          memberships.some((membership) => membership.groupId === g.id && membership.userId === authUser.id),
       )
       .filter((g) => !g.deletedAt)
       .filter((g) => !hiddenDeletedGroupIds.includes(g.id))
-  }, [groups, authUser, authLoading, hiddenDeletedGroupIds])
+  }, [groups, authUser, authLoading, hiddenDeletedGroupIds, memberships])
 
   const [joinId, setJoinId] = useState('')
 
   // Delete (owner) or Leave (member) a group
   const handleRemoveGroup = async (group: Group) => {
     const isOwner = !!authUser && group.ownerId === authUser.id
-    const confirmMsg = isOwner
-      ? `Delete "${group.name}" for everyone? This cannot be undone.`
-      : `Leave "${group.name}"? You can rejoin via the share link.`
-    if (!window.confirm(confirmMsg)) return
+    if (isOwner && authUser) {
+      const transferableMembers = group.people.filter((person) => person.authUserId && person.authUserId !== authUser.id)
+      if (transferableMembers.length > 0) {
+        const shouldTransfer = window.confirm(`${group.name}\n\n${t('groups.transferOwnerPrompt')}`)
+        if (shouldTransfer) {
+          const options = transferableMembers.map((person, index) => `${index + 1}. ${person.name}`).join('\n')
+          const rawChoice = window.prompt(`${t('groups.transferOwnerPick')}\n${options}`, '1')
+          if (!rawChoice) return
+          const index = Number(rawChoice) - 1
+          const chosen = transferableMembers[index]
+          if (!chosen?.authUserId) {
+            window.alert(t('groups.invalidMemberSelection'))
+            return
+          }
+          await transferGroupOwnership(group.id, chosen.authUserId)
+          hideDeletedGroup(group.id)
+          deleteGroup(group.id)
+          return
+        }
+      }
+      if (!window.confirm(`${group.name}\n\n${t('groups.deleteEveryonePrompt')}`)) return
+    } else {
+      if (!window.confirm(`${group.name}\n\n${t('groups.leaveNeedsInvite')}`)) return
+    }
 
     // Always remove from local store immediately
     hideDeletedGroup(group.id)

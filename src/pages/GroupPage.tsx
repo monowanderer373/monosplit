@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import BottomTabs from '../components/BottomTabs'
 import PeopleTab from '../components/PeopleTab'
 import SettleTab from '../components/SettleTab'
@@ -7,12 +7,22 @@ import SummaryTab from '../components/SummaryTab'
 import DashboardTab from '../components/DashboardTab'
 import ExpenseSheet from '../components/ExpenseSheet'
 import SettlePaySheet from '../components/SettlePaySheet'
+import {
+  canEditExpenses,
+  canEditGroup,
+  canInviteMembers,
+  canManageManualTravellers,
+  canSettle,
+  getGroupRole,
+} from '../lib/permissions'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
+import { supabase, supabaseEnabled } from '../lib/supabase'
 
 import { useGroupSync } from '../hooks/useGroupSync'
 import { useAuth } from '../hooks/useAuth'
+import type { GroupMembership } from '../types'
 
 type Tab = 'summary' | 'dashboard' | 'settle' | 'profile'
 
@@ -20,7 +30,6 @@ export default function GroupPage() {
   const t = useT()
   const { groupId } = useParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<Tab>('summary')
   const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
   const [settlePayOpen, setSettlePayOpen] = useState(false)
@@ -30,11 +39,11 @@ export default function GroupPage() {
   const [editEndDate, setEditEndDate] = useState('')
 
   const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId)
-  const { authUser, loading: authLoading, claimGroup, registerGroupMembership } = useAuth()
+  const { authUser, loading: authLoading, claimGroup, memberships, createInviteLink, updateGroupMembershipRole, registerGroupMembership } = useAuth()
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [inviteBusyRole, setInviteBusyRole] = useState<'full_access' | 'view' | null>(null)
 
-  const isOwned = ownerId === authUser?.id
   const isUnclaimed = ownerId === null
   const canClaim = !!authUser && isUnclaimed && claimStatus !== 'claimed'
 
@@ -51,6 +60,7 @@ export default function GroupPage() {
   }
 
   const group = useStore((state) => state.groups.find((entry) => entry.id === groupId))
+  const [groupMemberships, setGroupMemberships] = useState<GroupMembership[]>([])
 
   // Auto-claim: when a logged-in user opens an unclaimed group, silently claim it
   useEffect(() => {
@@ -63,29 +73,6 @@ export default function GroupPage() {
   }, [authUser?.id, groupId, syncStatus, ownerId, claimStatus])
   const addPerson = useStore((state) => state.addPerson)
 
-  // Auto-join: any logged-in user who opens the group is added as a member.
-  // In MonoSplit the group URL is the invitation — no separate invite code needed.
-  // Also registers membership in user_groups so the group persists across devices.
-  useEffect(() => {
-    if (!authUser || !group || !groupId) return
-
-    const isOwner = group.ownerId === authUser.id || ownerId === authUser.id
-    const isMember = group.people.some((p) => p.authUserId === authUser.id)
-
-    if (!isMember) {
-      // New visitor — add them as a traveller using their account display name
-      const name = authUser.displayName ?? authUser.email?.split('@')[0] ?? 'Traveller'
-      addPerson(groupId, name, authUser.id)
-    }
-
-    // Register server-side membership (idempotent) so group shows on all devices
-    void registerGroupMembership(groupId, isOwner ? 'owner' : 'member')
-
-    // Clean up ?autoJoin param from URL if present
-    if (searchParams.get('autoJoin') === 'true') {
-      navigate(`/group/${groupId}`, { replace: true })
-    }
-  }, [searchParams, authUser, group, groupId, addPerson, navigate, ownerId, registerGroupMembership])
   const updatePersonProfile = useStore((state) => state.updatePersonProfile)
   const removePerson = useStore((state) => state.removePerson)
   const updatePersonPaymentInfo = useStore((state) => state.updatePersonPaymentInfo)
@@ -97,6 +84,87 @@ export default function GroupPage() {
   const addGroupComment = useStore((state) => state.addGroupComment)
 
   const totalExpenses = useMemo(() => group?.expenses.length ?? 0, [group?.expenses.length])
+  const membership = useMemo(
+    () => memberships.find((entry) => entry.groupId === groupId && entry.userId === authUser?.id) ?? null,
+    [authUser?.id, groupId, memberships],
+  )
+  const role = getGroupRole({ ownerId: ownerId ?? group?.ownerId ?? null, authUserId: authUser?.id, membership })
+  const canEditTrip = canEditGroup(role)
+  const canInvite = canInviteMembers(role)
+  const canManageTravellers = canManageManualTravellers(role)
+  const canEditExpenseData = canEditExpenses(role)
+  const canUseSettle = canSettle(role)
+  const hasAccess = !!role || canClaim
+  const linkedPerson = useMemo(
+    () => authUser?.id ? group?.people.find((person) => person.authUserId === authUser.id) ?? null : null,
+    [authUser?.id, group?.people],
+  )
+  const membershipByUserId = useMemo(
+    () => Object.fromEntries(groupMemberships.map((entry) => [entry.userId, entry])),
+    [groupMemberships],
+  )
+
+  useEffect(() => {
+    if (!groupId || !role || !supabase || !supabaseEnabled) {
+      setGroupMemberships([])
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('user_groups')
+          .select('user_id, role')
+          .eq('group_id', groupId)
+        if (cancelled) return
+        setGroupMemberships(
+          (data || []).map((entry: { user_id: string; role: string }) => ({
+            groupId,
+            userId: entry.user_id,
+            role: entry.role === 'owner' || entry.role === 'full_access' || entry.role === 'view' ? entry.role : 'view',
+          })),
+        )
+      } catch {
+        if (!cancelled) setGroupMemberships([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [groupId, role])
+
+  useEffect(() => {
+    if (!authUser || !group || !groupId || !role) return
+    if (linkedPerson) return
+
+    const normalizedAuthName = (authUser.displayName ?? authUser.email?.split('@')[0] ?? '').trim().toLowerCase()
+    const authTokens = normalizedAuthName.split(/\s+/).filter(Boolean)
+    const manualMatch = group.people.find((person) => {
+      if (person.authUserId) return false
+      const normalizedPersonName = person.name.trim().toLowerCase()
+      return (
+        normalizedPersonName === normalizedAuthName ||
+        normalizedAuthName.startsWith(normalizedPersonName) ||
+        normalizedPersonName.startsWith(normalizedAuthName) ||
+        authTokens.includes(normalizedPersonName)
+      )
+    })
+
+    if (manualMatch) {
+      updatePersonProfile(group.id, manualMatch.id, { authUserId: authUser.id })
+      return
+    }
+
+    const fallbackName = authUser.displayName ?? authUser.email?.split('@')[0] ?? 'Traveller'
+    addPerson(groupId, fallbackName, authUser.id)
+  }, [addPerson, authUser, group, groupId, linkedPerson, role, updatePersonProfile])
+
+  useEffect(() => {
+    if (!authUser || !groupId || !group || !role) return
+    const alreadyMember = memberships.some((entry) => entry.groupId === groupId && entry.userId === authUser.id)
+    if (role === 'owner' || alreadyMember) return
+    void registerGroupMembership(groupId, role)
+  }, [authUser, group, groupId, memberships, registerGroupMembership, role])
 
   const openEditPanel = () => {
     if (!group) return
@@ -106,14 +174,20 @@ export default function GroupPage() {
     setGroupEditOpen(true)
   }
 
-  const copyShareLink = async () => {
-    const url = `${window.location.origin}/group/${groupId}`
+  const copyShareLink = async (inviteRole: 'full_access' | 'view') => {
+    if (!groupId || !canInvite) return
     try {
+      setInviteBusyRole(inviteRole)
+      const invite = await createInviteLink(groupId, inviteRole)
+      if (!invite) return
+      const url = `${window.location.origin}/invite/${invite.token}`
       await navigator.clipboard.writeText(url)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     } catch {
-      window.prompt(t('group.copyPrompt'), url)
+      window.alert(t('auth.errorGeneric'))
+    } finally {
+      setInviteBusyRole(null)
     }
   }
 
@@ -140,10 +214,17 @@ export default function GroupPage() {
               {t('group.back')}
             </button>
             <div className="flex items-center gap-2">
-              <button className="ms-btn-ghost" onClick={copyShareLink}>
-                {linkCopied ? t('group.copied') : t('group.shareLink')}
-              </button>
-              <button className="ms-btn-ghost" onClick={openEditPanel}>
+              {canInvite && (
+                <>
+                  <button className="ms-btn-ghost" onClick={() => copyShareLink('full_access')}>
+                    {inviteBusyRole === 'full_access' ? t('group.syncing') : linkCopied ? t('group.copied') : t('group.inviteFullAccess')}
+                  </button>
+                  <button className="ms-btn-ghost" onClick={() => copyShareLink('view')}>
+                    {inviteBusyRole === 'view' ? t('group.syncing') : linkCopied ? t('group.copied') : t('group.inviteView')}
+                  </button>
+                </>
+              )}
+              <button className="ms-btn-ghost" onClick={openEditPanel} disabled={!canEditTrip}>
                 {t('group.edit')}
               </button>
             </div>
@@ -171,10 +252,12 @@ export default function GroupPage() {
                   {t('group.back')}
                 </button>
                 <div className="flex items-center gap-2">
-                  <button className="ms-btn-ghost" onClick={copyShareLink}>
-                    {linkCopied ? t('group.copied') : t('group.share')}
-                  </button>
-                  <button className="ms-btn-ghost" onClick={openEditPanel}>
+                  {canInvite && (
+                    <button className="ms-btn-ghost" onClick={() => copyShareLink('full_access')}>
+                      {linkCopied ? t('group.copied') : t('group.share')}
+                    </button>
+                  )}
+                  <button className="ms-btn-ghost" onClick={openEditPanel} disabled={!canEditTrip}>
                     {t('group.edit')}
                   </button>
                 </div>
@@ -192,13 +275,29 @@ export default function GroupPage() {
             </header>
           ) : null}
 
-          {activeTab === 'profile' ? (
+          {!hasAccess ? (
+            <section className="ms-card-soft">
+              <p className="text-sm text-[#6b6058]">{t('group.noAccess')}</p>
+            </section>
+          ) : null}
+
+          {activeTab === 'profile' && hasAccess ? (
             <PeopleTab
               group={group}
               authUserId={authUser?.id}
+              role={role}
+              membershipByUserId={membershipByUserId}
               onAddPerson={(name) => addPerson(group.id, name)}
+              onUpdateMembershipRole={(userId, nextRole) => {
+                void updateGroupMembershipRole(group.id, userId, nextRole)
+                setGroupMemberships((prev) => {
+                  const next = prev.filter((entry) => entry.userId !== userId)
+                  return [...next, { groupId: group.id, userId, role: nextRole }]
+                })
+              }}
               onUpdatePersonProfile={(personId, updates) => updatePersonProfile(group.id, personId, updates)}
               onRemovePerson={(personId) => {
+                if (!canManageTravellers) return
                 const used = group.expenses.some(
                   (expense) => expense.payerIds?.includes(personId) || expense.splits.some((split) => split.personId === personId),
                 )
@@ -209,60 +308,40 @@ export default function GroupPage() {
                 if (ok) removePerson(group.id, personId)
               }}
               onUpdateGroupCurrency={(paid, repay) =>
-                updateGroup(group.id, { defaultPaidCurrency: paid, defaultRepayCurrency: repay })
+                canEditTrip && updateGroup(group.id, { defaultPaidCurrency: paid, defaultRepayCurrency: repay })
               }
             />
           ) : null}
 
-          {activeTab === 'summary' ? (
+          {activeTab === 'summary' && hasAccess ? (
             <SummaryTab
               group={group}
-              onDeleteExpense={(expenseId) => removeExpense(group.id, expenseId)}
-              onEditExpense={(expenseId, updates) => updateExpense(group.id, expenseId, updates)}
+              canEdit={canEditExpenseData}
+              onDeleteExpense={(expenseId) => canEditExpenseData && removeExpense(group.id, expenseId)}
+              onEditExpense={(expenseId, updates) => canEditExpenseData && updateExpense(group.id, expenseId, updates)}
             />
           ) : null}
 
-          {activeTab === 'dashboard' ? (
+          {activeTab === 'dashboard' && hasAccess ? (
             <DashboardTab
               group={group}
               authUserId={authUser?.id}
+              role={role}
               onUpdatePersonPaymentInfo={(personId, updates) => updatePersonPaymentInfo(group.id, personId, updates)}
               onAddComment={(personId, message) => addGroupComment(group.id, personId, message)}
             />
           ) : null}
 
-          {activeTab === 'settle' ? (
+          {activeTab === 'settle' && hasAccess ? (
             <SettleTab
               group={group}
+              canSettle={canUseSettle}
               onMarkPairRepaid={(debtorId, creditorId, currency, repaidDate) =>
-                markSettlementPairRepaid(group.id, debtorId, creditorId, currency, repaidDate)
+                canUseSettle && markSettlementPairRepaid(group.id, debtorId, creditorId, currency, repaidDate)
               }
             />
           ) : null}
       </div>
-
-      {false && (canClaim || isOwned || claimStatus === 'claimed') && (
-        <div className={`mx-auto mb-4 max-w-3xl border p-3 text-sm ${
-          isOwned || claimStatus === 'claimed'
-            ? 'border-[var(--ms-success)] bg-[var(--ms-success-bg)] text-[var(--ms-success)]'
-            : 'border-[var(--ms-accent-light)] bg-[var(--ms-accent-bg)] text-[var(--ms-text-secondary)]'
-        }`}>
-          {isOwned || claimStatus === 'claimed' ? (
-            <span>● {t('auth.groupClaimed')}</span>
-          ) : (
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs">{t('auth.claimGroupHint')}</span>
-              <button
-                className="ms-btn-primary shrink-0 text-xs"
-                disabled={claimStatus === 'claiming'}
-                onClick={handleClaim}
-              >
-                {claimStatus === 'claiming' ? t('auth.claiming') : t('auth.claimGroup')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {!authLoading && !authUser && (
         <div className="mx-auto mb-4 max-w-3xl border border-[var(--ms-border)] bg-[var(--ms-surface-dim)] p-3">
@@ -281,8 +360,8 @@ export default function GroupPage() {
       <BottomTabs
         active={activeTab}
         onChange={setActiveTab}
-        onAddExpenseClick={() => setExpenseComposerOpen(true)}
-        onSettlePayClick={() => setSettlePayOpen(true)}
+        onAddExpenseClick={() => canEditExpenseData && setExpenseComposerOpen(true)}
+        onSettlePayClick={() => canUseSettle && setSettlePayOpen(true)}
         fabHidden={settlePayOpen}
       />
 
@@ -295,15 +374,16 @@ export default function GroupPage() {
 
       <ExpenseSheet
         group={group}
-        isOpen={expenseComposerOpen}
+        isOpen={expenseComposerOpen && canEditExpenseData}
         onClose={() => setExpenseComposerOpen(false)}
         onSave={(expense) => {
+          if (!canEditExpenseData) return
           addExpense(group.id, expense)
           setExpenseComposerOpen(false)
         }}
       />
 
-      {groupEditOpen ? (
+      {groupEditOpen && canEditTrip ? (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#2c2520]/45 p-2 lg:items-center">
           <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 lg:max-w-2xl">
             <div className="mb-3 flex items-center justify-between">

@@ -1,5 +1,7 @@
 -- MonoSplit Auth Migration
--- Run this ONCE in Supabase SQL Editor: Dashboard → SQL Editor → New Query → Paste → Run
+-- Safe to re-run on older MonoSplit databases.
+-- This version is compatibility-friendly for mixed historical schemas
+-- where some auth-linked IDs may already be stored as text instead of uuid.
 
 -- ─────────────────────────────────────────────
 -- 1. user_profiles table
@@ -15,6 +17,11 @@ create table if not exists public.user_profiles (
 );
 
 alter table public.user_profiles enable row level security;
+
+drop policy if exists "profile_select_own" on public.user_profiles;
+drop policy if exists "profile_insert_own" on public.user_profiles;
+drop policy if exists "profile_update_own" on public.user_profiles;
+drop policy if exists "profile_delete_own" on public.user_profiles;
 
 create policy "profile_select_own" on public.user_profiles
   for select using (auth.uid() = id);
@@ -63,7 +70,7 @@ create trigger user_profiles_updated_at
 -- 2. Add owner_id to groups
 -- ─────────────────────────────────────────────
 alter table public.groups
-  add column if not exists owner_id uuid references auth.users(id) on delete set null;
+  add column if not exists owner_id text;
 
 create index if not exists groups_owner_id_idx on public.groups (owner_id);
 
@@ -72,12 +79,190 @@ create index if not exists groups_owner_id_idx on public.groups (owner_id);
 --    Anonymous groups (owner_id IS NULL) stay fully open.
 --    Owned groups can only be updated/deleted by their owner.
 -- ─────────────────────────────────────────────
+drop policy if exists "groups_select" on public.groups;
+drop policy if exists "groups_insert" on public.groups;
 drop policy if exists "groups_update" on public.groups;
 drop policy if exists "groups_delete" on public.groups;
 
+create policy "groups_select" on public.groups
+  for select using (
+    owner_id is null
+    or owner_id::text = auth.uid()::text
+    or exists (
+      select 1
+      from public.user_groups ug
+      where ug.group_id::text = groups.id::text
+        and ug.user_id::text = auth.uid()::text
+    )
+  );
+
+create policy "groups_insert" on public.groups
+  for insert with check (true);
+
 create policy "groups_update" on public.groups
-  for update using (owner_id is null or owner_id = auth.uid())
-  with check  (owner_id is null or owner_id = auth.uid());
+  for update using (
+    owner_id is null
+    or owner_id::text = auth.uid()::text
+    or exists (
+      select 1
+      from public.user_groups ug
+      where ug.group_id::text = groups.id::text
+        and ug.user_id::text = auth.uid()::text
+        and ug.role = 'full_access'
+    )
+  )
+  with check (
+    owner_id is null
+    or owner_id::text = auth.uid()::text
+    or exists (
+      select 1
+      from public.user_groups ug
+      where ug.group_id::text = groups.id::text
+        and ug.user_id::text = auth.uid()::text
+        and ug.role = 'full_access'
+    )
+  );
 
 create policy "groups_delete" on public.groups
-  for delete using (owner_id is null or owner_id = auth.uid());
+  for delete using (owner_id is null or owner_id::text = auth.uid()::text);
+
+-- ─────────────────────────────────────────────
+-- 4. Memberships with roles
+-- ─────────────────────────────────────────────
+create table if not exists public.user_groups (
+  user_id text not null,
+  group_id text not null references public.groups(id) on delete cascade,
+  role text not null default 'full_access',
+  created_at timestamptz not null default now(),
+  primary key (user_id, group_id)
+);
+
+alter table public.user_groups enable row level security;
+alter table public.user_groups add column if not exists role text;
+alter table public.user_groups alter column role set default 'full_access';
+update public.user_groups set role = 'full_access' where role is null;
+update public.user_groups
+set role = 'full_access'
+where role is not null
+  and role not in ('owner', 'full_access', 'view');
+alter table public.user_groups drop constraint if exists user_groups_role_check;
+alter table public.user_groups add constraint user_groups_role_check check (role in ('owner', 'full_access', 'view'));
+
+drop policy if exists "user_groups_select_group_members" on public.user_groups;
+drop policy if exists "user_groups_insert_owner_or_self" on public.user_groups;
+drop policy if exists "user_groups_update_owner_or_self" on public.user_groups;
+drop policy if exists "user_groups_delete_owner_or_self" on public.user_groups;
+
+create policy "user_groups_select_group_members" on public.user_groups
+  for select using (
+    user_id::text = auth.uid()::text
+    or exists (
+      select 1
+      from public.groups g
+      where g.id::text = user_groups.group_id::text
+        and g.owner_id::text = auth.uid()::text
+    )
+    or exists (
+      select 1
+      from public.user_groups ug
+      where ug.group_id::text = user_groups.group_id::text
+        and ug.user_id::text = auth.uid()::text
+    )
+  );
+
+create policy "user_groups_insert_owner_or_self" on public.user_groups
+  for insert with check (
+    user_id::text = auth.uid()::text
+    or exists (
+      select 1
+      from public.groups g
+      where g.id::text = user_groups.group_id::text
+        and g.owner_id::text = auth.uid()::text
+    )
+  );
+
+create policy "user_groups_update_owner_or_self" on public.user_groups
+  for update using (
+    user_id::text = auth.uid()::text
+    or exists (
+      select 1
+      from public.groups g
+      where g.id::text = user_groups.group_id::text
+        and g.owner_id::text = auth.uid()::text
+    )
+  );
+
+create policy "user_groups_delete_owner_or_self" on public.user_groups
+  for delete using (
+    user_id::text = auth.uid()::text
+    or exists (
+      select 1
+      from public.groups g
+      where g.id::text = user_groups.group_id::text
+        and g.owner_id::text = auth.uid()::text
+    )
+  );
+
+create index if not exists user_groups_group_id_idx on public.user_groups (group_id);
+create index if not exists user_groups_user_id_idx on public.user_groups (user_id);
+
+-- ─────────────────────────────────────────────
+-- 5. Invite links with preset role
+-- ─────────────────────────────────────────────
+create table if not exists public.group_invite_links (
+  token text primary key,
+  group_id text not null references public.groups(id) on delete cascade,
+  role text not null check (role in ('full_access', 'view')),
+  created_by text not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz
+);
+
+alter table public.group_invite_links enable row level security;
+alter table public.group_invite_links add column if not exists active boolean;
+alter table public.group_invite_links alter column active set default true;
+update public.group_invite_links set active = true where active is null;
+
+drop policy if exists "group_invite_links_select" on public.group_invite_links;
+drop policy if exists "group_invite_links_insert_owner" on public.group_invite_links;
+drop policy if exists "group_invite_links_update_owner" on public.group_invite_links;
+drop policy if exists "group_invite_links_delete_owner" on public.group_invite_links;
+
+create policy "group_invite_links_select" on public.group_invite_links
+  for select using (active = true);
+
+create policy "group_invite_links_insert_owner" on public.group_invite_links
+  for insert with check (
+    created_by::text = auth.uid()::text
+    and exists (
+      select 1
+      from public.groups g
+      where g.id::text = group_invite_links.group_id::text
+        and g.owner_id::text = auth.uid()::text
+    )
+  );
+
+create policy "group_invite_links_update_owner" on public.group_invite_links
+  for update using (
+    created_by::text = auth.uid()::text
+    and exists (
+      select 1
+      from public.groups g
+      where g.id::text = group_invite_links.group_id::text
+        and g.owner_id::text = auth.uid()::text
+    )
+  );
+
+create policy "group_invite_links_delete_owner" on public.group_invite_links
+  for delete using (
+    created_by::text = auth.uid()::text
+    and exists (
+      select 1
+      from public.groups g
+      where g.id::text = group_invite_links.group_id::text
+        and g.owner_id::text = auth.uid()::text
+    )
+  );
+
+create index if not exists group_invite_links_group_id_idx on public.group_invite_links (group_id);

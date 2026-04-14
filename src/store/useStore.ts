@@ -215,6 +215,7 @@ export const useStore = create<AppState>()(
                 name: nextName,
                 avatarDataUrl: updates.avatarDataUrl === undefined ? person.avatarDataUrl : updates.avatarDataUrl,
                 nameColor: updates.nameColor === undefined ? person.nameColor : updates.nameColor,
+                authUserId: updates.authUserId === undefined ? person.authUserId : updates.authUserId,
               }
             }),
           })),

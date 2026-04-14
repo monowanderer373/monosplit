@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
+import { canEditOwnPaymentInfo } from '../lib/permissions'
 import { useT } from '../lib/i18n'
 import { getPersonNameStyle } from '../lib/personTheme'
-import type { Group, PaymentInfo } from '../types'
+import type { Group, GroupRole, PaymentInfo } from '../types'
 
 type Props = {
   group: Group
   authUserId?: string
+  role: GroupRole | null
   onUpdatePersonPaymentInfo: (personId: string, updates: Partial<PaymentInfo>) => void
   onAddComment: (personId: string, message: string) => void
 }
@@ -13,6 +15,7 @@ type Props = {
 export default function DashboardTab({
   group,
   authUserId,
+  role,
   onUpdatePersonPaymentInfo,
   onAddComment,
 }: Props) {
@@ -33,8 +36,13 @@ export default function DashboardTab({
   >({})
 
   // Comment identity: always the logged-in user's person if known
-  const commentPersonId = myPerson?.id ?? defaultPersonId
+  const commentPersonId = myPerson?.id ?? ''
   const commentPerson = group.people.find((person) => person.id === commentPersonId)
+  const canEditSelectedPaymentInfo =
+    canEditOwnPaymentInfo(role) &&
+    !!selectedPersonId &&
+    !!myPerson &&
+    selectedPersonId === myPerson.id
 
   const selectedPerson = group.people.find((person) => person.id === selectedPersonId)
   const paymentInfo = selectedPerson?.paymentInfo ?? {
@@ -118,6 +126,7 @@ export default function DashboardTab({
           />
           <button
             className="ms-btn-primary h-12 px-4"
+            disabled={!commentPersonId}
             onClick={() => {
               const msg = commentInput.trim()
               if (!msg || !commentPersonId) return
@@ -153,7 +162,7 @@ export default function DashboardTab({
               className="ms-input"
               placeholder={t('dash.bankName')}
               value={paymentDraft.bankName}
-              disabled={!paymentEditing}
+              disabled={!paymentEditing || !canEditSelectedPaymentInfo}
               onChange={(e) =>
                 setPaymentDraftByPersonId((prev) => ({
                   ...prev,
@@ -168,7 +177,7 @@ export default function DashboardTab({
               className="ms-input"
               placeholder={t('dash.accountHolder')}
               value={paymentDraft.accountHolder}
-              disabled={!paymentEditing}
+              disabled={!paymentEditing || !canEditSelectedPaymentInfo}
               onChange={(e) =>
                 setPaymentDraftByPersonId((prev) => ({
                   ...prev,
@@ -183,7 +192,7 @@ export default function DashboardTab({
               className="ms-input"
               placeholder={t('dash.accountNumber')}
               value={paymentDraft.accountNumber}
-              disabled={!paymentEditing}
+              disabled={!paymentEditing || !canEditSelectedPaymentInfo}
               onChange={(e) =>
                 setPaymentDraftByPersonId((prev) => ({
                   ...prev,
@@ -197,7 +206,9 @@ export default function DashboardTab({
 
             <button
               className="ms-btn-primary mt-1 lg:col-span-2"
+              disabled={!canEditSelectedPaymentInfo}
               onClick={() => {
+                if (!canEditSelectedPaymentInfo) return
                 if (!paymentEditing) {
                   setPaymentEditing(true)
                   return

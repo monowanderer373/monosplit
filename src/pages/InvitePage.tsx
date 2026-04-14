@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
 import { supabase, supabaseEnabled } from '../lib/supabase'
-import type { Group } from '../types'
+import type { Group, GroupInviteLink } from '../types'
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -23,34 +23,45 @@ function mapAuthError(err: unknown, t: ReturnType<typeof useT>): string {
 
 export default function InvitePage() {
   const t = useT()
-  const { groupId } = useParams<{ groupId: string }>()
+  const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
-  const { authUser, loading: authLoading, signIn, signInWithGoogle } = useAuth()
+  const { authUser, loading: authLoading, signIn, signInWithGoogle, getInviteLink, acceptInviteLink } = useAuth()
 
   const [groupName, setGroupName] = useState<string | null>(null)
+  const [invite, setInvite] = useState<GroupInviteLink | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  const groupUrl = `/group/${groupId}?autoJoin=true`
+  const inviteUrl = token ? `/invite/${token}` : '/'
 
-  // If already logged in, go straight to the group
+  // If already logged in, accept invite then go to the group
   useEffect(() => {
-    if (!authLoading && authUser) {
-      navigate(groupUrl, { replace: true })
+    if (!authLoading && authUser && token) {
+      void acceptInviteLink(token)
+        .then((membership) => {
+          if (membership?.groupId) {
+            navigate(`/group/${membership.groupId}`, { replace: true })
+          }
+        })
+        .catch(() => {
+          setError(t('auth.errorGeneric'))
+        })
     }
-  }, [authLoading, authUser, groupUrl, navigate])
+  }, [acceptInviteLink, authLoading, authUser, navigate, t, token])
 
-  // Fetch group name for the invite context
+  // Fetch invite + group name for the invite context
   useEffect(() => {
-    if (!groupId) return
-    if (supabase && supabaseEnabled) {
+    if (!token) return
+    void getInviteLink(token).then((resolvedInvite) => {
+      setInvite(resolvedInvite)
+      if (!resolvedInvite?.groupId || !supabase || !supabaseEnabled) return
       supabase
         .from('groups')
         .select('data')
-        .eq('id', groupId)
+        .eq('id', resolvedInvite.groupId)
         .maybeSingle()
         .then(({ data }) => {
           if (data?.data) {
@@ -58,8 +69,8 @@ export default function InvitePage() {
             setGroupName(group.name ?? null)
           }
         })
-    }
-  }, [groupId])
+    })
+  }, [getInviteLink, token])
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,7 +79,8 @@ export default function InvitePage() {
     setLoading(true)
     try {
       await signIn(email.trim(), password)
-      navigate(groupUrl, { replace: true })
+      const membership = token ? await acceptInviteLink(token) : null
+      navigate(membership?.groupId ? `/group/${membership.groupId}` : '/', { replace: true })
     } catch (err) {
       setError(mapAuthError(err, t))
     } finally {
@@ -80,9 +92,9 @@ export default function InvitePage() {
     setError('')
     setGoogleLoading(true)
     // Store as localStorage fallback in case the OAuth redirect strips query params
-    window.localStorage.setItem('ms_post_auth_redirect', groupUrl)
+    window.localStorage.setItem('ms_post_auth_redirect', inviteUrl)
     try {
-      await signInWithGoogle(groupUrl)
+      await signInWithGoogle(inviteUrl)
     } catch (err) {
       setError(mapAuthError(err, t))
       setGoogleLoading(false)
@@ -126,6 +138,11 @@ export default function InvitePage() {
           <p className="mt-0.5 font-semibold" style={{ color: 'var(--ms-text, #2c2520)' }}>
             {groupName ?? t('auth.aTrip')}
           </p>
+          {invite?.role ? (
+            <p className="mt-1 text-[11px]" style={{ color: 'var(--ms-text-muted, #9a9088)' }}>
+              {invite.role === 'full_access' ? 'Full Access' : 'View only'}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -244,7 +261,7 @@ export default function InvitePage() {
         <p className="mt-4 text-center text-xs" style={{ color: 'var(--ms-text-secondary, #6b6058)' }}>
           {t('auth.noAccount')}{' '}
           <a
-            href={`/signup?redirect=${encodeURIComponent(groupUrl)}`}
+            href={`/signup?redirect=${encodeURIComponent(inviteUrl)}`}
             className="font-semibold underline-offset-2 hover:underline"
             style={{ color: 'var(--ms-accent, #8b6e4e)' }}
           >

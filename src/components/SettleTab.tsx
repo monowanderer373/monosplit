@@ -27,9 +27,10 @@ function calcConvertedSplitAmount(
 type Props = {
   group: Group
   onMarkPairRepaid: (debtorId: string, creditorId: string, currency: string, repaidDate: string) => void
+  canSettle?: boolean
 }
 
-export default function SettleTab({ group, onMarkPairRepaid }: Props) {
+export default function SettleTab({ group, onMarkPairRepaid, canSettle = true }: Props) {
   const t = useT()
   const settlements = useMemo(() => getSettlements(group.expenses), [group.expenses])
   const [debtorFilterId, setDebtorFilterId] = useState('all')
@@ -192,6 +193,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
   }, [group.expenses, group.people])
 
   const handleMarkRepaid = (debtorId: string, creditorId: string, currency: string) => {
+    if (!canSettle) return
     const debtor = group.people.find((p) => p.id === debtorId)
     if (debtor?.skipRepaidConfirm) {
       onMarkPairRepaid(debtorId, creditorId, currency, todayISO())
@@ -566,6 +568,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
                         </p>
                         <button
                           className="ms-btn-primary px-3 py-1 text-xs font-semibold"
+                          disabled={!canSettle}
                           onClick={() =>
                             setRepayModal({
                               open: true,
@@ -618,7 +621,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
         </div>
       </div>
 
-      {repayModal.open ? (
+      {repayModal.open && canSettle ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/40 p-3 lg:items-center">
           <div className="w-full max-w-md rounded-3xl bg-[#faf8f4] p-5 shadow-xl">
             <h3 className="text-2xl font-semibold text-[#2c2520]">{t('settle.repayModal')}</h3>

@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 import { useStore } from '../store/useStore'
-import type { Group, UserProfile } from '../types'
+import type { Group, GroupInviteLink, GroupMembership, GroupRole, UserProfile } from '../types'
 
 function buildProfile(
   user: User,
@@ -29,6 +29,7 @@ function buildProfile(
 type AuthContextValue = {
   authUser: UserProfile | null
   loading: boolean
+  memberships: GroupMembership[]
   signUp: (email: string, password: string, displayName: string, emailRedirectTo?: string) => Promise<unknown>
   signIn: (email: string, password: string) => Promise<unknown>
   signInWithGoogle: (afterLoginPath?: string) => Promise<void>
@@ -36,7 +37,13 @@ type AuthContextValue = {
   updateProfile: (updates: { displayName?: string }) => Promise<void>
   claimGroup: (groupId: string) => Promise<void>
   releaseGroup: (groupId: string) => Promise<void>
-  registerGroupMembership: (groupId: string, role?: string) => Promise<void>
+  transferGroupOwnership: (groupId: string, nextOwnerUserId: string) => Promise<void>
+  registerGroupMembership: (groupId: string, role?: GroupRole) => Promise<void>
+  updateGroupMembershipRole: (groupId: string, userId: string, role: Exclude<GroupRole, 'owner'>) => Promise<void>
+  removeGroupMembership: (groupId: string, userId: string) => Promise<void>
+  createInviteLink: (groupId: string, role: Exclude<GroupRole, 'owner'>) => Promise<GroupInviteLink | null>
+  getInviteLink: (token: string) => Promise<GroupInviteLink | null>
+  acceptInviteLink: (token: string) => Promise<GroupMembership | null>
 }
 
 // ── Context ──────────────────────────────────────────────────────────────────
@@ -48,6 +55,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [memberships, setMemberships] = useState<GroupMembership[]>([])
   const upsertGroup = useStore((s) => s.upsertGroup)
 
   // Set auth user immediately from session token; enrich from DB in background
@@ -101,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (userId: string) => {
       if (!supabase) return
       void Promise.resolve(
-        supabase.from('user_groups').select('group_id').eq('user_id', userId),
+        supabase.from('user_groups').select('group_id, role').eq('user_id', userId),
       )
         .then(async ({ data: memberships, error }) => {
           if (error) {
@@ -109,6 +117,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.warn('[auth] syncMemberGroups error', error.message)
             return
           }
+          const normalizedMemberships: GroupMembership[] = (memberships || []).map((m: { group_id: string; role?: string | null }) => ({
+            groupId: m.group_id,
+            userId,
+            role: m.role === 'owner' || m.role === 'full_access' || m.role === 'view' ? m.role : 'full_access',
+          }))
+          setMemberships(normalizedMemberships)
           if (!memberships?.length) return
           const groupIds = memberships.map((m: { group_id: string }) => m.group_id)
           const { data: rows } = await supabase!
@@ -171,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setAuthUser(null)
+        setMemberships([])
       }
 
       if (event === 'INITIAL_SESSION') {
@@ -242,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Register the current user as a member of a group in the user_groups table.
   // This makes the group persist across devices on next login.
-  const registerGroupMembership = async (groupId: string, role = 'member') => {
+  const registerGroupMembership = async (groupId: string, role: GroupRole = 'full_access') => {
     if (!supabase || !supabase.auth) return
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return
@@ -253,6 +268,100 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         { onConflict: 'user_id,group_id' },
       )
     if (error) console.warn('[auth] registerGroupMembership error', error.message)
+    if (!error) {
+      setMemberships((prev) => {
+        const next = prev.filter((entry) => !(entry.groupId === groupId && entry.userId === session.user.id))
+        return [...next, { groupId, userId: session.user.id, role }]
+      })
+    }
+  }
+
+  const updateGroupMembershipRole = async (groupId: string, userId: string, role: Exclude<GroupRole, 'owner'>) => {
+    if (!supabase) throw new Error('not-configured')
+    const { error } = await supabase
+      .from('user_groups')
+      .upsert({ user_id: userId, group_id: groupId, role }, { onConflict: 'user_id,group_id' })
+    if (error) throw error
+    setMemberships((prev) => {
+      const next = prev.filter((entry) => !(entry.groupId === groupId && entry.userId === userId))
+      return [...next, { groupId, userId, role }]
+    })
+  }
+
+  const removeGroupMembership = async (groupId: string, userId: string) => {
+    if (!supabase) throw new Error('not-configured')
+    const { error } = await supabase
+      .from('user_groups')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+    if (error) throw error
+    setMemberships((prev) => prev.filter((entry) => !(entry.groupId === groupId && entry.userId === userId)))
+  }
+
+  const createInviteLink = async (groupId: string, role: Exclude<GroupRole, 'owner'>): Promise<GroupInviteLink | null> => {
+    if (!supabase || !authUser) throw new Error('not-authenticated')
+    const token = crypto.randomUUID()
+    const invite: GroupInviteLink = {
+      token,
+      groupId,
+      role,
+      createdBy: authUser.id,
+      active: true,
+      createdAt: new Date().toISOString(),
+      expiresAt: null,
+    }
+    const { error } = await supabase.from('group_invite_links').upsert({
+      token: invite.token,
+      group_id: invite.groupId,
+      role: invite.role,
+      created_by: invite.createdBy,
+      active: invite.active,
+      created_at: invite.createdAt,
+      expires_at: invite.expiresAt,
+    })
+    if (error) throw error
+    return invite
+  }
+
+  const getInviteLink = async (token: string): Promise<GroupInviteLink | null> => {
+    if (!supabase) return null
+    const { data, error } = await supabase
+      .from('group_invite_links')
+      .select('*')
+      .eq('token', token)
+      .eq('active', true)
+      .maybeSingle()
+    if (error || !data) return null
+    return {
+      token: data.token,
+      groupId: data.group_id,
+      role: data.role,
+      createdBy: data.created_by,
+      active: data.active,
+      createdAt: data.created_at,
+      expiresAt: data.expires_at,
+    } as GroupInviteLink
+  }
+
+  const acceptInviteLink = async (token: string): Promise<GroupMembership | null> => {
+    if (!supabase || !authUser) throw new Error('not-authenticated')
+    const invite = await getInviteLink(token)
+    if (!invite || invite.groupId == null) return null
+    const membership: GroupMembership = {
+      groupId: invite.groupId,
+      userId: authUser.id,
+      role: invite.role,
+    }
+    const { error } = await supabase
+      .from('user_groups')
+      .upsert({ user_id: authUser.id, group_id: invite.groupId, role: invite.role }, { onConflict: 'user_id,group_id' })
+    if (error) throw error
+    setMemberships((prev) => {
+      const next = prev.filter((entry) => !(entry.groupId === invite.groupId && entry.userId === authUser.id))
+      return [...next, membership]
+    })
+    return membership
   }
 
   const signOut = async () => {
@@ -290,12 +399,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }
 
+  const transferGroupOwnership = async (groupId: string, nextOwnerUserId: string) => {
+    if (!supabase || !authUser) throw new Error('not-authenticated')
+    const { error: membershipError } = await supabase
+      .from('user_groups')
+      .upsert({ user_id: nextOwnerUserId, group_id: groupId, role: 'full_access' }, { onConflict: 'user_id,group_id' })
+    if (membershipError) throw membershipError
+    const { error } = await supabase
+      .from('groups')
+      .update({ owner_id: nextOwnerUserId })
+      .eq('id', groupId)
+    if (error) throw error
+  }
+
   return createElement(
     AuthContext.Provider,
     {
       value: {
         authUser,
         loading,
+        memberships,
         signUp,
         signIn,
         signInWithGoogle,
@@ -303,7 +426,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateProfile,
         claimGroup,
         releaseGroup,
+        transferGroupOwnership,
         registerGroupMembership,
+        updateGroupMembershipRole,
+        removeGroupMembership,
+        createInviteLink,
+        getInviteLink,
+        acceptInviteLink,
       },
     },
     children,
