@@ -84,18 +84,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void Promise.resolve(
         supabase.from('groups').select('id, data').eq('owner_id', userId),
       )
-        .then(({ data }) => {
-          const remoteOwnedIds = new Set((data || []).map((row) => row.id))
-          // Prune stale local owned groups that no longer exist remotely
-          // (e.g., deleted from another device).
-          useStore.setState((state) => ({
-            groups: state.groups.filter((g) => !(g.ownerId === userId && !remoteOwnedIds.has(g.id))),
-          }))
+        .then(async ({ data }) => {
           if (data) {
             data.forEach((row) => {
-              if (row.data) upsertGroup({ ...(row.data as Group), id: row.id, ownerId: userId })
+              if (row.data) {
+                upsertGroup({ ...(row.data as Group), id: row.id, ownerId: userId })
+                useStore.getState().unhideDeletedGroup(row.id)
+              }
             })
           }
+
+          // Recovery pass for pre-permission groups that still exist remotely with
+          // owner_id = null. If the current user is already linked to a traveller
+          // profile inside the group payload, restore it locally so they can open
+          // the group and claim ownership again.
+          const { data: legacyRows, error: legacyError } = await supabase!
+            .from('groups')
+            .select('id, data, owner_id')
+            .is('owner_id', null)
+
+          if (legacyError || !legacyRows?.length) return
+
+          legacyRows.forEach((row: { id: string; data: unknown; owner_id: string | null }) => {
+            const group = row.data as Group | null
+            if (!group) return
+
+            const linkedToUser =
+              group.ownerId === userId ||
+              group.people?.some((person) => person.authUserId === userId)
+
+            if (!linkedToUser) return
+
+            upsertGroup({
+              ...group,
+              id: row.id,
+              ...(row.owner_id ? { ownerId: row.owner_id } : {}),
+            })
+            useStore.getState().unhideDeletedGroup(row.id)
+          })
         })
         .catch((e: unknown) => {
           console.warn('[auth] syncOwnedGroups error', e)
