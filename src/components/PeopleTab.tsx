@@ -4,6 +4,7 @@ import { PRESET_AVATARS } from '../lib/avatars'
 import { getPersonNameStyle } from '../lib/personTheme'
 import { canEditGroup, canManageManualTravellers, isManualTraveller } from '../lib/permissions'
 import { THEMES } from '../lib/themes'
+import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
 import { exportGroupAsJson, exportGroupAsCsv, parseImportedJson } from '../lib/export'
@@ -24,6 +25,7 @@ type Props = {
 
 export default function PeopleTab({ group, authUserId, role, membershipByUserId, onAddPerson, onUpdateMembershipRole, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
   const t = useT()
+  const { updateProfile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null)
@@ -33,6 +35,8 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
   const editingPerson = editingPersonId ? group.people.find((person) => person.id === editingPersonId) || null : null
   const canManageTravellers = canManageManualTravellers(role)
   const canEditTrip = canEditGroup(role)
+  const isEditingSelf = !!editingPerson && !!authUserId && editingPerson.authUserId === authUserId
+  const canEditEditingPerson = !!editingPerson && (isManualTraveller(editingPerson) || isEditingSelf)
 
   const openEditPerson = (person: Person) => {
     setEditingPersonId(person.id)
@@ -199,7 +203,7 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
               </button>
             </div>
 
-            {!isManualTraveller(editingPerson) && (
+            {!isManualTraveller(editingPerson) && !isEditingSelf && (
               <div className="mb-3 rounded-xl border border-[#e6e0d5] bg-[#f0ece3] px-3 py-2 text-sm text-[#6b6058]">
                 {t('people.linkedMemberReadonly')}
               </div>
@@ -234,7 +238,7 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
                     <button
                       type="button"
                       className="flex items-center gap-1 rounded-lg border border-[#d8d0c4] bg-[#f0ece3] px-2 py-1 text-xs font-medium text-[#5a4838] transition-colors hover:bg-[#e8e0d0]"
-                      disabled={!canManageTravellers || !isManualTraveller(editingPerson)}
+                      disabled={!canEditEditingPerson}
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -242,7 +246,7 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
                       </svg>
                       {t('people.uploadPhoto')}
                     </button>
-                    <button type="button" className="text-xs text-[#6b6058] underline disabled:opacity-50" disabled={!canManageTravellers || !isManualTraveller(editingPerson)} onClick={() => setDraftAvatarDataUrl(null)}>
+                    <button type="button" className="text-xs text-[#6b6058] underline disabled:opacity-50" disabled={!canEditEditingPerson} onClick={() => setDraftAvatarDataUrl(null)}>
                       {t('people.clearAvatar')}
                     </button>
                   </div>
@@ -255,7 +259,7 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
                         key={avatar.id}
                         type="button"
                         title={avatar.label}
-                        disabled={!canManageTravellers || !isManualTraveller(editingPerson)}
+                        disabled={!canEditEditingPerson}
                         className={`overflow-hidden rounded-xl border-2 p-0 transition ${selected ? 'border-[#8b6e4e] ring-2 ring-[rgba(139,110,78,0.15)]' : 'border-[#e6e0d5]'}`}
                         onClick={() => setDraftAvatarDataUrl(avatar.src)}
                       >
@@ -271,7 +275,7 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
                 <input
                   className="ms-input mt-1 w-full"
                   value={draftName}
-                  disabled={!canManageTravellers || !isManualTraveller(editingPerson)}
+                  disabled={!canEditEditingPerson}
                   onChange={(e) => setDraftName(e.target.value)}
                 />
               </label>
@@ -290,32 +294,41 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
                 </label>
               ) : null}
 
-              {canManageTravellers && isManualTraveller(editingPerson) ? (
+              {canEditEditingPerson ? (
                 <>
                   <button
                     className="ms-btn-primary w-full"
-                    onClick={() => {
+                    onClick={async () => {
                       const cleanName = draftName.trim()
                       if (!cleanName) return
-                      onUpdatePersonProfile(editingPerson.id, {
-                        name: cleanName,
-                        avatarDataUrl: draftAvatarDataUrl,
-                        nameColor: null,
-                      })
-                      setEditingPersonId(null)
+                      try {
+                        onUpdatePersonProfile(editingPerson.id, {
+                          name: cleanName,
+                          avatarDataUrl: draftAvatarDataUrl,
+                          nameColor: null,
+                        })
+                        if (isEditingSelf) {
+                          await updateProfile({ displayName: cleanName })
+                        }
+                        setEditingPersonId(null)
+                      } catch {
+                        window.alert(t('auth.errorGeneric'))
+                      }
                     }}
                   >
                     {t('people.save')}
                   </button>
-                  <button
-                    className="ms-btn-ghost w-full py-2.5 text-sm font-semibold text-[#9e4a4a]"
-                    onClick={() => {
-                      onRemovePerson(editingPerson.id)
-                      setEditingPersonId(null)
-                    }}
-                  >
-                    {t('people.removeMember')}
-                  </button>
+                  {canManageTravellers && isManualTraveller(editingPerson) ? (
+                    <button
+                      className="ms-btn-ghost w-full py-2.5 text-sm font-semibold text-[#9e4a4a]"
+                      onClick={() => {
+                        onRemovePerson(editingPerson.id)
+                        setEditingPersonId(null)
+                      }}
+                    >
+                      {t('people.removeMember')}
+                    </button>
+                  ) : null}
                 </>
               ) : null}
 
