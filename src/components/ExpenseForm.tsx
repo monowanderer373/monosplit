@@ -52,6 +52,45 @@ type FormState = {
   date: string
 }
 
+function hasFiniteNumberInput(raw: string | undefined): boolean {
+  if (raw == null || raw === '') return false
+  const value = Number(raw)
+  return Number.isFinite(value)
+}
+
+function getActiveSplitPersonIds(form: FormState): string[] {
+  if (form.expenseType === 'refund' || form.splitMode === 'equal') return form.splitPersonIds
+
+  if (form.splitMode === 'itemized') {
+    return form.splitPersonIds.filter((personId) => {
+      const raw = form.itemizedInput[personId]
+      if (raw == null || raw === '') return false
+      const value = Number(raw)
+      return Number.isFinite(value) && value > 0
+    })
+  }
+
+  if (form.splitMode === 'percentage') {
+    return form.splitPersonIds.filter((personId) => {
+      const value = Number(form.percentageInput[personId] || 0)
+      return Number.isFinite(value) && value > 0
+    })
+  }
+
+  if (form.splitMode === 'shares') {
+    return form.splitPersonIds.filter((personId) => {
+      const value = Number(form.sharesInput[personId] || 0)
+      return Number.isFinite(value) && value > 0
+    })
+  }
+
+  if (form.splitMode === 'adjustment') {
+    return form.splitPersonIds.filter((personId) => hasFiniteNumberInput(form.adjustmentInput[personId]))
+  }
+
+  return form.splitPersonIds
+}
+
 function blankForm(group: Group): FormState {
   const today = todayISO()
   return {
@@ -289,6 +328,7 @@ export default function ExpenseForm({
 
   const submit = () => {
     setError('')
+    const activeSplitPersonIds = getActiveSplitPersonIds(form)
     if (group.people.length === 0) {
       setError(t('error.addTravellers'))
       return
@@ -307,6 +347,10 @@ export default function ExpenseForm({
       return
     }
     if (form.splitPersonIds.length === 0) {
+      setError(t('error.selectSplit'))
+      return
+    }
+    if (activeSplitPersonIds.length === 0) {
       setError(t('error.selectSplit'))
       return
     }
@@ -367,7 +411,7 @@ export default function ExpenseForm({
         return
       }
       splits = calcItemizedSplits({
-        peopleIds: form.splitPersonIds,
+        peopleIds: activeSplitPersonIds,
         itemizedInput: form.itemizedInput,
         itemizedInputMode: form.itemizedInputMode,
         serviceTaxPct: Number(form.serviceTaxPct || '0'),
@@ -377,21 +421,21 @@ export default function ExpenseForm({
       })
     } else if (form.splitMode === 'percentage') {
       splits = calcPercentageSplits({
-        peopleIds: form.splitPersonIds,
+        peopleIds: activeSplitPersonIds,
         percentageInput: form.percentageInput,
         totalAmount: amount,
         ...commonArgs,
       })
     } else if (form.splitMode === 'shares') {
       splits = calcSharesSplits({
-        peopleIds: form.splitPersonIds,
+        peopleIds: activeSplitPersonIds,
         sharesInput: form.sharesInput,
         totalAmount: amount,
         ...commonArgs,
       })
     } else if (form.splitMode === 'adjustment') {
       splits = calcAdjustmentSplits({
-        peopleIds: form.splitPersonIds,
+        peopleIds: activeSplitPersonIds,
         adjustmentInput: form.adjustmentInput,
         totalAmount: amount,
         ...commonArgs,

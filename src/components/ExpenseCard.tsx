@@ -71,7 +71,12 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
       </div>
 
       <div className="space-y-2">
-        {expense.splits.map((split, index) => {
+        {expense.splits
+          .filter((split) => {
+            const isPayer = (expense.payerIds ?? []).includes(split.personId)
+            return isPayer || (split.amount ?? 0) > 0.001 || split.repaid
+          })
+          .map((split, index) => {
           const person = group.people.find((p) => p.id === split.personId)
           const amount = split.convertedAmount ?? split.amount ?? 0
           const isPayer = (expense.payerIds ?? []).includes(split.personId)

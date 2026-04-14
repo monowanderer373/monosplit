@@ -435,6 +435,12 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                   {/* Debtor rows — paid first, unpaid below */}
                                   {expense.splits
                                     .filter((s) => !(expense.payerIds ?? []).includes(s.personId))
+                                    .filter((s) => {
+                                      const visibleAmount = isSplitFullySettled(expense, s)
+                                        ? (s.amount ?? 0)
+                                        : getSplitOutstandingAmount(expense, s)
+                                      return visibleAmount > 0.001
+                                    })
                                     .slice()
                                     .sort((a, b) => Number(isSplitFullySettled(expense, b)) - Number(isSplitFullySettled(expense, a)))
                                     .map((split, idx) => {

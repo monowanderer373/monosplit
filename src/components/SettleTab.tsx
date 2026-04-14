@@ -286,6 +286,7 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
               repaid: isSplitFullySettled(expense, split),
             }
           })
+          .filter((row) => row.amount > 0.001 || row.repaid)
         if (allRows.length === 0) return null
         const outstandingTotal = allRows.filter((row) => !row.repaid).reduce((sum, row) => sum + row.amount, 0)
         if (showOnlyOutstanding && outstandingTotal <= 0) return null
