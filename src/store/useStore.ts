@@ -369,47 +369,25 @@ export const useStore = create<AppState>()(
               if (cur !== currency) return expense
 
               // Refund expenses represent one debtor paying back multiple recipients.
-              // When settling one specific recipient pair, only remove that recipient's
-              // share from the refund instead of marking the whole refund line repaid.
+              // Keep the original refund bill intact and only mark the specific
+              // recipient's share as repaid so history stays visible in Summary.
               if (expense.type === 'refund') {
                 const payerIds = expense.payerIds ?? []
-                const pairMatches = expense.splits.some(
-                  (split) => split.personId === debtorId && !split.repaid && split.amount != null,
-                )
-                if (!pairMatches) return expense
-
-                const payerCount = Math.max(1, payerIds.length)
-                const remainingPayerIds =
-                  payerCount > 1 ? payerIds.filter((pid) => pid !== creditorId) : payerIds
+                if (!payerIds.includes(creditorId)) return expense
 
                 return {
                   ...expense,
-                  payerIds: remainingPayerIds,
-                  amount:
-                    payerCount > 1
-                      ? Math.max(0, expense.amount - expense.amount / payerCount)
-                      : expense.amount,
                   splits: expense.splits.map((split) => {
                     if (split.personId !== debtorId || split.repaid || split.amount == null) return split
-
-                    if (payerCount <= 1) {
-                      return {
-                        ...split,
-                        repaid: true,
-                        repaidAt: new Date().toISOString(),
-                        repaidDate: repaidDate || todayISO(),
-                      }
-                    }
-
-                    const share = split.amount / payerCount
-                    const nextAmount = Math.max(0, split.amount - share)
+                    const nextRepaidPayerIds = Array.from(new Set([...(split.repaidPayerIds ?? []), creditorId]))
+                    const validRepaidPayerIds = nextRepaidPayerIds.filter((payerId) => payerIds.includes(payerId))
+                    const fullyRepaid = validRepaidPayerIds.length >= payerIds.length
                     return {
                       ...split,
-                      amount: nextAmount,
-                      convertedAmount:
-                        split.convertedAmount == null
-                          ? split.convertedAmount
-                          : Math.max(0, split.convertedAmount - split.convertedAmount / payerCount),
+                      repaidPayerIds: validRepaidPayerIds,
+                      repaid: fullyRepaid,
+                      repaidAt: fullyRepaid ? new Date().toISOString() : split.repaidAt,
+                      repaidDate: fullyRepaid ? (repaidDate || todayISO()) : split.repaidDate,
                     }
                   }),
                 }
@@ -466,18 +444,22 @@ export const useStore = create<AppState>()(
         set((state) => ({
           groups: updateGroupById(state.groups, groupId, (group) => ({
             ...group,
-            expenses: group.expenses.map((expense) => ({
-              ...expense,
-              splits: expense.splits.map((split) => {
-                if (split.personId !== debtorId || split.repaid) return split
-                return {
-                  ...split,
-                  repaid: true,
-                  repaidAt: new Date().toISOString(),
-                  repaidDate: repaidDate || todayISO(),
-                }
-              }),
-            })),
+            expenses: group.expenses.map((expense) => {
+              const payerIds = expense.payerIds ?? []
+              return {
+                ...expense,
+                splits: expense.splits.map((split) => {
+                  if (split.personId !== debtorId || split.repaid) return split
+                  return {
+                    ...split,
+                    repaid: true,
+                    repaidAt: new Date().toISOString(),
+                    repaidDate: repaidDate || todayISO(),
+                    repaidPayerIds: expense.type === 'refund' ? [...payerIds] : split.repaidPayerIds,
+                  }
+                }),
+              }
+            }),
           })),
         }))
       },

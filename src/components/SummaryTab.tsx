@@ -3,6 +3,7 @@ import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { tCategory, useT } from '../lib/i18n'
 import { getPersonNameStyle } from '../lib/personTheme'
+import { getSplitOutstandingAmount, isSplitFullySettled } from '../lib/refund'
 import { useStore } from '../store/useStore'
 import type { Expense, Group } from '../types'
 import { CATEGORY_ICONS, EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
@@ -310,14 +311,13 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                         const displayCurrency = expense.paidCurrency
 
                         const debtorSplits = expense.splits.filter((s) => !(expense.payerIds ?? []).includes(s.personId))
-                        const isFullySettled = debtorSplits.length > 0 && debtorSplits.every((s) => s.repaid)
+                        const isFullySettled = debtorSplits.length > 0 && debtorSplits.every((s) => isSplitFullySettled(expense, s))
                         const activeColors = isFullySettled
                           ? (isRefundExpense ? REFUND_SETTLED_COLORS : SETTLED_COLORS)
                           : cc
 
                         const outstandingTotal = debtorSplits
-                          .filter((s) => !s.repaid)
-                          .reduce((sum, s) => sum + (s.amount ?? 0), 0)
+                          .reduce((sum, s) => sum + getSplitOutstandingAmount(expense, s), 0)
 
                         return (
                           <div
@@ -436,16 +436,18 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense }: Pr
                                   {expense.splits
                                     .filter((s) => !(expense.payerIds ?? []).includes(s.personId))
                                     .slice()
-                                    .sort((a, b) => (b.repaid ? 1 : 0) - (a.repaid ? 1 : 0))
+                                    .sort((a, b) => Number(isSplitFullySettled(expense, b)) - Number(isSplitFullySettled(expense, a)))
                                     .map((split, idx) => {
                                       const person = group.people.find((entry) => entry.id === split.personId)
-                                      const amtStr = split.amount != null ? `${getCurrencySymbol(displayCurrency)}${formatMoney(split.amount)}` : '-'
+                                      const isPaid = isSplitFullySettled(expense, split)
+                                      const visibleAmount = isPaid ? (split.amount ?? 0) : getSplitOutstandingAmount(expense, split)
+                                      const amtStr = split.amount != null ? `${getCurrencySymbol(displayCurrency)}${formatMoney(visibleAmount)}` : '-'
                                       return (
                                         <div key={`${expense.id}-${split.personId}-${idx}`} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(240,234,222,0.45)' }}>
                                           <span className="text-sm font-medium" style={getPersonNameStyle(person)}>
                                             {person?.name ?? t('card.unknown')}
                                           </span>
-                                          {split.repaid ? (
+                                          {isPaid ? (
                                             <span className="text-sm font-semibold text-[#3a6a3a]">
                                               {t('summary.paid')} ({amtStr})
                                             </span>

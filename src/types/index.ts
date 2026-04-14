@@ -42,6 +42,7 @@ export interface Split {
   repaid: boolean
   repaidAt: string | null
   repaidDate: string | null
+  repaidPayerIds?: string[]
 }
 
 export type ExpenseType = 'expense' | 'refund'

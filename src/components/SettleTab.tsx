@@ -3,6 +3,7 @@ import { getSettlements } from '../lib/settlement'
 import { fetchRate, getCurrencySymbol } from '../lib/currency'
 import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
+import { getSplitOutstandingAmount, isSplitFullySettled } from '../lib/refund'
 import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
 import type { Group } from '../types'
@@ -272,7 +273,18 @@ export default function SettleTab({ group, onMarkPairRepaid }: Props) {
               expenseRate,
               expense.paidCurrency === expense.repayCurrency,
             )
-            return { personId: split.personId, amount: convertedAmount ?? 0, repaid: split.repaid }
+            const rawAmount = split.amount ?? 0
+            const outstandingRawAmount = getSplitOutstandingAmount(expense, split)
+            const ratio = rawAmount > 0 ? outstandingRawAmount / rawAmount : 0
+            const outstandingConvertedAmount =
+              convertedAmount == null
+                ? 0
+                : round2(convertedAmount * ratio)
+            return {
+              personId: split.personId,
+              amount: outstandingConvertedAmount,
+              repaid: isSplitFullySettled(expense, split),
+            }
           })
         if (allRows.length === 0) return null
         const outstandingTotal = allRows.filter((row) => !row.repaid).reduce((sum, row) => sum + row.amount, 0)

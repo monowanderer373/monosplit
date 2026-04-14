@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getSettlements } from '../lib/settlement'
 import { CURRENCIES, fetchRate, getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
+import { getSplitOutstandingAmount, getSplitPairShareAmount, isRefundPairRepaid } from '../lib/refund'
 import { useStore } from '../store/useStore'
 import ExpenseSheet from './ExpenseSheet'
 import type { Group } from '../types'
@@ -232,7 +233,9 @@ function RecordPaymentView({
     return group.expenses.flatMap((expense) => {
       const split = expense.splits.find((s) => s.personId === debtorId && !s.repaid && !(expense.payerIds ?? []).includes(debtorId))
       if (!split || split.amount == null) return []
-      return [{ expense, split, amount: split.amount }]
+      const outstandingAmount = getSplitOutstandingAmount(expense, split)
+      if (outstandingAmount <= 0.001) return []
+      return [{ expense, split, amount: outstandingAmount }]
     })
   }, [debtorId, group.expenses])
 
@@ -256,8 +259,8 @@ function RecordPaymentView({
       return expense.splits.flatMap((split) => {
         if (!creditorIds.includes(split.personId) || split.repaid || split.amount == null) return []
         if ((expense.payerIds ?? []).includes(split.personId)) return []
-        const recipientCount = Math.max(1, (expense.payerIds ?? []).length)
-        const pairShare = split.amount / recipientCount
+        if (isRefundPairRepaid(expense, split, debtorId)) return []
+        const pairShare = getSplitPairShareAmount(expense, split)
         return [{ expense, split, personId: split.personId, amount: pairShare }]
       })
     })

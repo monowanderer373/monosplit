@@ -1,3 +1,4 @@
+import { getSplitPairShareAmount, getSplitRepaidPayerIds, isRefundExpense } from './refund'
 import type { Expense, Settlement } from '../types'
 
 export function getSettlements(expenses: Expense[]): Settlement[] {
@@ -5,7 +6,6 @@ export function getSettlements(expenses: Expense[]): Settlement[] {
 
   for (const expense of expenses) {
     const payerIds = expense.payerIds ?? []
-    const numPayers = payerIds.length || 1
 
     for (const split of expense.splits) {
       if (payerIds.includes(split.personId) || split.repaid) continue
@@ -15,8 +15,15 @@ export function getSettlements(expenses: Expense[]): Settlement[] {
       const totalOwed = split.amount
       if (totalOwed == null || Number.isNaN(totalOwed)) continue
 
-      const perPayer = totalOwed / numPayers
-      for (const payerId of payerIds) {
+      const settledPayerIds = isRefundExpense(expense)
+        ? new Set(getSplitRepaidPayerIds(split, payerIds))
+        : new Set<string>()
+      const activePayerIds = isRefundExpense(expense)
+        ? payerIds.filter((payerId) => !settledPayerIds.has(payerId))
+        : payerIds
+      const perPayer = getSplitPairShareAmount(expense, split)
+
+      for (const payerId of activePayerIds) {
         if (!debts[split.personId]) debts[split.personId] = {}
         if (!debts[split.personId][payerId]) debts[split.personId][payerId] = {}
         debts[split.personId][payerId][currency] = (debts[split.personId][payerId][currency] || 0) + perPayer
