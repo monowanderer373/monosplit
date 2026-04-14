@@ -3,6 +3,7 @@ import { getSettlements } from '../lib/settlement'
 import { CURRENCIES, fetchRate, getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { getSplitOutstandingAmount, getSplitPairShareAmount, isRefundPairRepaid } from '../lib/refund'
+import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
 import ExpenseSheet from './ExpenseSheet'
 import type { Group } from '../types'
@@ -24,10 +25,31 @@ type Props = {
 }
 
 // ── Avatar ───────────────────────────────────────────────────────────────────
-function Avatar({ name }: { name: string }) {
+function Avatar({
+  name,
+  avatarDataUrl,
+  size = 'sm',
+  className = '',
+  style,
+}: {
+  name: string
+  avatarDataUrl?: string | null
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const sizeClass = size === 'lg' ? 'h-16 w-16 text-xl' : size === 'md' ? 'h-14 w-14 text-lg' : 'h-10 w-10 text-sm'
+
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgba(139,110,78,0.15)] text-sm font-bold text-[#5a4838]">
-      {name.slice(0, 1).toUpperCase()}
+    <span
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[rgba(139,110,78,0.15)] font-bold text-[#5a4838] ${sizeClass} ${className}`}
+      style={style}
+    >
+      {avatarDataUrl ? (
+        <img src={avatarDataUrl} alt={name} className="h-full w-full scale-[1.08] object-cover object-center" />
+      ) : (
+        name.slice(0, 1).toUpperCase()
+      )}
     </span>
   )
 }
@@ -210,6 +232,7 @@ function RecordPaymentView({
   isOpen,
   debtorId,
   group,
+  settlementCurrency,
   repayCurrency,
   parsedRate,
   canConvert,
@@ -219,25 +242,43 @@ function RecordPaymentView({
   isOpen: boolean
   debtorId: string | null
   group: Group
+  settlementCurrency: string | null
   repayCurrency: string
   parsedRate: number | null
   canConvert: boolean
   onRecord: (tip: TipEntry | null) => void
   onClose: () => void
 }) {
+  const t = useT()
   const debtor = group.people.find((p) => p.id === debtorId)
+
+  const owedCurrencies = useMemo(() => {
+    if (!debtorId) return []
+    return Array.from(new Set(
+      group.expenses.flatMap((expense) => {
+        const split = expense.splits.find((s) => s.personId === debtorId && !s.repaid && !(expense.payerIds ?? []).includes(debtorId))
+        if (!split || split.amount == null) return []
+        const outstandingAmount = getSplitOutstandingAmount(expense, split)
+        if (outstandingAmount <= 0.001) return []
+        return [expense.paidCurrency]
+      }),
+    ))
+  }, [debtorId, group.expenses])
+
+  const activeSettlementCurrency = settlementCurrency ?? owedCurrencies[0] ?? null
 
   // All unpaid splits for this debtor
   const ownedItems = useMemo(() => {
     if (!debtorId) return []
     return group.expenses.flatMap((expense) => {
+      if (activeSettlementCurrency && expense.paidCurrency !== activeSettlementCurrency) return []
       const split = expense.splits.find((s) => s.personId === debtorId && !s.repaid && !(expense.payerIds ?? []).includes(debtorId))
       if (!split || split.amount == null) return []
       const outstandingAmount = getSplitOutstandingAmount(expense, split)
       if (outstandingAmount <= 0.001) return []
       return [{ expense, split, amount: outstandingAmount }]
     })
-  }, [debtorId, group.expenses])
+  }, [activeSettlementCurrency, debtorId, group.expenses])
 
   // Direct creditors (payers) for this debtor's debts
   const creditorIds = useMemo(() => {
@@ -248,7 +289,7 @@ function RecordPaymentView({
     return [...ids]
   }, [ownedItems])
 
-  const primaryCurrency = ownedItems[0]?.expense.paidCurrency ?? group.defaultPaidCurrency
+  const primaryCurrency = activeSettlementCurrency ?? ownedItems[0]?.expense.paidCurrency ?? group.defaultPaidCurrency
 
   // Contra: what the creditors owe back to the debtor (debtor is a payer in those expenses)
   const contraItems = useMemo(() => {
@@ -310,7 +351,6 @@ function RecordPaymentView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [redirectPanelOpen])
 
-  const markAllDebtorSplitsRepaid = useStore((s) => s.markAllDebtorSplitsRepaid)
   const markRedirectRepaid = useStore((s) => s.markRedirectRepaid)
   const markSettlementPairRepaid = useStore((s) => s.markSettlementPairRepaid)
 
@@ -334,8 +374,10 @@ function RecordPaymentView({
     const paid = parseFloat(amountInput) || netOwedConverted
     const repaidDate = new Date().toISOString().slice(0, 10)
 
-    // Mark all of debtor's (Hao's) splits as repaid
-    markAllDebtorSplitsRepaid(group.id, debtorId, repaidDate)
+    // Mark only the selected currency's direct debts as repaid.
+    for (const creditorId of creditorIds) {
+      markSettlementPairRepaid(group.id, debtorId, creditorId, primaryCurrency, repaidDate)
+    }
 
     // Mark contra splits: creditors (Voo etc.) owed back to debtor (Hao) → repaid
     if (contraRaw > 0) {
@@ -397,9 +439,7 @@ function RecordPaymentView({
           <div className="flex items-center gap-4">
             {/* Debtor avatar */}
             <div className="flex flex-col items-center gap-1.5">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(139,110,78,0.15)] text-xl font-bold text-[#5a4838]">
-                {(debtor?.name ?? '?').slice(0, 1).toUpperCase()}
-              </div>
+              <Avatar name={debtor?.name ?? '?'} avatarDataUrl={debtor?.avatarDataUrl} size="lg" />
               <span className="max-w-[72px] truncate text-xs font-medium text-[#6b6058]">{debtor?.name ?? 'Unknown'}</span>
             </div>
             {/* Arrow */}
@@ -413,18 +453,18 @@ function RecordPaymentView({
                   const cp = group.people.find((p) => p.id === cid)
                   const isRedirect = !creditorIds.includes(cid)
                   return (
-                    <div
+                    <Avatar
                       key={cid}
-                      className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[var(--ms-bg,#f4f0e8)] text-lg font-bold"
+                      name={cp?.name ?? '?'}
+                      avatarDataUrl={cp?.avatarDataUrl}
+                      size="md"
+                      className="border-2 border-[var(--ms-bg,#f4f0e8)]"
                       style={{
                         zIndex: allReceivingIds.length - idx,
                         background: isRedirect ? 'rgba(80,106,70,0.18)' : 'rgba(96,65,69,0.15)',
                         color: isRedirect ? '#4e6642' : '#604145',
                       }}
-                      title={isRedirect ? `${cp?.name} (redirect)` : cp?.name}
-                    >
-                      {(cp?.name ?? '?').slice(0, 1).toUpperCase()}
-                    </div>
+                    />
                   )
                 })}
               </div>
@@ -441,6 +481,11 @@ function RecordPaymentView({
               ? `paid ${group.people.find((p) => p.id === creditorIds[0])?.name ?? 'you'}`
               : 'settled up'}
           </p>
+          {owedCurrencies.length > 1 && activeSettlementCurrency && (
+            <p className="rounded-xl bg-[rgba(139,110,78,0.08)] px-3 py-2 text-center text-xs text-[#6b6058]">
+              {t('settle.selectedCurrencyOnly')} {activeSettlementCurrency}
+            </p>
+          )}
         </div>
 
         {/* Editable amount */}
@@ -674,6 +719,7 @@ function RecordPaymentView({
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: Props) {
+  const t = useT()
   const [phase, setPhase] = useState<Phase>('closed')
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const [fillScale, setFillScale] = useState(40)
@@ -689,6 +735,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
 
   // Record payment state
   const [selectedDebtorId, setSelectedDebtorId] = useState<string | null>(null)
+  const [selectedSettlementCurrency, setSelectedSettlementCurrency] = useState<string | null>(null)
   const [tipLog, setTipLog] = useState<TipEntry[]>([])
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -717,6 +764,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
       setCurrencyPanelOpen(false)
       setAddExpenseOpen(false)
       setSelectedDebtorId(null)
+      setSelectedSettlementCurrency(null)
       setPhase('closing')
       after(() => setPhase('closed'), 480)
     }
@@ -797,6 +845,25 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
       }
       return { currency, amount: total, original: null }
     })
+  }
+
+  const openRecordPayment = (personId: string, totals: { currency: string; total: number }[]) => {
+    const availableCurrencies = totals
+      .filter((entry) => entry.total > 0.001)
+      .map((entry) => entry.currency)
+
+    if (availableCurrencies.length > 1) {
+      if (!availableCurrencies.includes(repayCurrency)) {
+        window.alert(`${t('settle.switchCurrencyToOpen')}\n${availableCurrencies.join(', ')}`)
+        return
+      }
+      setSelectedSettlementCurrency(repayCurrency)
+      setSelectedDebtorId(personId)
+      return
+    }
+
+    setSelectedSettlementCurrency(availableCurrencies[0] ?? null)
+    setSelectedDebtorId(personId)
   }
 
   return (
@@ -891,9 +958,9 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                   <div key={personId} style={stagger(3 + i)}>
                     <button
                       className="ms-key flex w-full items-center gap-3 rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3 text-left active:opacity-70"
-                      onClick={() => setSelectedDebtorId(personId)}
+                      onClick={() => openRecordPayment(personId, totals)}
                     >
-                      <Avatar name={person?.name ?? '?'} />
+                      <Avatar name={person?.name ?? '?'} avatarDataUrl={person?.avatarDataUrl} />
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[#2c2520]">{person?.name ?? 'Unknown'}</p>
                         <p className="mt-0.5 text-xs text-[#9a9088]">Your repayment balance</p>
@@ -1015,14 +1082,19 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
         isOpen={selectedDebtorId !== null}
         debtorId={selectedDebtorId}
         group={group}
+        settlementCurrency={selectedSettlementCurrency}
         repayCurrency={repayCurrency}
         parsedRate={parsedRate}
         canConvert={canConvert}
         onRecord={(tip) => {
           if (tip) setTipLog((prev) => [tip, ...prev])
           setSelectedDebtorId(null)
+          setSelectedSettlementCurrency(null)
         }}
-        onClose={() => setSelectedDebtorId(null)}
+        onClose={() => {
+          setSelectedDebtorId(null)
+          setSelectedSettlementCurrency(null)
+        }}
       />
     </>
   )

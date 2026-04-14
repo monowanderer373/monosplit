@@ -205,6 +205,8 @@ const translations = {
   'settle.confirmRepaid': { en: 'Confirm Mark as Repaid', zh: '确认标记为已还' },
   'settle.confirmRepaidDesc': { en: 'Are you sure you want to mark this settlement as repaid?', zh: '确定要将此结算标记为已还吗？' },
   'settle.doNotShowAgain': { en: 'Do not show this again', zh: '不再显示此提示' },
+  'settle.switchCurrencyToOpen': { en: 'This balance includes multiple currencies. Switch repay currency to one of these before opening:', zh: '这笔欠款包含多种币种。请先把还款币种切换为以下其中一种，再进入结算：' },
+  'settle.selectedCurrencyOnly': { en: 'Showing only items in', zh: '当前只显示以下币种的账单：' },
 
   // ── People / Profile Tab ──
   'people.travellers': { en: 'Travellers', zh: '旅伴' },

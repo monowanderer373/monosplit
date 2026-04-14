@@ -75,25 +75,76 @@ alter table public.groups
 create index if not exists groups_owner_id_idx on public.groups (owner_id);
 
 -- ─────────────────────────────────────────────
--- 3. Update RLS on groups
+-- 3. Helper functions to avoid RLS recursion
+-- ─────────────────────────────────────────────
+create or replace function public.is_group_owner(target_group_id text, target_user_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.groups g
+    where g.id::text = target_group_id::text
+      and g.owner_id::text = target_user_id::text
+  );
+$$;
+
+create or replace function public.get_group_role(target_group_id text, target_user_id text)
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select ug.role
+  from public.user_groups ug
+  where ug.group_id::text = target_group_id::text
+    and ug.user_id::text = target_user_id::text
+  limit 1;
+$$;
+
+create or replace function public.is_group_member(target_group_id text, target_user_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.user_groups ug
+    where ug.group_id::text = target_group_id::text
+      and ug.user_id::text = target_user_id::text
+  );
+$$;
+
+-- ─────────────────────────────────────────────
+-- 4. Update RLS on groups
 --    Anonymous groups (owner_id IS NULL) stay fully open.
 --    Owned groups can only be updated/deleted by their owner.
 -- ─────────────────────────────────────────────
-drop policy if exists "groups_select" on public.groups;
-drop policy if exists "groups_insert" on public.groups;
-drop policy if exists "groups_update" on public.groups;
-drop policy if exists "groups_delete" on public.groups;
+do $$
+declare
+  pol record;
+begin
+  for pol in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'groups'
+  loop
+    execute format('drop policy if exists %I on public.groups', pol.policyname);
+  end loop;
+end $$;
 
 create policy "groups_select" on public.groups
   for select using (
     owner_id is null
     or owner_id::text = auth.uid()::text
-    or exists (
-      select 1
-      from public.user_groups ug
-      where ug.group_id::text = groups.id::text
-        and ug.user_id::text = auth.uid()::text
-    )
+    or public.is_group_member(groups.id::text, auth.uid()::text)
   );
 
 create policy "groups_insert" on public.groups
@@ -103,31 +154,19 @@ create policy "groups_update" on public.groups
   for update using (
     owner_id is null
     or owner_id::text = auth.uid()::text
-    or exists (
-      select 1
-      from public.user_groups ug
-      where ug.group_id::text = groups.id::text
-        and ug.user_id::text = auth.uid()::text
-        and ug.role = 'full_access'
-    )
+    or public.get_group_role(groups.id::text, auth.uid()::text) = 'full_access'
   )
   with check (
     owner_id is null
     or owner_id::text = auth.uid()::text
-    or exists (
-      select 1
-      from public.user_groups ug
-      where ug.group_id::text = groups.id::text
-        and ug.user_id::text = auth.uid()::text
-        and ug.role = 'full_access'
-    )
+    or public.get_group_role(groups.id::text, auth.uid()::text) = 'full_access'
   );
 
 create policy "groups_delete" on public.groups
   for delete using (owner_id is null or owner_id::text = auth.uid()::text);
 
 -- ─────────────────────────────────────────────
--- 4. Memberships with roles
+-- 5. Memberships with roles
 -- ─────────────────────────────────────────────
 create table if not exists public.user_groups (
   user_id text not null,
@@ -148,66 +187,54 @@ where role is not null
 alter table public.user_groups drop constraint if exists user_groups_role_check;
 alter table public.user_groups add constraint user_groups_role_check check (role in ('owner', 'full_access', 'view'));
 
-drop policy if exists "user_groups_select_group_members" on public.user_groups;
-drop policy if exists "user_groups_insert_owner_or_self" on public.user_groups;
-drop policy if exists "user_groups_update_owner_or_self" on public.user_groups;
-drop policy if exists "user_groups_delete_owner_or_self" on public.user_groups;
+do $$
+declare
+  pol record;
+begin
+  for pol in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'user_groups'
+  loop
+    execute format('drop policy if exists %I on public.user_groups', pol.policyname);
+  end loop;
+end $$;
 
 create policy "user_groups_select_group_members" on public.user_groups
   for select using (
     user_id::text = auth.uid()::text
-    or exists (
-      select 1
-      from public.groups g
-      where g.id::text = user_groups.group_id::text
-        and g.owner_id::text = auth.uid()::text
-    )
-    or exists (
-      select 1
-      from public.user_groups ug
-      where ug.group_id::text = user_groups.group_id::text
-        and ug.user_id::text = auth.uid()::text
-    )
+    or public.is_group_owner(user_groups.group_id::text, auth.uid()::text)
+    or public.is_group_member(user_groups.group_id::text, auth.uid()::text)
   );
 
 create policy "user_groups_insert_owner_or_self" on public.user_groups
   for insert with check (
     user_id::text = auth.uid()::text
-    or exists (
-      select 1
-      from public.groups g
-      where g.id::text = user_groups.group_id::text
-        and g.owner_id::text = auth.uid()::text
-    )
+    or public.is_group_owner(user_groups.group_id::text, auth.uid()::text)
   );
 
 create policy "user_groups_update_owner_or_self" on public.user_groups
   for update using (
     user_id::text = auth.uid()::text
-    or exists (
-      select 1
-      from public.groups g
-      where g.id::text = user_groups.group_id::text
-        and g.owner_id::text = auth.uid()::text
-    )
+    or public.is_group_owner(user_groups.group_id::text, auth.uid()::text)
+  )
+  with check (
+    user_id::text = auth.uid()::text
+    or public.is_group_owner(user_groups.group_id::text, auth.uid()::text)
   );
 
 create policy "user_groups_delete_owner_or_self" on public.user_groups
   for delete using (
     user_id::text = auth.uid()::text
-    or exists (
-      select 1
-      from public.groups g
-      where g.id::text = user_groups.group_id::text
-        and g.owner_id::text = auth.uid()::text
-    )
+    or public.is_group_owner(user_groups.group_id::text, auth.uid()::text)
   );
 
 create index if not exists user_groups_group_id_idx on public.user_groups (group_id);
 create index if not exists user_groups_user_id_idx on public.user_groups (user_id);
 
 -- ─────────────────────────────────────────────
--- 5. Invite links with preset role
+-- 6. Invite links with preset role
 -- ─────────────────────────────────────────────
 create table if not exists public.group_invite_links (
   token text primary key,
