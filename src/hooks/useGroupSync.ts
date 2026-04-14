@@ -5,6 +5,10 @@ import type { Group } from '../types'
 
 type SyncStatus = 'idle' | 'loading' | 'synced' | 'offline' | 'error'
 type GroupRow = { data: unknown; version: number; owner_id: string | null }
+type GroupSyncOptions = {
+  authLoading?: boolean
+  authUserId?: string
+}
 
 /**
  * Syncs a single group between the local Zustand store and Supabase.
@@ -13,10 +17,12 @@ type GroupRow = { data: unknown; version: number; owner_id: string | null }
  * - On local changes: debounced upsert back to Supabase
  * - Subscribes to Realtime for live updates from other devices
  */
-export function useGroupSync(groupId: string | undefined) {
+export function useGroupSync(groupId: string | undefined, options?: GroupSyncOptions) {
   const group = useStore((s) => s.groups.find((g) => g.id === groupId))
   const upsertGroup = useStore((s) => s.upsertGroup)
   const replaceGroup = useStore((s) => s.replaceGroup)
+  const authLoading = options?.authLoading ?? false
+  const authUserId = options?.authUserId
 
   const [status, setStatus] = useState<SyncStatus>('idle')
   const [ownerId, setOwnerId] = useState<string | null>(null)
@@ -67,6 +73,11 @@ export function useGroupSync(groupId: string | undefined) {
 
   // Initial fetch from Supabase
   useEffect(() => {
+    if (authLoading) {
+      setStatus('loading')
+      return
+    }
+
     if (!groupId || !supabase || !supabaseEnabled) {
       setStatus(supabaseEnabled ? 'idle' : 'offline')
       return
@@ -132,9 +143,7 @@ export function useGroupSync(groupId: string | undefined) {
       cancelled = true
       clearTimeout(timeoutId)
     }
-    // Only run on mount / groupId change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId])
+  }, [authLoading, authUserId, groupId])
 
   // Subscribe to Realtime changes
   useEffect(() => {

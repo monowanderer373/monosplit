@@ -38,8 +38,8 @@ export default function GroupPage() {
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
 
-  const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId)
   const { authUser, loading: authLoading, claimGroup, memberships, createInviteLink, updateGroupMembershipRole, registerGroupMembership } = useAuth()
+  const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId, { authLoading, authUserId: authUser?.id })
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [linkCopied, setLinkCopied] = useState(false)
   const [inviteBusyRole, setInviteBusyRole] = useState<'full_access' | 'view' | null>(null)
@@ -191,6 +191,15 @@ export default function GroupPage() {
     }
   }
 
+  if (authLoading || syncStatus === 'loading') {
+    return (
+      <main className="ms-page flex min-h-dvh items-center justify-center">
+        <div className="ms-card-soft w-full p-6 text-center">
+          <p className="text-sm text-[#6b6058]">{t('group.syncing')}</p>
+        </div>
+      </main>
+    )
+  }
 
   if (!group) {
     return (
@@ -233,7 +242,6 @@ export default function GroupPage() {
           <div className="mt-2 flex items-center gap-3">
             <p className="text-base text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
             {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
-            {syncStatus === 'loading' && <span className="text-xs text-[#9a9088]">{t('group.syncing')}</span>}
             {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.localOnly')}</span>}
             {syncStatus === 'error' && <span className="text-xs text-[#9e4a4a]">{t('group.syncError')}</span>}
           </div>
@@ -266,7 +274,6 @@ export default function GroupPage() {
               <div className="mt-1 flex items-center gap-2">
                 <p className="text-xs text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
                 {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
-                {syncStatus === 'loading' && <span className="text-xs text-[#9a9088]">{t('group.syncing')}</span>}
                 {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.local')}</span>}
               </div>
               <p className="mt-1 text-sm text-[#6b6058]">
