@@ -25,7 +25,7 @@ type Props = {
 
 export default function PeopleTab({ group, authUserId, role, membershipByUserId, onAddPerson, onUpdateMembershipRole, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
   const t = useT()
-  const { updateProfile } = useAuth()
+  const { authUser, updateProfile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null)
@@ -35,7 +35,20 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
   const editingPerson = editingPersonId ? group.people.find((person) => person.id === editingPersonId) || null : null
   const canManageTravellers = canManageManualTravellers(role)
   const canEditTrip = canEditGroup(role)
-  const isEditingSelf = !!editingPerson && !!authUserId && editingPerson.authUserId === authUserId
+  const normalizeIdentity = (value?: string | null) => value?.trim().toLowerCase() ?? ''
+  const currentDisplayName = normalizeIdentity(authUser?.displayName)
+  const currentEmailName = normalizeIdentity(authUser?.email?.split('@')[0])
+  const isCurrentUserPerson = (person: Person | null) => {
+    if (!person || !authUserId) return false
+    if (person.authUserId === authUserId) return true
+    if (role === 'owner' && group.ownerId === authUserId) {
+      if (person.authUserId && person.authUserId === group.ownerId) return true
+      const personName = normalizeIdentity(person.name)
+      if (personName && (personName === currentDisplayName || personName === currentEmailName)) return true
+    }
+    return false
+  }
+  const isEditingSelf = isCurrentUserPerson(editingPerson)
   const canEditEditingPerson = !!editingPerson && (isManualTraveller(editingPerson) || isEditingSelf)
 
   const openEditPerson = (person: Person) => {
@@ -69,7 +82,7 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
 
         <div className="mb-3 flex flex-wrap gap-2">
           {group.people.map((person) => {
-            const isMe = authUserId && person.authUserId === authUserId
+            const isMe = isCurrentUserPerson(person)
             const membership = person.authUserId ? membershipByUserId[person.authUserId] : undefined
             const roleLabel = group.ownerId && person.authUserId === group.ownerId
               ? t('people.roleOwner')
