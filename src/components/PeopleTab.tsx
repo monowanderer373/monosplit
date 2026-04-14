@@ -23,15 +23,115 @@ type Props = {
   onUpdateGroupCurrency: (paid: string, repay: string) => void
 }
 
+const AVATAR_EDITOR_SIZE = 240
+const AVATAR_OUTPUT_SIZE = 512
+const MIN_AVATAR_SCALE = 1
+const MAX_AVATAR_SCALE = 3
+
+function getCoverScale(width: number, height: number, viewportSize: number) {
+  return Math.max(viewportSize / width, viewportSize / height)
+}
+
+function getRenderedImageSize(
+  naturalSize: { width: number; height: number },
+  viewportSize: number,
+  scale: number,
+) {
+  const coverScale = getCoverScale(naturalSize.width, naturalSize.height, viewportSize)
+  return {
+    width: naturalSize.width * coverScale * scale,
+    height: naturalSize.height * coverScale * scale,
+  }
+}
+
+function clampAvatarOffset(
+  offset: { x: number; y: number },
+  naturalSize: { width: number; height: number },
+  scale: number,
+  viewportSize: number,
+) {
+  const rendered = getRenderedImageSize(naturalSize, viewportSize, scale)
+  const maxX = Math.max(0, (rendered.width - viewportSize) / 2)
+  const maxY = Math.max(0, (rendered.height - viewportSize) / 2)
+  return {
+    x: Math.min(maxX, Math.max(-maxX, offset.x)),
+    y: Math.min(maxY, Math.max(-maxY, offset.y)),
+  }
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') resolve(reader.result)
+      else reject(new Error('invalid-image'))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('read-failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function loadImage(source: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('image-load-failed'))
+    image.src = source
+  })
+}
+
+async function renderAdjustedAvatar(args: {
+  source: string
+  naturalSize: { width: number; height: number }
+  scale: number
+  offset: { x: number; y: number }
+}) {
+  const image = await loadImage(args.source)
+  const canvas = document.createElement('canvas')
+  canvas.width = AVATAR_OUTPUT_SIZE
+  canvas.height = AVATAR_OUTPUT_SIZE
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('canvas-unavailable')
+
+  const outputRatio = AVATAR_OUTPUT_SIZE / AVATAR_EDITOR_SIZE
+  const rendered = getRenderedImageSize(args.naturalSize, AVATAR_EDITOR_SIZE, args.scale)
+  const outputWidth = rendered.width * outputRatio
+  const outputHeight = rendered.height * outputRatio
+  const centerX = AVATAR_OUTPUT_SIZE / 2 + args.offset.x * outputRatio
+  const centerY = AVATAR_OUTPUT_SIZE / 2 + args.offset.y * outputRatio
+
+  context.clearRect(0, 0, canvas.width, canvas.height)
+  context.drawImage(
+    image,
+    centerX - outputWidth / 2,
+    centerY - outputHeight / 2,
+    outputWidth,
+    outputHeight,
+  )
+
+  return canvas.toDataURL('image/png')
+}
+
 export default function PeopleTab({ group, authUserId, role, membershipByUserId, onAddPerson, onUpdateMembershipRole, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
   const t = useT()
   const { authUser, updateProfile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cropDragRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+  } | null>(null)
   const [name, setName] = useState('')
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftAvatarDataUrl, setDraftAvatarDataUrl] = useState<string | null>(null)
   const [draftLinkedRole, setDraftLinkedRole] = useState<Exclude<GroupRole, 'owner'>>('view')
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const [cropNaturalSize, setCropNaturalSize] = useState<{ width: number; height: number } | null>(null)
+  const [cropScale, setCropScale] = useState(1)
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 })
   const editingPerson = editingPersonId ? group.people.find((person) => person.id === editingPersonId) || null : null
   const canManageTravellers = canManageManualTravellers(role)
   const canEditTrip = canEditGroup(role)
@@ -69,20 +169,97 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
     setEditingPersonId(person.id)
     setDraftName(person.name)
     setDraftAvatarDataUrl(person.avatarDataUrl || null)
+    setCropImageSrc(null)
+    setCropNaturalSize(null)
+    setCropScale(1)
+    setCropOffset({ x: 0, y: 0 })
     const linkedRole = person.authUserId ? membershipByUserId[person.authUserId]?.role : null
     setDraftLinkedRole(linkedRole === 'full_access' ? 'full_access' : 'view')
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const result = ev.target?.result
-      if (typeof result === 'string') setDraftAvatarDataUrl(result)
-    }
-    reader.readAsDataURL(file)
     e.target.value = ''
+    if (!file || !canEditEditingPerson) return
+    try {
+      const source = await readFileAsDataUrl(file)
+      const image = await loadImage(source)
+      setCropImageSrc(source)
+      setCropNaturalSize({ width: image.naturalWidth, height: image.naturalHeight })
+      setCropScale(1)
+      setCropOffset({ x: 0, y: 0 })
+    } catch {
+      window.alert(t('auth.errorGeneric'))
+    }
+  }
+
+  const closeCropEditor = () => {
+    setCropImageSrc(null)
+    setCropNaturalSize(null)
+    setCropScale(1)
+    setCropOffset({ x: 0, y: 0 })
+    cropDragRef.current = null
+  }
+
+  const handleCropScaleChange = (nextScale: number) => {
+    if (!cropNaturalSize) {
+      setCropScale(nextScale)
+      return
+    }
+    setCropScale(nextScale)
+    setCropOffset((prev) => clampAvatarOffset(prev, cropNaturalSize, nextScale, AVATAR_EDITOR_SIZE))
+  }
+
+  const handleCropPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!cropNaturalSize) return
+    cropDragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: cropOffset.x,
+      originY: cropOffset.y,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const handleCropPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!cropNaturalSize || !cropDragRef.current || cropDragRef.current.pointerId !== e.pointerId) return
+    const deltaX = e.clientX - cropDragRef.current.startX
+    const deltaY = e.clientY - cropDragRef.current.startY
+    setCropOffset(
+      clampAvatarOffset(
+        {
+          x: cropDragRef.current.originX + deltaX,
+          y: cropDragRef.current.originY + deltaY,
+        },
+        cropNaturalSize,
+        cropScale,
+        AVATAR_EDITOR_SIZE,
+      ),
+    )
+  }
+
+  const handleCropPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (cropDragRef.current?.pointerId === e.pointerId) {
+      cropDragRef.current = null
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+  }
+
+  const handleApplyCrop = async () => {
+    if (!cropImageSrc || !cropNaturalSize) return
+    try {
+      const adjusted = await renderAdjustedAvatar({
+        source: cropImageSrc,
+        naturalSize: cropNaturalSize,
+        scale: cropScale,
+        offset: cropOffset,
+      })
+      setDraftAvatarDataUrl(adjusted)
+      closeCropEditor()
+    } catch {
+      window.alert(t('auth.errorGeneric'))
+    }
   }
 
   return (
@@ -370,6 +547,68 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
                   {t('people.updateMemberPermission')}
                 </button>
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cropImageSrc && cropNaturalSize ? (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#2c2520]/55 p-2 lg:items-center">
+          <div className="w-full max-w-md rounded-2xl bg-[#faf8f4] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="ms-title">{t('people.adjustPhoto')}</h3>
+              <button className="ms-btn-ghost" onClick={closeCropEditor}>
+                {t('people.close')}
+              </button>
+            </div>
+
+            <p className="mb-4 text-sm text-[#6b6058]">{t('people.dragPhoto')}</p>
+
+            <div className="mb-4 flex justify-center">
+              <div
+                className="relative overflow-hidden rounded-full border border-[#e6e0d5] bg-[#f0ece3] shadow-inner"
+                style={{ width: `${AVATAR_EDITOR_SIZE}px`, height: `${AVATAR_EDITOR_SIZE}px`, touchAction: 'none' }}
+                onPointerDown={handleCropPointerDown}
+                onPointerMove={handleCropPointerMove}
+                onPointerUp={handleCropPointerUp}
+                onPointerCancel={handleCropPointerUp}
+              >
+                <img
+                  src={cropImageSrc}
+                  alt={draftName || editingPerson?.name || 'Avatar preview'}
+                  className="pointer-events-none absolute max-w-none select-none"
+                  style={{
+                    width: `${getRenderedImageSize(cropNaturalSize, AVATAR_EDITOR_SIZE, cropScale).width}px`,
+                    height: `${getRenderedImageSize(cropNaturalSize, AVATAR_EDITOR_SIZE, cropScale).height}px`,
+                    left: `calc(50% + ${cropOffset.x}px)`,
+                    top: `calc(50% + ${cropOffset.y}px)`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                />
+                <div className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-white/75" />
+              </div>
+            </div>
+
+            <label className="mb-4 block text-sm text-[#6b6058]">
+              {t('people.zoom')}
+              <input
+                type="range"
+                min={String(MIN_AVATAR_SCALE)}
+                max={String(MAX_AVATAR_SCALE)}
+                step="0.01"
+                className="mt-2 w-full accent-[#8b6e4e]"
+                value={cropScale}
+                onChange={(e) => handleCropScaleChange(Number(e.target.value))}
+              />
+            </label>
+
+            <div className="flex gap-2">
+              <button className="ms-btn-ghost flex-1" onClick={closeCropEditor}>
+                {t('expense.cancel')}
+              </button>
+              <button className="ms-btn-primary flex-1" onClick={handleApplyCrop}>
+                {t('people.save')}
+              </button>
             </div>
           </div>
         </div>
