@@ -38,13 +38,27 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
   const normalizeIdentity = (value?: string | null) => value?.trim().toLowerCase() ?? ''
   const currentDisplayName = normalizeIdentity(authUser?.displayName)
   const currentEmailName = normalizeIdentity(authUser?.email?.split('@')[0])
+  const currentDisplayTokens = currentDisplayName.split(/\s+/).filter(Boolean)
+  const currentEmailTokens = currentEmailName.split(/\s+/).filter(Boolean)
   const isCurrentUserPerson = (person: Person | null) => {
     if (!person || !authUserId) return false
     if (person.authUserId === authUserId) return true
     if (role === 'owner' && group.ownerId === authUserId) {
       if (person.authUserId && person.authUserId === group.ownerId) return true
       const personName = normalizeIdentity(person.name)
-      if (personName && (personName === currentDisplayName || personName === currentEmailName)) return true
+      if (
+        personName &&
+        (
+          personName === currentDisplayName ||
+          personName === currentEmailName ||
+          currentDisplayName.startsWith(personName) ||
+          personName.startsWith(currentDisplayName) ||
+          currentEmailName.startsWith(personName) ||
+          personName.startsWith(currentEmailName) ||
+          currentDisplayTokens.includes(personName) ||
+          currentEmailTokens.includes(personName)
+        )
+      ) return true
     }
     return false
   }
