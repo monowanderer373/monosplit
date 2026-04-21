@@ -108,6 +108,8 @@ const translations = {
   'expense.outsideTrip': { en: 'Outside trip period', zh: '旅程期间外' },
   'expense.futureDate': { en: 'Future date — auto rate unavailable', zh: '未来日期 — 无法自动获取汇率' },
   'expense.rateFrom': { en: 'rate from', zh: '汇率日期' },
+  'expense.draftRestored': { en: 'Unsaved draft restored from this device.', zh: '已从此设备恢复未保存草稿。' },
+  'expense.discardDraft': { en: 'Discard draft', zh: '丢弃草稿' },
 
   // Expense form errors
   'error.selectDate': { en: 'Please select a date first before fetching the rate.', zh: '请先选择日期再获取汇率。' },

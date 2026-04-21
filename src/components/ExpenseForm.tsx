@@ -52,6 +52,39 @@ type FormState = {
   date: string
 }
 
+type ExpenseDraft = {
+  version: 1
+  form: FormState
+  autoCatActive: boolean
+}
+
+const EXPENSE_DRAFT_STORAGE_PREFIX = 'ms_expense_draft:'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function getExpenseDraftKey(groupId: string): string {
+  return `${EXPENSE_DRAFT_STORAGE_PREFIX}${groupId}`
+}
+
+function sameIds(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index])
+}
+
+function readIdList(value: unknown, validIds: Set<string>): string[] {
+  if (!Array.isArray(value)) return []
+  return Array.from(new Set(value.filter((id): id is string => typeof id === 'string' && validIds.has(id))))
+}
+
+function readStringMap(value: unknown, validIds: Set<string>): Record<string, string> {
+  if (!isRecord(value)) return {}
+  return Object.entries(value).reduce<Record<string, string>>((acc, [key, entryValue]) => {
+    if (validIds.has(key) && typeof entryValue === 'string') acc[key] = entryValue
+    return acc
+  }, {})
+}
+
 function hasFiniteNumberInput(raw: string | undefined): boolean {
   if (raw == null || raw === '') return false
   const value = Number(raw)
@@ -118,6 +151,117 @@ function blankForm(group: Group): FormState {
   }
 }
 
+function hasMeaningfulDraft(form: FormState, group: Group): boolean {
+  const base = blankForm(group)
+  const hasEntries = (record: Record<string, string>) => Object.values(record).some((value) => value.trim() !== '')
+
+  return (
+    form.description.trim() !== '' ||
+    form.amount.trim() !== '' ||
+    form.manualRate.trim() !== '' ||
+    form.serviceTaxPct.trim() !== '' ||
+    form.salesTaxPct.trim() !== '' ||
+    form.tipsPct.trim() !== '' ||
+    hasEntries(form.itemizedInput) ||
+    hasEntries(form.percentageInput) ||
+    hasEntries(form.sharesInput) ||
+    hasEntries(form.adjustmentInput) ||
+    form.expenseType !== base.expenseType ||
+    form.category !== base.category ||
+    form.payerIds.length !== base.payerIds.length ||
+    !sameIds(form.payerIds, base.payerIds) ||
+    form.paidCurrency !== base.paidCurrency ||
+    form.repayCurrency !== base.repayCurrency ||
+    form.paymentMethod !== base.paymentMethod ||
+    form.splitMode !== base.splitMode ||
+    form.splitPersonIds.length !== base.splitPersonIds.length ||
+    !sameIds(form.splitPersonIds, base.splitPersonIds) ||
+    form.itemizedInputMode !== base.itemizedInputMode ||
+    form.rateMode !== base.rateMode ||
+    form.date !== base.date
+  )
+}
+
+function sanitizeDraftForm(value: unknown, group: Group): FormState | null {
+  if (!isRecord(value)) return null
+
+  const base = blankForm(group)
+  const validIds = new Set(group.people.map((person) => person.id))
+  const expenseType: ExpenseType = value.expenseType === 'refund' ? 'refund' : 'expense'
+  const splitMode: SplitMode =
+    value.splitMode === 'itemized' ||
+    value.splitMode === 'percentage' ||
+    value.splitMode === 'shares' ||
+    value.splitMode === 'adjustment' ||
+    value.splitMode === 'equal'
+      ? value.splitMode
+      : base.splitMode
+
+  const payerIds = readIdList(value.payerIds, validIds)
+  const splitPersonIds = readIdList(value.splitPersonIds, validIds)
+
+  return {
+    ...base,
+    expenseType,
+    category: typeof value.category === 'string' && value.category ? value.category : base.category,
+    description: typeof value.description === 'string' ? value.description : '',
+    payerIds: payerIds.length > 0 ? payerIds : base.payerIds,
+    amount: typeof value.amount === 'string' ? value.amount : '',
+    paidCurrency: typeof value.paidCurrency === 'string' && value.paidCurrency ? value.paidCurrency : base.paidCurrency,
+    repayCurrency: typeof value.repayCurrency === 'string' && value.repayCurrency ? value.repayCurrency : base.repayCurrency,
+    paymentMethod: value.paymentMethod === 'cash' ? 'cash' : 'card',
+    splitMode: expenseType === 'refund' ? 'equal' : splitMode,
+    splitPersonIds: splitPersonIds.length > 0 ? splitPersonIds : base.splitPersonIds,
+    itemizedInputMode: value.itemizedInputMode === 'total' ? 'total' : 'pretax',
+    itemizedInput: readStringMap(value.itemizedInput, validIds),
+    percentageInput: readStringMap(value.percentageInput, validIds),
+    sharesInput: readStringMap(value.sharesInput, validIds),
+    adjustmentInput: readStringMap(value.adjustmentInput, validIds),
+    serviceTaxPct: typeof value.serviceTaxPct === 'string' ? value.serviceTaxPct : '',
+    salesTaxPct: typeof value.salesTaxPct === 'string' ? value.salesTaxPct : '',
+    tipsPct: typeof value.tipsPct === 'string' ? value.tipsPct : '',
+    rateMode: value.rateMode === 'manual' ? 'manual' : 'auto',
+    manualRate: typeof value.manualRate === 'string' ? value.manualRate : '',
+    date: typeof value.date === 'string' && value.date ? value.date : base.date,
+  }
+}
+
+function loadExpenseDraft(group: Group): ExpenseDraft | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const raw = window.localStorage.getItem(getExpenseDraftKey(group.id))
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as unknown
+    if (!isRecord(parsed) || parsed.version !== 1) return null
+
+    const form = sanitizeDraftForm(parsed.form, group)
+    if (!form || !hasMeaningfulDraft(form, group)) {
+      window.localStorage.removeItem(getExpenseDraftKey(group.id))
+      return null
+    }
+
+    return {
+      version: 1,
+      form,
+      autoCatActive: Boolean(parsed.autoCatActive),
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveExpenseDraft(groupId: string, draft: ExpenseDraft) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(getExpenseDraftKey(groupId), JSON.stringify(draft))
+}
+
+function clearExpenseDraft(groupId: string) {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(getExpenseDraftKey(groupId))
+}
+
 function expenseToForm(expense: Expense): FormState {
   const itemizedInput: Record<string, string> = {}
   if (expense.splitMode === 'itemized') {
@@ -179,17 +323,47 @@ export default function ExpenseForm({
   const [error, setError] = useState('')
   // tracks whether the current category was set by auto-detection
   const [autoCatActive, setAutoCatActive] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+  const formContextKey = initialExpense ? `${group.id}:${initialExpense.id}` : `${group.id}:new`
 
   useEffect(() => {
     if (initialExpense) {
       setForm(expenseToForm(initialExpense))
+      setDraftRestored(false)
     } else {
-      setForm(blankForm(group))
+      const restoredDraft = loadExpenseDraft(group)
+      if (restoredDraft) {
+        setForm(restoredDraft.form)
+        setAutoCatActive(restoredDraft.autoCatActive)
+        setDraftRestored(true)
+      } else {
+        setForm(blankForm(group))
+        setAutoCatActive(false)
+        setDraftRestored(false)
+      }
     }
     setRateInfo(null)
     setError('')
-    setAutoCatActive(false)
-  }, [group, initialExpense])
+    if (initialExpense) setAutoCatActive(false)
+    // Reset only when switching to a different group or editing a different expense.
+    // Realtime sync replaces the `group` object often, and that should not wipe an in-progress draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formContextKey])
+
+  useEffect(() => {
+    if (initialExpense) return
+
+    if (!hasMeaningfulDraft(form, group)) {
+      clearExpenseDraft(group.id)
+      return
+    }
+
+    saveExpenseDraft(group.id, {
+      version: 1,
+      form,
+      autoCatActive,
+    })
+  }, [autoCatActive, form, group, initialExpense])
 
   // Auto-detect category from description as the user types
   useEffect(() => {
@@ -467,12 +641,23 @@ export default function ExpenseForm({
       splits,
     })
 
+    clearExpenseDraft(group.id)
+    setDraftRestored(false)
     setForm(blankForm(group))
     setRateInfo(null)
     setError('')
+    setAutoCatActive(false)
   }
 
   const isRefund = form.expenseType === 'refund'
+  const discardDraft = () => {
+    clearExpenseDraft(group.id)
+    setDraftRestored(false)
+    setForm(blankForm(group))
+    setRateInfo(null)
+    setError('')
+    setAutoCatActive(false)
+  }
 
   return (
     <section className={`ms-card-soft ${isRefund ? 'border-[rgba(30,90,90,0.25)] bg-[rgba(30,90,90,0.03)]' : ''}`}>
@@ -486,12 +671,20 @@ export default function ExpenseForm({
           <button className="ms-btn-ghost border-[#c49898] text-[#9e4a4a]" onClick={onRemove}>
             {t('expense.remove')}
           </button>
+        ) : draftRestored && !initialExpense ? (
+          <button className="ms-btn-ghost text-xs" onClick={discardDraft}>
+            {t('expense.discardDraft')}
+          </button>
         ) : showModeBadge ? (
           <span className="rounded-full bg-[rgba(139,110,78,0.08)] px-2 py-1 text-[11px] font-medium text-[#74593c]">
             {t('expense.mobileQuick')}
           </span>
         ) : null}
       </div>
+
+      {draftRestored && !initialExpense ? (
+        <p className="mb-3 text-xs text-[#6b6058]">{t('expense.draftRestored')}</p>
+      ) : null}
 
       {/* ── Expense / Refund toggle ──────────────────────────────────── */}
       <div className="mb-4 flex overflow-hidden rounded-xl border border-[#d8d0c4]">

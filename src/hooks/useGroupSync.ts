@@ -10,11 +10,15 @@ type GroupSyncOptions = {
   authUserId?: string
 }
 
+function serializeGroup(group: Group | null | undefined): string {
+  return group ? JSON.stringify(group) : ''
+}
+
 /**
  * Syncs a single group between the local Zustand store and Supabase.
  *
  * - On mount: fetches from Supabase and merges into local state
- * - On local changes: debounced upsert back to Supabase
+ * - On local changes: upload back to Supabase
  * - Subscribes to Realtime for live updates from other devices
  */
 export function useGroupSync(groupId: string | undefined, options?: GroupSyncOptions) {
@@ -27,26 +31,27 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
   const [status, setStatus] = useState<SyncStatus>('idle')
   const [ownerId, setOwnerId] = useState<string | null>(null)
   const versionRef = useRef(0)
-  // Start as true: skip the very first debounced-upload effect that fires from
-  // existing localStorage data on mount.  Only real local mutations should upload.
+  // Start as true: skip the very first upload effect that fires from existing
+  // localStorage data on mount. Only real local mutations should upload.
   const skipNextUpload = useRef(true)
-  const lastUploadJson = useRef('')
+  const lastSyncedJson = useRef('')
+  const uploadInFlightJson = useRef<string | null>(null)
 
   const uploadToSupabase = useCallback(
     async (data: Group) => {
       if (!supabase || !supabaseEnabled || !data) return
       const nextVersion = versionRef.current + 1
-      const jsonData = JSON.stringify(data)
+      const jsonData = serializeGroup(data)
 
       // #region agent log
-      fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload attempt',data:{groupId:data.id,peopleCount:data.people?.length,nextVersion,sameAsLast:jsonData===lastUploadJson.current},hypothesisId:'H-D,H-E',timestamp:Date.now()})}).catch(()=>{});
+      fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload attempt',data:{groupId:data.id,peopleCount:data.people?.length,nextVersion,sameAsLast:jsonData===lastSyncedJson.current},hypothesisId:'H-D,H-E',timestamp:Date.now()})}).catch(()=>{});
       // #endregion
-
-      if (jsonData === lastUploadJson.current) return
-      lastUploadJson.current = jsonData
+      if (jsonData === lastSyncedJson.current || jsonData === uploadInFlightJson.current) return
+      uploadInFlightJson.current = jsonData
 
       // Strip local-only ownerId field from the JSONB payload — owner is tracked in the owner_id column
-      const { ownerId: _ownerId, ...groupData } = data
+      const groupData = { ...data }
+      delete (groupData as Group & { ownerId?: string }).ownerId
 
       const { error } = await supabase.from('groups').upsert({
         id: data.id,
@@ -61,12 +66,14 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
       // #endregion
       if (!error) {
         versionRef.current = nextVersion
+        lastSyncedJson.current = jsonData
         setStatus('synced')
       } else {
         // RLS or network failure — log with full detail so we can diagnose in DevTools
         console.error('[sync] upload blocked:', error.message, '| code:', error.code, '| hint:', error.hint)
         setStatus('error')
       }
+      uploadInFlightJson.current = null
     },
     [],
   )
@@ -114,22 +121,27 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
         versionRef.current = data.version ?? 0
         setOwnerId((data as unknown as GroupRow).owner_id ?? null)
         const remoteGroup = data.data as unknown as Group
-        // Skip the debounced upload triggered by this upsert — we just fetched
-        // the authoritative version, there is nothing new to push back.
-        skipNextUpload.current = true
-        upsertGroup({
+        const syncedGroup = {
           ...remoteGroup,
           id: groupId,
           // Preserve ownerId from the owner_id column (not stored in JSONB)
           ownerId: (data as unknown as GroupRow).owner_id ?? undefined,
-        })
+        }
+        lastSyncedJson.current = serializeGroup(syncedGroup)
+        // Skip the upload triggered by this upsert — we just fetched
+        // the authoritative version, there is nothing new to push back.
+        skipNextUpload.current = true
+        upsertGroup(syncedGroup)
         setStatus('synced')
-      } else if (group) {
+      } else {
+        const localGroup = useStore.getState().groups.find((entry) => entry.id === groupId)
+        if (localGroup) {
         // Group exists locally but not in Supabase — push it
         skipNextUpload.current = false
-        void uploadToSupabase(group)
-      } else {
-        setStatus('idle')
+          void uploadToSupabase(localGroup)
+        } else {
+          setStatus('idle')
+        }
       }
     }).catch((e: unknown) => {
       clearTimeout(timeoutId)
@@ -143,7 +155,7 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
       cancelled = true
       clearTimeout(timeoutId)
     }
-  }, [authLoading, authUserId, groupId])
+  }, [authLoading, authUserId, groupId, uploadToSupabase, upsertGroup])
 
   // Subscribe to Realtime changes
   useEffect(() => {
@@ -171,10 +183,12 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
           if (incoming.owner_id !== undefined) setOwnerId(incoming.owner_id ?? null)
           skipNextUpload.current = true
           const remoteGroup = incoming.data as unknown as Group
-          replaceGroup(groupId, {
+          const syncedGroup = {
             ...remoteGroup,
             ownerId: incoming.owner_id ?? undefined,
-          })
+          }
+          lastSyncedJson.current = serializeGroup(syncedGroup)
+          replaceGroup(groupId, syncedGroup)
           setStatus('synced')
         },
       )
@@ -206,11 +220,13 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
           setOwnerId((data as unknown as { owner_id: string | null }).owner_id ?? null)
         }
         skipNextUpload.current = true
-        upsertGroup({
+        const syncedGroup = {
           ...(data.data as unknown as Group),
           id: groupId,
           ownerId: (data as unknown as { owner_id?: string | null }).owner_id ?? undefined,
-        })
+        }
+        lastSyncedJson.current = serializeGroup(syncedGroup)
+        upsertGroup(syncedGroup)
         setStatus('synced')
       })
     }
@@ -219,7 +235,8 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [groupId, upsertGroup])
 
-  // Debounced upload on local changes
+  // Upload immediately on local changes so saved expenses don't disappear if the
+  // user backgrounds or refreshes the app right after tapping save.
   useEffect(() => {
     if (!group || !supabase || !supabaseEnabled) return
     // #region agent log
@@ -229,12 +246,7 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
       skipNextUpload.current = false
       return
     }
-
-    const timer = setTimeout(() => {
-      void uploadToSupabase(group)
-    }, 600)
-
-    return () => clearTimeout(timer)
+    void uploadToSupabase(group)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group])
 
