@@ -6,6 +6,11 @@ import { supabase, supabaseEnabled } from '../lib/supabase'
 import { useStore } from '../store/useStore'
 import type { Group, GroupInviteLink, GroupMembership, GroupRole, UserProfile } from '../types'
 
+function isViewingGroup(groupId: string): boolean {
+  if (typeof window === 'undefined') return false
+  return window.location.pathname === `/group/${groupId}`
+}
+
 function buildProfile(
   user: User,
   row?: { display_name?: string | null; avatar_url?: string | null } | null,
@@ -58,6 +63,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [memberships, setMemberships] = useState<GroupMembership[]>([])
   const upsertGroup = useStore((s) => s.upsertGroup)
 
+  const hydrateGroupFromAuthSync = useCallback(
+    (group: Group) => {
+      const store = useStore.getState()
+      const existing = store.groups.find((entry) => entry.id === group.id)
+
+      // `useGroupSync` owns freshness for the currently open group. Avoid letting
+      // slower auth bootstrap queries overwrite newer local edits with stale remote data.
+      if (existing && isViewingGroup(group.id)) {
+        if (group.ownerId && group.ownerId !== existing.ownerId) {
+          store.updateGroup(group.id, { ownerId: group.ownerId })
+        }
+        store.unhideDeletedGroup(group.id)
+        return
+      }
+
+      upsertGroup(group)
+      store.unhideDeletedGroup(group.id)
+    },
+    [upsertGroup],
+  )
+
   // Set auth user immediately from session token; enrich from DB in background
   const fetchProfileAndSet = useCallback((user: User) => {
     setAuthUser(buildProfile(user))
@@ -88,8 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (data) {
             data.forEach((row) => {
               if (row.data) {
-                upsertGroup({ ...(row.data as Group), id: row.id, ownerId: userId })
-                useStore.getState().unhideDeletedGroup(row.id)
+                hydrateGroupFromAuthSync({ ...(row.data as Group), id: row.id, ownerId: userId })
               }
             })
           }
@@ -115,19 +140,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (!linkedToUser) return
 
-            upsertGroup({
+            hydrateGroupFromAuthSync({
               ...group,
               id: row.id,
               ...(row.owner_id ? { ownerId: row.owner_id } : {}),
             })
-            useStore.getState().unhideDeletedGroup(row.id)
           })
         })
         .catch((e: unknown) => {
           console.warn('[auth] syncOwnedGroups error', e)
         })
     },
-    [upsertGroup],
+    [hydrateGroupFromAuthSync],
   )
 
   // Fetch groups the user has joined as a member (via user_groups table)
@@ -169,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (rows) {
             rows.forEach((row: { id: string; data: unknown; owner_id: string | null }) => {
               if (row.data) {
-                upsertGroup({
+                hydrateGroupFromAuthSync({
                   ...(row.data as Group),
                   id: row.id,
                   ...(row.owner_id ? { ownerId: row.owner_id } : {}),
@@ -182,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.warn('[auth] syncMemberGroups exception', e)
         })
     },
-    [upsertGroup],
+    [hydrateGroupFromAuthSync],
   )
 
   useEffect(() => {
