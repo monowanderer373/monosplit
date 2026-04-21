@@ -387,10 +387,20 @@ export default function GroupPage() {
           if (!canEditExpenseData) return
           const createdExpense = addExpense(group.id, expense)
           if (!createdExpense) return
-          const persisted = await saveGroupNow({
+          const nextGroup = {
             ...group,
             expenses: [...group.expenses, createdExpense],
-          })
+          }
+          let persisted = await saveGroupNow(nextGroup)
+
+          // Legacy recovery: some linked/full-access members are missing a
+          // `user_groups` row even though the UI already considers them editable.
+          // Backfill membership once, then retry the group write.
+          if (!persisted && authUser?.id && ownerId !== authUser.id) {
+            await registerGroupMembership(group.id, 'full_access')
+            persisted = await saveGroupNow(nextGroup)
+          }
+
           if (!persisted) {
             removeExpense(group.id, createdExpense.id)
             window.alert(t('group.syncError'))
