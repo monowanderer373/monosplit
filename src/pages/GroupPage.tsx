@@ -39,7 +39,7 @@ export default function GroupPage() {
   const [editEndDate, setEditEndDate] = useState('')
 
   const { authUser, loading: authLoading, claimGroup, memberships, createInviteLink, updateGroupMembershipRole, registerGroupMembership } = useAuth()
-  const { status: syncStatus, ownerId, setOwnerId, saveGroupNow } = useGroupSync(groupId, { authLoading, authUserId: authUser?.id })
+  const { status: syncStatus, ownerId, setOwnerId, saveGroupNow, lastError } = useGroupSync(groupId, { authLoading, authUserId: authUser?.id })
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [linkCopied, setLinkCopied] = useState(false)
   const [inviteBusyRole, setInviteBusyRole] = useState<'full_access' | 'view' | null>(null)
@@ -391,19 +391,19 @@ export default function GroupPage() {
             ...group,
             expenses: [...group.expenses, createdExpense],
           }
-          let persisted = await saveGroupNow(nextGroup)
+          let saveResult = await saveGroupNow(nextGroup)
 
           // Legacy recovery: some linked/full-access members are missing a
           // `user_groups` row even though the UI already considers them editable.
           // Backfill membership once, then retry the group write.
-          if (!persisted && authUser?.id && ownerId !== authUser.id) {
+          if (!saveResult.ok && authUser?.id && ownerId !== authUser.id) {
             await registerGroupMembership(group.id, 'full_access')
-            persisted = await saveGroupNow(nextGroup)
+            saveResult = await saveGroupNow(nextGroup)
           }
 
-          if (!persisted) {
+          if (!saveResult.ok) {
             removeExpense(group.id, createdExpense.id)
-            window.alert(t('group.syncError'))
+            window.alert(saveResult.error ?? lastError ?? t('group.syncError'))
             return
           }
           setExpenseComposerOpen(false)

@@ -9,6 +9,10 @@ type GroupSyncOptions = {
   authLoading?: boolean
   authUserId?: string
 }
+type SaveResult = {
+  ok: boolean
+  error: string | null
+}
 
 function serializeGroup(group: Group | null | undefined): string {
   return group ? JSON.stringify(group) : ''
@@ -30,23 +34,24 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
 
   const [status, setStatus] = useState<SyncStatus>('idle')
   const [ownerId, setOwnerId] = useState<string | null>(null)
+  const [lastError, setLastError] = useState<string | null>(null)
   const versionRef = useRef(0)
   // Start as true: skip the very first upload effect that fires from existing
   // localStorage data on mount. Only real local mutations should upload.
   const skipNextUpload = useRef(true)
   const lastSyncedJson = useRef('')
-  const uploadInFlight = useRef<{ json: string; promise: Promise<boolean> } | null>(null)
+  const uploadInFlight = useRef<{ json: string; promise: Promise<SaveResult> } | null>(null)
 
   const uploadToSupabase = useCallback(
     async (data: Group) => {
-      if (!supabase || !supabaseEnabled || !data) return true
+      if (!supabase || !supabaseEnabled || !data) return { ok: true, error: null } satisfies SaveResult
       const nextVersion = versionRef.current + 1
       const jsonData = serializeGroup(data)
 
       // #region agent log
       fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload attempt',data:{groupId:data.id,peopleCount:data.people?.length,nextVersion,sameAsLast:jsonData===lastSyncedJson.current},hypothesisId:'H-D,H-E',timestamp:Date.now()})}).catch(()=>{});
       // #endregion
-      if (jsonData === lastSyncedJson.current) return true
+      if (jsonData === lastSyncedJson.current) return { ok: true, error: null } satisfies SaveResult
       if (uploadInFlight.current?.json === jsonData) return uploadInFlight.current.promise
 
       const promise = (async () => {
@@ -54,27 +59,35 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
         const groupData = { ...data }
         delete (groupData as Group & { ownerId?: string }).ownerId
 
-        const { error } = await supabase.from('groups').upsert({
-          id: data.id,
+        const payload = {
           data: groupData as unknown as Record<string, unknown>,
           version: nextVersion,
           updated_at: new Date().toISOString(),
-          // Only set owner_id when we know who owns this group (avoids overwriting others' ownership)
           ...(data.ownerId ? { owner_id: data.ownerId } : {}),
-        })
+        }
+        const operation =
+          versionRef.current > 0
+            ? supabase.from('groups').update(payload).eq('id', data.id)
+            : supabase.from('groups').upsert({
+                id: data.id,
+                ...payload,
+              })
+        const { error } = await operation
         // #region agent log
         fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload result',data:{groupId:data.id,error:error?.message??null,newVersion:nextVersion},hypothesisId:'H-D',timestamp:Date.now()})}).catch(()=>{});
         // #endregion
         if (!error) {
           versionRef.current = nextVersion
           lastSyncedJson.current = jsonData
+          setLastError(null)
           setStatus('synced')
         } else {
           // RLS or network failure — log with full detail so we can diagnose in DevTools
           console.error('[sync] upload blocked:', error.message, '| code:', error.code, '| hint:', error.hint)
+          setLastError(error.message || 'Unknown sync error')
           setStatus('error')
         }
-        return !error
+        return { ok: !error, error: error?.message ?? null } satisfies SaveResult
       })()
 
       uploadInFlight.current = { json: jsonData, promise }
@@ -266,5 +279,5 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
     [uploadToSupabase],
   )
 
-  return { status, supabaseEnabled, ownerId, setOwnerId, saveGroupNow }
+  return { status, supabaseEnabled, ownerId, setOwnerId, saveGroupNow, lastError }
 }
