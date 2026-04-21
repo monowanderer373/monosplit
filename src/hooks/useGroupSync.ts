@@ -35,45 +35,56 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
   // localStorage data on mount. Only real local mutations should upload.
   const skipNextUpload = useRef(true)
   const lastSyncedJson = useRef('')
-  const uploadInFlightJson = useRef<string | null>(null)
+  const uploadInFlight = useRef<{ json: string; promise: Promise<boolean> } | null>(null)
 
   const uploadToSupabase = useCallback(
     async (data: Group) => {
-      if (!supabase || !supabaseEnabled || !data) return
+      if (!supabase || !supabaseEnabled || !data) return true
       const nextVersion = versionRef.current + 1
       const jsonData = serializeGroup(data)
 
       // #region agent log
       fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload attempt',data:{groupId:data.id,peopleCount:data.people?.length,nextVersion,sameAsLast:jsonData===lastSyncedJson.current},hypothesisId:'H-D,H-E',timestamp:Date.now()})}).catch(()=>{});
       // #endregion
-      if (jsonData === lastSyncedJson.current || jsonData === uploadInFlightJson.current) return
-      uploadInFlightJson.current = jsonData
+      if (jsonData === lastSyncedJson.current) return true
+      if (uploadInFlight.current?.json === jsonData) return uploadInFlight.current.promise
 
-      // Strip local-only ownerId field from the JSONB payload — owner is tracked in the owner_id column
-      const groupData = { ...data }
-      delete (groupData as Group & { ownerId?: string }).ownerId
+      const promise = (async () => {
+        // Strip local-only ownerId field from the JSONB payload — owner is tracked in the owner_id column
+        const groupData = { ...data }
+        delete (groupData as Group & { ownerId?: string }).ownerId
 
-      const { error } = await supabase.from('groups').upsert({
-        id: data.id,
-        data: groupData as unknown as Record<string, unknown>,
-        version: nextVersion,
-        updated_at: new Date().toISOString(),
-        // Only set owner_id when we know who owns this group (avoids overwriting others' ownership)
-        ...(data.ownerId ? { owner_id: data.ownerId } : {}),
-      })
-      // #region agent log
-      fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload result',data:{groupId:data.id,error:error?.message??null,newVersion:nextVersion},hypothesisId:'H-D',timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      if (!error) {
-        versionRef.current = nextVersion
-        lastSyncedJson.current = jsonData
-        setStatus('synced')
-      } else {
-        // RLS or network failure — log with full detail so we can diagnose in DevTools
-        console.error('[sync] upload blocked:', error.message, '| code:', error.code, '| hint:', error.hint)
-        setStatus('error')
+        const { error } = await supabase.from('groups').upsert({
+          id: data.id,
+          data: groupData as unknown as Record<string, unknown>,
+          version: nextVersion,
+          updated_at: new Date().toISOString(),
+          // Only set owner_id when we know who owns this group (avoids overwriting others' ownership)
+          ...(data.ownerId ? { owner_id: data.ownerId } : {}),
+        })
+        // #region agent log
+        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'useGroupSync.ts:uploadToSupabase',message:'upload result',data:{groupId:data.id,error:error?.message??null,newVersion:nextVersion},hypothesisId:'H-D',timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        if (!error) {
+          versionRef.current = nextVersion
+          lastSyncedJson.current = jsonData
+          setStatus('synced')
+        } else {
+          // RLS or network failure — log with full detail so we can diagnose in DevTools
+          console.error('[sync] upload blocked:', error.message, '| code:', error.code, '| hint:', error.hint)
+          setStatus('error')
+        }
+        return !error
+      })()
+
+      uploadInFlight.current = { json: jsonData, promise }
+      try {
+        return await promise
+      } finally {
+        if (uploadInFlight.current?.json === jsonData) {
+          uploadInFlight.current = null
+        }
       }
-      uploadInFlightJson.current = null
     },
     [],
   )
@@ -250,5 +261,10 @@ export function useGroupSync(groupId: string | undefined, options?: GroupSyncOpt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group])
 
-  return { status, supabaseEnabled, ownerId, setOwnerId }
+  const saveGroupNow = useCallback(
+    async (nextGroup: Group) => uploadToSupabase(nextGroup),
+    [uploadToSupabase],
+  )
+
+  return { status, supabaseEnabled, ownerId, setOwnerId, saveGroupNow }
 }

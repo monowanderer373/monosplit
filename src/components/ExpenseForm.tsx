@@ -23,7 +23,7 @@ type Props = {
   submitLabel?: string
   title?: string
   showModeBadge?: boolean
-  onSave: (expense: Omit<Expense, 'id' | 'createdAt'>) => void
+  onSave: (expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
   onCancel?: () => void
   onRemove?: () => void
 }
@@ -324,6 +324,7 @@ export default function ExpenseForm({
   // tracks whether the current category was set by auto-detection
   const [autoCatActive, setAutoCatActive] = useState(false)
   const [draftRestored, setDraftRestored] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const formContextKey = initialExpense ? `${group.id}:${initialExpense.id}` : `${group.id}:new`
 
   useEffect(() => {
@@ -500,32 +501,40 @@ export default function ExpenseForm({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  const submit = () => {
+  const submit = async () => {
+    if (isSaving) return
+    setIsSaving(true)
     setError('')
     const activeSplitPersonIds = getActiveSplitPersonIds(form)
     if (group.people.length === 0) {
       setError(t('error.addTravellers'))
+      setIsSaving(false)
       return
     }
     if (!form.description.trim()) {
       setError(t('error.enterDescription'))
+      setIsSaving(false)
       return
     }
     const amount = Number(form.amount)
     if (!Number.isFinite(amount) || amount <= 0) {
       setError(t('error.validAmount'))
+      setIsSaving(false)
       return
     }
     if (form.payerIds.length === 0) {
       setError(form.expenseType === 'refund' ? t('error.selectPayer') : t('error.selectPayer'))
+      setIsSaving(false)
       return
     }
     if (form.splitPersonIds.length === 0) {
       setError(t('error.selectSplit'))
+      setIsSaving(false)
       return
     }
     if (activeSplitPersonIds.length === 0) {
       setError(t('error.selectSplit'))
+      setIsSaving(false)
       return
     }
     // Rate validation skipped — rate UI is hidden; rate will be set in Settle Up later
@@ -542,6 +551,7 @@ export default function ExpenseForm({
       const warning = `${t('error.cannotSave')}\n\n${modeLine} ${delta} ${t('error.tallyNote')}`
       window.alert(warning)
       setError(`${modeLine} ${delta}. ${t('error.itemizedTally')}`)
+      setIsSaving(false)
       return
     }
 
@@ -552,6 +562,7 @@ export default function ExpenseForm({
       )
       if (Math.abs(totalPct - 100) > 0.5) {
         setError(`Percentages must add up to 100% (currently ${formatMoney(totalPct, 1)}%).`)
+        setIsSaving(false)
         return
       }
     }
@@ -563,6 +574,7 @@ export default function ExpenseForm({
       )
       if (totalShares <= 0) {
         setError('Enter at least one share to split.')
+        setIsSaving(false)
         return
       }
     }
@@ -582,6 +594,7 @@ export default function ExpenseForm({
       const payerMissingValue = form.payerIds.some((pid) => !assertPayerHasItemizedValue(pid, form.itemizedInput))
       if (payerMissingValue) {
         setError(t('error.itemizedPayer'))
+        setIsSaving(false)
         return
       }
       splits = calcItemizedSplits({
@@ -622,31 +635,35 @@ export default function ExpenseForm({
       })
     }
 
-    onSave({
-      type: form.expenseType,
-      category: form.expenseType === 'refund' ? 'Refund' : normalizeCategory(form.category),
-      description: form.description.trim(),
-      payerIds: form.payerIds,
-      amount,
-      paidCurrency: form.paidCurrency,
-      repayCurrency: form.repayCurrency,
-      paymentMethod: form.paymentMethod,
-      splitMode: form.expenseType === 'refund' ? 'equal' : form.splitMode,
-      itemizedInputMode: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? form.itemizedInputMode : null,
-      serviceTaxPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.serviceTaxPct || '0') : null,
-      salesTaxPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.salesTaxPct || '0') : null,
-      tipsPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.tipsPct || '0') : null,
-      taxPctTotal: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? totalTaxPct : null,
-      date: form.date,
-      splits,
-    })
+    try {
+      await Promise.resolve(onSave({
+        type: form.expenseType,
+        category: form.expenseType === 'refund' ? 'Refund' : normalizeCategory(form.category),
+        description: form.description.trim(),
+        payerIds: form.payerIds,
+        amount,
+        paidCurrency: form.paidCurrency,
+        repayCurrency: form.repayCurrency,
+        paymentMethod: form.paymentMethod,
+        splitMode: form.expenseType === 'refund' ? 'equal' : form.splitMode,
+        itemizedInputMode: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? form.itemizedInputMode : null,
+        serviceTaxPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.serviceTaxPct || '0') : null,
+        salesTaxPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.salesTaxPct || '0') : null,
+        tipsPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.tipsPct || '0') : null,
+        taxPctTotal: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? totalTaxPct : null,
+        date: form.date,
+        splits,
+      }))
 
-    clearExpenseDraft(group.id)
-    setDraftRestored(false)
-    setForm(blankForm(group))
-    setRateInfo(null)
-    setError('')
-    setAutoCatActive(false)
+      clearExpenseDraft(group.id)
+      setDraftRestored(false)
+      setForm(blankForm(group))
+      setRateInfo(null)
+      setError('')
+      setAutoCatActive(false)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const isRefund = form.expenseType === 'refund'
@@ -992,11 +1009,12 @@ export default function ExpenseForm({
               isRefund ? 'bg-[#2e6060] hover:bg-[#245050]' : 'ms-btn-primary'
             }`}
             onClick={submit}
+            disabled={isSaving}
           >
-            {isRefund ? t('expense.saveRefund') : submitLabel}
+            {isSaving ? t('group.syncing') : isRefund ? t('expense.saveRefund') : submitLabel}
           </button>
           {onCancel ? (
-            <button className="ms-btn-ghost h-11" onClick={onCancel}>
+            <button className="ms-btn-ghost h-11" onClick={onCancel} disabled={isSaving}>
               {t('expense.cancel')}
             </button>
           ) : null}

@@ -39,7 +39,7 @@ export default function GroupPage() {
   const [editEndDate, setEditEndDate] = useState('')
 
   const { authUser, loading: authLoading, claimGroup, memberships, createInviteLink, updateGroupMembershipRole, registerGroupMembership } = useAuth()
-  const { status: syncStatus, ownerId, setOwnerId } = useGroupSync(groupId, { authLoading, authUserId: authUser?.id })
+  const { status: syncStatus, ownerId, setOwnerId, saveGroupNow } = useGroupSync(groupId, { authLoading, authUserId: authUser?.id })
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [linkCopied, setLinkCopied] = useState(false)
   const [inviteBusyRole, setInviteBusyRole] = useState<'full_access' | 'view' | null>(null)
@@ -383,9 +383,19 @@ export default function GroupPage() {
         group={group}
         isOpen={expenseComposerOpen && canEditExpenseData}
         onClose={() => setExpenseComposerOpen(false)}
-        onSave={(expense) => {
+        onSave={async (expense) => {
           if (!canEditExpenseData) return
-          addExpense(group.id, expense)
+          const createdExpense = addExpense(group.id, expense)
+          if (!createdExpense) return
+          const persisted = await saveGroupNow({
+            ...group,
+            expenses: [...group.expenses, createdExpense],
+          })
+          if (!persisted) {
+            removeExpense(group.id, createdExpense.id)
+            window.alert(t('group.syncError'))
+            return
+          }
           setExpenseComposerOpen(false)
         }}
       />

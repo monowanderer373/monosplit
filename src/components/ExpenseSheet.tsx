@@ -6,7 +6,7 @@ type Props = {
   group: Group
   isOpen: boolean
   onClose: () => void
-  onSave: (expense: Omit<Expense, 'id' | 'createdAt'>) => void
+  onSave: (expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
 }
 
 function ReceiptEdgeBottom() {

@@ -37,7 +37,7 @@ type AppState = {
   updatePersonPaymentInfo: (groupId: string, personId: string, updates: Partial<PaymentInfo>) => void
   addPersonPaymentProof: (groupId: string, personId: string, proof: Omit<PaymentProof, 'id' | 'createdAt'>) => void
   removePersonPaymentProof: (groupId: string, personId: string, proofId: string) => void
-  addExpense: (groupId: string, expense: NewExpense) => void
+  addExpense: (groupId: string, expense: NewExpense) => Expense | null
   updateExpense: (groupId: string, expenseId: string, updates: Partial<Expense>) => void
   removeExpense: (groupId: string, expenseId: string) => void
   markSplitRepaid: (groupId: string, expenseId: string, splitIndex: number, repaidDate: string) => void
@@ -291,12 +291,18 @@ export const useStore = create<AppState>()(
         }))
       },
       addExpense: (groupId, expense) => {
+        const createdExpense: Expense = { ...expense, id: generateId('exp'), createdAt: new Date().toISOString() }
+        let inserted = false
         set((state) => ({
-          groups: updateGroupById(state.groups, groupId, (group) => ({
-            ...group,
-            expenses: [...group.expenses, { ...expense, id: generateId('exp'), createdAt: new Date().toISOString() }],
-          })),
+          groups: updateGroupById(state.groups, groupId, (group) => {
+            inserted = true
+            return {
+              ...group,
+              expenses: [...group.expenses, createdExpense],
+            }
+          }),
         }))
+        return inserted ? createdExpense : null
       },
       updateExpense: (groupId, expenseId, updates) => {
         set((state) => ({
