@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { formatMoney } from '../lib/format'
 import { getCurrencySymbol } from '../lib/currency'
 import { getPersonNameStyle } from '../lib/personTheme'
@@ -72,6 +72,8 @@ export default function SplitExpander({
 }: Props) {
   const t = useT()
   const [open, setOpen] = useState(false)
+  const [openReceiptItemId, setOpenReceiptItemId] = useState<string | null>(null)
+  const [peoplePickerItemId, setPeoplePickerItemId] = useState<string | null>(null)
 
   const sym = getCurrencySymbol(paidCurrency)
   const amount = totalAmount > 0 ? totalAmount : 0
@@ -143,6 +145,22 @@ export default function SplitExpander({
       debtorIds: has ? item.debtorIds.filter((id) => id !== personId) : [...item.debtorIds, personId],
     })
   }
+
+  useEffect(() => {
+    if (state.splitMode !== 'receipt') {
+      setOpenReceiptItemId(null)
+      setPeoplePickerItemId(null)
+      return
+    }
+
+    const firstItemId = state.receiptItems[0]?.id ?? null
+    setOpenReceiptItemId((prev) =>
+      prev && state.receiptItems.some((item) => item.id === prev) ? prev : firstItemId,
+    )
+    setPeoplePickerItemId((prev) =>
+      prev && state.receiptItems.some((item) => item.id === prev) ? prev : null,
+    )
+  }, [state.receiptItems, state.splitMode])
 
   // ── Footer summary ──────────────────────────────────────────────────────────
   const footer = (() => {
@@ -497,91 +515,143 @@ export default function SplitExpander({
                         amount: null,
                       })
                     : 0
+                  const isOpen = openReceiptItemId === item.id
+                  const pickerOpen = peoplePickerItemId === item.id
+                  const debtorNames = item.debtorIds
+                    .map((personId) => group.people.find((person) => person.id === personId)?.name)
+                    .filter(Boolean)
+                    .join(', ')
+                  const title = item.name.trim() || t('expense.receiptUntitled')
+                  const isComplete = item.name.trim() !== '' && lineAmount > 0 && item.debtorIds.length > 0
+
                   return (
-                    <div key={item.id} className="space-y-3 border border-[var(--ms-border)] p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ms-text)]">
-                          {t('expense.receiptItem')} {index + 1}
-                        </p>
-                        <button
-                          type="button"
-                          className="text-xs text-[var(--ms-danger,#c0392b)]"
-                          onClick={() =>
-                            set({
-                              receiptItems:
-                                state.receiptItems.length > 1
-                                  ? state.receiptItems.filter((entry) => entry.id !== item.id)
-                                  : state.receiptItems.map((entry) =>
-                                      entry.id === item.id
-                                        ? { ...entry, name: '', unitPrice: '', quantity: '1', debtorIds: [] }
-                                        : entry,
-                                    ),
-                            })
-                          }
-                        >
-                          {t('expense.receiptRemoveItem')}
-                        </button>
-                      </div>
+                    <div key={item.id} className="border border-[var(--ms-border)] bg-[var(--ms-surface)]">
+                      <button
+                        type="button"
+                        className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
+                        onClick={() => {
+                          setOpenReceiptItemId((prev) => (prev === item.id ? null : item.id))
+                          if (isOpen) setPeoplePickerItemId(null)
+                        }}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ms-text-muted)]">
+                            {t('expense.receiptItem')} {index + 1}
+                          </p>
+                          <p className="mt-1 truncate text-sm font-semibold text-[var(--ms-text)]">
+                            {title}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--ms-text-muted)]">
+                            <span>{t('expense.receiptLineTotal')}: {sym}{formatMoney(lineAmount)}</span>
+                            <span>{item.debtorIds.length} {t('expense.persons')}</span>
+                            {debtorNames ? <span className="truncate">{debtorNames}</span> : null}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {isComplete ? (
+                            <span className="text-[10px] font-semibold text-[var(--ms-success)]">✓</span>
+                          ) : null}
+                          <span className="text-xs text-[var(--ms-text-muted)]">{isOpen ? '▴' : '▾'}</span>
+                        </div>
+                      </button>
 
-                      <input
-                        className="ms-input w-full text-sm"
-                        placeholder={t('expense.receiptItemName')}
-                        value={item.name}
-                        onChange={(e) => updateReceiptItem(item.id, { name: e.target.value })}
-                      />
+                      {isOpen ? (
+                        <div className="space-y-3 border-t border-[var(--ms-border)] px-3 py-3">
+                          <div className="flex items-center justify-end">
+                            <button
+                              type="button"
+                              className="text-xs text-[var(--ms-danger,#c0392b)]"
+                              onClick={() => {
+                                set({
+                                  receiptItems:
+                                    state.receiptItems.length > 1
+                                      ? state.receiptItems.filter((entry) => entry.id !== item.id)
+                                      : state.receiptItems.map((entry) =>
+                                          entry.id === item.id
+                                            ? { ...entry, name: '', unitPrice: '', quantity: '1', debtorIds: [] }
+                                            : entry,
+                                        ),
+                                })
+                                setPeoplePickerItemId((prev) => (prev === item.id ? null : prev))
+                              }}
+                            >
+                              {t('expense.receiptRemoveItem')}
+                            </button>
+                          </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="mb-1 block text-[11px] text-[var(--ms-text-muted)]">
-                            {t('expense.receiptUnitPrice')}
-                          </label>
                           <input
                             className="ms-input w-full text-sm"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            value={item.unitPrice}
-                            onChange={(e) => updateReceiptItem(item.id, { unitPrice: e.target.value })}
+                            placeholder={t('expense.receiptItemName')}
+                            value={item.name}
+                            onChange={(e) => updateReceiptItem(item.id, { name: e.target.value })}
                           />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[11px] text-[var(--ms-text-muted)]">
-                            {t('expense.receiptQty')}
-                          </label>
-                          <input
-                            className="ms-input w-full text-sm"
-                            inputMode="decimal"
-                            placeholder="1"
-                            value={item.quantity}
-                            onChange={(e) => updateReceiptItem(item.id, { quantity: e.target.value })}
-                          />
-                        </div>
-                      </div>
 
-                      <div className="rounded-lg bg-[var(--ms-surface-dim)] px-3 py-2 text-xs text-[var(--ms-text-muted)]">
-                        {t('expense.receiptLineTotal')}: <span className="font-semibold text-[var(--ms-text)]">{sym}{formatMoney(lineAmount)}</span>
-                      </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="mb-1 block text-[11px] text-[var(--ms-text-muted)]">
+                                {t('expense.receiptUnitPrice')}
+                              </label>
+                              <input
+                                className="ms-input w-full text-sm"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                value={item.unitPrice}
+                                onChange={(e) => updateReceiptItem(item.id, { unitPrice: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-[11px] text-[var(--ms-text-muted)]">
+                                {t('expense.receiptQty')}
+                              </label>
+                              <input
+                                className="ms-input w-full text-sm"
+                                inputMode="decimal"
+                                placeholder="1"
+                                value={item.quantity}
+                                onChange={(e) => updateReceiptItem(item.id, { quantity: e.target.value })}
+                              />
+                            </div>
+                          </div>
 
-                      <div className="space-y-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ms-text-muted)]">
-                          {t('expense.receiptWhoOwes')}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {group.people.map((person) => {
-                            const active = item.debtorIds.includes(person.id)
-                            return (
-                              <button
-                                key={`${item.id}-${person.id}`}
-                                type="button"
-                                className={`ms-chip ${active ? 'ms-chip-active-indigo' : 'border-[#d8d0c4] text-[#6b6058]'}`}
-                                style={active ? getPersonNameStyle(person) : undefined}
-                                onClick={() => toggleReceiptDebtor(item.id, person.id)}
-                              >
-                                {active ? '✓ ' : ''}{person.name}
-                              </button>
-                            )
-                          })}
+                          <div className="rounded-lg bg-[var(--ms-surface-dim)] px-3 py-2 text-xs text-[var(--ms-text-muted)]">
+                            {t('expense.receiptLineTotal')}: <span className="font-semibold text-[var(--ms-text)]">{sym}{formatMoney(lineAmount)}</span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              className="ms-btn-ghost flex w-full items-center justify-between px-3 py-2 text-left text-xs"
+                              onClick={() => setPeoplePickerItemId((prev) => (prev === item.id ? null : item.id))}
+                            >
+                              <span>{t('expense.receiptChoosePeople')}</span>
+                              <span className="text-[var(--ms-text-muted)]">
+                                {item.debtorIds.length > 0
+                                  ? `${item.debtorIds.length} ${t('expense.persons')}`
+                                  : t('expense.receiptNoPeopleSelected')}
+                              </span>
+                            </button>
+
+                            {pickerOpen ? (
+                              <div className="flex flex-wrap gap-2 border border-[var(--ms-border)] bg-[var(--ms-bg-warm)] p-2">
+                                {group.people.map((person) => {
+                                  const active = item.debtorIds.includes(person.id)
+                                  return (
+                                    <button
+                                      key={`${item.id}-${person.id}`}
+                                      type="button"
+                                      className={`ms-chip ${active ? 'ms-chip-active-indigo' : 'border-[#d8d0c4] text-[#6b6058]'}`}
+                                      style={active ? getPersonNameStyle(person) : undefined}
+                                      onClick={() => toggleReceiptDebtor(item.id, person.id)}
+                                    >
+                                      {active ? '✓ ' : ''}{person.name}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
+                      ) : null}
                     </div>
                   )
                 })}
@@ -590,18 +660,23 @@ export default function SplitExpander({
                   type="button"
                   className="ms-btn-ghost w-full"
                   onClick={() =>
-                    set({
-                      receiptItems: [
-                        ...state.receiptItems,
-                        {
-                          id: `receipt-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                          name: '',
-                          unitPrice: '',
-                          quantity: '1',
-                          debtorIds: group.people.length > 0 ? [group.people[0].id] : [],
-                        },
-                      ],
-                    })
+                    {
+                      const nextItem = {
+                        id: `receipt-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                        name: '',
+                        unitPrice: '',
+                        quantity: '1',
+                        debtorIds: group.people.length > 0 ? [group.people[0].id] : [],
+                      }
+                      set({
+                        receiptItems: [
+                          ...state.receiptItems,
+                          nextItem,
+                        ],
+                      })
+                      setOpenReceiptItemId(nextItem.id)
+                      setPeoplePickerItemId(null)
+                    }
                   }
                 >
                   + {t('expense.receiptAddItem')}
@@ -616,7 +691,7 @@ export default function SplitExpander({
                       <input
                         className="ms-input w-full text-sm"
                         inputMode="decimal"
-                        placeholder="Optional"
+                        placeholder={t('expense.optional')}
                         value={state.receiptTaxAmount}
                         onChange={(e) => set({ receiptTaxAmount: e.target.value })}
                       />
