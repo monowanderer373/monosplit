@@ -43,6 +43,9 @@ export default function GroupPage() {
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [linkCopied, setLinkCopied] = useState(false)
   const [inviteBusyRole, setInviteBusyRole] = useState<'full_access' | 'view' | null>(null)
+  const [repairBusy, setRepairBusy] = useState(false)
+  const [repairNotice, setRepairNotice] = useState('')
+  const [diagnosticsCopied, setDiagnosticsCopied] = useState(false)
 
   const isUnclaimed = ownerId === null
   const canClaim = !!authUser && isUnclaimed && claimStatus !== 'claimed'
@@ -103,6 +106,21 @@ export default function GroupPage() {
     () => Object.fromEntries(groupMemberships.map((entry) => [entry.userId, entry])),
     [groupMemberships],
   )
+  const showSyncDiagnostics = syncStatus === 'error' || !!lastError
+  const diagnosticsText = useMemo(() => {
+    const linkedLabel = linkedPerson ? `${linkedPerson.name} (${linkedPerson.id})` : t('group.syncDebugNone')
+    return [
+      `${t('group.syncDebugStatus')}: ${syncStatus}`,
+      `${t('group.syncDebugLastError')}: ${lastError ?? t('group.syncDebugNone')}`,
+      `${t('group.syncDebugGroupId')}: ${groupId ?? t('group.syncDebugNone')}`,
+      `${t('group.syncDebugOwnerId')}: ${ownerId ?? group?.ownerId ?? t('group.syncDebugNone')}`,
+      `${t('group.syncDebugAuthUserId')}: ${authUser?.id ?? t('group.syncDebugNone')}`,
+      `${t('group.syncDebugRole')}: ${role ?? t('group.syncDebugNone')}`,
+      `${t('group.syncDebugMembershipRole')}: ${membership?.role ?? t('group.syncDebugNone')}`,
+      `${t('group.syncDebugLinkedPerson')}: ${linkedLabel}`,
+      `${t('group.syncDebugCanEditExpenses')}: ${canEditExpenseData ? t('group.syncDebugYes') : t('group.syncDebugNo')}`,
+    ].join('\n')
+  }, [authUser?.id, canEditExpenseData, group?.ownerId, groupId, lastError, linkedPerson, membership?.role, ownerId, role, syncStatus, t])
 
   useEffect(() => {
     if (!groupId || !role || !supabase || !supabaseEnabled) {
@@ -191,6 +209,31 @@ export default function GroupPage() {
     }
   }
 
+  const copyDiagnostics = async () => {
+    try {
+      await navigator.clipboard.writeText(diagnosticsText)
+      setDiagnosticsCopied(true)
+      setTimeout(() => setDiagnosticsCopied(false), 2000)
+    } catch {
+      window.alert(diagnosticsText)
+    }
+  }
+
+  const repairAccess = async () => {
+    if (!groupId || !authUser) return
+    setRepairBusy(true)
+    setRepairNotice('')
+    try {
+      const nextRole = canEditExpenseData ? 'full_access' : 'view'
+      await registerGroupMembership(groupId, nextRole)
+      setRepairNotice(t('group.syncDebugRepairDone'))
+    } catch {
+      setRepairNotice(t('auth.errorGeneric'))
+    } finally {
+      setRepairBusy(false)
+    }
+  }
+
   if (authLoading || syncStatus === 'loading') {
     return (
       <main className="ms-page flex min-h-dvh items-center justify-center">
@@ -253,6 +296,41 @@ export default function GroupPage() {
 
 
       <div className="min-w-0">
+          {showSyncDiagnostics && hasAccess ? (
+            <section className="ms-card-soft mb-4 border-[#c49898] bg-[rgba(158,74,74,0.05)]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="ms-title text-[#7b3d3d]">{t('group.syncDebugTitle')}</h2>
+                  <p className="mt-1 text-sm text-[#6b6058]">{t('group.syncDebugHelp')}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button className="ms-btn-ghost text-xs" onClick={copyDiagnostics}>
+                    {diagnosticsCopied ? t('group.syncDebugCopied') : t('group.syncDebugCopy')}
+                  </button>
+                  {authUser && ownerId !== authUser.id ? (
+                    <button className="ms-btn-ghost text-xs" onClick={repairAccess} disabled={repairBusy}>
+                      {repairBusy ? t('group.syncDebugRepairing') : t('group.syncDebugRepair')}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 text-sm text-[#4f463f]">
+                <p><span className="font-semibold">{t('group.syncDebugStatus')}:</span> {syncStatus}</p>
+                <p><span className="font-semibold">{t('group.syncDebugLastError')}:</span> {lastError ?? t('group.syncDebugNone')}</p>
+                <p><span className="font-semibold">{t('group.syncDebugGroupId')}:</span> {groupId ?? t('group.syncDebugNone')}</p>
+                <p><span className="font-semibold">{t('group.syncDebugOwnerId')}:</span> {ownerId ?? group.ownerId ?? t('group.syncDebugNone')}</p>
+                <p><span className="font-semibold">{t('group.syncDebugAuthUserId')}:</span> {authUser?.id ?? t('group.syncDebugNone')}</p>
+                <p><span className="font-semibold">{t('group.syncDebugRole')}:</span> {role ?? t('group.syncDebugNone')}</p>
+                <p><span className="font-semibold">{t('group.syncDebugMembershipRole')}:</span> {membership?.role ?? t('group.syncDebugNone')}</p>
+                <p><span className="font-semibold">{t('group.syncDebugLinkedPerson')}:</span> {linkedPerson ? `${linkedPerson.name} (${linkedPerson.id})` : t('group.syncDebugNone')}</p>
+                <p><span className="font-semibold">{t('group.syncDebugCanEditExpenses')}:</span> {canEditExpenseData ? t('group.syncDebugYes') : t('group.syncDebugNo')}</p>
+              </div>
+              {repairNotice ? (
+                <p className="mt-3 text-sm text-[#7b3d3d]">{repairNotice}</p>
+              ) : null}
+            </section>
+          ) : null}
+
           {activeTab === 'summary' ? (
             <header className="ms-card-soft mb-4 lg:hidden">
               <div className="mb-2 flex items-start justify-between gap-3">
