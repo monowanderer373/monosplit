@@ -57,6 +57,8 @@ export default function ExpenseCard({ group, expense, onDelete, onMarkRepaid, on
               ? `${expense.splits.length} ${t('card.equalSplit')}`
               : expense.splitMode === 'itemized'
                 ? t('card.itemizedSplit')
+                : expense.splitMode === 'receipt'
+                  ? t('card.receiptSplit')
                 : `${expense.splits.length}${t('card.equalSplit')}`}
           </p>
         </div>

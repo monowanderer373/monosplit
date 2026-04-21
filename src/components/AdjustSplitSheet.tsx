@@ -4,6 +4,14 @@ import { getCurrencySymbol } from '../lib/currency'
 import { getPersonNameStyle } from '../lib/personTheme'
 import type { Group, ItemizedInputMode, SplitMode } from '../types'
 
+export type ReceiptItemInput = {
+  id: string
+  name: string
+  unitPrice: string
+  quantity: string
+  debtorIds: string[]
+}
+
 export type SplitSheetState = {
   splitMode: SplitMode
   splitPersonIds: string[]
@@ -11,6 +19,8 @@ export type SplitSheetState = {
   sharesInput: Record<string, string>
   adjustmentInput: Record<string, string>
   itemizedInput: Record<string, string>
+  receiptItems: ReceiptItemInput[]
+  receiptTaxAmount: string
   itemizedInputMode: ItemizedInputMode
   serviceTaxPct: string
   salesTaxPct: string
@@ -57,6 +67,12 @@ const TABS: { id: SplitMode; label: string; title: string; desc: string }[] = [
     label: 'By adjustment',
     title: 'Split by adjustment',
     desc: 'Enter adjustments to reflect who owes extra; the remainder is distributed equally.',
+  },
+  {
+    id: 'receipt',
+    label: 'By receipt',
+    title: 'Split by receipt',
+    desc: 'Add receipt items and choose who owes each item.',
   },
 ]
 

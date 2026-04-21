@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { generateId, generateGroupId } from '../lib/id'
 import { todayISO } from '../lib/format'
-import type { Expense, Group, PaymentInfo, PaymentProof, Person } from '../types'
+import type { Expense, Group, PaymentInfo, PaymentProof, Person, ReceiptItem } from '../types'
 
 type NewExpense = Omit<Expense, 'id' | 'createdAt'>
 type NewGroupOptions = {
@@ -71,9 +71,37 @@ function migrateExpensePayerIds(expense: Expense & { payerId?: string }): Expens
   return { ...expense, payerIds: expense.payerIds ?? [] } as Expense
 }
 
+function sanitizeReceiptItems(items: unknown): ReceiptItem[] | null {
+  if (!Array.isArray(items)) return null
+  return items
+    .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+    .map((item, index) => ({
+      id: typeof item.id === 'string' && item.id ? item.id : `receipt-item-${index}`,
+      name: typeof item.name === 'string' ? item.name : '',
+      unitPrice: typeof item.unitPrice === 'number' && Number.isFinite(item.unitPrice) ? item.unitPrice : null,
+      quantity: typeof item.quantity === 'number' && Number.isFinite(item.quantity) ? item.quantity : null,
+      amount: typeof item.amount === 'number' && Number.isFinite(item.amount) ? item.amount : null,
+      debtorIds: Array.isArray(item.debtorIds)
+        ? Array.from(new Set(item.debtorIds.filter((id): id is string => typeof id === 'string')))
+        : [],
+    }))
+}
+
+function sanitizeExpense(expense: Expense & { payerId?: string }): Expense {
+  const migrated = migrateExpensePayerIds(expense)
+  return {
+    ...migrated,
+    receiptItems: sanitizeReceiptItems(migrated.receiptItems),
+    receiptTaxAmount:
+      typeof migrated.receiptTaxAmount === 'number' && Number.isFinite(migrated.receiptTaxAmount)
+        ? migrated.receiptTaxAmount
+        : null,
+  }
+}
+
 function migrateGroupData(group: Group): Group {
   if (!group.expenses || !Array.isArray(group.expenses)) return group
-  const migrated = group.expenses.map((e) => migrateExpensePayerIds(e as Expense & { payerId?: string }))
+  const migrated = group.expenses.map((e) => sanitizeExpense(e as Expense & { payerId?: string }))
   return { ...group, expenses: migrated }
 }
 
@@ -501,7 +529,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'monosplit-storage',
-      version: 3,
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
         if (version < 2 && Array.isArray(state?.groups)) {
@@ -527,6 +555,14 @@ export const useStore = create<AppState>()(
         if (!state.fontId) {
           state.fontId = 'departure-mono'
         }
+        if (version < 4 && Array.isArray(state?.groups)) {
+          state.groups = (state.groups as Array<Record<string, unknown>>).map((group) => ({
+            ...group,
+            expenses: Array.isArray(group.expenses)
+              ? (group.expenses as Array<Expense & { payerId?: string }>).map((expense) => sanitizeExpense(expense))
+              : [],
+          }))
+        }
         return state
       },
       partialize: (state) => ({
@@ -549,7 +585,7 @@ export const useStore = create<AppState>()(
               paymentProofs: Array.isArray(person.paymentProofs) ? person.paymentProofs : [],
             })),
           expenses: group.expenses
-            .map((expense) => migrateExpensePayerIds(expense))
+            .map((expense) => sanitizeExpense(expense))
             .filter(
               (expense) =>
                 (expense.payerIds ?? []).every((pid) => personInGroup(group.people, pid)) &&

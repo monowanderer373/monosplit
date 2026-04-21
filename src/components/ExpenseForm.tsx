@@ -7,14 +7,20 @@ import {
   calcPercentageSplits,
   calcSharesSplits,
   calcAdjustmentSplits,
+  calcReceiptSplits,
+  calcReceiptGrandTotal,
+  calcReceiptSubtotal,
+  getReceiptItemAmount,
   assertPayerHasItemizedValue,
 } from '../lib/splitCalc'
 import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
-import type { Expense, ExpenseType, Group, ItemizedInputMode, PaymentMethod, RateMode, SplitMode } from '../types'
+import { generateId } from '../lib/id'
+import type { Expense, ExpenseType, Group, ItemizedInputMode, PaymentMethod, RateMode, ReceiptItem, SplitMode } from '../types'
 import { SELECTABLE_EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
 import { useT, tCategory } from '../lib/i18n'
 import SplitExpander from './SplitExpander'
+import type { ReceiptItemInput } from './AdjustSplitSheet'
 
 
 type Props = {
@@ -44,6 +50,8 @@ type FormState = {
   percentageInput: Record<string, string>
   sharesInput: Record<string, string>
   adjustmentInput: Record<string, string>
+  receiptItems: ReceiptItemInput[]
+  receiptTaxAmount: string
   serviceTaxPct: string
   salesTaxPct: string
   tipsPct: string
@@ -91,8 +99,58 @@ function hasFiniteNumberInput(raw: string | undefined): boolean {
   return Number.isFinite(value)
 }
 
+function blankReceiptItem(group: Group): ReceiptItemInput {
+  return {
+    id: generateId('receipt-item'),
+    name: '',
+    unitPrice: '',
+    quantity: '1',
+    debtorIds: group.people.length > 0 ? [group.people[0].id] : [],
+  }
+}
+
+function sanitizeReceiptItemInputs(value: unknown, group: Group): ReceiptItemInput[] {
+  if (!Array.isArray(value)) return []
+  const validIds = new Set(group.people.map((person) => person.id))
+  return value
+    .filter(isRecord)
+    .map((item, index) => {
+      const debtorIds = readIdList(item.debtorIds, validIds)
+      return {
+        id: typeof item.id === 'string' && item.id ? item.id : generateId(`receipt-item-${index}`),
+        name: typeof item.name === 'string' ? item.name : '',
+        unitPrice: typeof item.unitPrice === 'string' ? item.unitPrice : '',
+        quantity: typeof item.quantity === 'string' ? item.quantity : '',
+        debtorIds: debtorIds.length > 0 ? debtorIds : [],
+      }
+    })
+}
+
+function parseReceiptItemInputs(items: ReceiptItemInput[]): ReceiptItem[] {
+  return items.map((item) => {
+    const unitPrice = item.unitPrice.trim() === '' ? null : Number(item.unitPrice)
+    const quantity = item.quantity.trim() === '' ? null : Number(item.quantity)
+    return {
+      id: item.id,
+      name: item.name.trim(),
+      unitPrice: Number.isFinite(unitPrice) ? unitPrice : null,
+      quantity: Number.isFinite(quantity) ? quantity : null,
+      amount: null,
+      debtorIds: item.debtorIds,
+    }
+  })
+}
+
 function getActiveSplitPersonIds(form: FormState): string[] {
   if (form.expenseType === 'refund' || form.splitMode === 'equal') return form.splitPersonIds
+
+  if (form.splitMode === 'receipt') {
+    const ids = new Set<string>()
+    form.receiptItems.forEach((item) => {
+      item.debtorIds.forEach((personId) => ids.add(personId))
+    })
+    return Array.from(ids)
+  }
 
   if (form.splitMode === 'itemized') {
     return form.splitPersonIds.filter((personId) => {
@@ -142,6 +200,8 @@ function blankForm(group: Group): FormState {
     percentageInput: {},
     sharesInput: {},
     adjustmentInput: {},
+    receiptItems: [blankReceiptItem(group)],
+    receiptTaxAmount: '',
     serviceTaxPct: '',
     salesTaxPct: '',
     tipsPct: '',
@@ -154,10 +214,23 @@ function blankForm(group: Group): FormState {
 function hasMeaningfulDraft(form: FormState, group: Group): boolean {
   const base = blankForm(group)
   const hasEntries = (record: Record<string, string>) => Object.values(record).some((value) => value.trim() !== '')
+  const hasReceiptEntries =
+    form.receiptItems.length !== base.receiptItems.length ||
+    form.receiptItems.some((item, index) => {
+      const baseItem = base.receiptItems[index]
+      return (
+        item.name.trim() !== '' ||
+        item.unitPrice.trim() !== '' ||
+        item.quantity.trim() !== (baseItem?.quantity ?? '') ||
+        item.debtorIds.length !== (baseItem?.debtorIds.length ?? 0) ||
+        !sameIds(item.debtorIds, baseItem?.debtorIds ?? [])
+      )
+    })
 
   return (
     form.description.trim() !== '' ||
     form.amount.trim() !== '' ||
+    form.receiptTaxAmount.trim() !== '' ||
     form.manualRate.trim() !== '' ||
     form.serviceTaxPct.trim() !== '' ||
     form.salesTaxPct.trim() !== '' ||
@@ -166,6 +239,7 @@ function hasMeaningfulDraft(form: FormState, group: Group): boolean {
     hasEntries(form.percentageInput) ||
     hasEntries(form.sharesInput) ||
     hasEntries(form.adjustmentInput) ||
+    hasReceiptEntries ||
     form.expenseType !== base.expenseType ||
     form.category !== base.category ||
     form.payerIds.length !== base.payerIds.length ||
@@ -193,12 +267,14 @@ function sanitizeDraftForm(value: unknown, group: Group): FormState | null {
     value.splitMode === 'percentage' ||
     value.splitMode === 'shares' ||
     value.splitMode === 'adjustment' ||
+    value.splitMode === 'receipt' ||
     value.splitMode === 'equal'
       ? value.splitMode
       : base.splitMode
 
   const payerIds = readIdList(value.payerIds, validIds)
   const splitPersonIds = readIdList(value.splitPersonIds, validIds)
+  const receiptItems = sanitizeReceiptItemInputs(value.receiptItems, group)
 
   return {
     ...base,
@@ -217,6 +293,8 @@ function sanitizeDraftForm(value: unknown, group: Group): FormState | null {
     percentageInput: readStringMap(value.percentageInput, validIds),
     sharesInput: readStringMap(value.sharesInput, validIds),
     adjustmentInput: readStringMap(value.adjustmentInput, validIds),
+    receiptItems: receiptItems.length > 0 ? receiptItems : base.receiptItems,
+    receiptTaxAmount: typeof value.receiptTaxAmount === 'string' ? value.receiptTaxAmount : '',
     serviceTaxPct: typeof value.serviceTaxPct === 'string' ? value.serviceTaxPct : '',
     salesTaxPct: typeof value.salesTaxPct === 'string' ? value.salesTaxPct : '',
     tipsPct: typeof value.tipsPct === 'string' ? value.tipsPct : '',
@@ -274,6 +352,16 @@ function expenseToForm(expense: Expense): FormState {
       }
     }
   }
+  const receiptItems: ReceiptItemInput[] =
+    expense.splitMode === 'receipt' && Array.isArray(expense.receiptItems) && expense.receiptItems.length > 0
+      ? expense.receiptItems.map((item) => ({
+          id: item.id,
+          name: item.name ?? '',
+          unitPrice: item.unitPrice != null ? String(item.unitPrice) : '',
+          quantity: item.quantity != null ? String(item.quantity) : '',
+          debtorIds: Array.isArray(item.debtorIds) ? item.debtorIds : [],
+        }))
+      : []
   const firstSplit = expense.splits[0]
   return {
     expenseType: expense.type ?? 'expense',
@@ -298,6 +386,8 @@ function expenseToForm(expense: Expense): FormState {
       : {},
     sharesInput: {},
     adjustmentInput: {},
+    receiptItems,
+    receiptTaxAmount: expense.receiptTaxAmount != null ? String(expense.receiptTaxAmount) : '',
     serviceTaxPct: expense.serviceTaxPct != null ? String(expense.serviceTaxPct) : '',
     salesTaxPct: expense.salesTaxPct != null ? String(expense.salesTaxPct) : '',
     tipsPct: expense.tipsPct != null ? String(expense.tipsPct) : '',
@@ -497,6 +587,38 @@ export default function ExpenseForm({
     totalTaxPct,
   ])
 
+  const receiptSummary = useMemo(() => {
+    const parsedItems = parseReceiptItemInputs(form.receiptItems)
+    const validItems = parsedItems.filter((item) => item.name && item.debtorIds.length > 0 && getReceiptItemAmount(item) > 0)
+    const subtotal = Number(calcReceiptSubtotal(validItems).toFixed(2))
+    const taxAmountRaw = Number(form.receiptTaxAmount || 0)
+    const taxAmount = Number.isFinite(taxAmountRaw) && taxAmountRaw > 0 ? Number(taxAmountRaw.toFixed(2)) : 0
+    const grandTotal = Number(calcReceiptGrandTotal(validItems, taxAmount).toFixed(2))
+    const amountValue = Number(form.amount)
+    const hasAmount = Number.isFinite(amountValue) && amountValue > 0
+    const diff = hasAmount ? Number((amountValue - grandTotal).toFixed(2)) : null
+    return {
+      parsedItems,
+      validItems,
+      subtotal,
+      taxAmount,
+      grandTotal,
+      filledCount: validItems.length,
+      diff,
+      hasAmount,
+    }
+  }, [form.amount, form.receiptItems, form.receiptTaxAmount])
+
+  useEffect(() => {
+    if (form.expenseType !== 'expense' || form.splitMode !== 'receipt') return
+    const nextAmount = receiptSummary.grandTotal > 0 ? String(receiptSummary.grandTotal) : ''
+    if (form.amount === nextAmount) return
+    setForm((prev) => {
+      if (prev.expenseType !== 'expense' || prev.splitMode !== 'receipt') return prev
+      return { ...prev, amount: nextAmount }
+    })
+  }, [form.amount, form.expenseType, form.splitMode, receiptSummary.grandTotal])
+
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
@@ -553,6 +675,26 @@ export default function ExpenseForm({
       setError(`${modeLine} ${delta}. ${t('error.itemizedTally')}`)
       setIsSaving(false)
       return
+    }
+
+    if (form.expenseType !== 'refund' && form.splitMode === 'receipt') {
+      if (receiptSummary.validItems.length === 0) {
+        setError(t('error.receiptNeedItem'))
+        setIsSaving(false)
+        return
+      }
+
+      const invalidItem = receiptSummary.parsedItems.find((item) => {
+        if (!item.name.trim()) return false
+        const lineAmount = getReceiptItemAmount(item)
+        return lineAmount <= 0 || item.debtorIds.length === 0
+      })
+
+      if (invalidItem) {
+        setError(t('error.receiptInvalidItem'))
+        setIsSaving(false)
+        return
+      }
     }
 
     if (form.splitMode === 'percentage') {
@@ -627,6 +769,12 @@ export default function ExpenseForm({
         totalAmount: amount,
         ...commonArgs,
       })
+    } else if (form.splitMode === 'receipt') {
+      splits = calcReceiptSplits({
+        receiptItems: receiptSummary.validItems,
+        receiptTaxAmount: receiptSummary.taxAmount,
+        ...commonArgs,
+      })
     } else {
       splits = calcEqualSplits({
         peopleIds: form.splitPersonIds,
@@ -651,6 +799,8 @@ export default function ExpenseForm({
         salesTaxPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.salesTaxPct || '0') : null,
         tipsPct: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? Number(form.tipsPct || '0') : null,
         taxPctTotal: form.splitMode === 'itemized' && form.expenseType !== 'refund' ? totalTaxPct : null,
+        receiptItems: form.splitMode === 'receipt' && form.expenseType !== 'refund' ? receiptSummary.validItems : null,
+        receiptTaxAmount: form.splitMode === 'receipt' && form.expenseType !== 'refund' ? receiptSummary.taxAmount : null,
         date: form.date,
         splits,
       }))
@@ -751,7 +901,11 @@ export default function ExpenseForm({
               inputMode="decimal"
               value={form.amount}
               onChange={(e) => setField('amount', e.target.value)}
+              readOnly={!isRefund && form.splitMode === 'receipt'}
             />
+            {!isRefund && form.splitMode === 'receipt' ? (
+              <p className="mt-1 text-xs text-[#9a9088]">{t('expense.receiptAutoAmount')}</p>
+            ) : null}
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#6b6058]">
@@ -934,6 +1088,8 @@ export default function ExpenseForm({
                 splitMode: form.splitMode,
                 splitPersonIds: form.splitPersonIds,
                 itemizedInput: form.itemizedInput,
+                receiptItems: form.receiptItems,
+                receiptTaxAmount: form.receiptTaxAmount,
                 itemizedInputMode: form.itemizedInputMode,
                 percentageInput: form.percentageInput,
                 sharesInput: form.sharesInput,
@@ -948,6 +1104,8 @@ export default function ExpenseForm({
                   splitMode: next.splitMode,
                   splitPersonIds: next.splitPersonIds,
                   itemizedInput: next.itemizedInput,
+                  receiptItems: next.receiptItems,
+                  receiptTaxAmount: next.receiptTaxAmount,
                   itemizedInputMode: next.itemizedInputMode,
                   percentageInput: next.percentageInput,
                   sharesInput: next.sharesInput,

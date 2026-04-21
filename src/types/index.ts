@@ -1,4 +1,4 @@
-export type SplitMode = 'equal' | 'itemized' | 'percentage' | 'shares' | 'adjustment'
+export type SplitMode = 'equal' | 'itemized' | 'percentage' | 'shares' | 'adjustment' | 'receipt'
 export type ItemizedInputMode = 'pretax' | 'total'
 export type RateMode = 'auto' | 'manual'
 export type PaymentMethod = 'card' | 'cash'
@@ -47,6 +47,15 @@ export interface Split {
   repaidPayerIds?: string[]
 }
 
+export interface ReceiptItem {
+  id: string
+  name: string
+  unitPrice: number | null
+  quantity: number | null
+  amount: number | null
+  debtorIds: string[]
+}
+
 export type ExpenseType = 'expense' | 'refund'
 
 export interface Expense {
@@ -65,6 +74,8 @@ export interface Expense {
   salesTaxPct: number | null
   tipsPct: number | null
   taxPctTotal: number | null
+  receiptItems?: ReceiptItem[] | null
+  receiptTaxAmount?: number | null
   date: string
   createdAt: string
   splits: Split[]

@@ -1,4 +1,4 @@
-import type { ItemizedInputMode, Split } from '../types'
+import type { ItemizedInputMode, ReceiptItem, Split } from '../types'
 
 type BaseSplitInput = {
   personId: string
@@ -13,6 +13,32 @@ function round4(value: number): number {
 
 function round2(value: number): number {
   return Number(value.toFixed(2))
+}
+
+function splitEvenly(amount: number, peopleIds: string[]): Array<{ personId: string; amount: number }> {
+  if (peopleIds.length === 0) return []
+  let allocated = 0
+  return peopleIds.map((personId, index) => {
+    const share =
+      index === peopleIds.length - 1
+        ? round4(amount - allocated)
+        : round4(amount / peopleIds.length)
+    allocated += share
+    return { personId, amount: share }
+  })
+}
+
+export function getReceiptItemAmount(item: Pick<ReceiptItem, 'unitPrice' | 'quantity' | 'amount'>): number {
+  if (item.unitPrice != null && item.quantity != null) return round4(item.unitPrice * item.quantity)
+  return item.amount != null ? round4(item.amount) : 0
+}
+
+export function calcReceiptSubtotal(items: ReceiptItem[]): number {
+  return round4(items.reduce((sum, item) => sum + getReceiptItemAmount(item), 0))
+}
+
+export function calcReceiptGrandTotal(items: ReceiptItem[], taxAmount: number): number {
+  return round4(calcReceiptSubtotal(items) + (Number.isFinite(taxAmount) ? taxAmount : 0))
 }
 
 export function calcEqualSplits(args: {
@@ -175,6 +201,64 @@ export function calcAdjustmentSplits(args: {
       personId, amount, baseAmount: null, taxAmount: null,
       repayCurrency, convertedAmount: rate ? round2(amount * rate) : null,
       rate, rateSource, rateDate, repaid: false, repaidAt: null, repaidDate: null,
+    }
+  })
+}
+
+export function calcReceiptSplits(args: {
+  receiptItems: ReceiptItem[]
+  receiptTaxAmount: number
+  repayCurrency: string
+  rate: number | null
+  rateSource: string | null
+  rateDate: string | null
+}): Split[] {
+  const { receiptItems, receiptTaxAmount, repayCurrency, rate, rateSource, rateDate } = args
+  const baseByPerson = new Map<string, number>()
+
+  for (const item of receiptItems) {
+    const itemAmount = getReceiptItemAmount(item)
+    if (itemAmount <= 0 || !item.debtorIds.length) continue
+    const shares = splitEvenly(itemAmount, item.debtorIds)
+    shares.forEach(({ personId, amount }) => {
+      baseByPerson.set(personId, round4((baseByPerson.get(personId) ?? 0) + amount))
+    })
+  }
+
+  const peopleIds = Array.from(baseByPerson.keys())
+  const subtotal = peopleIds.reduce((sum, personId) => sum + (baseByPerson.get(personId) ?? 0), 0)
+
+  const taxByPerson = new Map<string, number>()
+  if (peopleIds.length > 0 && receiptTaxAmount > 0 && subtotal > 0) {
+    let allocatedTax = 0
+    peopleIds.forEach((personId, index) => {
+      const baseAmount = baseByPerson.get(personId) ?? 0
+      const taxShare =
+        index === peopleIds.length - 1
+          ? round4(receiptTaxAmount - allocatedTax)
+          : round4((receiptTaxAmount * baseAmount) / subtotal)
+      allocatedTax += taxShare
+      taxByPerson.set(personId, taxShare)
+    })
+  }
+
+  return peopleIds.map((personId) => {
+    const baseAmount = round4(baseByPerson.get(personId) ?? 0)
+    const taxAmount = round4(taxByPerson.get(personId) ?? 0)
+    const amount = round4(baseAmount + taxAmount)
+    return {
+      personId,
+      amount,
+      baseAmount,
+      taxAmount,
+      repayCurrency,
+      convertedAmount: rate ? round2(amount * rate) : null,
+      rate,
+      rateSource,
+      rateDate,
+      repaid: false,
+      repaidAt: null,
+      repaidDate: null,
     }
   })
 }
