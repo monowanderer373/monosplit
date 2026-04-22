@@ -12,6 +12,7 @@ import {
   calcReceiptSubtotal,
   getReceiptItemAmount,
   assertPayerHasItemizedValue,
+  mergeRepaidState,
 } from '../lib/splitCalc'
 import { formatMoney, todayISO } from '../lib/format'
 import { getPersonNameStyle } from '../lib/personTheme'
@@ -781,6 +782,10 @@ export default function ExpenseForm({
         totalAmount: amount,
         ...commonArgs,
       })
+    }
+
+    if (initialExpense) {
+      splits = mergeRepaidState(splits, initialExpense.splits)
     }
 
     try {

@@ -3,7 +3,12 @@ import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { tCategory, useT } from '../lib/i18n'
 import { getPersonNameStyle } from '../lib/personTheme'
-import { getSplitOutstandingAmount, isSplitFullySettled } from '../lib/refund'
+import {
+  createSettlementSnapshot,
+  createGroupSettlementSnapshot,
+  getSplitOutstandingAmountFromSnapshot,
+  isSplitFullySettledFromSnapshot,
+} from '../lib/settlementLedger'
 import { useStore } from '../store/useStore'
 import type { Expense, Group } from '../types'
 import { CATEGORY_ICONS, EXPENSE_CATEGORIES, normalizeCategory } from '../lib/categories'
@@ -140,6 +145,7 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense, canE
   }, [group.endDate, group.expenses, group.startDate])
 
   const editingExpense = editingExpenseId ? group.expenses.find((expense) => expense.id === editingExpenseId) || null : null
+  const settlementSnapshot = useMemo(() => createGroupSettlementSnapshot(group), [group])
 
   return (
     <section className="space-y-3 pb-24 lg:pb-0">
@@ -312,13 +318,21 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense, canE
                         const displayCurrency = expense.paidCurrency
 
                         const debtorSplits = expense.splits.filter((s) => !(expense.payerIds ?? []).includes(s.personId))
-                        const isFullySettled = debtorSplits.length > 0 && debtorSplits.every((s) => isSplitFullySettled(expense, s))
+                        const isFullySettled =
+                          debtorSplits.length > 0 &&
+                          debtorSplits.every((s, splitIndex) => {
+                            const actualSplitIndex = expense.splits.findIndex((candidate) => candidate === s)
+                            return isSplitFullySettledFromSnapshot(settlementSnapshot, expense.id, actualSplitIndex >= 0 ? actualSplitIndex : splitIndex)
+                          })
                         const activeColors = isFullySettled
                           ? (isRefundExpense ? REFUND_SETTLED_COLORS : SETTLED_COLORS)
                           : cc
 
                         const outstandingTotal = debtorSplits
-                          .reduce((sum, s) => sum + getSplitOutstandingAmount(expense, s), 0)
+                          .reduce((sum, s, splitIndex) => {
+                            const actualSplitIndex = expense.splits.findIndex((candidate) => candidate === s)
+                            return sum + getSplitOutstandingAmountFromSnapshot(settlementSnapshot, expense.id, actualSplitIndex >= 0 ? actualSplitIndex : splitIndex)
+                          }, 0)
 
                         return (
                           <div
@@ -439,17 +453,25 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense, canE
                                   {expense.splits
                                     .filter((s) => !(expense.payerIds ?? []).includes(s.personId))
                                     .filter((s) => {
-                                      const visibleAmount = isSplitFullySettled(expense, s)
+                                      const splitIndex = expense.splits.findIndex((candidate) => candidate === s)
+                                      const visibleAmount = isSplitFullySettledFromSnapshot(settlementSnapshot, expense.id, splitIndex)
                                         ? (s.amount ?? 0)
-                                        : getSplitOutstandingAmount(expense, s)
+                                        : getSplitOutstandingAmountFromSnapshot(settlementSnapshot, expense.id, splitIndex)
                                       return visibleAmount > 0.001
                                     })
                                     .slice()
-                                    .sort((a, b) => Number(isSplitFullySettled(expense, b)) - Number(isSplitFullySettled(expense, a)))
+                                    .sort((a, b) => {
+                                      const indexA = expense.splits.findIndex((candidate) => candidate === a)
+                                      const indexB = expense.splits.findIndex((candidate) => candidate === b)
+                                      return Number(isSplitFullySettledFromSnapshot(settlementSnapshot, expense.id, indexB)) - Number(isSplitFullySettledFromSnapshot(settlementSnapshot, expense.id, indexA))
+                                    })
                                     .map((split, idx) => {
                                       const person = group.people.find((entry) => entry.id === split.personId)
-                                      const isPaid = isSplitFullySettled(expense, split)
-                                      const visibleAmount = isPaid ? (split.amount ?? 0) : getSplitOutstandingAmount(expense, split)
+                                      const splitIndex = expense.splits.findIndex((candidate) => candidate === split)
+                                      const isPaid = isSplitFullySettledFromSnapshot(settlementSnapshot, expense.id, splitIndex)
+                                      const visibleAmount = isPaid
+                                        ? (split.amount ?? 0)
+                                        : getSplitOutstandingAmountFromSnapshot(settlementSnapshot, expense.id, splitIndex)
                                       const amtStr = split.amount != null ? `${getCurrencySymbol(displayCurrency)}${formatMoney(visibleAmount)}` : '-'
                                       return (
                                         <div key={`${expense.id}-${split.personId}-${idx}`} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style={{ background: 'rgba(240,234,222,0.45)' }}>
@@ -511,6 +533,18 @@ export default function SummaryTab({ group, onDeleteExpense, onEditExpense, canE
                 setEditingExpenseId(null)
               }}
               onSave={(updates) => {
+                const nextExpenses = group.expenses.map((expense) =>
+                  expense.id === editingExpense.id ? { ...expense, ...updates } : expense,
+                )
+                const nextSnapshot = createSettlementSnapshot({
+                  expenses: nextExpenses,
+                  settlementPayments: group.settlementPayments,
+                })
+                const hasUnappliedSettlement = nextSnapshot.paymentSummaries.some((row) => row.unappliedAmount > 0.001)
+                if (hasUnappliedSettlement) {
+                  const ok = window.confirm(t('summary.expenseEditAffectsSettlement'))
+                  if (!ok) return
+                }
                 onEditExpense(editingExpense.id, updates)
                 setEditingExpenseId(null)
               }}

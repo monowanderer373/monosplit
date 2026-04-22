@@ -2,9 +2,19 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { generateId, generateGroupId } from '../lib/id'
 import { todayISO } from '../lib/format'
-import type { Expense, Group, PaymentInfo, PaymentProof, Person, ReceiptItem } from '../types'
+import type {
+  Expense,
+  Group,
+  PaymentInfo,
+  PaymentProof,
+  Person,
+  ReceiptItem,
+  SettlementPayment,
+  SettlementPaymentAllocation,
+} from '../types'
 
 type NewExpense = Omit<Expense, 'id' | 'createdAt'>
+type NewSettlementPayment = Omit<SettlementPayment, 'id' | 'createdAt' | 'updatedAt'>
 type NewGroupOptions = {
   startDate?: string | null
   endDate?: string | null
@@ -40,6 +50,9 @@ type AppState = {
   addExpense: (groupId: string, expense: NewExpense) => Expense | null
   updateExpense: (groupId: string, expenseId: string, updates: Partial<Expense>) => void
   removeExpense: (groupId: string, expenseId: string) => void
+  addSettlementPayment: (groupId: string, payment: NewSettlementPayment) => SettlementPayment | null
+  updateSettlementPayment: (groupId: string, paymentId: string, updates: Partial<Omit<SettlementPayment, 'id' | 'createdAt'>>) => void
+  removeSettlementPayment: (groupId: string, paymentId: string) => void
   markSplitRepaid: (groupId: string, expenseId: string, splitIndex: number, repaidDate: string) => void
   unmarkSplitRepaid: (groupId: string, expenseId: string, splitIndex: number) => void
   markSettlementPairRepaid: (groupId: string, debtorId: string, creditorId: string, currency: string, repaidDate: string) => void
@@ -99,10 +112,34 @@ function sanitizeExpense(expense: Expense & { payerId?: string }): Expense {
   }
 }
 
+function sanitizeSettlementAllocation(allocation: SettlementPaymentAllocation): SettlementPaymentAllocation {
+  return {
+    creditorId: allocation.creditorId,
+    amount: typeof allocation.amount === 'number' && Number.isFinite(allocation.amount) ? allocation.amount : 0,
+  }
+}
+
+function sanitizeSettlementPayment(payment: SettlementPayment): SettlementPayment {
+  return {
+    ...payment,
+    repayAmount: typeof payment.repayAmount === 'number' && Number.isFinite(payment.repayAmount) ? payment.repayAmount : 0,
+    rate: typeof payment.rate === 'number' && Number.isFinite(payment.rate) ? payment.rate : null,
+    rateSource: payment.rateSource ?? null,
+    rateDate: payment.rateDate ?? null,
+    note: payment.note ?? null,
+    source: payment.source ?? 'record_payment',
+    allocations: Array.isArray(payment.allocations) ? payment.allocations.map(sanitizeSettlementAllocation) : [],
+  }
+}
+
 function migrateGroupData(group: Group): Group {
-  if (!group.expenses || !Array.isArray(group.expenses)) return group
-  const migrated = group.expenses.map((e) => sanitizeExpense(e as Expense & { payerId?: string }))
-  return { ...group, expenses: migrated }
+  const migratedExpenses = Array.isArray(group.expenses)
+    ? group.expenses.map((e) => sanitizeExpense(e as Expense & { payerId?: string }))
+    : []
+  const migratedSettlementPayments = Array.isArray(group.settlementPayments)
+    ? group.settlementPayments.map((payment) => sanitizeSettlementPayment(payment as SettlementPayment))
+    : []
+  return { ...group, expenses: migratedExpenses, settlementPayments: migratedSettlementPayments }
 }
 
 function defaultPaymentInfo(): PaymentInfo {
@@ -160,6 +197,7 @@ export const useStore = create<AppState>()(
               defaultRepayCurrency: 'MYR',
               people: [],
               expenses: [],
+              settlementPayments: [],
               comments: [],
               createdAt: new Date().toISOString(),
               ownerId: ownerId ?? undefined,
@@ -348,6 +386,51 @@ export const useStore = create<AppState>()(
           })),
         }))
       },
+      addSettlementPayment: (groupId, payment) => {
+        const createdPayment: SettlementPayment = {
+          ...payment,
+          id: generateId('settlement'),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+        let inserted = false
+        set((state) => ({
+          groups: updateGroupById(state.groups, groupId, (group) => {
+            inserted = true
+            return {
+              ...group,
+              settlementPayments: [...(group.settlementPayments || []), sanitizeSettlementPayment(createdPayment)],
+            }
+          }),
+        }))
+        return inserted ? createdPayment : null
+      },
+      updateSettlementPayment: (groupId, paymentId, updates) => {
+        set((state) => ({
+          groups: updateGroupById(state.groups, groupId, (group) => ({
+            ...group,
+            settlementPayments: (group.settlementPayments || []).map((payment) =>
+              payment.id === paymentId
+                ? sanitizeSettlementPayment({
+                    ...payment,
+                    ...updates,
+                    id: payment.id,
+                    createdAt: payment.createdAt,
+                    updatedAt: new Date().toISOString(),
+                  })
+                : payment,
+            ),
+          })),
+        }))
+      },
+      removeSettlementPayment: (groupId, paymentId) => {
+        set((state) => ({
+          groups: updateGroupById(state.groups, groupId, (group) => ({
+            ...group,
+            settlementPayments: (group.settlementPayments || []).filter((payment) => payment.id !== paymentId),
+          })),
+        }))
+      },
       markSplitRepaid: (groupId, expenseId, splitIndex, repaidDate) => {
         set((state) => ({
           groups: updateGroupById(state.groups, groupId, (group) => ({
@@ -529,7 +612,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'monosplit-storage',
-      version: 4,
+      version: 5,
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
         if (version < 2 && Array.isArray(state?.groups)) {
@@ -563,6 +646,14 @@ export const useStore = create<AppState>()(
               : [],
           }))
         }
+        if (version < 5 && Array.isArray(state?.groups)) {
+          state.groups = (state.groups as Array<Record<string, unknown>>).map((group) => ({
+            ...group,
+            settlementPayments: Array.isArray(group.settlementPayments)
+              ? (group.settlementPayments as SettlementPayment[]).map((payment) => sanitizeSettlementPayment(payment))
+              : [],
+          }))
+        }
         return state
       },
       partialize: (state) => ({
@@ -590,6 +681,13 @@ export const useStore = create<AppState>()(
               (expense) =>
                 (expense.payerIds ?? []).every((pid) => personInGroup(group.people, pid)) &&
                 expense.splits.every((split) => personInGroup(group.people, split.personId)),
+            ),
+          settlementPayments: (group.settlementPayments || [])
+            .map((payment) => sanitizeSettlementPayment(payment))
+            .filter(
+              (payment) =>
+                personInGroup(group.people, payment.debtorId) &&
+                payment.allocations.every((allocation) => personInGroup(group.people, allocation.creditorId)),
             ),
         })),
       }),

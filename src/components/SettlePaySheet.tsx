@@ -2,12 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getSettlements } from '../lib/settlement'
 import { CURRENCIES, fetchRate, getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
-import { getSplitOutstandingAmount, getSplitPairShareAmount, isRefundPairRepaid } from '../lib/refund'
 import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
 import ExpenseSheet from './ExpenseSheet'
 import type { Group } from '../types'
 import { CATEGORY_ICONS, normalizeCategory } from '../lib/categories'
+import {
+  autoAllocateSettlement,
+  createGroupSettlementSnapshot,
+  getCounterpartyBalances,
+  getSplitOutstandingAmountFromSnapshot,
+} from '../lib/settlementLedger'
 
 // FAB position — must match .ms-fab in index.css
 const FAB_W = 54
@@ -16,6 +21,10 @@ const FAB_RIGHT = 24
 const FAB_BOTTOM = 88
 
 type Phase = 'closed' | 'placed' | 'flying' | 'expanding' | 'revealing' | 'open' | 'closing'
+
+function round4(value: number): number {
+  return Number(value.toFixed(4))
+}
 
 type Props = {
   isOpen: boolean
@@ -221,12 +230,6 @@ interface TipEntry {
   recordedAt: string
 }
 
-interface RedirectEntry {
-  id: string
-  personId: string
-  amount: number // in displayCurrency
-}
-
 // ── Record Payment View ───────────────────────────────────────────────────────
 function RecordPaymentView({
   isOpen,
@@ -251,153 +254,111 @@ function RecordPaymentView({
 }) {
   const t = useT()
   const debtor = group.people.find((p) => p.id === debtorId)
-
+  const addSettlementPayment = useStore((s) => s.addSettlementPayment)
+  const snapshot = useMemo(() => createGroupSettlementSnapshot(group), [group])
   const owedCurrencies = useMemo(() => {
     if (!debtorId) return []
-    return Array.from(new Set(
-      group.expenses.flatMap((expense) => {
-        const split = expense.splits.find((s) => s.personId === debtorId && !s.repaid && !(expense.payerIds ?? []).includes(debtorId))
-        if (!split || split.amount == null) return []
-        const outstandingAmount = getSplitOutstandingAmount(expense, split)
-        if (outstandingAmount <= 0.001) return []
-        return [expense.paidCurrency]
-      }),
-    ))
-  }, [debtorId, group.expenses])
-
+    return Array.from(
+      new Set(snapshot.settlements.filter((settlement) => settlement.debtorId === debtorId).map((settlement) => settlement.currency)),
+    )
+  }, [debtorId, snapshot.settlements])
   const activeSettlementCurrency = settlementCurrency ?? owedCurrencies[0] ?? null
-
-  // All unpaid splits for this debtor
+  const counterpartyBalances = useMemo(() => {
+    if (!debtorId || !activeSettlementCurrency) return []
+    return getCounterpartyBalances(snapshot, debtorId, activeSettlementCurrency).filter((row) => row.netAmount > 0.001)
+  }, [activeSettlementCurrency, debtorId, snapshot])
   const ownedItems = useMemo(() => {
-    if (!debtorId) return []
-    return group.expenses.flatMap((expense) => {
-      if (activeSettlementCurrency && expense.paidCurrency !== activeSettlementCurrency) return []
-      const split = expense.splits.find((s) => s.personId === debtorId && !s.repaid && !(expense.payerIds ?? []).includes(debtorId))
-      if (!split || split.amount == null) return []
-      const outstandingAmount = getSplitOutstandingAmount(expense, split)
-      if (outstandingAmount <= 0.001) return []
-      return [{ expense, split, amount: outstandingAmount }]
-    })
-  }, [activeSettlementCurrency, debtorId, group.expenses])
-
-  // Direct creditors (payers) for this debtor's debts
-  const creditorIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const { expense } of ownedItems) {
-      for (const pid of expense.payerIds ?? []) ids.add(pid)
-    }
-    return [...ids]
-  }, [ownedItems])
-
-  const primaryCurrency = activeSettlementCurrency ?? ownedItems[0]?.expense.paidCurrency ?? group.defaultPaidCurrency
-
-  // Contra: what the creditors owe back to the debtor (debtor is a payer in those expenses)
-  const contraItems = useMemo(() => {
-    if (!debtorId || creditorIds.length === 0) return []
-    return group.expenses.flatMap((expense) => {
-      if (!(expense.payerIds ?? []).includes(debtorId)) return []
-      if (expense.paidCurrency !== primaryCurrency) return []
-      return expense.splits.flatMap((split) => {
-        if (!creditorIds.includes(split.personId) || split.repaid || split.amount == null) return []
-        if ((expense.payerIds ?? []).includes(split.personId)) return []
-        if (isRefundPairRepaid(expense, split, debtorId)) return []
-        const pairShare = getSplitPairShareAmount(expense, split)
-        return [{ expense, split, personId: split.personId, amount: pairShare }]
-      })
-    })
-  }, [debtorId, creditorIds, group.expenses, primaryCurrency])
-
-  const totalOwedRaw = ownedItems.reduce((sum, { amount }) => sum + amount, 0)
-  const contraRaw = contraItems.reduce((sum, { amount }) => sum + amount, 0)
-  const netOwedRaw = Math.max(0, totalOwedRaw - contraRaw)
-
-  const totalOwedConverted = canConvert && parsedRate ? totalOwedRaw * parsedRate : totalOwedRaw
-  const contraConverted = canConvert && parsedRate ? contraRaw * parsedRate : contraRaw
-  const netOwedConverted = canConvert && parsedRate ? netOwedRaw * parsedRate : netOwedRaw
+    if (!debtorId || !activeSettlementCurrency) return []
+    return group.expenses.flatMap((expense) =>
+      expense.splits.flatMap((split, splitIndex) => {
+        if (expense.paidCurrency !== activeSettlementCurrency) return []
+        if ((expense.payerIds ?? []).includes(split.personId) || split.personId !== debtorId) return []
+        const amount = getSplitOutstandingAmountFromSnapshot(snapshot, expense.id, splitIndex)
+        if (amount <= 0.001) return []
+        return [{ expense, split, amount }]
+      }),
+    )
+  }, [activeSettlementCurrency, debtorId, group.expenses, snapshot])
+  const primaryCurrency = activeSettlementCurrency ?? group.defaultPaidCurrency
+  const totalOwedRaw = counterpartyBalances.reduce((sum, row) => sum + row.netAmount, 0)
   const displayCurrency = canConvert ? repayCurrency : primaryCurrency
-
+  const totalOwedConverted = canConvert && parsedRate ? totalOwedRaw * parsedRate : totalOwedRaw
   const [editingAmount, setEditingAmount] = useState(false)
   const [amountInput, setAmountInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-
-  // Redirect state
-  const [redirects, setRedirects] = useState<RedirectEntry[]>([])
-  const [redirectPanelOpen, setRedirectPanelOpen] = useState(false)
-  const [redirectPersonId, setRedirectPersonId] = useState('')
-  const [redirectAmountInput, setRedirectAmountInput] = useState('')
-
-  // All group members except the debtor — eligible redirect targets
-  const redirectTargets = group.people.filter((p) => p.id !== debtorId)
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [allocations, setAllocations] = useState<Record<string, string>>({})
+  const [allocationsDirty, setAllocationsDirty] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
-      setAmountInput(netOwedConverted.toFixed(2))
+      setAmountInput(totalOwedConverted.toFixed(2))
       setEditingAmount(false)
-      setRedirects([])
-      setRedirectPanelOpen(false)
+      setPaymentDate(new Date().toISOString().slice(0, 10))
+      setAllocationsDirty(false)
     }
-  }, [isOpen, netOwedConverted])
+  }, [isOpen, totalOwedConverted])
 
   useEffect(() => {
     if (editingAmount) inputRef.current?.focus()
   }, [editingAmount])
 
-  // When redirect panel opens, pre-fill amount with full outstanding
   useEffect(() => {
-    if (redirectPanelOpen) {
-      setRedirectPersonId(redirectTargets[0]?.id ?? '')
-      setRedirectAmountInput(totalOwedConverted.toFixed(2))
+    if (!isOpen || allocationsDirty) return
+    const enteredDisplayAmount = parseFloat(amountInput) || 0
+    const debtBudget = canConvert && parsedRate ? enteredDisplayAmount / parsedRate : enteredDisplayAmount
+    const nextAllocations = autoAllocateSettlement(
+      counterpartyBalances.map((row) => ({ creditorId: row.creditorId, amount: row.netAmount })),
+      debtBudget,
+    )
+    const nextMap: Record<string, string> = {}
+    nextAllocations.forEach((allocation) => {
+      nextMap[allocation.creditorId] = allocation.amount > 0 ? String(allocation.amount) : ''
+    })
+    setAllocations(nextMap)
+  }, [allocationsDirty, amountInput, canConvert, counterpartyBalances, isOpen, parsedRate])
+
+  const budgetRaw = canConvert && parsedRate ? (parseFloat(amountInput) || 0) / parsedRate : parseFloat(amountInput) || 0
+  const normalizedAllocations = counterpartyBalances.map((row) => {
+    const entered = Number(allocations[row.creditorId] || 0)
+    const amount = Math.min(row.netAmount, Math.max(0, round4(Number.isFinite(entered) ? entered : 0)))
+    return {
+      creditorId: row.creditorId,
+      amount,
+      outstanding: row.netAmount,
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [redirectPanelOpen])
-
-  const markRedirectRepaid = useStore((s) => s.markRedirectRepaid)
-  const markSettlementPairRepaid = useStore((s) => s.markSettlementPairRepaid)
-
-  const handleAddRedirect = () => {
-    if (!redirectPersonId) return
-    const amt = parseFloat(redirectAmountInput)
-    if (!amt || amt <= 0) return
-    setRedirects((prev) => [...prev, { id: Date.now().toString(), personId: redirectPersonId, amount: amt }])
-    setRedirectPanelOpen(false)
-  }
-
-  // All receiving avatars = direct creditors + redirect targets (deduped)
-  const allReceivingIds = useMemo(() => {
-    const ids = new Set(creditorIds)
-    for (const r of redirects) ids.add(r.personId)
-    return [...ids]
-  }, [creditorIds, redirects])
+  })
+  const totalAllocatedRaw = normalizedAllocations.reduce((sum, row) => sum + row.amount, 0)
+  const totalAllocatedConverted = canConvert && parsedRate ? totalAllocatedRaw * parsedRate : totalAllocatedRaw
+  const unallocatedDisplay = Math.max(0, (parseFloat(amountInput) || 0) - totalAllocatedConverted)
+  const hasAllocationBudgetError = totalAllocatedRaw - budgetRaw > 0.001
 
   const handleRecord = () => {
     if (!debtorId) return
-    const paid = parseFloat(amountInput) || netOwedConverted
-    const repaidDate = new Date().toISOString().slice(0, 10)
-
-    // Mark only the selected currency's direct debts as repaid.
-    for (const creditorId of creditorIds) {
-      markSettlementPairRepaid(group.id, debtorId, creditorId, primaryCurrency, repaidDate)
+    const paid = parseFloat(amountInput) || totalOwedConverted
+    if (totalAllocatedRaw <= 0.001) return
+    if (hasAllocationBudgetError) {
+      window.alert(t('settle.editOverAllocated'))
+      return
     }
-
-    // Mark contra splits: creditors (Voo etc.) owed back to debtor (Hao) → repaid
-    if (contraRaw > 0) {
-      for (const creditorId of creditorIds) {
-        markSettlementPairRepaid(group.id, creditorId, debtorId, primaryCurrency, repaidDate)
-      }
-    }
-
-    // Apply redirects
-    for (const r of redirects) {
-      const amtInPaidCurrency = canConvert && parsedRate ? r.amount / parsedRate : r.amount
-      markRedirectRepaid(group.id, [...creditorIds], r.personId, amtInPaidCurrency, primaryCurrency, repaidDate)
-    }
-
-    const extra = paid - netOwedConverted
-    if (extra > 0.009 && debtor) {
+    addSettlementPayment(group.id, {
+      debtorId,
+      currency: primaryCurrency,
+      repayCurrency: displayCurrency,
+      repayAmount: paid,
+      paymentDate,
+      rate: canConvert ? parsedRate : null,
+      rateSource: canConvert ? 'manual' : null,
+      rateDate: canConvert ? paymentDate : null,
+      source: 'record_payment',
+      allocations: normalizedAllocations.filter((row) => row.amount > 0.001).map(({ creditorId, amount }) => ({ creditorId, amount })),
+      note: null,
+    })
+    if (unallocatedDisplay > 0.009 && debtor) {
       onRecord({
         id: Date.now().toString(),
         debtorName: debtor.name,
-        owedAmount: netOwedConverted,
+        owedAmount: totalAllocatedConverted,
         paidAmount: paid,
         currency: displayCurrency,
         recordedAt: new Date().toISOString(),
@@ -406,6 +367,21 @@ function RecordPaymentView({
       onRecord(null)
     }
   }
+
+  const applyAutoAllocations = () => {
+    const nextAllocations = autoAllocateSettlement(
+      counterpartyBalances.map((row) => ({ creditorId: row.creditorId, amount: row.netAmount })),
+      budgetRaw,
+    )
+    const nextMap: Record<string, string> = {}
+    nextAllocations.forEach((allocation) => {
+      nextMap[allocation.creditorId] = allocation.amount > 0 ? String(allocation.amount) : ''
+    })
+    setAllocations(nextMap)
+    setAllocationsDirty(false)
+  }
+
+  const allReceivingIds = counterpartyBalances.map((row) => row.creditorId)
 
   return (
     <>
@@ -431,7 +407,7 @@ function RecordPaymentView({
               <path d="M19 12H5"/><path d="m12 5-7 7 7 7"/>
             </svg>
           </button>
-          <h1 className="ms-title text-lg text-[#2c2520]">Record a payment</h1>
+          <h1 className="ms-title text-lg text-[#2c2520]">{t('settle.recordPaymentTitle')}</h1>
         </div>
 
         {/* Avatar pair — shows all receivers including redirect targets */}
@@ -440,7 +416,7 @@ function RecordPaymentView({
             {/* Debtor avatar */}
             <div className="flex flex-col items-center gap-1.5">
               <Avatar name={debtor?.name ?? '?'} avatarDataUrl={debtor?.avatarDataUrl} size="lg" />
-              <span className="max-w-[72px] truncate text-xs font-medium text-[#6b6058]">{debtor?.name ?? 'Unknown'}</span>
+              <span className="max-w-[72px] truncate text-xs font-medium text-[#6b6058]">{debtor?.name ?? t('card.unknown')}</span>
             </div>
             {/* Arrow */}
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -451,7 +427,6 @@ function RecordPaymentView({
               <div className="flex -space-x-3">
                 {allReceivingIds.slice(0, 4).map((cid, idx) => {
                   const cp = group.people.find((p) => p.id === cid)
-                  const isRedirect = !creditorIds.includes(cid)
                   return (
                     <Avatar
                       key={cid}
@@ -461,8 +436,8 @@ function RecordPaymentView({
                       className="border-2 border-[var(--ms-bg,#f4f0e8)]"
                       style={{
                         zIndex: allReceivingIds.length - idx,
-                        background: isRedirect ? 'rgba(80,106,70,0.18)' : 'rgba(96,65,69,0.15)',
-                        color: isRedirect ? '#4e6642' : '#604145',
+                        background: 'rgba(96,65,69,0.15)',
+                        color: '#604145',
                       }}
                     />
                   )
@@ -470,16 +445,16 @@ function RecordPaymentView({
               </div>
               {allReceivingIds.length === 1 && (
                 <span className="max-w-[72px] truncate text-xs font-medium text-[#6b6058]">
-                  {group.people.find((p) => p.id === allReceivingIds[0])?.name ?? 'Payer'}
+                  {group.people.find((p) => p.id === allReceivingIds[0])?.name ?? t('card.unknown')}
                 </span>
               )}
             </div>
           </div>
           <p className="text-sm text-[#6b6058]">
-            <span className="font-semibold text-[#2c2520]">{debtor?.name ?? 'Unknown'}</span>{' '}
-            {allReceivingIds.length === 1 && creditorIds.length === 1
-              ? `paid ${group.people.find((p) => p.id === creditorIds[0])?.name ?? 'you'}`
-              : 'settled up'}
+            <span className="font-semibold text-[#2c2520]">{debtor?.name ?? t('card.unknown')}</span>{' '}
+            {allReceivingIds.length === 1
+              ? `${t('settle.pays')} ${group.people.find((p) => p.id === allReceivingIds[0])?.name ?? t('card.unknown')}`
+              : t('settle.settledUp')}
           </p>
           {owedCurrencies.length > 1 && activeSettlementCurrency && (
             <p className="rounded-xl bg-[rgba(139,110,78,0.08)] px-3 py-2 text-center text-xs text-[#6b6058]">
@@ -518,10 +493,10 @@ function RecordPaymentView({
 
         {/* Items owed list */}
         <div className="mx-5 mb-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9a9088]">Items owed</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9a9088]">{t('settle.itemsOwed')}</p>
           {ownedItems.length === 0 ? (
             <div className="rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-6 text-center text-sm text-[#9a9088]">
-              No outstanding items found.
+              {t('settle.noOutstandingItems')}
             </div>
           ) : (
             <div className="space-y-2">
@@ -546,173 +521,105 @@ function RecordPaymentView({
           )}
         </div>
 
-        {/* Contra section — creditor owes debtor back */}
-        {contraItems.length > 0 && (
-          <div className="mx-5 mb-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9a9088]">Contra offset</p>
+        <div className="mx-5 mb-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#9a9088]">{t('settle.paymentAllocations')}</p>
+            <button className="text-xs font-medium text-[#6b6058] underline underline-offset-2" onClick={applyAutoAllocations}>
+              {t('settle.autoAllocate')}
+            </button>
+          </div>
+          {counterpartyBalances.length === 0 ? (
+            <div className="rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-6 text-center text-sm text-[#9a9088]">
+              {t('settle.noOutstanding')}
+            </div>
+          ) : (
             <div className="space-y-2">
-              {contraItems.map(({ expense, personId, amount }, idx) => {
-                const cat = normalizeCategory(expense.category)
-                const icon = CATEGORY_ICONS[cat] ?? '🧾'
-                const payer = group.people.find((p) => p.id === personId)
-                const displayAmt = canConvert && parsedRate
-                  ? `${getCurrencySymbol(repayCurrency)}${formatMoney(amount * parsedRate)}`
-                  : `${getCurrencySymbol(expense.paidCurrency)}${formatMoney(amount)}`
+              {counterpartyBalances.map((row) => {
+                const target = group.people.find((p) => p.id === row.creditorId)
+                const allocated = normalizedAllocations.find((entry) => entry.creditorId === row.creditorId)?.amount ?? 0
                 return (
-                  <div key={`contra-${expense.id}-${personId}-${idx}`} className="flex items-center gap-3 rounded-xl border border-[rgba(80,106,70,0.28)] bg-[rgba(80,106,70,0.07)] px-4 py-3">
-                    <span className="text-xl leading-none">{icon}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#2c2520]">{expense.description}</p>
-                      <p className="text-xs text-[#9a9088]">{payer?.name} owes · {expense.date}</p>
+                  <div key={row.creditorId} className="rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-[#2c2520]">{target?.name ?? t('card.unknown')}</p>
+                        <p className="text-xs text-[#9a9088]">
+                          {t('settle.outstandingToPerson')} {getCurrencySymbol(primaryCurrency)}{formatMoney(row.netAmount)}
+                        </p>
+                        {row.reverseAmount > 0.001 ? (
+                          <p className="text-xs text-[#6b6058]">
+                            {t('settle.includesContra')} {getCurrencySymbol(primaryCurrency)}{formatMoney(row.reverseAmount)}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="w-28">
+                        <input
+                          className="ms-input w-full text-right"
+                          type="number"
+                          inputMode="decimal"
+                          value={allocations[row.creditorId] ?? ''}
+                          onChange={(e) => {
+                            const nextValue = e.target.value
+                            setAllocations((prev) => ({ ...prev, [row.creditorId]: nextValue }))
+                            setAllocationsDirty(true)
+                          }}
+                        />
+                        <p className="mt-1 text-right text-[11px] text-[#9a9088]">
+                          {t('settle.appliedInDebtCurrency')} {getCurrencySymbol(primaryCurrency)}{formatMoney(allocated)}
+                        </p>
+                      </div>
                     </div>
-                    <span className="shrink-0 text-sm font-bold text-[#4e6642]">−{displayAmt}</span>
                   </div>
                 )
               })}
             </div>
+          )}
 
-            {/* Net calculation breakdown */}
-            <div className="mt-3 rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3 space-y-1">
+          <div className="mt-3 rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3 space-y-1">
+            <div className="flex items-center justify-between text-sm text-[#6b6058]">
+              <span>{t('settle.totalPayment')}</span>
+              <span className="font-semibold text-[#2c2520]">{getCurrencySymbol(displayCurrency)}{formatMoney(parseFloat(amountInput || '0'))}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm text-[#6b6058]">
+              <span>{t('settle.totalApplied')}</span>
+              <span className="font-semibold text-[#4e6642]">{getCurrencySymbol(displayCurrency)}{formatMoney(totalAllocatedConverted)}</span>
+            </div>
+            {unallocatedDisplay > 0.001 ? (
               <div className="flex items-center justify-between text-sm text-[#6b6058]">
-                <span>Total owed</span>
-                <span className="font-semibold text-[#9e4a4a]">{getCurrencySymbol(displayCurrency)}{formatMoney(totalOwedConverted)}</span>
+                <span>{t('settle.unallocatedAmount')}</span>
+                <span className="font-semibold text-[#8b6e4e]">{getCurrencySymbol(displayCurrency)}{formatMoney(unallocatedDisplay)}</span>
               </div>
-              <div className="flex items-center justify-between text-sm text-[#6b6058]">
-                <span>Contra offset</span>
-                <span className="font-semibold text-[#4e6642]">− {getCurrencySymbol(displayCurrency)}{formatMoney(contraConverted)}</span>
-              </div>
-              <div className="my-1 h-px bg-[var(--ms-border,#e6e0d5)]" />
-              <div className="flex items-center justify-between text-sm font-bold text-[#2c2520]">
-                <span>Net payable</span>
-                <span>{getCurrencySymbol(displayCurrency)}{formatMoney(netOwedConverted)}</span>
-              </div>
+            ) : null}
+            <div className="flex items-center justify-between text-sm text-[#6b6058]">
+              <span>{t('settle.paymentDate')}</span>
+              <input
+                className="ms-input w-40 py-1 text-right text-sm"
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Redirect records (shown below items) */}
-        {redirects.length > 0 && (
-          <div className="mx-5 mb-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9a9088]">Redirected payments</p>
-            <div className="space-y-2">
-              {redirects.map((r) => {
-                const target = group.people.find((p) => p.id === r.personId)
-                return (
-                  <div key={r.id} className="flex items-center gap-3 rounded-xl border border-[rgba(80,106,70,0.30)] bg-[rgba(80,106,70,0.07)] px-4 py-3">
-                    {/* Forward icon */}
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617a52" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                      <polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/>
-                    </svg>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-[#2c2520]">{target?.name ?? 'Unknown'}</p>
-                      <p className="text-xs text-[#6b6058]">On behalf of creditor</p>
-                    </div>
-                    <span className="shrink-0 text-sm font-bold text-[#4e6642]">
-                      {getCurrencySymbol(displayCurrency)}{formatMoney(r.amount)}
-                    </span>
-                    <button
-                      className="shrink-0 text-[#9a9088] hover:text-[#9e4a4a] active:opacity-60"
-                      onClick={() => setRedirects((prev) => prev.filter((x) => x.id !== r.id))}
-                      aria-label="Remove redirect"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                      </svg>
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Bottom action row: square Redirect button + Record a payment button */}
+        {/* Bottom action row */}
         <div className="flex items-center gap-3 px-5 pb-12">
-          {/* Square redirect button */}
           <button
-            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] text-[#6b6058] transition-colors hover:bg-[#e8e0d0] active:opacity-70"
-            title="Redirect payment to another person"
-            onClick={() => setRedirectPanelOpen(true)}
+            className="ms-btn-ghost h-[52px] shrink-0 px-4 text-sm"
+            onClick={applyAutoAllocations}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/>
-            </svg>
+            {t('settle.autoAllocate')}
           </button>
 
-          {/* Record a payment button */}
           <button
             className="ms-btn-primary flex-1 py-4 text-base"
             onClick={handleRecord}
+            disabled={totalAllocatedRaw <= 0.001 || hasAllocationBudgetError}
           >
-            Record a payment
+            {t('settle.recordPayment')}
           </button>
         </div>
       </div>
     </div>
-
-    {/* Redirect panel (slides up over the Record Payment view) */}
-    <>
-      <div
-        className={`fixed inset-0 bg-[#2c2520]/40 transition-opacity duration-200 ${redirectPanelOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-        style={{ zIndex: 76 }}
-        onClick={() => setRedirectPanelOpen(false)}
-      />
-      <div
-        className="fixed inset-x-0 bottom-0 mx-auto max-w-lg rounded-t-2xl bg-[var(--ms-bg,#f4f0e8)] px-5 pb-8 pt-5 shadow-2xl"
-        style={{
-          zIndex: 77,
-          transform: redirectPanelOpen ? 'translate3d(0,0,0)' : 'translate3d(0,100%,0)',
-          transition: redirectPanelOpen
-            ? 'transform 360ms cubic-bezier(0.32,0.72,0,1)'
-            : 'transform 300ms cubic-bezier(0.55,0,1,0.45)',
-          willChange: 'transform',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--ms-border,#d8d0c4)]" />
-        <h3 className="ms-title mb-1 text-base">Redirect Payment</h3>
-        <p className="mb-4 text-xs text-[#9a9088]">Send part of this payment to another person on behalf of your creditor.</p>
-
-        {/* Person picker */}
-        <label className="mb-3 block text-sm font-medium text-[#6b6058]">
-          Pay to
-          <select
-            className="ms-input mt-1 w-full"
-            value={redirectPersonId}
-            onChange={(e) => setRedirectPersonId(e.target.value)}
-          >
-            {redirectTargets.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        </label>
-
-        {/* Amount input */}
-        <label className="mb-4 block text-sm font-medium text-[#6b6058]">
-          Amount ({displayCurrency})
-          <input
-            className="ms-input mt-1 w-full"
-            type="number"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={redirectAmountInput}
-            onChange={(e) => setRedirectAmountInput(e.target.value)}
-          />
-        </label>
-
-        <p className="mb-4 rounded-xl bg-[rgba(80,106,70,0.08)] px-3 py-2.5 text-xs text-[#4e6642]">
-          This clears the equivalent debt that your creditor owes to the selected person.
-        </p>
-
-        <button
-          className="ms-btn-primary w-full"
-          onClick={handleAddRedirect}
-          disabled={!redirectPersonId || !parseFloat(redirectAmountInput)}
-        >
-          Confirm redirect
-        </button>
-      </div>
-    </>
     </>
   )
 }
@@ -780,7 +687,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
   const myPersonId = myPerson?.id ?? null
 
   // Settlements — only the logged-in user's own debts
-  const settlements = useMemo(() => getSettlements(group.expenses), [group.expenses])
+  const settlements = useMemo(() => getSettlements(group.expenses, group.settlementPayments), [group.expenses, group.settlementPayments])
   const debtorRows = useMemo(() => {
     const map = new Map<string, { currency: string; total: number }[]>()
     for (const s of settlements) {
@@ -894,10 +801,10 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
           {/* Title */}
           <div className="px-5 pb-2" style={stagger(1)}>
             <h1 className="ms-title text-xl leading-snug text-[#2c2520]">
-              {myPersonId ? 'Your outstanding balances' : 'Whose outstanding do you want to settle?'}
+              {myPersonId ? t('settle.yourOutstandingBalances') : t('settle.choosePersonToSettle')}
             </h1>
             {myPersonId && myPerson && (
-              <p className="mt-0.5 text-sm text-[#9a9088]">Logged in as <span className="font-semibold text-[#6b6058]">{myPerson.name}</span></p>
+              <p className="mt-0.5 text-sm text-[#9a9088]">{t('settle.loggedInAs')} <span className="font-semibold text-[#6b6058]">{myPerson.name}</span></p>
             )}
           </div>
 
@@ -913,9 +820,12 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                   <div key={tip.id} className="flex items-start gap-2 rounded-xl border border-[rgba(58,106,58,0.25)] bg-[rgba(58,106,58,0.08)] px-3 py-2.5">
                     <span className="mt-0.5 text-base leading-none">🎉</span>
                     <p className="text-xs leading-snug text-[#3a6a3a]">
-                      <span className="font-bold">{tip.debtorName}</span> paid{' '}
-                      {getCurrencySymbol(tip.currency)}{formatMoney(tip.paidAmount)} and gave an extra{' '}
-                      <span className="font-bold">{getCurrencySymbol(tip.currency)}{formatMoney(extra)}</span> tip!
+                      <span className="font-bold">{tip.debtorName}</span>{' '}
+                      {t('settle.paidWord')}{' '}
+                      {getCurrencySymbol(tip.currency)}{formatMoney(tip.paidAmount)}{' '}
+                      {t('settle.andGaveExtra')}{' '}
+                      <span className="font-bold">{getCurrencySymbol(tip.currency)}{formatMoney(extra)}</span>{' '}
+                      {t('settle.tipSuffix')}
                     </p>
                     <button
                       className="ml-auto shrink-0 text-[#3a6a3a] opacity-50 hover:opacity-100"
@@ -940,8 +850,8 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                 <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3 text-[#9a9088]">
                   <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
                 </svg>
-                <p className="font-semibold text-[#3a3330]">You're not a member yet</p>
-                <p className="mt-1 text-xs text-[#9a9088]">You need to be added to this group to view and settle your balance.</p>
+                <p className="font-semibold text-[#3a3330]">{t('settle.notMemberYet')}</p>
+                <p className="mt-1 text-xs text-[#9a9088]">{t('settle.needToBeAdded')}</p>
               </div>
             )}
             {debtorRows.length === 0 && myPersonId ? (
@@ -949,8 +859,8 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3 text-[#9a9088]">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>
                 </svg>
-                <p className="font-semibold text-[#3a3330]">All settled up!</p>
-                <p className="mt-1 text-xs text-[#9a9088]">You have no outstanding balances.</p>
+                <p className="font-semibold text-[#3a3330]">{t('settle.allSettledUp')}</p>
+                <p className="mt-1 text-xs text-[#9a9088]">{t('settle.noOutstandingBalances')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -962,8 +872,8 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                     >
                       <Avatar name={person?.name ?? '?'} avatarDataUrl={person?.avatarDataUrl} />
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[#2c2520]">{person?.name ?? 'Unknown'}</p>
-                        <p className="mt-0.5 text-xs text-[#9a9088]">Your repayment balance</p>
+                        <p className="font-semibold text-[#2c2520]">{person?.name ?? t('card.unknown')}</p>
+                        <p className="mt-0.5 text-xs text-[#9a9088]">{t('settle.yourRepaymentBalance')}</p>
                       </div>
                       <div className="shrink-0 text-right">
                         {displayAmount(totals).map(({ currency, amount, original }) => (

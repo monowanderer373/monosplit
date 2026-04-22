@@ -81,6 +81,30 @@ export interface Expense {
   splits: Split[]
 }
 
+export interface SettlementPaymentAllocation {
+  creditorId: string
+  amount: number
+}
+
+export type SettlementPaymentSource = 'record_payment' | 'quick_settle' | 'history_edit'
+
+export interface SettlementPayment {
+  id: string
+  debtorId: string
+  currency: string
+  repayCurrency: string
+  repayAmount: number
+  paymentDate: string
+  createdAt: string
+  updatedAt: string
+  rate: number | null
+  rateSource: string | null
+  rateDate: string | null
+  source: SettlementPaymentSource
+  note?: string | null
+  allocations: SettlementPaymentAllocation[]
+}
+
 export interface Group {
   id: string
   name: string
@@ -90,6 +114,7 @@ export interface Group {
   defaultRepayCurrency: string
   people: Person[]
   expenses: Expense[]
+  settlementPayments: SettlementPayment[]
   comments: GroupComment[]
   createdAt: string
   ownerId?: string

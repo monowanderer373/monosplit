@@ -83,7 +83,6 @@ export default function GroupPage() {
   const addExpense = useStore((state) => state.addExpense)
   const updateExpense = useStore((state) => state.updateExpense)
   const removeExpense = useStore((state) => state.removeExpense)
-  const markSettlementPairRepaid = useStore((state) => state.markSettlementPairRepaid)
   const addGroupComment = useStore((state) => state.addGroupComment)
 
   const totalExpenses = useMemo(() => group?.expenses.length ?? 0, [group?.expenses.length])
@@ -421,9 +420,6 @@ export default function GroupPage() {
             <SettleTab
               group={group}
               canSettle={canUseSettle}
-              onMarkPairRepaid={(debtorId, creditorId, currency, repaidDate) =>
-                canUseSettle && markSettlementPairRepaid(group.id, debtorId, creditorId, currency, repaidDate)
-              }
             />
           ) : null}
       </div>
