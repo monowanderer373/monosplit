@@ -289,6 +289,7 @@ function RecordPaymentView({
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [allocations, setAllocations] = useState<Record<string, string>>({})
   const [allocationsDirty, setAllocationsDirty] = useState(false)
+  const [creditorEnabled, setCreditorEnabled] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (isOpen) {
@@ -296,8 +297,12 @@ function RecordPaymentView({
       setEditingAmount(false)
       setPaymentDate(new Date().toISOString().slice(0, 10))
       setAllocationsDirty(false)
+      // Enable all creditors by default
+      const enabledMap: Record<string, boolean> = {}
+      counterpartyBalances.forEach((row) => { enabledMap[row.creditorId] = true })
+      setCreditorEnabled(enabledMap)
     }
-  }, [isOpen, totalOwedConverted])
+  }, [isOpen, totalOwedConverted, counterpartyBalances])
 
   useEffect(() => {
     if (editingAmount) inputRef.current?.focus()
@@ -307,19 +312,29 @@ function RecordPaymentView({
     if (!isOpen || allocationsDirty) return
     const enteredDisplayAmount = parseFloat(amountInput) || 0
     const debtBudget = canConvert && parsedRate ? enteredDisplayAmount / parsedRate : enteredDisplayAmount
+    const activeBalances = counterpartyBalances.filter((row) => creditorEnabled[row.creditorId] !== false)
     const nextAllocations = autoAllocateSettlement(
-      counterpartyBalances.map((row) => ({ creditorId: row.creditorId, amount: row.netAmount })),
+      activeBalances.map((row) => ({ creditorId: row.creditorId, amount: row.netAmount })),
       debtBudget,
     )
     const nextMap: Record<string, string> = {}
     nextAllocations.forEach((allocation) => {
       nextMap[allocation.creditorId] = allocation.amount > 0 ? String(allocation.amount) : ''
     })
+    // Zero out disabled creditors
+    counterpartyBalances.forEach((row) => {
+      if (creditorEnabled[row.creditorId] === false) nextMap[row.creditorId] = ''
+    })
     setAllocations(nextMap)
-  }, [allocationsDirty, amountInput, canConvert, counterpartyBalances, isOpen, parsedRate])
+  }, [allocationsDirty, amountInput, canConvert, counterpartyBalances, creditorEnabled, isOpen, parsedRate])
 
   const budgetRaw = canConvert && parsedRate ? (parseFloat(amountInput) || 0) / parsedRate : parseFloat(amountInput) || 0
+
+  // Only include enabled creditors in allocations
+  const activeCounterpartyBalances = counterpartyBalances.filter((row) => creditorEnabled[row.creditorId] !== false)
+
   const normalizedAllocations = counterpartyBalances.map((row) => {
+    if (creditorEnabled[row.creditorId] === false) return { creditorId: row.creditorId, amount: 0, outstanding: row.netAmount }
     const entered = Number(allocations[row.creditorId] || 0)
     const amount = Math.min(row.netAmount, Math.max(0, round4(Number.isFinite(entered) ? entered : 0)))
     return {
@@ -328,6 +343,27 @@ function RecordPaymentView({
       outstanding: row.netAmount,
     }
   })
+
+  // Quick amount helpers
+  const activeTotalOwedRaw = activeCounterpartyBalances.reduce((sum, row) => sum + row.netAmount, 0)
+  const activeTotalOwedConverted = canConvert && parsedRate ? activeTotalOwedRaw * parsedRate : activeTotalOwedRaw
+
+  const applyQuickAmount = (multiplier: number) => {
+    const newAmount = activeTotalOwedConverted * multiplier
+    setAmountInput(newAmount.toFixed(2))
+    setAllocationsDirty(false)
+  }
+
+  const toggleCreditor = (creditorId: string) => {
+    const next = { ...creditorEnabled, [creditorId]: creditorEnabled[creditorId] === false ? true : false }
+    setCreditorEnabled(next)
+    setAllocationsDirty(false)
+    // Recalculate amount to match newly active creditors
+    const enabledBalances = counterpartyBalances.filter((row) => next[row.creditorId] !== false)
+    const newTotal = enabledBalances.reduce((sum, row) => sum + row.netAmount, 0)
+    const newConverted = canConvert && parsedRate ? newTotal * parsedRate : newTotal
+    setAmountInput(newConverted.toFixed(2))
+  }
   const totalAllocatedRaw = normalizedAllocations.reduce((sum, row) => sum + row.amount, 0)
   const totalAllocatedConverted = canConvert && parsedRate ? totalAllocatedRaw * parsedRate : totalAllocatedRaw
   const unallocatedDisplay = Math.max(0, (parseFloat(amountInput) || 0) - totalAllocatedConverted)
@@ -369,13 +405,17 @@ function RecordPaymentView({
   }
 
   const applyAutoAllocations = () => {
+    const activeBalances = counterpartyBalances.filter((row) => creditorEnabled[row.creditorId] !== false)
     const nextAllocations = autoAllocateSettlement(
-      counterpartyBalances.map((row) => ({ creditorId: row.creditorId, amount: row.netAmount })),
+      activeBalances.map((row) => ({ creditorId: row.creditorId, amount: row.netAmount })),
       budgetRaw,
     )
     const nextMap: Record<string, string> = {}
     nextAllocations.forEach((allocation) => {
       nextMap[allocation.creditorId] = allocation.amount > 0 ? String(allocation.amount) : ''
+    })
+    counterpartyBalances.forEach((row) => {
+      if (creditorEnabled[row.creditorId] === false) nextMap[row.creditorId] = ''
     })
     setAllocations(nextMap)
     setAllocationsDirty(false)
@@ -464,31 +504,54 @@ function RecordPaymentView({
         </div>
 
         {/* Editable amount */}
-        <div className="mx-5 mb-5 flex items-center justify-center gap-3 rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-5 py-4">
-          {editingAmount ? (
-            <input
-              ref={inputRef}
-              className="min-w-0 flex-1 bg-transparent text-center text-3xl font-bold text-[#2c2520] outline-none"
-              type="number"
-              inputMode="decimal"
-              value={amountInput}
-              onChange={(e) => setAmountInput(e.target.value)}
-              onBlur={() => setEditingAmount(false)}
-            />
-          ) : (
-            <span className="text-3xl font-bold text-[#2c2520]">
-              {getCurrencySymbol(displayCurrency)}{parseFloat(amountInput || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          )}
+        <div className="mx-5 mb-2">
           <button
-            className="shrink-0 rounded-lg p-1.5 text-[#9a9088] hover:bg-[rgba(0,0,0,0.06)] active:opacity-60"
-            onClick={() => setEditingAmount(true)}
-            aria-label="Edit amount"
+            className="w-full rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-5 py-4 text-center active:opacity-70"
+            onClick={() => { setEditingAmount(true); setTimeout(() => inputRef.current?.focus(), 50) }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
+            {editingAmount ? (
+              <input
+                ref={inputRef}
+                className="w-full bg-transparent text-center text-3xl font-bold text-[#2c2520] outline-none"
+                type="number"
+                inputMode="decimal"
+                value={amountInput}
+                onChange={(e) => { setAmountInput(e.target.value); setAllocationsDirty(false) }}
+                onBlur={() => setEditingAmount(false)}
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-3xl font-bold text-[#2c2520]">
+                  {getCurrencySymbol(displayCurrency)}{parseFloat(amountInput || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+              </div>
+            )}
           </button>
+          {/* Quick amount buttons */}
+          <div className="mt-2 flex gap-2">
+            <button
+              className="flex-1 rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] py-2 text-sm font-semibold text-[#4e6642] transition-colors hover:bg-[rgba(78,102,66,0.1)] active:opacity-70"
+              onClick={() => applyQuickAmount(1)}
+            >
+              {t('settle.payFull')}
+            </button>
+            <button
+              className="flex-1 rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] py-2 text-sm font-semibold text-[#8b6e4e] transition-colors hover:bg-[rgba(139,110,78,0.1)] active:opacity-70"
+              onClick={() => applyQuickAmount(0.5)}
+            >
+              {t('settle.payHalf')}
+            </button>
+            <button
+              className="flex-1 rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] py-2 text-sm font-semibold text-[#6b6058] transition-colors hover:bg-[rgba(0,0,0,0.06)] active:opacity-70"
+              onClick={() => { setAmountInput(''); setEditingAmount(true); setTimeout(() => inputRef.current?.focus(), 50) }}
+            >
+              {t('settle.payCustom')}
+            </button>
+          </div>
         </div>
 
         {/* Items owed list */}
@@ -537,36 +600,63 @@ function RecordPaymentView({
               {counterpartyBalances.map((row) => {
                 const target = group.people.find((p) => p.id === row.creditorId)
                 const allocated = normalizedAllocations.find((entry) => entry.creditorId === row.creditorId)?.amount ?? 0
+                const isEnabled = creditorEnabled[row.creditorId] !== false
+                const remaining = Math.max(0, row.netAmount - allocated)
                 return (
-                  <div key={row.creditorId} className="rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3">
+                  <div
+                    key={row.creditorId}
+                    className={`rounded-xl border px-4 py-3 transition-opacity ${isEnabled ? 'border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)]' : 'border-[var(--ms-border,#e6e0d5)] bg-[rgba(0,0,0,0.03)] opacity-50'}`}
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-[#2c2520]">{target?.name ?? t('card.unknown')}</p>
-                        <p className="text-xs text-[#9a9088]">
+                        <div className="flex items-center gap-2">
+                          {/* Toggle button */}
+                          <button
+                            className={`flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${isEnabled ? 'bg-[#4e6642]' : 'bg-[#d0c8be]'}`}
+                            onClick={() => toggleCreditor(row.creditorId)}
+                            aria-label={isEnabled ? 'Exclude creditor' : 'Include creditor'}
+                          >
+                            <span
+                              className={`ml-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${isEnabled ? 'translate-x-4' : 'translate-x-0'}`}
+                            />
+                          </button>
+                          <p className="truncate text-sm font-semibold text-[#2c2520]">{target?.name ?? t('card.unknown')}</p>
+                        </div>
+                        <p className="mt-1 text-xs text-[#9a9088]">
                           {t('settle.outstandingToPerson')} {getCurrencySymbol(primaryCurrency)}{formatMoney(row.netAmount)}
                         </p>
+                        {isEnabled && remaining > 0.001 && allocated > 0.001 && (
+                          <p className="text-xs text-[#8b6e4e]">
+                            {t('settle.remainingAfter')} {getCurrencySymbol(primaryCurrency)}{formatMoney(remaining)}
+                          </p>
+                        )}
+                        {isEnabled && remaining < 0.001 && allocated > 0.001 && (
+                          <p className="text-xs font-medium text-[#4e6642]">{t('settle.fullyCovered')}</p>
+                        )}
                         {row.reverseAmount > 0.001 ? (
                           <p className="text-xs text-[#6b6058]">
                             {t('settle.includesContra')} {getCurrencySymbol(primaryCurrency)}{formatMoney(row.reverseAmount)}
                           </p>
                         ) : null}
                       </div>
-                      <div className="w-28">
-                        <input
-                          className="ms-input w-full text-right"
-                          type="number"
-                          inputMode="decimal"
-                          value={allocations[row.creditorId] ?? ''}
-                          onChange={(e) => {
-                            const nextValue = e.target.value
-                            setAllocations((prev) => ({ ...prev, [row.creditorId]: nextValue }))
-                            setAllocationsDirty(true)
-                          }}
-                        />
-                        <p className="mt-1 text-right text-[11px] text-[#9a9088]">
-                          {t('settle.appliedInDebtCurrency')} {getCurrencySymbol(primaryCurrency)}{formatMoney(allocated)}
-                        </p>
-                      </div>
+                      {isEnabled && (
+                        <div className="w-28">
+                          <input
+                            className="ms-input w-full text-right"
+                            type="number"
+                            inputMode="decimal"
+                            value={allocations[row.creditorId] ?? ''}
+                            onChange={(e) => {
+                              const nextValue = e.target.value
+                              setAllocations((prev) => ({ ...prev, [row.creditorId]: nextValue }))
+                              setAllocationsDirty(true)
+                            }}
+                          />
+                          <p className="mt-1 text-right text-[11px] text-[#9a9088]">
+                            {getCurrencySymbol(primaryCurrency)}{formatMoney(allocated)}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
