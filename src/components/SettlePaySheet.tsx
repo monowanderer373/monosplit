@@ -753,6 +753,9 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
   const [selectedCreditorIds, setSelectedCreditorIds] = useState<string[] | null>(null)
   const [tipLog, setTipLog] = useState<TipEntry[]>([])
 
+  // Gross/net toggle
+  const [showGross, setShowGross] = useState(false)
+
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const clear = () => timers.current.forEach(clearTimeout)
   const after = (fn: () => void, ms: number) => { const id = setTimeout(fn, ms); timers.current.push(id) }
@@ -795,47 +798,45 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
   )
   const myPersonId = myPerson?.id ?? null
 
-  // Settlements — only the logged-in user's own debts
+  // Settlements — raw pair totals (used only internally here)
   const settlements = useMemo(() => getSettlements(group.expenses, group.settlementPayments), [group.expenses, group.settlementPayments])
 
-  // Debtor rows (for backward compat / "am I a debtor" check)
-  const debtorRows = useMemo(() => {
-    const map = new Map<string, { currency: string; total: number }[]>()
-    for (const s of settlements) {
-      if (myPersonId && s.debtorId !== myPersonId) continue
-      const arr = map.get(s.debtorId) ?? []
-      const found = arr.find((e) => e.currency === s.currency)
-      if (found) found.total += s.amount
-      else arr.push({ currency: s.currency, total: s.amount })
-      map.set(s.debtorId, arr)
-    }
-    return [...map.entries()].map(([personId, totals]) => ({
-      personId,
-      person: group.people.find((p) => p.id === personId),
-      totals,
-    }))
-  }, [settlements, group.people, myPersonId])
+  // Snapshot for contra-netting calculations
+  const snapshot = useMemo(() => createGroupSettlementSnapshot(group), [group])
 
-  // Creditor rows — one row per person I owe, per currency
-  const creditorRows = useMemo(() => {
-    const rows: { creditorId: string; currency: string; total: number }[] = []
-    for (const s of settlements) {
-      if (myPersonId && s.debtorId !== myPersonId) continue
-      if (s.amount <= 0.001) continue
-      rows.push({ creditorId: s.creditorId, currency: s.currency, total: s.amount })
-    }
-    // Sort: largest first
-    return rows.sort((a, b) => b.total - a.total)
-  }, [settlements, myPersonId])
+  // All creditor info: gross amount I owe, reverse amount they owe me, net amount
+  type CreditorInfo = { creditorId: string; currency: string; grossAmount: number; reverseAmount: number; netAmount: number }
+  const allCreditorInfo = useMemo((): CreditorInfo[] => {
+    if (!myPersonId) return []
+    const currencies = [...new Set(
+      settlements.filter(s => s.debtorId === myPersonId && s.amount > 0.001).map(s => s.currency)
+    )]
+    return currencies.flatMap(currency =>
+      getCounterpartyBalances(snapshot, myPersonId, currency)
+        .filter(b => b.directAmount > 0.001)
+        .map(b => ({
+          creditorId: b.creditorId,
+          currency,
+          grossAmount: b.directAmount,
+          reverseAmount: b.reverseAmount,
+          netAmount: b.netAmount,
+        }))
+    ).sort((a, b) => b.netAmount - a.netAmount || b.grossAmount - a.grossAmount)
+  }, [myPersonId, settlements, snapshot])
 
-  // Total owed per currency (for "Pay All" row)
+  // Rows where I actually owe them (net > 0)
+  const payableRows = useMemo(() => allCreditorInfo.filter(r => r.netAmount > 0.001), [allCreditorInfo])
+  // Rows where mutual debt offsets (they owe me more than I owe them)
+  const offsetRows = useMemo(() => allCreditorInfo.filter(r => r.netAmount <= 0.001), [allCreditorInfo])
+
+  // Total owed per currency (net amounts only, for "Pay All" row)
   const totalOwedByCurrency = useMemo(() => {
     const map = new Map<string, number>()
-    creditorRows.forEach(({ currency, total }) => {
-      map.set(currency, (map.get(currency) ?? 0) + total)
+    payableRows.forEach(({ currency, netAmount }) => {
+      map.set(currency, (map.get(currency) ?? 0) + netAmount)
     })
     return [...map.entries()].map(([currency, total]) => ({ currency, total }))
-  }, [creditorRows])
+  }, [payableRows])
 
   if (phase === 'closed') return null
 
@@ -867,23 +868,12 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
     transition: `opacity 280ms ease ${i * 55}ms, transform 280ms ease ${i * 55}ms`,
   })
 
-  // The primary recorded currency of debts (used for rate fetching & conversion)
-  const primaryDebtCurrency = debtorRows[0]?.totals[0]?.currency ?? group.defaultPaidCurrency
+  // The primary recorded currency of debts (largest net-payable currency)
+  const primaryDebtCurrency = payableRows[0]?.currency ?? allCreditorInfo[0]?.currency ?? group.defaultPaidCurrency
 
   // Parsed rate: 1 primaryDebtCurrency = parsedRate repayCurrency
   const parsedRate = exchangeRate ? parseFloat(exchangeRate) : null
   const canConvert = parsedRate != null && parsedRate > 0 && primaryDebtCurrency !== repayCurrency
-
-  // Compute display amount for a person's totals
-  const displayAmount = (totals: { currency: string; total: number }[]) => {
-    return totals.map(({ currency, total }) => {
-      if (canConvert && currency === primaryDebtCurrency) {
-        const converted = total * parsedRate!
-        return { currency: repayCurrency, amount: converted, original: { currency, amount: total } }
-      }
-      return { currency, amount: total, original: null }
-    })
-  }
 
   const openRecordPayment = (personId: string, currency: string, creditorIds: string[] | null) => {
     setSelectedSettlementCurrency(currency)
@@ -928,13 +918,23 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
             </button>
           </div>
 
-          {/* Title */}
-          <div className="px-5 pb-2" style={stagger(1)}>
-            <h1 className="ms-title text-xl leading-snug text-[#2c2520]">
-              {myPersonId ? t('settle.yourOutstandingBalances') : t('settle.choosePersonToSettle')}
-            </h1>
-            {myPersonId && myPerson && (
-              <p className="mt-0.5 text-sm text-[#9a9088]">{t('settle.loggedInAs')} <span className="font-semibold text-[#6b6058]">{myPerson.name}</span></p>
+          {/* Title + gross/net toggle */}
+          <div className="flex items-start justify-between gap-3 px-5 pb-2" style={stagger(1)}>
+            <div className="min-w-0">
+              <h1 className="ms-title text-xl leading-snug text-[#2c2520]">
+                {myPersonId ? t('settle.yourOutstandingBalances') : t('settle.choosePersonToSettle')}
+              </h1>
+              {myPersonId && myPerson && (
+                <p className="mt-0.5 text-sm text-[#9a9088]">{t('settle.loggedInAs')} <span className="font-semibold text-[#6b6058]">{myPerson.name}</span></p>
+              )}
+            </div>
+            {myPersonId && allCreditorInfo.length > 0 && (
+              <button
+                className={`mt-1 shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${showGross ? 'border-[#8b6e4e] bg-[rgba(139,110,78,0.12)] text-[#8b6e4e]' : 'border-[var(--ms-border,#e6e0d5)] text-[#9a9088] hover:border-[#8b6e4e] hover:text-[#8b6e4e]'}`}
+                onClick={() => setShowGross(v => !v)}
+              >
+                {showGross ? t('settle.toggleNet') : t('settle.toggleGross')}
+              </button>
             )}
           </div>
 
@@ -984,18 +984,32 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                 <p className="mt-1 text-xs text-[#9a9088]">{t('settle.needToBeAdded')}</p>
               </div>
             )}
-            {creditorRows.length === 0 && myPersonId ? (
+            {payableRows.length === 0 && myPersonId && !showGross ? (
               <div className="mt-10 text-center" style={stagger(3)}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3 text-[#9a9088]">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>
                 </svg>
                 <p className="font-semibold text-[#3a3330]">{t('settle.allSettledUp')}</p>
                 <p className="mt-1 text-xs text-[#9a9088]">{t('settle.noOutstandingBalances')}</p>
+                {offsetRows.length > 0 && (
+                  <p className="mt-2 text-xs text-[#8b6e4e]">
+                    {offsetRows.length === 1
+                      ? `${group.people.find(p => p.id === offsetRows[0].creditorId)?.name ?? ''} owes you more — tap "Show all debts" to see details.`
+                      : `${offsetRows.length} members owe you more than you owe them — tap "Show all debts" to see details.`}
+                  </p>
+                )}
               </div>
-            ) : (
-              <div className="space-y-2">
-                {/* Pay All row — shown when there are 2+ creditors */}
-                {creditorRows.length > 1 && myPersonId && (
+            ) : myPersonId ? (
+              <div className="space-y-3">
+                {/* ── "To Pay" section ── */}
+                {showGross && payableRows.length > 0 && (
+                  <p className="px-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-[#9a9088]" style={stagger(3)}>
+                    {t('settle.sectionToPay')}
+                  </p>
+                )}
+
+                {/* Pay All row — shown when there are 2+ payable creditors */}
+                {payableRows.length > 1 && (
                   <div style={stagger(3)}>
                     <button
                       className="flex w-full items-center gap-3 rounded-2xl border-2 border-[var(--ms-accent,#8b6e4e)] bg-[rgba(139,110,78,0.07)] px-4 py-3 text-left active:opacity-70"
@@ -1007,7 +1021,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[var(--ms-accent,#8b6e4e)]">{t('settle.payAllPeople')}</p>
                         <p className="mt-0.5 text-xs text-[#9a9088]">
-                          {creditorRows.length} {t('settle.creditorsLabel')}
+                          {payableRows.length} {t('settle.creditorsLabel')}
                           {totalOwedByCurrency.length > 1 && (
                             <span className="ml-1 text-[#8b6e4e]">· {totalOwedByCurrency.length} {t('settle.currencies')}</span>
                           )}
@@ -1032,7 +1046,6 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                         <path d="m9 18 6-6-6-6"/>
                       </svg>
                     </button>
-                    {/* Multi-currency warning */}
                     {totalOwedByCurrency.length > 1 && (
                       <p className="mt-1 px-1 text-[11px] text-[#8b6e4e]">
                         ⚠ {t('settle.multiCurrencyPayAllNote')}
@@ -1040,41 +1053,99 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                     )}
                   </div>
                 )}
-                {/* Individual creditor rows */}
-                {creditorRows.map(({ creditorId, currency, total }, i) => {
+
+                {/* Payable creditor rows */}
+                {payableRows.map(({ creditorId, currency, netAmount }, i) => {
                   const creditor = group.people.find((p) => p.id === creditorId)
                   const displayed = canConvert && currency === primaryDebtCurrency && parsedRate
-                    ? { currency: repayCurrency, amount: total * parsedRate }
-                    : { currency, amount: total }
+                    ? { currency: repayCurrency, amount: netAmount * parsedRate }
+                    : { currency, amount: netAmount }
                   return (
-                  <div key={`${creditorId}-${currency}`} style={stagger(3 + (creditorRows.length > 1 ? 1 : 0) + i)}>
-                    <button
-                      className="ms-key flex w-full items-center gap-3 rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3 text-left active:opacity-70"
-                      onClick={() => openPayOne(creditorId, currency)}
-                    >
-                      <Avatar name={creditor?.name ?? '?'} avatarDataUrl={creditor?.avatarDataUrl} />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[#2c2520]">{creditor?.name ?? t('card.unknown')}</p>
-                        <p className="mt-0.5 text-xs text-[#9a9088]">{t('settle.youOweThisPerson')}</p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="font-bold text-[#9e4a4a]">{getCurrencySymbol(displayed.currency)}{formatMoney(displayed.amount)}</p>
-                        {displayed.currency !== currency && (
-                          <p className="text-[10px] text-[#9a9088]">≈ {getCurrencySymbol(currency)}{formatMoney(total)}</p>
-                        )}
-                      </div>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                        <path d="m9 18 6-6-6-6"/>
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                    <div key={`pay-${creditorId}-${currency}`} style={stagger(3 + (payableRows.length > 1 ? 1 : 0) + i)}>
+                      <button
+                        className="ms-key flex w-full items-center gap-3 rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3 text-left active:opacity-70"
+                        onClick={() => openPayOne(creditorId, currency)}
+                      >
+                        <Avatar name={creditor?.name ?? '?'} avatarDataUrl={creditor?.avatarDataUrl} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-[#2c2520]">{creditor?.name ?? t('card.unknown')}</p>
+                          <p className="mt-0.5 text-xs text-[#9a9088]">{t('settle.youOweThisPerson')}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-bold text-[#9e4a4a]">{getCurrencySymbol(displayed.currency)}{formatMoney(displayed.amount)}</p>
+                          {displayed.currency !== currency && (
+                            <p className="text-[10px] text-[#9a9088]">≈ {getCurrencySymbol(currency)}{formatMoney(netAmount)}</p>
+                          )}
+                          {showGross && payableRows.find(r => r.creditorId === creditorId)?.reverseAmount != null &&
+                            payableRows.find(r => r.creditorId === creditorId)!.reverseAmount > 0.001 && (
+                            <p className="text-[10px] text-[#9a9088]">
+                              {t('settle.grossLabel')}: {getCurrencySymbol(currency)}{formatMoney(payableRows.find(r => r.creditorId === creditorId)!.grossAmount)}
+                            </p>
+                          )}
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                      </button>
+                      {/* Contra breakdown in gross mode */}
+                      {showGross && (() => {
+                        const row = payableRows.find(r => r.creditorId === creditorId)!
+                        if (row.reverseAmount <= 0.001) return null
+                        return (
+                          <div className="mx-1 mt-1 rounded-xl bg-[rgba(139,110,78,0.06)] px-3 py-2 text-xs text-[#6b6058]">
+                            <span>{t('settle.grossLabel')}: {getCurrencySymbol(currency)}{formatMoney(row.grossAmount)}</span>
+                            <span className="mx-2 text-[#c8c0b6]">·</span>
+                            <span>{t('settle.contraLabel')}: {getCurrencySymbol(currency)}{formatMoney(row.reverseAmount)}</span>
+                            <span className="mx-2 text-[#c8c0b6]">·</span>
+                            <span className="font-semibold text-[#9e4a4a]">{t('settle.netResultYouOwe')} {getCurrencySymbol(currency)}{formatMoney(row.netAmount)}</span>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )
+                })}
+
+                {/* ── "Mutual Debts" section (gross mode only) ── */}
+                {showGross && offsetRows.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2 px-1 pt-3" style={stagger(3 + payableRows.length + (payableRows.length > 1 ? 1 : 0))}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#9a9088]">{t('settle.sectionMutual')}</p>
+                      <div className="h-px flex-1 bg-[var(--ms-border,#e6e0d5)]" />
+                    </div>
+                    {offsetRows.map(({ creditorId, currency, grossAmount, reverseAmount }, i) => {
+                      const creditor = group.people.find((p) => p.id === creditorId)
+                      const theyOweYou = reverseAmount - grossAmount
+                      return (
+                        <div key={`offset-${creditorId}-${currency}`} style={stagger(3 + payableRows.length + (payableRows.length > 1 ? 1 : 0) + 1 + i)}>
+                          <div className="flex items-center gap-3 rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[rgba(0,0,0,0.02)] px-4 py-3 opacity-75">
+                            <Avatar name={creditor?.name ?? '?'} avatarDataUrl={creditor?.avatarDataUrl} />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-[#2c2520]">{creditor?.name ?? t('card.unknown')}</p>
+                              <p className="mt-0.5 text-xs text-[#4e6642]">✓ {t('settle.sectionMutual')}</p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="text-xs text-[#9a9088]">{t('settle.grossLabel')}: {getCurrencySymbol(currency)}{formatMoney(grossAmount)}</p>
+                              <p className="text-xs font-semibold text-[#4e6642]">{t('settle.netResultTheyOwe')} {getCurrencySymbol(currency)}{formatMoney(theyOweYou)}</p>
+                            </div>
+                          </div>
+                          <div className="mx-1 mt-1 rounded-xl bg-[rgba(78,102,66,0.06)] px-3 py-2 text-xs text-[#6b6058]">
+                            <span>{t('settle.grossLabel')}: {getCurrencySymbol(currency)}{formatMoney(grossAmount)}</span>
+                            <span className="mx-2 text-[#c8c0b6]">·</span>
+                            <span>{t('settle.contraLabel')}: {getCurrencySymbol(currency)}{formatMoney(reverseAmount)}</span>
+                            <span className="mx-2 text-[#c8c0b6]">·</span>
+                            <span className="font-semibold text-[#4e6642]">{t('settle.netResultTheyOwe')} {getCurrencySymbol(currency)}{formatMoney(theyOweYou)}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* ── Bottom action bar ───────────────────────────────────────────── */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto w-full max-w-lg" style={stagger(3 + creditorRows.length + (creditorRows.length > 1 ? 1 : 0))}>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto w-full max-w-lg" style={stagger(3 + allCreditorInfo.length + (payableRows.length > 1 ? 1 : 0))}>
             {/* Gradient fade */}
             <div className="h-8 bg-gradient-to-t from-[var(--ms-bg,#f4f0e8)] to-transparent" />
 

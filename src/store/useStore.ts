@@ -160,7 +160,7 @@ function normalizePersonName(name: string): string {
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       lang: 'en' as 'en' | 'zh',
       setLang: (lang: 'en' | 'zh') => set({ lang }),
       themeId: 'solid-vintage',

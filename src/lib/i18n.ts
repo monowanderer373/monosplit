@@ -309,6 +309,15 @@ const translations = {
   'settle.payCustom': { en: 'Custom', zh: '自定义' },
   'settle.remainingAfter': { en: 'Remaining after:', zh: '还后剩余：' },
   'settle.fullyCovered': { en: '✓ Fully covered', zh: '✓ 已全额还清' },
+  'settle.toggleNet': { en: 'Simplified', zh: '简化' },
+  'settle.toggleGross': { en: 'Show all debts', zh: '显示全部' },
+  'settle.sectionToPay': { en: 'To pay', zh: '需要还款' },
+  'settle.sectionMutual': { en: 'Mutual debts (offset)', zh: '互欠（已对冲）' },
+  'settle.mutualHint': { en: 'They owe you more — no payment needed from your side.', zh: '对方欠你更多，你无需付款。' },
+  'settle.contraLabel': { en: 'They owe you', zh: '对方欠你' },
+  'settle.netResultYouOwe': { en: 'Net: you owe', zh: '净额：你欠' },
+  'settle.netResultTheyOwe': { en: 'Net: they owe you', zh: '净额：对方欠你' },
+  'settle.grossLabel': { en: 'Gross', zh: '原始' },
 
   // ── People / Profile Tab ──
   'people.travellers': { en: 'Travellers', zh: '旅伴' },
