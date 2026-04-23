@@ -293,6 +293,8 @@ const translations = {
   'settle.adjustedByCurrentDebt': { en: 'Adjust using current debt', zh: '按当前欠款重分配' },
   'settle.payAllPeople': { en: 'Pay Everyone', zh: '还给所有人' },
   'settle.youOweThisPerson': { en: 'You owe this person', zh: '你欠这位成员' },
+  'settle.currencies': { en: 'currencies', zh: '种货币' },
+  'settle.multiCurrencyPayAllNote': { en: 'Multiple currencies — opens largest currency first. Pay others separately.', zh: '多币种账单 — 先打开金额最大的币种，其他币种请分开还。' },
   'settle.payFull': { en: 'Pay Full', zh: '全额还' },
   'settle.payHalf': { en: 'Pay Half', zh: '还一半' },
   'settle.payCustom': { en: 'Custom', zh: '自定义' },

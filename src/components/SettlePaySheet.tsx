@@ -274,13 +274,16 @@ function RecordPaymentView({
     return group.expenses.flatMap((expense) =>
       expense.splits.flatMap((split, splitIndex) => {
         if (expense.paidCurrency !== activeSettlementCurrency) return []
-        if ((expense.payerIds ?? []).includes(split.personId) || split.personId !== debtorId) return []
+        const payerIds = expense.payerIds ?? []
+        if (payerIds.includes(split.personId) || split.personId !== debtorId) return []
+        // If presetCreditorIds is set, only show items from those creditors
+        if (presetCreditorIds && !payerIds.some((pid) => presetCreditorIds.includes(pid))) return []
         const amount = getSplitOutstandingAmountFromSnapshot(snapshot, expense.id, splitIndex)
         if (amount <= 0.001) return []
         return [{ expense, split, amount }]
       }),
     )
-  }, [activeSettlementCurrency, debtorId, group.expenses, snapshot])
+  }, [activeSettlementCurrency, debtorId, group.expenses, presetCreditorIds, snapshot])
   const primaryCurrency = activeSettlementCurrency ?? group.defaultPaidCurrency
   const totalOwedRaw = counterpartyBalances.reduce((sum, row) => sum + row.netAmount, 0)
   const displayCurrency = canConvert ? repayCurrency : primaryCurrency
@@ -432,7 +435,10 @@ function RecordPaymentView({
     setAllocationsDirty(false)
   }
 
-  const allReceivingIds = counterpartyBalances.map((row) => row.creditorId)
+  // Only show enabled (active) creditors in header avatars
+  const allReceivingIds = counterpartyBalances
+    .filter((row) => creditorEnabled[row.creditorId] !== false)
+    .map((row) => row.creditorId)
 
   return (
     <>
@@ -887,8 +893,8 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
 
   const openPayAll = () => {
     if (!myPersonId) return
-    // Pick the primary currency (largest outstanding)
-    const currency = totalOwedByCurrency.sort((a, b) => b.total - a.total)[0]?.currency ?? group.defaultPaidCurrency
+    // Pick the primary currency (largest outstanding) — use slice to avoid mutating state
+    const currency = [...totalOwedByCurrency].sort((a, b) => b.total - a.total)[0]?.currency ?? group.defaultPaidCurrency
     openRecordPayment(myPersonId, currency, null)
   }
 
@@ -1000,7 +1006,12 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[var(--ms-accent,#8b6e4e)]">{t('settle.payAllPeople')}</p>
-                        <p className="mt-0.5 text-xs text-[#9a9088]">{creditorRows.length} {t('settle.creditorsLabel')}</p>
+                        <p className="mt-0.5 text-xs text-[#9a9088]">
+                          {creditorRows.length} {t('settle.creditorsLabel')}
+                          {totalOwedByCurrency.length > 1 && (
+                            <span className="ml-1 text-[#8b6e4e]">· {totalOwedByCurrency.length} {t('settle.currencies')}</span>
+                          )}
+                        </p>
                       </div>
                       <div className="shrink-0 text-right">
                         {totalOwedByCurrency.map(({ currency, total }) => {
@@ -1021,6 +1032,12 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                         <path d="m9 18 6-6-6-6"/>
                       </svg>
                     </button>
+                    {/* Multi-currency warning */}
+                    {totalOwedByCurrency.length > 1 && (
+                      <p className="mt-1 px-1 text-[11px] text-[#8b6e4e]">
+                        ⚠ {t('settle.multiCurrencyPayAllNote')}
+                      </p>
+                    )}
                   </div>
                 )}
                 {/* Individual creditor rows */}
