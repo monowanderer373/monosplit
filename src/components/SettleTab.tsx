@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney, todayISO } from '../lib/format'
 import { useT } from '../lib/i18n'
+import { getGroupBackups, relativeTime, type GroupBackup } from '../lib/groupBackups'
 import { getPersonNameStyle } from '../lib/personTheme'
 import {
   autoAllocateSettlement,
@@ -44,6 +45,8 @@ export default function SettleTab({ group, canSettle = true }: Props) {
   const addSettlementPayment = useStore((state) => state.addSettlementPayment)
   const updateSettlementPayment = useStore((state) => state.updateSettlementPayment)
   const removeSettlementPayment = useStore((state) => state.removeSettlementPayment)
+  const restoreGroupFromBackup = useStore((state) => state.restoreGroupFromBackup)
+  const lang = useStore((state) => state.lang)
   const snapshot = useMemo(() => createGroupSettlementSnapshot(group), [group])
   const settlements = snapshot.settlements
   const [debtorFilterId, setDebtorFilterId] = useState('all')
@@ -190,6 +193,20 @@ export default function SettleTab({ group, canSettle = true }: Props) {
   }, [group.expenses, settlePayerFilterId, settleRepayFilterId, snapshot])
 
   const paymentHistory = useMemo(() => snapshot.paymentSummaries.slice(0, 8), [snapshot.paymentSummaries])
+
+  const [backupsOpen, setBackupsOpen] = useState(false)
+  const [backups, setBackups] = useState<GroupBackup[]>([])
+
+  useEffect(() => {
+    if (backupsOpen) setBackups(getGroupBackups(group.id))
+  }, [backupsOpen, group.id])
+
+  const handleRestore = (backup: GroupBackup) => {
+    if (!window.confirm(t('backup.confirmRestore'))) return
+    restoreGroupFromBackup(group.id, backup.data.expenses, backup.data.settlementPayments)
+    setBackupsOpen(false)
+    setBackups([])
+  }
 
   const openQuickSettle = (debtorId: string, creditorId: string, currency: string, amount: number) => {
     if (!canSettle) return
@@ -616,6 +633,56 @@ export default function SettleTab({ group, canSettle = true }: Props) {
             )
           })}
         </div>
+      </div>
+
+      {/* ── Backup restore panel ─────────────────────────────────────────── */}
+      <div className="ms-card-soft">
+        <button
+          className="flex w-full items-center justify-between gap-3"
+          onClick={() => setBackupsOpen((v) => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6058" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>
+            </svg>
+            <span className="text-sm font-semibold text-[#6b6058]">{t('backup.title')}</span>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: backupsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        {backupsOpen && (
+          <div className="mt-3 space-y-2">
+            {backups.length === 0 ? (
+              <p className="text-sm text-[#9a9088]">{t('backup.noBackups')}</p>
+            ) : (
+              backups.slice(0, 10).map((backup) => {
+                const triggerLabel = {
+                  add_payment: t('backup.triggerAdd'),
+                  remove_payment: t('backup.triggerRemove'),
+                  update_payment: t('backup.triggerUpdate'),
+                  manual: t('backup.triggerManual'),
+                }[backup.trigger] ?? backup.trigger
+                return (
+                  <div key={backup.id} className="flex items-center gap-3 rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-[#2c2520]">{relativeTime(backup.savedAt, lang)}</p>
+                      <p className="text-xs text-[#9a9088]">{triggerLabel}</p>
+                    </div>
+                    <button
+                      className="shrink-0 rounded-lg border border-[#c49898] px-3 py-1.5 text-xs font-semibold text-[#9e4a4a] transition-colors hover:bg-[rgba(158,74,74,0.08)] active:opacity-70"
+                      onClick={() => handleRestore(backup)}
+                    >
+                      {t('backup.restore')}
+                    </button>
+                  </div>
+                )
+              })
+            )}
+            <p className="pt-1 text-[11px] text-[#9a9088]">{t('backup.deviceOnly')}</p>
+          </div>
+        )}
       </div>
 
       {quickSettle.open && canSettle ? (

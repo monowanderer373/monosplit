@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { generateId, generateGroupId } from '../lib/id'
 import { todayISO } from '../lib/format'
+import { saveGroupBackup } from '../lib/groupBackups'
 import type {
   Expense,
   Group,
@@ -53,6 +54,7 @@ type AppState = {
   addSettlementPayment: (groupId: string, payment: NewSettlementPayment) => SettlementPayment | null
   updateSettlementPayment: (groupId: string, paymentId: string, updates: Partial<Omit<SettlementPayment, 'id' | 'createdAt'>>) => void
   removeSettlementPayment: (groupId: string, paymentId: string) => void
+  restoreGroupFromBackup: (groupId: string, expenses: Group['expenses'], settlementPayments: Group['settlementPayments']) => void
   markSplitRepaid: (groupId: string, expenseId: string, splitIndex: number, repaidDate: string) => void
   unmarkSplitRepaid: (groupId: string, expenseId: string, splitIndex: number) => void
   markSettlementPairRepaid: (groupId: string, debtorId: string, creditorId: string, currency: string, repaidDate: string) => void
@@ -387,6 +389,11 @@ export const useStore = create<AppState>()(
         }))
       },
       addSettlementPayment: (groupId, payment) => {
+        // Save backup before mutating
+        const currentGroup = get().groups.find((g) => g.id === groupId)
+        if (currentGroup) {
+          saveGroupBackup(currentGroup, 'add_payment', `Before adding payment`)
+        }
         const createdPayment: SettlementPayment = {
           ...payment,
           id: generateId('settlement'),
@@ -406,6 +413,8 @@ export const useStore = create<AppState>()(
         return inserted ? createdPayment : null
       },
       updateSettlementPayment: (groupId, paymentId, updates) => {
+        const currentGroup = get().groups.find((g) => g.id === groupId)
+        if (currentGroup) saveGroupBackup(currentGroup, 'update_payment', `Before editing payment`)
         set((state) => ({
           groups: updateGroupById(state.groups, groupId, (group) => ({
             ...group,
@@ -424,10 +433,24 @@ export const useStore = create<AppState>()(
         }))
       },
       removeSettlementPayment: (groupId, paymentId) => {
+        const currentGroup = get().groups.find((g) => g.id === groupId)
+        if (currentGroup) saveGroupBackup(currentGroup, 'remove_payment', `Before undoing payment`)
         set((state) => ({
           groups: updateGroupById(state.groups, groupId, (group) => ({
             ...group,
             settlementPayments: (group.settlementPayments || []).filter((payment) => payment.id !== paymentId),
+          })),
+        }))
+      },
+      restoreGroupFromBackup: (groupId, expenses, settlementPayments) => {
+        // Save current state before restoring (so the restore itself is undoable)
+        const currentGroup = get().groups.find((g) => g.id === groupId)
+        if (currentGroup) saveGroupBackup(currentGroup, 'manual', 'Before restore (auto-saved)')
+        set((state) => ({
+          groups: updateGroupById(state.groups, groupId, (group) => ({
+            ...group,
+            expenses,
+            settlementPayments: settlementPayments ?? [],
           })),
         }))
       },
