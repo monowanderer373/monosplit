@@ -239,6 +239,7 @@ function RecordPaymentView({
   repayCurrency,
   parsedRate,
   canConvert,
+  presetCreditorIds,
   onRecord,
   onClose,
 }: {
@@ -249,6 +250,7 @@ function RecordPaymentView({
   repayCurrency: string
   parsedRate: number | null
   canConvert: boolean
+  presetCreditorIds?: string[] | null
   onRecord: (tip: TipEntry | null) => void
   onClose: () => void
 }) {
@@ -293,16 +295,25 @@ function RecordPaymentView({
 
   useEffect(() => {
     if (isOpen) {
-      setAmountInput(totalOwedConverted.toFixed(2))
+      // Enable only presetCreditorIds if given, else enable all
+      const enabledMap: Record<string, boolean> = {}
+      counterpartyBalances.forEach((row) => {
+        enabledMap[row.creditorId] = presetCreditorIds ? presetCreditorIds.includes(row.creditorId) : true
+      })
+      setCreditorEnabled(enabledMap)
+
+      // Compute initial amount from active creditors
+      const activeBalances = counterpartyBalances.filter((row) =>
+        presetCreditorIds ? presetCreditorIds.includes(row.creditorId) : true,
+      )
+      const activeTotal = activeBalances.reduce((sum, row) => sum + row.netAmount, 0)
+      const activeTotalDisplay = canConvert && parsedRate ? activeTotal * parsedRate : activeTotal
+      setAmountInput(activeTotalDisplay.toFixed(2))
       setEditingAmount(false)
       setPaymentDate(new Date().toISOString().slice(0, 10))
       setAllocationsDirty(false)
-      // Enable all creditors by default
-      const enabledMap: Record<string, boolean> = {}
-      counterpartyBalances.forEach((row) => { enabledMap[row.creditorId] = true })
-      setCreditorEnabled(enabledMap)
     }
-  }, [isOpen, totalOwedConverted, counterpartyBalances])
+  }, [isOpen, totalOwedConverted, counterpartyBalances, presetCreditorIds, canConvert, parsedRate])
 
   useEffect(() => {
     if (editingAmount) inputRef.current?.focus()
@@ -733,6 +744,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
   // Record payment state
   const [selectedDebtorId, setSelectedDebtorId] = useState<string | null>(null)
   const [selectedSettlementCurrency, setSelectedSettlementCurrency] = useState<string | null>(null)
+  const [selectedCreditorIds, setSelectedCreditorIds] = useState<string[] | null>(null)
   const [tipLog, setTipLog] = useState<TipEntry[]>([])
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -762,6 +774,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
       setAddExpenseOpen(false)
       setSelectedDebtorId(null)
       setSelectedSettlementCurrency(null)
+      setSelectedCreditorIds(null)
       setPhase('closing')
       after(() => setPhase('closed'), 480)
     }
@@ -778,10 +791,11 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
 
   // Settlements — only the logged-in user's own debts
   const settlements = useMemo(() => getSettlements(group.expenses, group.settlementPayments), [group.expenses, group.settlementPayments])
+
+  // Debtor rows (for backward compat / "am I a debtor" check)
   const debtorRows = useMemo(() => {
     const map = new Map<string, { currency: string; total: number }[]>()
     for (const s of settlements) {
-      // Only show the current user's debts if we know who they are
       if (myPersonId && s.debtorId !== myPersonId) continue
       const arr = map.get(s.debtorId) ?? []
       const found = arr.find((e) => e.currency === s.currency)
@@ -795,6 +809,27 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
       totals,
     }))
   }, [settlements, group.people, myPersonId])
+
+  // Creditor rows — one row per person I owe, per currency
+  const creditorRows = useMemo(() => {
+    const rows: { creditorId: string; currency: string; total: number }[] = []
+    for (const s of settlements) {
+      if (myPersonId && s.debtorId !== myPersonId) continue
+      if (s.amount <= 0.001) continue
+      rows.push({ creditorId: s.creditorId, currency: s.currency, total: s.amount })
+    }
+    // Sort: largest first
+    return rows.sort((a, b) => b.total - a.total)
+  }, [settlements, myPersonId])
+
+  // Total owed per currency (for "Pay All" row)
+  const totalOwedByCurrency = useMemo(() => {
+    const map = new Map<string, number>()
+    creditorRows.forEach(({ currency, total }) => {
+      map.set(currency, (map.get(currency) ?? 0) + total)
+    })
+    return [...map.entries()].map(([currency, total]) => ({ currency, total }))
+  }, [creditorRows])
 
   if (phase === 'closed') return null
 
@@ -844,23 +879,22 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
     })
   }
 
-  const openRecordPayment = (personId: string, totals: { currency: string; total: number }[]) => {
-    const availableCurrencies = totals
-      .filter((entry) => entry.total > 0.001)
-      .map((entry) => entry.currency)
-
-    if (availableCurrencies.length > 1) {
-      if (!availableCurrencies.includes(repayCurrency)) {
-        window.alert(`${t('settle.switchCurrencyToOpen')}\n${availableCurrencies.join(', ')}`)
-        return
-      }
-      setSelectedSettlementCurrency(repayCurrency)
-      setSelectedDebtorId(personId)
-      return
-    }
-
-    setSelectedSettlementCurrency(availableCurrencies[0] ?? null)
+  const openRecordPayment = (personId: string, currency: string, creditorIds: string[] | null) => {
+    setSelectedSettlementCurrency(currency)
     setSelectedDebtorId(personId)
+    setSelectedCreditorIds(creditorIds)
+  }
+
+  const openPayAll = () => {
+    if (!myPersonId) return
+    // Pick the primary currency (largest outstanding)
+    const currency = totalOwedByCurrency.sort((a, b) => b.total - a.total)[0]?.currency ?? group.defaultPaidCurrency
+    openRecordPayment(myPersonId, currency, null)
+  }
+
+  const openPayOne = (creditorId: string, currency: string) => {
+    if (!myPersonId) return
+    openRecordPayment(myPersonId, currency, [creditorId])
   }
 
   return (
@@ -932,7 +966,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
             </div>
           )}
 
-          {/* Person rows */}
+          {/* Creditor rows */}
           <div className="flex-1 overflow-y-auto px-4" style={{ paddingBottom: '220px' }}>
             {/* Not a member notice */}
             {authUserId && !myPersonId && (
@@ -944,7 +978,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                 <p className="mt-1 text-xs text-[#9a9088]">{t('settle.needToBeAdded')}</p>
               </div>
             )}
-            {debtorRows.length === 0 && myPersonId ? (
+            {creditorRows.length === 0 && myPersonId ? (
               <div className="mt-10 text-center" style={stagger(3)}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3 text-[#9a9088]">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>
@@ -954,30 +988,63 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
               </div>
             ) : (
               <div className="space-y-2">
-                {debtorRows.map(({ personId, person, totals }, i) => (
-                  <div key={personId} style={stagger(3 + i)}>
+                {/* Pay All row — shown when there are 2+ creditors */}
+                {creditorRows.length > 1 && myPersonId && (
+                  <div style={stagger(3)}>
                     <button
-                      className="ms-key flex w-full items-center gap-3 rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3 text-left active:opacity-70"
-                      onClick={() => openRecordPayment(personId, totals)}
+                      className="flex w-full items-center gap-3 rounded-2xl border-2 border-[var(--ms-accent,#8b6e4e)] bg-[rgba(139,110,78,0.07)] px-4 py-3 text-left active:opacity-70"
+                      onClick={openPayAll}
                     >
-                      <Avatar name={person?.name ?? '?'} avatarDataUrl={person?.avatarDataUrl} />
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgba(139,110,78,0.18)] text-lg">
+                        👥
+                      </span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[#2c2520]">{person?.name ?? t('card.unknown')}</p>
-                        <p className="mt-0.5 text-xs text-[#9a9088]">{t('settle.yourRepaymentBalance')}</p>
+                        <p className="font-semibold text-[var(--ms-accent,#8b6e4e)]">{t('settle.payAllPeople')}</p>
+                        <p className="mt-0.5 text-xs text-[#9a9088]">{creditorRows.length} {t('settle.creditorsLabel')}</p>
                       </div>
                       <div className="shrink-0 text-right">
-                        {displayAmount(totals).map(({ currency, amount, original }) => (
-                          <div key={currency}>
-                            <p className="font-bold text-[#9e4a4a]">
-                              {getCurrencySymbol(currency)}{formatMoney(amount)}
-                            </p>
-                            {original && (
-                              <p className="text-[10px] text-[#9a9088]">
-                                ≈ {getCurrencySymbol(original.currency)}{formatMoney(original.amount)}
-                              </p>
-                            )}
-                          </div>
-                        ))}
+                        {totalOwedByCurrency.map(({ currency, total }) => {
+                          const displayed = canConvert && currency === primaryDebtCurrency && parsedRate
+                            ? { currency: repayCurrency, amount: total * parsedRate }
+                            : { currency, amount: total }
+                          return (
+                            <div key={currency}>
+                              <p className="font-bold text-[#9e4a4a]">{getCurrencySymbol(displayed.currency)}{formatMoney(displayed.amount)}</p>
+                              {displayed.currency !== currency && (
+                                <p className="text-[10px] text-[#9a9088]">≈ {getCurrencySymbol(currency)}{formatMoney(total)}</p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <path d="m9 18 6-6-6-6"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {/* Individual creditor rows */}
+                {creditorRows.map(({ creditorId, currency, total }, i) => {
+                  const creditor = group.people.find((p) => p.id === creditorId)
+                  const displayed = canConvert && currency === primaryDebtCurrency && parsedRate
+                    ? { currency: repayCurrency, amount: total * parsedRate }
+                    : { currency, amount: total }
+                  return (
+                  <div key={`${creditorId}-${currency}`} style={stagger(3 + (creditorRows.length > 1 ? 1 : 0) + i)}>
+                    <button
+                      className="ms-key flex w-full items-center gap-3 rounded-2xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-4 py-3 text-left active:opacity-70"
+                      onClick={() => openPayOne(creditorId, currency)}
+                    >
+                      <Avatar name={creditor?.name ?? '?'} avatarDataUrl={creditor?.avatarDataUrl} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-[#2c2520]">{creditor?.name ?? t('card.unknown')}</p>
+                        <p className="mt-0.5 text-xs text-[#9a9088]">{t('settle.youOweThisPerson')}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-bold text-[#9e4a4a]">{getCurrencySymbol(displayed.currency)}{formatMoney(displayed.amount)}</p>
+                        {displayed.currency !== currency && (
+                          <p className="text-[10px] text-[#9a9088]">≈ {getCurrencySymbol(currency)}{formatMoney(total)}</p>
+                        )}
                       </div>
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                         <path d="m9 18 6-6-6-6"/>
@@ -990,7 +1057,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
           </div>
 
           {/* ── Bottom action bar ───────────────────────────────────────────── */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto w-full max-w-lg" style={stagger(3 + debtorRows.length)}>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto w-full max-w-lg" style={stagger(3 + creditorRows.length + (creditorRows.length > 1 ? 1 : 0))}>
             {/* Gradient fade */}
             <div className="h-8 bg-gradient-to-t from-[var(--ms-bg,#f4f0e8)] to-transparent" />
 
@@ -1086,14 +1153,17 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
         repayCurrency={repayCurrency}
         parsedRate={parsedRate}
         canConvert={canConvert}
+        presetCreditorIds={selectedCreditorIds}
         onRecord={(tip) => {
           if (tip) setTipLog((prev) => [tip, ...prev])
           setSelectedDebtorId(null)
           setSelectedSettlementCurrency(null)
+          setSelectedCreditorIds(null)
         }}
         onClose={() => {
           setSelectedDebtorId(null)
           setSelectedSettlementCurrency(null)
+          setSelectedCreditorIds(null)
         }}
       />
     </>

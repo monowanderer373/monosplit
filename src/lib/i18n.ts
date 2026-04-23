@@ -291,6 +291,8 @@ const translations = {
   'settle.tipSuffix': { en: 'tip!', zh: '作为请客/垫付。' },
   'settle.undoPaymentConfirm': { en: 'Undo this settlement payment?', zh: '要撤销这笔结算记录吗？' },
   'settle.adjustedByCurrentDebt': { en: 'Adjust using current debt', zh: '按当前欠款重分配' },
+  'settle.payAllPeople': { en: 'Pay Everyone', zh: '还给所有人' },
+  'settle.youOweThisPerson': { en: 'You owe this person', zh: '你欠这位成员' },
   'settle.payFull': { en: 'Pay Full', zh: '全额还' },
   'settle.payHalf': { en: 'Pay Half', zh: '还一半' },
   'settle.payCustom': { en: 'Custom', zh: '自定义' },
