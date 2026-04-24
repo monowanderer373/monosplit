@@ -1057,6 +1057,7 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                 {/* Payable creditor rows */}
                 {payableRows.map(({ creditorId, currency, netAmount }, i) => {
                   const creditor = group.people.find((p) => p.id === creditorId)
+                  const payableRow = payableRows.find((row) => row.creditorId === creditorId && row.currency === currency)
                   const displayed = canConvert && currency === primaryDebtCurrency && parsedRate
                     ? { currency: repayCurrency, amount: netAmount * parsedRate }
                     : { currency, amount: netAmount }
@@ -1076,10 +1077,10 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                           {displayed.currency !== currency && (
                             <p className="text-[10px] text-[#9a9088]">≈ {getCurrencySymbol(currency)}{formatMoney(netAmount)}</p>
                           )}
-                          {showGross && payableRows.find(r => r.creditorId === creditorId)?.reverseAmount != null &&
-                            payableRows.find(r => r.creditorId === creditorId)!.reverseAmount > 0.001 && (
+                          {showGross && payableRow?.reverseAmount != null &&
+                            payableRow.reverseAmount > 0.001 && (
                             <p className="text-[10px] text-[#9a9088]">
-                              {t('settle.grossLabel')}: {getCurrencySymbol(currency)}{formatMoney(payableRows.find(r => r.creditorId === creditorId)!.grossAmount)}
+                              {t('settle.grossLabel')}: {getCurrencySymbol(currency)}{formatMoney(payableRow.grossAmount)}
                             </p>
                           )}
                         </div>
@@ -1089,7 +1090,8 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
                       </button>
                       {/* Contra breakdown in gross mode */}
                       {showGross && (() => {
-                        const row = payableRows.find(r => r.creditorId === creditorId)!
+                        const row = payableRows.find((entry) => entry.creditorId === creditorId && entry.currency === currency)
+                        if (!row) return null
                         if (row.reverseAmount <= 0.001) return null
                         return (
                           <div className="mx-1 mt-1 rounded-xl bg-[rgba(139,110,78,0.06)] px-3 py-2 text-xs text-[#6b6058]">
