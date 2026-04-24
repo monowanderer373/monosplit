@@ -271,6 +271,7 @@ const translations = {
   'settle.noOutstandingItems': { en: 'No outstanding items found.', zh: '没有找到未还项目。' },
   'settle.outstandingToPerson': { en: 'Outstanding to this person', zh: '欠这位成员' },
   'settle.includesContra': { en: 'Includes contra offset', zh: '已包含互抵' },
+  'settle.contraShort': { en: 'contra', zh: '互抵' },
   'settle.appliedInDebtCurrency': { en: 'Applied in debt currency', zh: '按欠款币种记账' },
   'settle.totalPayment': { en: 'Total payment', zh: '总付款' },
   'settle.totalApplied': { en: 'Applied to debt', zh: '已分配到欠款' },

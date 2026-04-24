@@ -105,11 +105,28 @@ export default function SettleTab({ group, canSettle = true }: Props) {
   }, [group.expenses, snapshot])
 
   const filteredSettlements = useMemo(() => {
-    return settlements.filter((item) => {
-      if (debtorFilterId !== 'all' && item.debtorId !== debtorFilterId) return false
-      if (payerFilterId !== 'all' && item.creditorId !== payerFilterId) return false
-      return true
-    })
+    return settlements
+      .filter((item) => {
+        if (debtorFilterId !== 'all' && item.debtorId !== debtorFilterId) return false
+        if (payerFilterId !== 'all' && item.creditorId !== payerFilterId) return false
+        return true
+      })
+      .map((item) => {
+        const contraAmount =
+          settlements.find(
+            (row) =>
+              row.debtorId === item.creditorId &&
+              row.creditorId === item.debtorId &&
+              row.currency === item.currency,
+          )?.amount ?? 0
+        return {
+          ...item,
+          grossAmount: item.amount,
+          contraAmount,
+          amount: round4(Math.max(0, item.amount - contraAmount)),
+        }
+      })
+      .filter((item) => item.amount > 0.001)
   }, [debtorFilterId, payerFilterId, settlements])
 
   const summary = useMemo(() => {
@@ -476,6 +493,11 @@ export default function SettleTab({ group, canSettle = true }: Props) {
                     </p>
                     <p className="text-lg font-bold text-[#9e4a4a]">
                       {getCurrencySymbol(settlement.currency)}{formatMoney(settlement.amount)}
+                      {settlement.contraAmount > 0.001 ? (
+                        <span className="ml-2 text-sm font-medium text-[#8b6e4e]">
+                          ({t('settle.contraShort')} {getCurrencySymbol(settlement.currency)}{formatMoney(settlement.contraAmount)})
+                        </span>
+                      ) : null}
                     </p>
                   </div>
                   <button
