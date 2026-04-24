@@ -483,22 +483,28 @@ export default function SettleTab({ group, canSettle = true }: Props) {
             return (
               <div key={`${settlement.debtorId}-${settlement.creditorId}-${settlement.currency}`} className="rounded-xl border border-[#d4a8a8] bg-[rgba(158,74,74,0.06)] p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[#2c2520]">
-                      <span style={getPersonNameStyle(debtorPerson)}>{debtorPerson?.name ?? t('card.unknown')}</span> →{' '}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold text-[#2c2520]">
+                      <span style={getPersonNameStyle(debtorPerson)}>{debtorPerson?.name ?? t('card.unknown')}</span>{' '}
+                      {t('settle.needsToPay')}{' '}
                       <span style={getPersonNameStyle(creditorPerson)}>{creditorPerson?.name ?? t('card.unknown')}</span>
                     </p>
-                    <p className="text-xs text-[#6b6058]">
+                    <p className="mt-1 text-xs text-[#6b6058]">
                       {t('settle.across')} {meta?.expenseCount ?? 0} {t('settle.expenseCount')}, {meta?.splitCount ?? 0} {t('settle.splitLines')}
                     </p>
-                    <p className="text-lg font-bold text-[#9e4a4a]">
-                      {getCurrencySymbol(settlement.currency)}{formatMoney(settlement.amount)}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-[rgba(158,74,74,0.12)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9e4a4a]">
+                        {t('settle.netBadge')}
+                      </span>
+                      <span className="text-xl font-bold text-[#9e4a4a]">
+                        {getCurrencySymbol(settlement.currency)}{formatMoney(settlement.amount)}
+                      </span>
                       {settlement.contraAmount > 0.001 ? (
-                        <span className="ml-2 text-sm font-medium text-[#8b6e4e]">
-                          ({t('settle.contraShort')} {getCurrencySymbol(settlement.currency)}{formatMoney(settlement.contraAmount)})
+                        <span className="text-sm font-medium text-[#8b6e4e]">
+                          ({t('settle.contraBadge')} {getCurrencySymbol(settlement.currency)}{formatMoney(settlement.contraAmount)})
                         </span>
                       ) : null}
-                    </p>
+                    </div>
                   </div>
                   <button
                     className="ms-btn-ghost min-h-11 px-3 py-2 text-xs font-medium text-[#8a3a3a]"
