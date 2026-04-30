@@ -103,7 +103,7 @@ export default function SettleTab({ group, canSettle = true }: Props) {
         const outstandingAmount = getSplitOutstandingAmountFromSnapshot(snapshot, expense.id, splitIndex)
         if (outstandingAmount <= 0.001) return
         for (const payerId of payerIds) {
-          const key = `${split.personId}-${payerId}-${expense.paidCurrency}`
+          const key = `${split.personId}|${payerId}|${expense.paidCurrency}`
           const current = meta.get(key) ?? { expenseCount: 0, splitCount: 0, items: [] }
           current.splitCount += 1
           if (!seenPairs.has(key)) {
@@ -505,7 +505,7 @@ export default function SettleTab({ group, canSettle = true }: Props) {
           {filteredSettlements.map((settlement) => {
             const debtorPerson = group.people.find((person) => person.id === settlement.debtorId)
             const creditorPerson = group.people.find((person) => person.id === settlement.creditorId)
-            const metaKey = `${settlement.debtorId}-${settlement.creditorId}-${settlement.currency}`
+            const metaKey = `${settlement.debtorId}|${settlement.creditorId}|${settlement.currency}`
             const meta = pairMeta.get(metaKey)
             return (
               <div key={`${settlement.debtorId}-${settlement.creditorId}-${settlement.currency}`} className="rounded-xl border border-[#d4a8a8] bg-[rgba(158,74,74,0.06)] p-3">
@@ -552,7 +552,7 @@ export default function SettleTab({ group, canSettle = true }: Props) {
 
         {/* Breakdown drawer — slides in when a pair row is tapped */}
         {expandedPairMeta && expandedPairKey && (() => {
-          const [dId, cId, curr] = expandedPairKey.split('-')
+          const [dId, cId, curr] = expandedPairKey.split('|')
           const debtorPerson = group.people.find((p) => p.id === dId)
           const creditorPerson = group.people.find((p) => p.id === cId)
           const total = expandedPairMeta.items.reduce((sum, item) => sum + item.splitAmount, 0)
