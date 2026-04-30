@@ -121,9 +121,17 @@ function sanitizeSettlementAllocation(allocation: SettlementPaymentAllocation): 
   }
 }
 
+function normalizeCurrencyCode(code: string | null | undefined): string {
+  return (code ?? '').trim().toUpperCase()
+}
+
 function sanitizeSettlementPayment(payment: SettlementPayment): SettlementPayment {
+  // Normalize currency: trim + uppercase. Fall back to repayCurrency when currency is
+  // missing (old payment records created before the currency field was stored).
+  const currency = normalizeCurrencyCode(payment.currency) || normalizeCurrencyCode(payment.repayCurrency)
   return {
     ...payment,
+    currency,
     repayAmount: typeof payment.repayAmount === 'number' && Number.isFinite(payment.repayAmount) ? payment.repayAmount : 0,
     rate: typeof payment.rate === 'number' && Number.isFinite(payment.rate) ? payment.rate : null,
     rateSource: payment.rateSource ?? null,

@@ -58,9 +58,17 @@ function sanitizeAllocation(allocation: SettlementPaymentAllocation): Settlement
   }
 }
 
+function normalizeCurrency(code: string | null | undefined): string {
+  return (code ?? '').trim().toUpperCase()
+}
+
 function sanitizePayment(payment: SettlementPayment): SettlementPayment {
+  // Normalize currency: trim + uppercase. Fall back to repayCurrency when currency is
+  // missing (e.g. old payment records created before the currency field existed).
+  const currency = normalizeCurrency(payment.currency) || normalizeCurrency(payment.repayCurrency)
   return {
     ...payment,
+    currency,
     repayAmount: Math.max(0, round4(payment.repayAmount || 0)),
     allocations: (payment.allocations || []).map(sanitizeAllocation).filter((allocation) => allocation.amount > 0.0001),
     note: payment.note ?? null,
@@ -109,7 +117,7 @@ function getBaseDebtLines(expenses: Expense[]): { lines: DebtLine[]; splitOutsta
           splitIndex,
           debtorId: split.personId,
           creditorId: payerId,
-          currency: expense.paidCurrency,
+          currency: normalizeCurrency(expense.paidCurrency),
           amount,
           sortOrder: expenseOrder * 1000 + splitIndex * 10 + payerOrder,
         })
