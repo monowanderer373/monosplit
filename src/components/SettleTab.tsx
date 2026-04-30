@@ -80,9 +80,22 @@ export default function SettleTab({ group, canSettle = true }: Props) {
     return map
   }, [group.people])
 
+  type PairMetaItem = {
+    expenseId: string
+    description: string
+    date: string
+    paidCurrency: string
+    expenseTotal: number
+    splitAmount: number
+  }
+  type PairMetaEntry = { expenseCount: number; splitCount: number; items: PairMetaItem[] }
+
   const pairMeta = useMemo(() => {
-    const meta = new Map<string, { expenseCount: number; splitCount: number }>()
-    group.expenses.forEach((expense) => {
+    const meta = new Map<string, PairMetaEntry>()
+    const sortedExpenses = group.expenses
+      .slice()
+      .sort((a, b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime())
+    sortedExpenses.forEach((expense) => {
       const payerIds = expense.payerIds ?? []
       const seenPairs = new Set<string>()
       expense.splits.forEach((split, splitIndex) => {
@@ -91,11 +104,22 @@ export default function SettleTab({ group, canSettle = true }: Props) {
         if (outstandingAmount <= 0.001) return
         for (const payerId of payerIds) {
           const key = `${split.personId}-${payerId}-${expense.paidCurrency}`
-          const current = meta.get(key) ?? { expenseCount: 0, splitCount: 0 }
+          const current = meta.get(key) ?? { expenseCount: 0, splitCount: 0, items: [] }
           current.splitCount += 1
           if (!seenPairs.has(key)) {
             current.expenseCount += 1
             seenPairs.add(key)
+            current.items.push({
+              expenseId: expense.id,
+              description: expense.description,
+              date: expense.date,
+              paidCurrency: expense.paidCurrency,
+              expenseTotal: expense.amount,
+              splitAmount: outstandingAmount,
+            })
+          } else {
+            const existingItem = current.items.find((item) => item.expenseId === expense.id)
+            if (existingItem) existingItem.splitAmount = round4(existingItem.splitAmount + outstandingAmount)
           }
           meta.set(key, current)
         }
@@ -103,6 +127,9 @@ export default function SettleTab({ group, canSettle = true }: Props) {
     })
     return meta
   }, [group.expenses, snapshot])
+
+  const [expandedPairKey, setExpandedPairKey] = useState<string | null>(null)
+  const expandedPairMeta = expandedPairKey ? pairMeta.get(expandedPairKey) ?? null : null
 
   const filteredSettlements = useMemo(() => {
     return settlements
@@ -489,9 +516,13 @@ export default function SettleTab({ group, canSettle = true }: Props) {
                       {t('settle.needsToPay')}{' '}
                       <span style={getPersonNameStyle(creditorPerson)}>{creditorPerson?.name ?? t('card.unknown')}</span>
                     </p>
-                    <p className="mt-1 text-xs text-[#6b6058]">
-                      {t('settle.across')} {meta?.expenseCount ?? 0} {t('settle.expenseCount')}, {meta?.splitCount ?? 0} {t('settle.splitLines')}
-                    </p>
+                    <button
+                      className="mt-1 cursor-pointer text-left text-xs text-[#6b6058] underline-offset-2 hover:text-[#9e4a4a] hover:underline active:opacity-70"
+                      onClick={() => setExpandedPairKey(expandedPairKey === metaKey ? null : metaKey)}
+                      title={t('settle.tapToSeeBreakdown')}
+                    >
+                      {t('settle.across')} {meta?.expenseCount ?? 0} {t('settle.expenseCount')}, {meta?.splitCount ?? 0} {t('settle.splitLines')} ›
+                    </button>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-[rgba(158,74,74,0.12)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9e4a4a]">
                         {t('settle.netBadge')}
@@ -518,6 +549,53 @@ export default function SettleTab({ group, canSettle = true }: Props) {
             )
           })}
         </div>
+
+        {/* Breakdown drawer — slides in when a pair row is tapped */}
+        {expandedPairMeta && expandedPairKey && (() => {
+          const [dId, cId, curr] = expandedPairKey.split('-')
+          const debtorPerson = group.people.find((p) => p.id === dId)
+          const creditorPerson = group.people.find((p) => p.id === cId)
+          const total = expandedPairMeta.items.reduce((sum, item) => sum + item.splitAmount, 0)
+          return (
+            <div className="mt-2 rounded-xl border border-[#d4a8a8] bg-[rgba(158,74,74,0.04)] p-3 transition-all">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-[#2c2520]">{t('settle.breakdownTitle')}</p>
+                  <p className="text-xs text-[#6b6058]">
+                    <span style={getPersonNameStyle(debtorPerson)}>{debtorPerson?.name ?? '?'}</span>{' '}
+                    {t('settle.breakdownOwes')}{' '}
+                    <span style={getPersonNameStyle(creditorPerson)}>{creditorPerson?.name ?? '?'}</span>
+                    {' — '}{t('settle.breakdownSubtitle')}
+                  </p>
+                </div>
+                <button
+                  className="shrink-0 rounded-full p-1 text-[#9e4a4a] hover:bg-[rgba(158,74,74,0.1)]"
+                  onClick={() => setExpandedPairKey(null)}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {expandedPairMeta.items.map((item) => (
+                  <div key={item.expenseId} className="flex items-center justify-between gap-2 rounded-lg bg-white/60 px-2.5 py-1.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-[#2c2520]">{item.description}</p>
+                      <p className="text-[10px] text-[#8b7d72]">{item.date}</p>
+                    </div>
+                    <p className="shrink-0 text-xs font-semibold text-[#9e4a4a]">
+                      {getCurrencySymbol(item.paidCurrency)}{formatMoney(item.splitAmount)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center justify-between border-t border-[#d4a8a8]/40 pt-2">
+                <p className="text-xs font-semibold text-[#2c2520]">Total outstanding</p>
+                <p className="text-sm font-bold text-[#9e4a4a]">{getCurrencySymbol(curr)}{formatMoney(total)}</p>
+              </div>
+            </div>
+          )
+        })()}
 
         <div className="mt-3 rounded-xl border border-[#e6e0d5] bg-[#faf8f4] p-3">
           <h3 className="mb-2 text-sm font-semibold text-[#2c2520]">{t('settle.totalSummary')}</h3>
