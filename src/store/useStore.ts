@@ -3,15 +3,14 @@ import { persist } from 'zustand/middleware'
 import { generateId, generateGroupId } from '../lib/id'
 import { todayISO } from '../lib/format'
 import { saveGroupBackup } from '../lib/groupBackups'
+import { normalizeExpense, normalizeGroup, normalizeSettlementPayment } from '../lib/groupNormalize'
 import type {
   Expense,
   Group,
   PaymentInfo,
   PaymentProof,
   Person,
-  ReceiptItem,
   SettlementPayment,
-  SettlementPaymentAllocation,
 } from '../types'
 
 type NewExpense = Omit<Expense, 'id' | 'createdAt'>
@@ -74,82 +73,6 @@ function sanitizeName(name: string): string {
 
 function personInGroup(people: Person[], personId: string): boolean {
   return people.some((person) => person.id === personId)
-}
-
-function migrateExpensePayerIds(expense: Expense & { payerId?: string }): Expense {
-  if (expense.payerIds && expense.payerIds.length > 0) return expense as Expense
-  const legacyId = expense.payerId
-  if (legacyId) {
-    const { payerId: _, ...rest } = expense
-    return { ...rest, payerIds: [legacyId] } as Expense
-  }
-  return { ...expense, payerIds: expense.payerIds ?? [] } as Expense
-}
-
-function sanitizeReceiptItems(items: unknown): ReceiptItem[] | null {
-  if (!Array.isArray(items)) return null
-  return items
-    .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
-    .map((item, index) => ({
-      id: typeof item.id === 'string' && item.id ? item.id : `receipt-item-${index}`,
-      name: typeof item.name === 'string' ? item.name : '',
-      unitPrice: typeof item.unitPrice === 'number' && Number.isFinite(item.unitPrice) ? item.unitPrice : null,
-      quantity: typeof item.quantity === 'number' && Number.isFinite(item.quantity) ? item.quantity : null,
-      amount: typeof item.amount === 'number' && Number.isFinite(item.amount) ? item.amount : null,
-      debtorIds: Array.isArray(item.debtorIds)
-        ? Array.from(new Set(item.debtorIds.filter((id): id is string => typeof id === 'string')))
-        : [],
-    }))
-}
-
-function sanitizeExpense(expense: Expense & { payerId?: string }): Expense {
-  const migrated = migrateExpensePayerIds(expense)
-  return {
-    ...migrated,
-    receiptItems: sanitizeReceiptItems(migrated.receiptItems),
-    receiptTaxAmount:
-      typeof migrated.receiptTaxAmount === 'number' && Number.isFinite(migrated.receiptTaxAmount)
-        ? migrated.receiptTaxAmount
-        : null,
-  }
-}
-
-function sanitizeSettlementAllocation(allocation: SettlementPaymentAllocation): SettlementPaymentAllocation {
-  return {
-    creditorId: allocation.creditorId,
-    amount: typeof allocation.amount === 'number' && Number.isFinite(allocation.amount) ? allocation.amount : 0,
-  }
-}
-
-function normalizeCurrencyCode(code: string | null | undefined): string {
-  return (code ?? '').trim().toUpperCase()
-}
-
-function sanitizeSettlementPayment(payment: SettlementPayment): SettlementPayment {
-  // Normalize currency: trim + uppercase. Fall back to repayCurrency when currency is
-  // missing (old payment records created before the currency field was stored).
-  const currency = normalizeCurrencyCode(payment.currency) || normalizeCurrencyCode(payment.repayCurrency)
-  return {
-    ...payment,
-    currency,
-    repayAmount: typeof payment.repayAmount === 'number' && Number.isFinite(payment.repayAmount) ? payment.repayAmount : 0,
-    rate: typeof payment.rate === 'number' && Number.isFinite(payment.rate) ? payment.rate : null,
-    rateSource: payment.rateSource ?? null,
-    rateDate: payment.rateDate ?? null,
-    note: payment.note ?? null,
-    source: payment.source ?? 'record_payment',
-    allocations: Array.isArray(payment.allocations) ? payment.allocations.map(sanitizeSettlementAllocation) : [],
-  }
-}
-
-function migrateGroupData(group: Group): Group {
-  const migratedExpenses = Array.isArray(group.expenses)
-    ? group.expenses.map((e) => sanitizeExpense(e as Expense & { payerId?: string }))
-    : []
-  const migratedSettlementPayments = Array.isArray(group.settlementPayments)
-    ? group.settlementPayments.map((payment) => sanitizeSettlementPayment(payment as SettlementPayment))
-    : []
-  return { ...group, expenses: migratedExpenses, settlementPayments: migratedSettlementPayments }
 }
 
 function defaultPaymentInfo(): PaymentInfo {
@@ -225,7 +148,7 @@ export const useStore = create<AppState>()(
         set((state) => ({ groups: state.groups.filter((group) => group.id !== groupId) }))
       },
       replaceGroup: (groupId, data) => {
-        const migrated = migrateGroupData({ ...data, id: groupId })
+        const migrated = normalizeGroup({ ...data, id: groupId })
         set((state) => ({
           groups: state.groups.map((g) =>
             g.id === groupId
@@ -236,7 +159,7 @@ export const useStore = create<AppState>()(
         }))
       },
       upsertGroup: (data) => {
-        const migrated = migrateGroupData(data)
+        const migrated = normalizeGroup(data)
         set((state) => {
           const exists = state.groups.some((g) => g.id === migrated.id)
           if (exists) {
@@ -414,7 +337,7 @@ export const useStore = create<AppState>()(
             inserted = true
             return {
               ...group,
-              settlementPayments: [...(group.settlementPayments || []), sanitizeSettlementPayment(createdPayment)],
+              settlementPayments: [...(group.settlementPayments || []), normalizeSettlementPayment(createdPayment)],
             }
           }),
         }))
@@ -428,7 +351,7 @@ export const useStore = create<AppState>()(
             ...group,
             settlementPayments: (group.settlementPayments || []).map((payment) =>
               payment.id === paymentId
-                ? sanitizeSettlementPayment({
+                ? normalizeSettlementPayment({
                     ...payment,
                     ...updates,
                     id: payment.id,
@@ -650,14 +573,7 @@ export const useStore = create<AppState>()(
           state.groups = (state.groups as Array<Record<string, unknown>>).map((group) => ({
             ...group,
             expenses: Array.isArray(group.expenses)
-              ? (group.expenses as Array<Record<string, unknown>>).map((expense) => {
-                  if (Array.isArray(expense.payerIds) && (expense.payerIds as string[]).length > 0) return expense
-                  if (typeof expense.payerId === 'string' && expense.payerId) {
-                    const { payerId: _, ...rest } = expense
-                    return { ...rest, payerIds: [expense.payerId] }
-                  }
-                  return { ...expense, payerIds: [] }
-                })
+              ? (group.expenses as Array<Expense & { payerId?: string }>).map((expense) => normalizeExpense(expense))
               : [],
           }))
         }
@@ -673,7 +589,7 @@ export const useStore = create<AppState>()(
           state.groups = (state.groups as Array<Record<string, unknown>>).map((group) => ({
             ...group,
             expenses: Array.isArray(group.expenses)
-              ? (group.expenses as Array<Expense & { payerId?: string }>).map((expense) => sanitizeExpense(expense))
+              ? (group.expenses as Array<Expense & { payerId?: string }>).map((expense) => normalizeExpense(expense))
               : [],
           }))
         }
@@ -681,7 +597,7 @@ export const useStore = create<AppState>()(
           state.groups = (state.groups as Array<Record<string, unknown>>).map((group) => ({
             ...group,
             settlementPayments: Array.isArray(group.settlementPayments)
-              ? (group.settlementPayments as SettlementPayment[]).map((payment) => sanitizeSettlementPayment(payment))
+              ? (group.settlementPayments as SettlementPayment[]).map((payment) => normalizeSettlementPayment(payment))
               : [],
           }))
         }
@@ -707,14 +623,14 @@ export const useStore = create<AppState>()(
               paymentProofs: Array.isArray(person.paymentProofs) ? person.paymentProofs : [],
             })),
           expenses: group.expenses
-            .map((expense) => sanitizeExpense(expense))
+            .map((expense) => normalizeExpense(expense))
             .filter(
               (expense) =>
                 (expense.payerIds ?? []).every((pid) => personInGroup(group.people, pid)) &&
                 expense.splits.every((split) => personInGroup(group.people, split.personId)),
             ),
           settlementPayments: (group.settlementPayments || [])
-            .map((payment) => sanitizeSettlementPayment(payment))
+            .map((payment) => normalizeSettlementPayment(payment))
             .filter(
               (payment) =>
                 personInGroup(group.people, payment.debtorId) &&

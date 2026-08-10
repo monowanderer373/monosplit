@@ -5,6 +5,7 @@ import type {
   SettlementPayment,
   SettlementPaymentAllocation,
 } from '../types'
+import { normalizeCurrencyCode, normalizeSettlementPayment } from './groupNormalize'
 import { getSplitPairShareAmount, getSplitRepaidPayerIds, isRefundExpense } from './refund'
 
 type DebtLine = {
@@ -51,33 +52,6 @@ function splitKey(expenseId: string, splitIndex: number): string {
   return `${expenseId}::${splitIndex}`
 }
 
-function sanitizeAllocation(allocation: SettlementPaymentAllocation): SettlementPaymentAllocation {
-  return {
-    creditorId: allocation.creditorId,
-    amount: Math.max(0, round4(allocation.amount || 0)),
-  }
-}
-
-function normalizeCurrency(code: string | null | undefined): string {
-  return (code ?? '').trim().toUpperCase()
-}
-
-function sanitizePayment(payment: SettlementPayment): SettlementPayment {
-  // Normalize currency: trim + uppercase. Fall back to repayCurrency when currency is
-  // missing (e.g. old payment records created before the currency field existed).
-  const currency = normalizeCurrency(payment.currency) || normalizeCurrency(payment.repayCurrency)
-  return {
-    ...payment,
-    currency,
-    repayAmount: Math.max(0, round4(payment.repayAmount || 0)),
-    allocations: (payment.allocations || []).map(sanitizeAllocation).filter((allocation) => allocation.amount > 0.0001),
-    note: payment.note ?? null,
-    rate: payment.rate ?? null,
-    rateSource: payment.rateSource ?? null,
-    rateDate: payment.rateDate ?? null,
-  }
-}
-
 function getBaseDebtLines(expenses: Expense[]): { lines: DebtLine[]; splitOutstanding: Record<string, number> } {
   const lines: DebtLine[] = []
   const splitOutstanding: Record<string, number> = {}
@@ -117,7 +91,7 @@ function getBaseDebtLines(expenses: Expense[]): { lines: DebtLine[]; splitOutsta
           splitIndex,
           debtorId: split.personId,
           creditorId: payerId,
-          currency: normalizeCurrency(expense.paidCurrency),
+          currency: normalizeCurrencyCode(expense.paidCurrency),
           amount,
           sortOrder: expenseOrder * 1000 + splitIndex * 10 + payerOrder,
         })
@@ -150,7 +124,7 @@ export function createSettlementSnapshot(args: {
 
   const paymentSummaries: SettlementPaymentSummary[] = []
   const sortedPayments = (args.settlementPayments ?? [])
-    .map(sanitizePayment)
+    .map(normalizeSettlementPayment)
     .sort((a, b) => new Date(a.paymentDate || a.createdAt).getTime() - new Date(b.paymentDate || b.createdAt).getTime())
 
   sortedPayments.forEach((payment) => {

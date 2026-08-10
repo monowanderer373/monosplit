@@ -13,6 +13,7 @@ import {
   getCounterpartyBalances,
   getSplitOutstandingAmountFromSnapshot,
 } from '../lib/settlementLedger'
+import { recordPayment } from '../lib/settlementCommands'
 
 // FAB position — must match .ms-fab in index.css
 const FAB_W = 54
@@ -386,24 +387,24 @@ function RecordPaymentView({
   const handleRecord = () => {
     if (!debtorId) return
     const paid = parseFloat(amountInput) || totalOwedConverted
-    if (totalAllocatedRaw <= 0.001) return
-    if (hasAllocationBudgetError) {
-      window.alert(t('settle.editOverAllocated'))
-      return
-    }
-    addSettlementPayment(group.id, {
+    const result = recordPayment({
       debtorId,
       currency: primaryCurrency,
       repayCurrency: displayCurrency,
       repayAmount: paid,
-      paymentDate,
       rate: canConvert ? parsedRate : null,
       rateSource: canConvert ? 'manual' : null,
       rateDate: canConvert ? paymentDate : null,
-      source: 'record_payment',
-      allocations: normalizedAllocations.filter((row) => row.amount > 0.001).map(({ creditorId, amount }) => ({ creditorId, amount })),
+      paymentDate,
+      allocations: normalizedAllocations.map(({ creditorId, amount }) => ({ creditorId, amount })),
       note: null,
+      source: 'record_payment',
     })
+    if (!result.ok) {
+      if (result.error === 'over_allocated') window.alert(t('settle.editOverAllocated'))
+      return
+    }
+    addSettlementPayment(group.id, result.value)
     if (unallocatedDisplay > 0.009 && debtor) {
       onRecord({
         id: Date.now().toString(),
