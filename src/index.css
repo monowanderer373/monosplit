@@ -44,29 +44,29 @@
 /* ── Font overrides — :root[data-font] beats :root (specificity 0,2,0 > 0,1,0) ── */
 
 :root {
-  font-family: 'Departure Mono', Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'DM Sans', Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 
-  --ms-bg: #f4f0e8;
-  --ms-bg-warm: #ede8dd;
-  --ms-surface: #faf8f4;
-  --ms-surface-dim: #f0ece3;
-  --ms-border: #d8d0c4;
-  --ms-day-bar: #ddd4b8;
-  --ms-border-light: #e6e0d5;
-  --ms-text: #2c2520;
-  --ms-text-secondary: #6b6058;
-  --ms-text-muted: #9a9088;
-  --ms-sketch-line: #b0a498;
-  --ms-accent: #8b6e4e;
-  --ms-accent-hover: #74593c;
-  --ms-accent-light: #c4a882;
-  --ms-accent-bg: rgba(139, 110, 78, 0.08);
-  --ms-success: #5a7a5a;
-  --ms-success-bg: rgba(90, 122, 90, 0.08);
-  --ms-danger: #9e4a4a;
-  --ms-danger-bg: rgba(158, 74, 74, 0.08);
-  --ms-info: #5a6e8a;
-  --ms-info-bg: rgba(90, 110, 138, 0.08);
+  --ms-bg: #fff7ed;
+  --ms-bg-warm: #f8ead8;
+  --ms-surface: #fffaf3;
+  --ms-surface-dim: #f6eadb;
+  --ms-border: #ead8c0;
+  --ms-day-bar: #f1d6b6;
+  --ms-border-light: #f3e5d2;
+  --ms-text: #32241c;
+  --ms-text-secondary: #765a45;
+  --ms-text-muted: #a9876a;
+  --ms-sketch-line: #d9b98f;
+  --ms-accent: #d9782d;
+  --ms-accent-hover: #bd6120;
+  --ms-accent-light: #f1b06f;
+  --ms-accent-bg: rgba(217, 120, 45, 0.12);
+  --ms-success: #5f8a64;
+  --ms-success-bg: rgba(95, 138, 100, 0.10);
+  --ms-danger: #b65a45;
+  --ms-danger-bg: rgba(182, 90, 69, 0.10);
+  --ms-info: #5d7f9f;
+  --ms-info-bg: rgba(93, 127, 159, 0.10);
 
   color: var(--ms-text);
   background: var(--ms-bg);
@@ -96,23 +96,16 @@
   box-sizing: border-box;
 }
 
-/* Global square corners — only rounded-full (avatars, + button) stays circular */
 input, select, textarea {
-  border-radius: 0 !important;
+  border-radius: 1rem !important;
   -webkit-appearance: none;
-}
-[class*="rounded-xl"],
-[class*="rounded-2xl"],
-[class*="rounded-lg"],
-[class*="rounded-md"],
-[class*="rounded-["] {
-  border-radius: 0 !important;
 }
 
 body {
   margin: 0;
   background:
-    radial-gradient(1200px 500px at 50% -220px, rgba(139, 110, 78, 0.10), transparent 60%),
+    radial-gradient(1200px 520px at 50% -220px, rgba(217, 120, 45, 0.14), transparent 62%),
+    radial-gradient(900px 420px at 100% 8%, rgba(95, 138, 100, 0.10), transparent 58%),
     var(--ms-bg);
 }
 
@@ -129,11 +122,11 @@ body {
   .ms-card-soft,
   .ms-sketch {
     position: relative;
-    border: none;
-    border-radius: 0;
-    background: transparent;
+    border: 1px solid var(--ms-border);
+    border-radius: 1.5rem;
+    background: color-mix(in srgb, var(--ms-surface) 92%, white);
     padding: 1.25rem;
-    box-shadow: none;
+    box-shadow: 0 18px 45px rgba(119, 76, 36, 0.08), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
   }
   .ms-card::before,
   .ms-card::after,
@@ -144,27 +137,27 @@ body {
     content: '';
     position: absolute;
     pointer-events: none;
-    filter: url(#pencil);
+    filter: none;
   }
   .ms-card::before,
   .ms-card-soft::before,
   .ms-sketch::before {
     top: 0;
     bottom: 0;
-    left: -6px;
-    right: -6px;
-    border-top: 2.5px solid var(--ms-sketch-line);
-    border-bottom: 2.5px solid var(--ms-sketch-line);
+    left: 1rem;
+    right: 1rem;
+    border-top: 1px solid rgba(217, 185, 143, 0.36);
+    border-bottom: 1px solid rgba(217, 185, 143, 0.22);
   }
   .ms-card::after,
   .ms-card-soft::after,
   .ms-sketch::after {
     left: 0;
     right: 0;
-    top: -6px;
-    bottom: -6px;
-    border-left: 2.5px solid var(--ms-sketch-line);
-    border-right: 2.5px solid var(--ms-sketch-line);
+    top: 1rem;
+    bottom: 1rem;
+    border-left: 1px solid rgba(217, 185, 143, 0.20);
+    border-right: 1px solid rgba(217, 185, 143, 0.20);
   }
   @media (min-width: 1024px) {
     .ms-card-soft {
@@ -172,25 +165,18 @@ body {
     }
   }
 
-  /* Inner cards: square corners + subtle pencil texture */
-  .ms-card-soft [class*="rounded-xl"],
-  .ms-card-soft [class*="rounded-2xl"],
-  .ms-card-soft [class*="rounded-lg"],
-  .ms-sketch [class*="rounded-xl"],
-  .ms-sketch [class*="rounded-2xl"],
-  .ms-sketch [class*="rounded-lg"] {
-    border-radius: 0 !important;
-  }
+  /* Inner cards: keep the new soft journal radius across reused Tailwind classes. */
   .ms-card-soft div[class*="rounded-"][class*="border"],
   .ms-card-soft button[class*="rounded-"][class*="border"]:not(.ms-btn-primary):not(.ms-btn-ghost):not(.ms-chip):not([class*="rounded-full"]),
   .ms-sketch div[class*="rounded-"][class*="border"] {
-    filter: url(#pencil-sm);
+    filter: none;
   }
 
   /* ── Keyboard-key button (adapted from CodePen Alansdead/GgjdKvL) ── */
   .ms-key {
     position: relative;
     background: var(--ms-surface);
+    border-radius: 1.1rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -199,50 +185,24 @@ body {
     overflow: hidden;
     border: none;
     padding: 0;
-    box-shadow:
-      0 1px 0px 0px #ffffff inset,
-      0 -1px 0px 0px var(--ms-border) inset,
-      1px 0 0px 0px var(--ms-border-light) inset,
-      -1px 0 0px 0px var(--ms-border-light) inset,
-      0 4px 0px 0px var(--ms-sketch-line),
-      0 5px 2px 0px rgba(44, 37, 32, 0.12),
-      0 7px 12px 0px rgba(44, 37, 32, 0.08);
-    transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.07s ease;
+    box-shadow: 0 5px 14px rgba(119, 76, 36, 0.07), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   }
   .ms-key:active,
   .ms-key.pressed {
     background: var(--ms-surface-dim);
-    transform: translateY(3px);
-    box-shadow:
-      0 1px 0px 0px #ffffff inset,
-      0 -1px 0px 0px var(--ms-border) inset,
-      1px 0 0px 0px var(--ms-border-light) inset,
-      -1px 0 0px 0px var(--ms-border-light) inset,
-      0 1px 0px 0px var(--ms-sketch-line),
-      0 2px 3px 0px rgba(44, 37, 32, 0.08);
+    transform: translateY(1px) scale(0.99);
+    box-shadow: 0 3px 9px rgba(119, 76, 36, 0.07), 0 1px 0 rgba(255, 255, 255, 0.54) inset;
   }
   .ms-key-active {
     background: var(--ms-bg-warm);
-    box-shadow:
-      0 1px 0px 0px #ffffff inset,
-      0 -1px 0px 0px var(--ms-border) inset,
-      1px 0 0px 0px var(--ms-border-light) inset,
-      -1px 0 0px 0px var(--ms-border-light) inset,
-      0 4px 0px 0px var(--ms-accent-light),
-      0 5px 2px 0px rgba(44, 37, 32, 0.12),
-      0 7px 12px 0px rgba(44, 37, 32, 0.08);
+    box-shadow: 0 8px 18px rgba(217, 120, 45, 0.12), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
   }
   .ms-key-active:active,
   .ms-key-active.pressed {
     background: var(--ms-surface-dim);
-    transform: translateY(3px);
-    box-shadow:
-      0 1px 0px 0px #ffffff inset,
-      0 -1px 0px 0px var(--ms-border) inset,
-      1px 0 0px 0px var(--ms-border-light) inset,
-      -1px 0 0px 0px var(--ms-border-light) inset,
-      0 1px 0px 0px var(--ms-accent-light),
-      0 2px 3px 0px rgba(44, 37, 32, 0.08);
+    transform: translateY(1px) scale(0.99);
+    box-shadow: 0 4px 12px rgba(217, 120, 45, 0.10), 0 1px 0 rgba(255, 255, 255, 0.56) inset;
   }
   .ms-key-round {
     border-radius: 50% !important;
@@ -330,7 +290,7 @@ body {
   /* ── Primary button — accent-colored key ── */
   .ms-btn-primary {
     position: relative;
-    border-radius: 0;
+    border-radius: 999px;
     background: var(--ms-accent);
     color: #faf8f4;
     padding: 0.625rem 1rem;
@@ -340,36 +300,23 @@ body {
     cursor: pointer;
     user-select: none;
     overflow: hidden;
-    box-shadow:
-      0 1px 0px 0px rgba(255,255,255,0.18) inset,
-      0 -1px 0px 0px var(--ms-accent-hover) inset,
-      1px 0 0px 0px rgba(255,255,255,0.08) inset,
-      -1px 0 0px 0px rgba(255,255,255,0.08) inset,
-      0 4px 0px 0px var(--ms-accent-hover),
-      0 5px 2px 0px rgba(44, 37, 32, 0.14),
-      0 7px 12px 0px rgba(44, 37, 32, 0.10);
-    transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.07s ease;
+    box-shadow: 0 12px 24px rgba(217, 120, 45, 0.22), 0 1px 0 rgba(255, 255, 255, 0.24) inset;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   }
   .ms-btn-primary:hover {
     background: var(--ms-accent);
   }
   .ms-btn-primary:active {
     background: var(--ms-accent-hover);
-    transform: translateY(3px);
-    box-shadow:
-      0 1px 0px 0px rgba(255,255,255,0.18) inset,
-      0 -1px 0px 0px var(--ms-accent-hover) inset,
-      1px 0 0px 0px rgba(255,255,255,0.08) inset,
-      -1px 0 0px 0px rgba(255,255,255,0.08) inset,
-      0 1px 0px 0px var(--ms-accent-hover),
-      0 2px 3px 0px rgba(44, 37, 32, 0.10);
+    transform: translateY(1px) scale(0.99);
+    box-shadow: 0 7px 16px rgba(217, 120, 45, 0.18), 0 1px 0 rgba(255, 255, 255, 0.16) inset;
   }
 
   /* ── Ghost button — light key ── */
   .ms-btn-ghost {
     position: relative;
-    border-radius: 0;
-    border: none;
+    border-radius: 999px;
+    border: 1px solid var(--ms-border);
     background: var(--ms-surface);
     padding: 0.3rem 0.625rem;
     font-size: 0.75rem;
@@ -377,54 +324,28 @@ body {
     cursor: pointer;
     user-select: none;
     overflow: hidden;
-    box-shadow:
-      0 1px 0px 0px #ffffff inset,
-      0 -1px 0px 0px var(--ms-border) inset,
-      1px 0 0px 0px var(--ms-border-light) inset,
-      -1px 0 0px 0px var(--ms-border-light) inset,
-      0 3px 0px 0px var(--ms-sketch-line),
-      0 4px 2px 0px rgba(44, 37, 32, 0.10),
-      0 5px 10px 0px rgba(44, 37, 32, 0.06);
-    transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.07s ease;
+    box-shadow: 0 6px 16px rgba(119, 76, 36, 0.08), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   }
   .ms-btn-ghost:hover {
     background: var(--ms-surface);
   }
   .ms-btn-ghost:active {
     background: var(--ms-surface-dim);
-    transform: translateY(2px);
-    box-shadow:
-      0 1px 0px 0px #ffffff inset,
-      0 -1px 0px 0px var(--ms-border) inset,
-      1px 0 0px 0px var(--ms-border-light) inset,
-      -1px 0 0px 0px var(--ms-border-light) inset,
-      0 1px 0px 0px var(--ms-sketch-line),
-      0 2px 3px 0px rgba(44, 37, 32, 0.06);
+    transform: translateY(1px) scale(0.99);
+    box-shadow: 0 3px 10px rgba(119, 76, 36, 0.07), 0 1px 0 rgba(255, 255, 255, 0.56) inset;
   }
 
-  /* ── Nav pill — dark active tab (Solid Vintage design) ── */
+  /* ── Nav pill — warm active tab for TabbyTally ── */
   .ms-nav-active {
-    background: var(--ms-text) !important;
-    box-shadow:
-      0 1px 0px 0px rgba(255,255,255,0.10) inset,
-      0 -1px 0px 0px rgba(0,0,0,0.45) inset,
-      1px 0 0px 0px rgba(255,255,255,0.06) inset,
-      -1px 0 0px 0px rgba(255,255,255,0.06) inset,
-      0 4px 0px 0px rgba(0,0,0,0.55),
-      0 5px 2px 0px rgba(0,0,0,0.18),
-      0 7px 12px 0px rgba(0,0,0,0.14) !important;
+    background: var(--ms-accent) !important;
+    box-shadow: 0 8px 18px rgba(217, 120, 45, 0.18) !important;
   }
   .ms-nav-active:active,
   .ms-nav-active.pressed {
-    background: var(--ms-text) !important;
-    transform: translateY(3px);
-    box-shadow:
-      0 1px 0px 0px rgba(255,255,255,0.10) inset,
-      0 -1px 0px 0px rgba(0,0,0,0.45) inset,
-      1px 0 0px 0px rgba(255,255,255,0.06) inset,
-      -1px 0 0px 0px rgba(255,255,255,0.06) inset,
-      0 1px 0px 0px rgba(0,0,0,0.55),
-      0 2px 3px 0px rgba(0,0,0,0.12) !important;
+    background: var(--ms-accent-hover) !important;
+    transform: translateY(1px) scale(0.99);
+    box-shadow: 0 5px 12px rgba(217, 120, 45, 0.16) !important;
   }
 
   /* ── Floating Action Button ── */

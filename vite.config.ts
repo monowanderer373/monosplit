@@ -11,13 +11,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       devOptions: { enabled: false },
       manifest: {
-        name: 'Mono Split',
-        short_name: 'Mono Split',
-        description: 'Travel expense splitting, simple and fast',
+        name: 'TabbyTally',
+        short_name: 'TabbyTally',
+        description: 'Split travel costs with friends, then settle everything in one clear statement.',
         start_url: '/',
         display: 'standalone',
-        background_color: '#f4f0e8',
-        theme_color: '#8b6e4e',
+        background_color: '#fff7ed',
+        theme_color: '#d9782d',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

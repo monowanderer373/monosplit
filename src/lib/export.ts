@@ -3,7 +3,7 @@ import type { Group } from '../types'
 export function exportGroupAsJson(group: Group): void {
   const safeName = group.name.replace(/[^a-zA-Z0-9_-]/g, '_')
   const date = new Date().toISOString().slice(0, 10)
-  const filename = `monosplit-${safeName}-${date}.json`
+  const filename = `tabbytally-${safeName}-${date}.json`
 
   const blob = new Blob([JSON.stringify(group, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -18,7 +18,7 @@ export function exportGroupAsJson(group: Group): void {
 export function exportGroupAsCsv(group: Group): void {
   const safeName = group.name.replace(/[^a-zA-Z0-9_-]/g, '_')
   const date = new Date().toISOString().slice(0, 10)
-  const filename = `monosplit-${safeName}-${date}.csv`
+  const filename = `tabbytally-${safeName}-${date}.csv`
 
   const personName = (id: string) => group.people.find((p) => p.id === id)?.name ?? 'Unknown'
 

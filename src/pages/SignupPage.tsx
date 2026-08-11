@@ -94,7 +94,7 @@ export default function SignupPage() {
     <main className="ms-page flex min-h-dvh items-center justify-center pb-8">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-[var(--ms-text)]">MonoSplit</h1>
+          <h1 className="text-2xl font-bold text-[var(--ms-text)]">TabbyTally</h1>
           <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">{t('auth.signUpTitle')}</p>
         </div>
 

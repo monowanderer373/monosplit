@@ -69,15 +69,15 @@ export default function LoginPage() {
       <div className="mb-8 flex flex-col items-center gap-3 text-center">
         <div
           className="flex h-16 w-16 items-center justify-center rounded-2xl text-3xl shadow-md"
-          style={{ background: 'var(--ms-accent, #8b6e4e)', color: '#fdfaf5' }}
+          style={{ background: 'var(--ms-accent, #d9782d)', color: '#fffaf3' }}
         >
-          ✈
+          T
         </div>
         <h1
           className="text-3xl font-bold uppercase tracking-widest"
           style={{ color: 'var(--ms-text, #2c2520)', fontFamily: "'Departure Mono', monospace" }}
         >
-          Mono Split
+          TabbyTally
         </h1>
         <p
           className="text-xs uppercase tracking-widest"
