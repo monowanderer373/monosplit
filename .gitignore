@@ -28,3 +28,6 @@ npm-debug.log*
 
 # Plugins (IDE extensions, not part of the app)
 public/plugins/
+
+# Personal notes (not project-specific)
+MATT_POCOCK_SKILLS_GUIDE.md
