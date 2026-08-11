@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import BottomTabs from '../components/BottomTabs'
 import PeopleTab from '../components/PeopleTab'
@@ -7,22 +7,11 @@ import SummaryTab from '../components/SummaryTab'
 import DashboardTab from '../components/DashboardTab'
 import ExpenseSheet from '../components/ExpenseSheet'
 import SettlePaySheet from '../components/SettlePaySheet'
-import {
-  canEditExpenses,
-  canEditGroup,
-  canInviteMembers,
-  canManageManualTravellers,
-  canSettle,
-  getGroupRole,
-} from '../lib/permissions'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
-import { supabase, supabaseEnabled } from '../lib/supabase'
 
-import { useGroupSync } from '../hooks/useGroupSync'
-import { useAuth } from '../hooks/useAuth'
-import type { GroupMembership } from '../types'
+import { useGroupWorkspace } from '../hooks/useGroupWorkspace'
 
 type Tab = 'summary' | 'dashboard' | 'settle' | 'profile'
 
@@ -30,7 +19,7 @@ export default function GroupPage() {
   const t = useT()
   const { groupId } = useParams()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<Tab>('summary')
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
   const [settlePayOpen, setSettlePayOpen] = useState(false)
   const [groupEditOpen, setGroupEditOpen] = useState(false)
@@ -38,44 +27,11 @@ export default function GroupPage() {
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
 
-  const { authUser, loading: authLoading, claimGroup, memberships, createInviteLink, updateGroupMembershipRole, registerGroupMembership } = useAuth()
-  const { status: syncStatus, ownerId, setOwnerId, saveGroupNow, lastError } = useGroupSync(groupId, { authLoading, authUserId: authUser?.id })
-  const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
-  const [linkCopied, setLinkCopied] = useState(false)
-  const [inviteBusyRole, setInviteBusyRole] = useState<'full_access' | 'view' | null>(null)
-  const [repairBusy, setRepairBusy] = useState(false)
-  const [repairNotice, setRepairNotice] = useState('')
-  const [diagnosticsCopied, setDiagnosticsCopied] = useState(false)
+  const workspace = useGroupWorkspace(groupId)
+  const { group, authUser, authLoading, access, sync, identity, invite, diagnostics } = workspace
+  const { role, canEditTrip, canInvite, canManageTravellers, canEditExpenseData, canUseSettle, hasAccess, membershipByUserId } = access
 
-  const isUnclaimed = ownerId === null
-  const canClaim = !!authUser && isUnclaimed && claimStatus !== 'claimed'
-
-  const handleClaim = async () => {
-    if (!groupId || !authUser) return
-    setClaimStatus('claiming')
-    try {
-      await claimGroup(groupId)
-      setOwnerId(authUser.id)
-      setClaimStatus('claimed')
-    } catch {
-      setClaimStatus('idle')
-    }
-  }
-
-  const group = useStore((state) => state.groups.find((entry) => entry.id === groupId))
-  const [groupMemberships, setGroupMemberships] = useState<GroupMembership[]>([])
-
-  // Auto-claim: when a logged-in user opens an unclaimed group, silently claim it
-  useEffect(() => {
-    if (!authUser || !groupId) return
-    if (claimStatus !== 'idle') return
-    if (syncStatus !== 'synced' && syncStatus !== 'error') return
-    if (ownerId !== null) return
-    void handleClaim()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser?.id, groupId, syncStatus, ownerId, claimStatus])
   const addPerson = useStore((state) => state.addPerson)
-
   const updatePersonProfile = useStore((state) => state.updatePersonProfile)
   const removePerson = useStore((state) => state.removePerson)
   const updatePersonPaymentInfo = useStore((state) => state.updatePersonPaymentInfo)
@@ -86,102 +42,6 @@ export default function GroupPage() {
   const addGroupComment = useStore((state) => state.addGroupComment)
 
   const totalExpenses = useMemo(() => group?.expenses.length ?? 0, [group?.expenses.length])
-  const membership = useMemo(
-    () => memberships.find((entry) => entry.groupId === groupId && entry.userId === authUser?.id) ?? null,
-    [authUser?.id, groupId, memberships],
-  )
-  const role = getGroupRole({ ownerId: ownerId ?? group?.ownerId ?? null, authUserId: authUser?.id, membership })
-  const canEditTrip = canEditGroup(role)
-  const canInvite = canInviteMembers(role)
-  const canManageTravellers = canManageManualTravellers(role)
-  const canEditExpenseData = canEditExpenses(role)
-  const canUseSettle = canSettle(role)
-  const hasAccess = !!role || canClaim
-  const linkedPerson = useMemo(
-    () => authUser?.id ? group?.people.find((person) => person.authUserId === authUser.id) ?? null : null,
-    [authUser?.id, group?.people],
-  )
-  const membershipByUserId = useMemo(
-    () => Object.fromEntries(groupMemberships.map((entry) => [entry.userId, entry])),
-    [groupMemberships],
-  )
-  const showSyncDiagnostics = syncStatus === 'error' || !!lastError
-  const diagnosticsText = useMemo(() => {
-    const linkedLabel = linkedPerson ? `${linkedPerson.name} (${linkedPerson.id})` : t('group.syncDebugNone')
-    return [
-      `${t('group.syncDebugStatus')}: ${syncStatus}`,
-      `${t('group.syncDebugLastError')}: ${lastError ?? t('group.syncDebugNone')}`,
-      `${t('group.syncDebugGroupId')}: ${groupId ?? t('group.syncDebugNone')}`,
-      `${t('group.syncDebugOwnerId')}: ${ownerId ?? group?.ownerId ?? t('group.syncDebugNone')}`,
-      `${t('group.syncDebugAuthUserId')}: ${authUser?.id ?? t('group.syncDebugNone')}`,
-      `${t('group.syncDebugRole')}: ${role ?? t('group.syncDebugNone')}`,
-      `${t('group.syncDebugMembershipRole')}: ${membership?.role ?? t('group.syncDebugNone')}`,
-      `${t('group.syncDebugLinkedPerson')}: ${linkedLabel}`,
-      `${t('group.syncDebugCanEditExpenses')}: ${canEditExpenseData ? t('group.syncDebugYes') : t('group.syncDebugNo')}`,
-    ].join('\n')
-  }, [authUser?.id, canEditExpenseData, group?.ownerId, groupId, lastError, linkedPerson, membership?.role, ownerId, role, syncStatus, t])
-
-  useEffect(() => {
-    if (!groupId || !role || !supabase || !supabaseEnabled) {
-      setGroupMemberships([])
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      try {
-        const { data } = await supabase
-          .from('user_groups')
-          .select('user_id, role')
-          .eq('group_id', groupId)
-        if (cancelled) return
-        setGroupMemberships(
-          (data || []).map((entry: { user_id: string; role: string }) => ({
-            groupId,
-            userId: entry.user_id,
-            role: entry.role === 'owner' || entry.role === 'full_access' || entry.role === 'view' ? entry.role : 'view',
-          })),
-        )
-      } catch {
-        if (!cancelled) setGroupMemberships([])
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [groupId, role])
-
-  useEffect(() => {
-    if (!authUser || !group || !groupId || !role) return
-    if (linkedPerson) return
-
-    const normalizedAuthName = (authUser.displayName ?? authUser.email?.split('@')[0] ?? '').trim().toLowerCase()
-    const authTokens = normalizedAuthName.split(/\s+/).filter(Boolean)
-    const manualMatch = group.people.find((person) => {
-      if (person.authUserId) return false
-      const normalizedPersonName = person.name.trim().toLowerCase()
-      return (
-        normalizedPersonName === normalizedAuthName ||
-        normalizedAuthName.startsWith(normalizedPersonName) ||
-        normalizedPersonName.startsWith(normalizedAuthName) ||
-        authTokens.includes(normalizedPersonName)
-      )
-    })
-
-    if (manualMatch) {
-      updatePersonProfile(group.id, manualMatch.id, { authUserId: authUser.id })
-      return
-    }
-
-    const fallbackName = authUser.displayName ?? authUser.email?.split('@')[0] ?? 'Traveller'
-    addPerson(groupId, fallbackName, authUser.id)
-  }, [addPerson, authUser, group, groupId, linkedPerson, role, updatePersonProfile])
-
-  useEffect(() => {
-    if (!authUser || !groupId || !group || !role) return
-    const alreadyMember = memberships.some((entry) => entry.groupId === groupId && entry.userId === authUser.id)
-    if (role === 'owner' || alreadyMember) return
-    void registerGroupMembership(groupId, role)
-  }, [authUser, group, groupId, memberships, registerGroupMembership, role])
 
   const openEditPanel = () => {
     if (!group) return
@@ -191,49 +51,7 @@ export default function GroupPage() {
     setGroupEditOpen(true)
   }
 
-  const copyShareLink = async (inviteRole: 'full_access' | 'view') => {
-    if (!groupId || !canInvite) return
-    try {
-      setInviteBusyRole(inviteRole)
-      const invite = await createInviteLink(groupId, inviteRole)
-      if (!invite) return
-      const url = `${window.location.origin}/invite/${invite.token}`
-      await navigator.clipboard.writeText(url)
-      setLinkCopied(true)
-      setTimeout(() => setLinkCopied(false), 2000)
-    } catch {
-      window.alert(t('auth.errorGeneric'))
-    } finally {
-      setInviteBusyRole(null)
-    }
-  }
-
-  const copyDiagnostics = async () => {
-    try {
-      await navigator.clipboard.writeText(diagnosticsText)
-      setDiagnosticsCopied(true)
-      setTimeout(() => setDiagnosticsCopied(false), 2000)
-    } catch {
-      window.alert(diagnosticsText)
-    }
-  }
-
-  const repairAccess = async () => {
-    if (!groupId || !authUser) return
-    setRepairBusy(true)
-    setRepairNotice('')
-    try {
-      const nextRole = canEditExpenseData ? 'full_access' : 'view'
-      await registerGroupMembership(groupId, nextRole)
-      setRepairNotice(t('group.syncDebugRepairDone'))
-    } catch {
-      setRepairNotice(t('auth.errorGeneric'))
-    } finally {
-      setRepairBusy(false)
-    }
-  }
-
-  if (authLoading || syncStatus === 'loading') {
+  if (authLoading || sync.status === 'loading') {
     return (
       <main className="ms-page flex min-h-dvh items-center justify-center">
         <div className="ms-card-soft w-full p-6 text-center">
@@ -267,11 +85,11 @@ export default function GroupPage() {
             <div className="flex items-center gap-2">
               {canInvite && (
                 <>
-                  <button className="ms-btn-ghost" onClick={() => copyShareLink('full_access')}>
-                    {inviteBusyRole === 'full_access' ? t('group.syncing') : linkCopied ? t('group.copied') : t('group.inviteFullAccess')}
+                  <button className="ms-btn-ghost" onClick={() => invite.copyShareLink('full_access')}>
+                    {invite.busyRole === 'full_access' ? t('group.syncing') : invite.linkCopied ? t('group.copied') : t('group.inviteFullAccess')}
                   </button>
-                  <button className="ms-btn-ghost" onClick={() => copyShareLink('view')}>
-                    {inviteBusyRole === 'view' ? t('group.syncing') : linkCopied ? t('group.copied') : t('group.inviteView')}
+                  <button className="ms-btn-ghost" onClick={() => invite.copyShareLink('view')}>
+                    {invite.busyRole === 'view' ? t('group.syncing') : invite.linkCopied ? t('group.copied') : t('group.inviteView')}
                   </button>
                 </>
               )}
@@ -283,9 +101,9 @@ export default function GroupPage() {
           <h1 className="mt-3 text-4xl font-bold text-[#2c2520]">{group.name}</h1>
           <div className="mt-2 flex items-center gap-3">
             <p className="text-base text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
-            {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
-            {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.localOnly')}</span>}
-            {syncStatus === 'error' && <span className="text-xs text-[#9e4a4a]">{t('group.syncError')}</span>}
+            {sync.status === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
+            {sync.status === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.localOnly')}</span>}
+            {sync.status === 'error' && <span className="text-xs text-[#9e4a4a]">{t('group.syncError')}</span>}
           </div>
           <p className="mt-1 text-base text-[#6b6058]">
             {group.people.length} {t('groups.people')} · {totalExpenses} {t('groups.expenses')}
@@ -295,7 +113,7 @@ export default function GroupPage() {
 
 
       <div className="min-w-0">
-          {showSyncDiagnostics && hasAccess ? (
+          {diagnostics.show && hasAccess ? (
             <section className="ms-card-soft mb-4 border-[#c49898] bg-[rgba(158,74,74,0.05)]">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -303,34 +121,26 @@ export default function GroupPage() {
                   <p className="mt-1 text-sm text-[#6b6058]">{t('group.syncDebugHelp')}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button className="ms-btn-ghost text-xs" onClick={copyDiagnostics}>
-                    {diagnosticsCopied ? t('group.syncDebugCopied') : t('group.syncDebugCopy')}
+                  <button className="ms-btn-ghost text-xs" onClick={diagnostics.copy}>
+                    {diagnostics.copied ? t('group.syncDebugCopied') : t('group.syncDebugCopy')}
                   </button>
-                  {authUser && ownerId !== authUser.id ? (
-                    <button className="ms-btn-ghost text-xs" onClick={repairAccess} disabled={repairBusy}>
-                      {repairBusy ? t('group.syncDebugRepairing') : t('group.syncDebugRepair')}
+                  {diagnostics.canRepair ? (
+                    <button className="ms-btn-ghost text-xs" onClick={diagnostics.repair} disabled={diagnostics.repairing}>
+                      {diagnostics.repairing ? t('group.syncDebugRepairing') : t('group.syncDebugRepair')}
                     </button>
                   ) : null}
                 </div>
               </div>
               <div className="mt-3 grid gap-2 text-sm text-[#4f463f]">
-                <p><span className="font-semibold">{t('group.syncDebugStatus')}:</span> {syncStatus}</p>
-                <p><span className="font-semibold">{t('group.syncDebugLastError')}:</span> {lastError ?? t('group.syncDebugNone')}</p>
-                <p><span className="font-semibold">{t('group.syncDebugGroupId')}:</span> {groupId ?? t('group.syncDebugNone')}</p>
-                <p><span className="font-semibold">{t('group.syncDebugOwnerId')}:</span> {ownerId ?? group.ownerId ?? t('group.syncDebugNone')}</p>
-                <p><span className="font-semibold">{t('group.syncDebugAuthUserId')}:</span> {authUser?.id ?? t('group.syncDebugNone')}</p>
-                <p><span className="font-semibold">{t('group.syncDebugRole')}:</span> {role ?? t('group.syncDebugNone')}</p>
-                <p><span className="font-semibold">{t('group.syncDebugMembershipRole')}:</span> {membership?.role ?? t('group.syncDebugNone')}</p>
-                <p><span className="font-semibold">{t('group.syncDebugLinkedPerson')}:</span> {linkedPerson ? `${linkedPerson.name} (${linkedPerson.id})` : t('group.syncDebugNone')}</p>
-                <p><span className="font-semibold">{t('group.syncDebugCanEditExpenses')}:</span> {canEditExpenseData ? t('group.syncDebugYes') : t('group.syncDebugNo')}</p>
+                <p className="whitespace-pre-line">{diagnostics.text}</p>
               </div>
-              {repairNotice ? (
-                <p className="mt-3 text-sm text-[#7b3d3d]">{repairNotice}</p>
+              {diagnostics.notice ? (
+                <p className="mt-3 text-sm text-[#7b3d3d]">{diagnostics.notice}</p>
               ) : null}
             </section>
           ) : null}
 
-          {activeTab === 'summary' ? (
+          {activeTab === 'summary' || activeTab === 'dashboard' ? (
             <header className="ms-card-soft mb-4 lg:hidden">
               <div className="mb-2 flex items-start justify-between gap-3">
                 <button className="ms-btn-ghost" onClick={() => navigate('/')}>
@@ -338,8 +148,8 @@ export default function GroupPage() {
                 </button>
                 <div className="flex items-center gap-2">
                   {canInvite && (
-                    <button className="ms-btn-ghost" onClick={() => copyShareLink('full_access')}>
-                      {linkCopied ? t('group.copied') : t('group.share')}
+                    <button className="ms-btn-ghost" onClick={() => invite.copyShareLink('full_access')}>
+                      {invite.linkCopied ? t('group.copied') : t('group.share')}
                     </button>
                   )}
                   <button className="ms-btn-ghost" onClick={openEditPanel} disabled={!canEditTrip}>
@@ -350,8 +160,8 @@ export default function GroupPage() {
               <h1 className="text-2xl font-bold text-[#2c2520]">{group.name}</h1>
               <div className="mt-1 flex items-center gap-2">
                 <p className="text-xs text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
-                {syncStatus === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
-                {syncStatus === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.local')}</span>}
+                {sync.status === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
+                {sync.status === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.local')}</span>}
               </div>
               <p className="mt-1 text-sm text-[#6b6058]">
                 {group.people.length} {t('groups.people')} · {totalExpenses} {t('groups.expenses')}
@@ -365,6 +175,49 @@ export default function GroupPage() {
             </section>
           ) : null}
 
+          {hasAccess && authUser && !identity.linkedPerson ? (
+            <section className="ms-card-soft mb-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ms-text-muted)]">
+                    {t('group.identityTitle')}
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-[var(--ms-text)]">{t('group.identityQuestion')}</h2>
+                  <p className="mt-1 max-w-xl text-sm text-[var(--ms-text-secondary)]">
+                    {t('group.identityHelp')}
+                  </p>
+                </div>
+                <button className="ms-btn-primary shrink-0" onClick={identity.createNew}>
+                  {t('group.identityCreateMe')}
+                </button>
+              </div>
+
+              {identity.availableIdentityPeople.length > 0 ? (
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {identity.availableIdentityPeople.map((person) => (
+                    <button
+                      key={person.id}
+                      className="flex items-center gap-3 rounded-3xl border border-[var(--ms-border)] bg-[var(--ms-surface)] p-3 text-left transition hover:bg-[var(--ms-surface-dim)]"
+                      onClick={() => identity.claim(person.id)}
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ms-accent-bg)] text-sm font-black text-[var(--ms-accent)]">
+                        {person.avatarDataUrl ? (
+                          <img src={person.avatarDataUrl} alt={person.name} className="h-full w-full object-cover" />
+                        ) : (
+                          person.name.slice(0, 1).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-[var(--ms-text)]">{person.name}</p>
+                        <p className="text-xs text-[var(--ms-text-muted)]">{t('group.identityChooseThis')}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
           {activeTab === 'profile' && hasAccess ? (
             <PeopleTab
               group={group}
@@ -372,13 +225,7 @@ export default function GroupPage() {
               role={role}
               membershipByUserId={membershipByUserId}
               onAddPerson={(name) => addPerson(group.id, name)}
-              onUpdateMembershipRole={(userId, nextRole) => {
-                void updateGroupMembershipRole(group.id, userId, nextRole)
-                setGroupMemberships((prev) => {
-                  const next = prev.filter((entry) => entry.userId !== userId)
-                  return [...next, { groupId: group.id, userId, role: nextRole }]
-                })
-              }}
+              onUpdateMembershipRole={access.updateMembershipRole}
               onUpdatePersonProfile={(personId, updates) => updatePersonProfile(group.id, personId, updates)}
               onRemovePerson={(personId) => {
                 if (!canManageTravellers) return
@@ -413,6 +260,9 @@ export default function GroupPage() {
               role={role}
               onUpdatePersonPaymentInfo={(personId, updates) => updatePersonPaymentInfo(group.id, personId, updates)}
               onAddComment={(personId, message) => addGroupComment(group.id, personId, message)}
+              onAddExpense={() => canEditExpenseData && setExpenseComposerOpen(true)}
+              onViewSettle={() => setActiveTab('settle')}
+              canAddExpense={canEditExpenseData}
             />
           ) : null}
 
@@ -420,6 +270,7 @@ export default function GroupPage() {
             <SettleTab
               group={group}
               canSettle={canUseSettle}
+              authUserId={authUser?.id}
             />
           ) : null}
       </div>
@@ -465,19 +316,11 @@ export default function GroupPage() {
             ...group,
             expenses: [...group.expenses, createdExpense],
           }
-          let saveResult = await saveGroupNow(nextGroup)
-
-          // Legacy recovery: some linked/full-access members are missing a
-          // `user_groups` row even though the UI already considers them editable.
-          // Backfill membership once, then retry the group write.
-          if (!saveResult.ok && authUser?.id && ownerId !== authUser.id) {
-            await registerGroupMembership(group.id, 'full_access')
-            saveResult = await saveGroupNow(nextGroup)
-          }
+          const saveResult = await workspace.saveExpenseWithRecovery(nextGroup)
 
           if (!saveResult.ok) {
             removeExpense(group.id, createdExpense.id)
-            window.alert(saveResult.error ?? lastError ?? t('group.syncError'))
+            window.alert(saveResult.error ?? t('group.syncError'))
             return
           }
           setExpenseComposerOpen(false)

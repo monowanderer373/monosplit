@@ -86,7 +86,9 @@ All components use `expense.payerIds ?? []` defensive fallback — never access 
 src/
   types/index.ts          — all TypeScript interfaces
   store/useStore.ts       — Zustand store, persist (version 2), migrate fn, all actions
-  hooks/useGroupSync.ts   — Supabase fetch + realtime subscription + debounced upload
+  hooks/
+    useGroupSync.ts        — Supabase fetch + realtime subscription + debounced upload
+    useGroupWorkspace.ts   — deep hook for GroupPage: wraps useAuth+useGroupSync, exposes only decisions (access/sync/identity/invite/diagnostics) + saveExpenseWithRecovery; no raw ownerId/timing leaks out
   lib/
     i18n.ts               — translations (EN/ZH), useT() hook, tCategory()
     currency.ts           — fetchRate() with Frankfurter API fallback
@@ -95,6 +97,7 @@ src/
     groupNormalize.ts      — normalizeExpense/normalizeSettlementPayment/normalizeGroup (single source of truth for inbound/outbound data sanitization)
     groupRepository.ts     — GroupRepository interface + Supabase adapter for the `groups` table (fetch/save/subscribe/softDelete/listOwned)
     compileExpense.ts      — compileExpense(form, ctx): validates the ExpenseForm wizard state and assembles the Expense payload; owns FormState, ExpenseForm.tsx imports it
+    groupWorkspace.ts      — pure decision logic behind useGroupWorkspace: shouldAutoClaim/shouldRegisterMembership/buildDiagnosticsText/saveExpenseWithRecovery; tested with plain vitest (no DOM)
     export.ts             — exportGroupAsJson/Csv, parseImportedJson
     supabase.ts            — createClient, supabaseEnabled flag
   components/
@@ -106,7 +109,7 @@ src/
     DashboardTab.tsx       — shared comments + payment info
   pages/
     GroupsPage.tsx         — list groups, create, join by link
-    GroupPage.tsx          — single group, tab switching, sync status
+    GroupPage.tsx          — single group, tab switching, sync status; delegates auth/sync/role/identity/invite/diagnostics orchestration to hooks/useGroupWorkspace.ts, only owns tab/modal UI state itself
     EmbedPage.tsx          — read-only Notion embed at /embed/:groupId
 ```
 
