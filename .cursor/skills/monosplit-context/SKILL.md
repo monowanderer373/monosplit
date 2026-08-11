@@ -90,14 +90,17 @@ src/
   lib/
     i18n.ts               — translations (EN/ZH), useT() hook, tCategory()
     currency.ts           — fetchRate() with Frankfurter API fallback
-    settlement.ts         — getSettlements() calculates who owes whom
+    settlementLedger.ts   — createSettlementSnapshot() calculates who owes whom
+    settlementCommands.ts — recordPayment/quickSettle/editPayment (pure, validated settlement commands)
+    groupNormalize.ts      — normalizeExpense/normalizeSettlementPayment/normalizeGroup (single source of truth for inbound/outbound data sanitization)
+    groupRepository.ts     — GroupRepository interface + Supabase adapter for the `groups` table (fetch/save/subscribe/softDelete/listOwned)
+    compileExpense.ts      — compileExpense(form, ctx): validates the ExpenseForm wizard state and assembles the Expense payload; owns FormState, ExpenseForm.tsx imports it
     export.ts             — exportGroupAsJson/Csv, parseImportedJson
-    supabase.ts           — createClient, supabaseEnabled flag
+    supabase.ts            — createClient, supabaseEnabled flag
   components/
     BottomTabs.tsx         — mobile nav bar
-    ExpenseForm.tsx        — add/edit expense (multi-payer, itemized, tax, fetch rate)
-    ExpenseCard.tsx        — renders one expense with splits
-    SummaryTab.tsx         — expense + settlement summary with alternating row colors
+    ExpenseForm.tsx        — add/edit expense wizard UI (multi-payer, itemized, tax, fetch rate); delegates validation/assembly to lib/compileExpense.ts
+    SummaryTab.tsx         — expense + settlement summary with alternating row colors (renders expense rows inline, no separate ExpenseCard component)
     SettleTab.tsx          — outstanding balances + repay-all modal + mark-repaid confirm
     PeopleTab.tsx          — travellers, group settings, theme, language, data
     DashboardTab.tsx       — shared comments + payment info

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getSettlements } from '../lib/settlement'
+import { createSettlementSnapshot } from '../lib/settlementLedger'
 import { CURRENCIES, fetchRate, getCurrencySymbol } from '../lib/currency'
 import { formatMoney } from '../lib/format'
 import { useT } from '../lib/i18n'
@@ -800,7 +800,10 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
   const myPersonId = myPerson?.id ?? null
 
   // Settlements — raw pair totals (used only internally here)
-  const settlements = useMemo(() => getSettlements(group.expenses, group.settlementPayments), [group.expenses, group.settlementPayments])
+  const settlements = useMemo(
+    () => createSettlementSnapshot({ expenses: group.expenses, settlementPayments: group.settlementPayments }).settlements,
+    [group.expenses, group.settlementPayments],
+  )
 
   // Snapshot for contra-netting calculations
   const snapshot = useMemo(() => createGroupSettlementSnapshot(group), [group])

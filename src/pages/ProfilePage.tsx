@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useStore } from '../store/useStore'
 import { useT } from '../lib/i18n'
-import { supabase, supabaseEnabled } from '../lib/supabase'
+import { supabaseEnabled } from '../lib/supabase'
+import { groupRepository } from '../lib/groupRepository'
 import { formatDateRange } from '../lib/format'
 import type { Group } from '../types'
 
@@ -26,22 +27,12 @@ export default function ProfilePage() {
   }, [authUser])
 
   useEffect(() => {
-    if (!authUser || !supabase || !supabaseEnabled) return
+    if (!authUser || !supabaseEnabled) return
     setOwnedLoading(true)
-    supabase
-      .from('groups')
-      .select('id, data')
-      .eq('owner_id', authUser.id)
-      .then(({ data }) => {
-        if (data) {
-          setOwnedGroups(
-            data
-              .filter((r) => r.data)
-              .map((r) => ({ id: r.id, group: { ...(r.data as Group), id: r.id } })),
-          )
-        }
-        setOwnedLoading(false)
-      })
+    void groupRepository.listOwned(authUser.id).then((records) => {
+      setOwnedGroups(records.map((record) => ({ id: record.group.id, group: record.group })))
+      setOwnedLoading(false)
+    })
   }, [authUser])
 
   const handleSaveProfile = async () => {

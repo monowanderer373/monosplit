@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { supabase, supabaseEnabled } from '../lib/supabase'
+import { groupRepository } from '../lib/groupRepository'
 import { useAuth } from '../hooks/useAuth'
 import type { Group } from '../types'
 
@@ -21,6 +22,7 @@ export default function GroupsPage() {
   const [dateExpanded, setDateExpanded] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [feedbackCopied, setFeedbackCopied] = useState(false)
 
   const sortedGroups = useMemo(() => {
     // While auth is resolving, show nothing to avoid flash of wrong state
@@ -82,36 +84,22 @@ export default function GroupsPage() {
       deleteGroup(group.id)
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'delete started',data:{groupId:group.id,groupName:group.name,isOwner,authUserId:authUser?.id,groupOwnerId:group.ownerId,ownerIdMatch:group.ownerId===authUser?.id},hypothesisId:'H-A,H-B',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     // Debug: show ownership info in console
     console.log('[delete] isOwner:', isOwner, '| group.ownerId:', group.ownerId, '| authUser.id:', authUser?.id)
 
     if (supabase && supabaseEnabled && authUser) {
       if (isOwner) {
         // Owner: soft delete the group in shared payload to avoid DB FK/RLS mismatch.
-        const payload = {
+        const deletedGroup = {
           ...group,
           deletedAt: new Date().toISOString(),
           deletedBy: authUser.id,
         }
-        const { ownerId: _ownerId, ...groupData } = payload
-        const upsertResult = await supabase.from('groups').upsert({
-          id: group.id,
-          data: groupData as unknown as Record<string, unknown>,
-          updated_at: new Date().toISOString(),
-          ...(group.ownerId ? { owner_id: group.ownerId } : {}),
-        })
+        const result = await groupRepository.softDelete(group.id, deletedGroup, group.ownerId ?? null)
 
-        // #region agent log
-        fetch('http://127.0.0.1:7535/ingest/48c41b95-ad70-4dfa-a2e2-dad5cb32b9bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a896c'},body:JSON.stringify({sessionId:'3a896c',location:'GroupsPage.tsx:handleRemoveGroup',message:'owner soft delete upsert result',data:{error:upsertResult.error?.message??null,isOwner,groupOwnerId:group.ownerId,authUserId:authUser.id},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-
-        if (upsertResult.error) {
+        if (!result.ok) {
           console.warn('[delete] owner soft delete warning', {
-            error: upsertResult.error?.message,
+            error: result.error,
           })
         }
       } else {
@@ -148,17 +136,39 @@ export default function GroupsPage() {
       navigate(`/group/${id}`)
       return
     }
-    if (supabase && supabaseEnabled) {
-      const { data } = await supabase.from('groups').select('*').eq('id', id).maybeSingle()
-      if (data?.data) {
+    if (supabaseEnabled) {
+      const record = await groupRepository.fetch(id)
+      if (record) {
         const upsertGroup = useStore.getState().upsertGroup
-        upsertGroup(data.data as unknown as import('../types').Group)
+        upsertGroup(record.group)
         unhideDeletedGroup(id)
         navigate(`/group/${id}`)
         return
       }
     }
     window.alert(t('groups.notFound'))
+  }
+
+  const copyFeedbackTemplate = async () => {
+    const template = [
+      'TabbyTally Beta Feedback',
+      '',
+      '1. What were you trying to do?',
+      '2. Where did you feel confused?',
+      '3. Was Add Expense clear?',
+      '4. Was Settle Up clear?',
+      '5. Could you understand who should pay whom?',
+      '6. What would make this feel more like a finished app?',
+      '',
+      `Device: ${navigator.userAgent}`,
+    ].join('\n')
+    try {
+      await navigator.clipboard.writeText(template)
+      setFeedbackCopied(true)
+      setTimeout(() => setFeedbackCopied(false), 1800)
+    } catch {
+      window.alert(template)
+    }
   }
 
   return (
@@ -258,12 +268,12 @@ export default function GroupsPage() {
         {authLoading ? (
           <div className="flex items-center gap-2 p-2 text-sm text-[#9a9088] lg:col-span-2 2xl:col-span-3">
             <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#9a9088] border-t-transparent" />
-            Loading…
+            {t('app.loading')}
           </div>
         ) : !authUser ? (
           /* Not logged in — groups are private, prompt sign in */
           <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-6 text-center lg:col-span-2 2xl:col-span-3">
-            <p className="mb-3 text-sm text-[#6b6058]">Sign in to see your travel groups.</p>
+            <p className="mb-3 text-sm text-[#6b6058]">{t('groups.signInToSeeGroups')}</p>
             <button
               className="ms-btn-primary text-sm"
               onClick={() => navigate('/login')}
@@ -301,11 +311,23 @@ export default function GroupsPage() {
                   void handleRemoveGroup(group)
                 }}
               >
-                {authUser && group.ownerId === authUser.id ? t('groups.delete') : 'Leave'}
+                {authUser && group.ownerId === authUser.id ? t('groups.delete') : t('groups.leave')}
               </button>
             </div>
           </article>
         ))}
+      </section>
+
+      <section className="mt-6 max-w-3xl rounded-3xl border border-[var(--ms-border)] bg-[var(--ms-surface)] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-black text-[var(--ms-text)]">{t('feedback.title')}</p>
+            <p className="mt-1 text-xs text-[var(--ms-text-secondary)]">{t('feedback.help')}</p>
+          </div>
+          <button className="ms-btn-ghost shrink-0 text-xs" onClick={() => void copyFeedbackTemplate()}>
+            {feedbackCopied ? t('group.copied') : t('feedback.copyTemplate')}
+          </button>
+        </div>
       </section>
     </main>
   )

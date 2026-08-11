@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useT } from '../lib/i18n'
-import { supabase, supabaseEnabled } from '../lib/supabase'
+import { supabaseEnabled } from '../lib/supabase'
+import { groupRepository } from '../lib/groupRepository'
 import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney, formatDateRange } from '../lib/format'
-import { getSettlements } from '../lib/settlement'
+import { createSettlementSnapshot } from '../lib/settlementLedger'
 import type { Group } from '../types'
 
 function formatDateLabel(isoDate: string): string {
@@ -20,9 +21,9 @@ export default function EmbedPage() {
   const [group, setGroup] = useState<Group | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch group from Supabase
+  // Fetch group via the shared group repository
   useEffect(() => {
-    if (!groupId || !supabase || !supabaseEnabled) {
+    if (!groupId || !supabaseEnabled) {
       setError(t('embed.notConfigured'))
       return
     }
@@ -30,44 +31,28 @@ export default function EmbedPage() {
     let cancelled = false
 
     const fetchGroup = async () => {
-      const { data, error: fetchErr } = await supabase!
-        .from('groups')
-        .select('*')
-        .eq('id', groupId)
-        .maybeSingle()
-
-      if (cancelled) return
-      if (fetchErr) {
-        setError(fetchErr.message)
-        return
-      }
-      if (data?.data) {
-        setGroup(data.data as unknown as Group)
-      } else {
-        setError(t('embed.notFound'))
+      try {
+        const record = await groupRepository.fetch(groupId)
+        if (cancelled) return
+        if (record) {
+          setGroup(record.group)
+        } else {
+          setError(t('embed.notFound'))
+        }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : t('embed.notFound'))
       }
     }
 
     void fetchGroup()
 
-    // Subscribe to Realtime
-    const channel = supabase!
-      .channel(`embed-${groupId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'groups', filter: `id=eq.${groupId}` },
-        (payload) => {
-          const incoming = payload.new as { data: unknown } | undefined
-          if (incoming?.data) {
-            setGroup(incoming.data as unknown as Group)
-          }
-        },
-      )
-      .subscribe()
+    const unsubscribe = groupRepository.subscribe(groupId, (record) => {
+      setGroup(record.group)
+    })
 
     return () => {
       cancelled = true
-      supabase!.removeChannel(channel)
+      unsubscribe()
     }
   }, [groupId])
 
@@ -107,7 +92,10 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
   }, [group.expenses])
 
   // Settlement summary
-  const settlements = useMemo(() => getSettlements(group.expenses), [group.expenses])
+  const settlements = useMemo(
+    () => createSettlementSnapshot({ expenses: group.expenses }).settlements,
+    [group.expenses],
+  )
 
   // Grand total per currency
   const grandTotals = useMemo(() => {
@@ -214,7 +202,7 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
           rel="noopener noreferrer"
           className="font-semibold text-gray-600 underline"
         >
-          MonoSplit
+          TabbyTally
         </a>
       </div>
     </div>

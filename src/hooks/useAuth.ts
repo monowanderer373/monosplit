@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase, supabaseEnabled } from '../lib/supabase'
+import { groupRepository } from '../lib/groupRepository'
 import { useStore } from '../store/useStore'
 import type { Group, GroupInviteLink, GroupMembership, GroupRole, UserProfile } from '../types'
 
@@ -107,17 +108,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const syncOwnedGroups = useCallback(
     (userId: string) => {
       if (!supabase) return
-      void Promise.resolve(
-        supabase.from('groups').select('id, data').eq('owner_id', userId),
-      )
-        .then(async ({ data }) => {
-          if (data) {
-            data.forEach((row) => {
-              if (row.data) {
-                hydrateGroupFromAuthSync({ ...(row.data as Group), id: row.id, ownerId: userId })
-              }
-            })
-          }
+      void groupRepository
+        .listOwned(userId)
+        .then(async (records) => {
+          records.forEach((record) => {
+            hydrateGroupFromAuthSync({ ...record.group, ownerId: userId })
+          })
 
           // Recovery pass for pre-permission groups that still exist remotely with
           // owner_id = null. If the current user is already linked to a traveller
@@ -175,11 +171,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setMemberships(normalizedMemberships)
           if (!memberships?.length) return
           const groupIds = memberships.map((m: { group_id: string }) => m.group_id)
-          const { data: rows } = await supabase!
-            .from('groups')
-            .select('id, data, owner_id')
-            .in('id', groupIds)
-          const remoteMemberIds = new Set((rows || []).map((row: { id: string }) => row.id))
+          const records = await groupRepository.fetchMany(groupIds)
+          const remoteMemberIds = new Set(records.map((record) => record.group.id))
           // Prune stale local member groups (non-owned) that were removed/left remotely.
           useStore.setState((state) => ({
             groups: state.groups.filter((g) => {
@@ -190,17 +183,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return remoteMemberIds.has(g.id)
             }),
           }))
-          if (rows) {
-            rows.forEach((row: { id: string; data: unknown; owner_id: string | null }) => {
-              if (row.data) {
-                hydrateGroupFromAuthSync({
-                  ...(row.data as Group),
-                  id: row.id,
-                  ...(row.owner_id ? { ownerId: row.owner_id } : {}),
-                })
-              }
+          records.forEach((record) => {
+            hydrateGroupFromAuthSync({
+              ...record.group,
+              ...(record.ownerId ? { ownerId: record.ownerId } : {}),
             })
-          }
+          })
         })
         .catch((e: unknown) => {
           console.warn('[auth] syncMemberGroups exception', e)

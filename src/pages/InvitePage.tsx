@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
-import { supabase, supabaseEnabled } from '../lib/supabase'
-import type { Group, GroupInviteLink } from '../types'
+import { supabaseEnabled } from '../lib/supabase'
+import { groupRepository } from '../lib/groupRepository'
+import type { GroupInviteLink } from '../types'
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -57,18 +58,10 @@ export default function InvitePage() {
     if (!token) return
     void getInviteLink(token).then((resolvedInvite) => {
       setInvite(resolvedInvite)
-      if (!resolvedInvite?.groupId || !supabase || !supabaseEnabled) return
-      supabase
-        .from('groups')
-        .select('data')
-        .eq('id', resolvedInvite.groupId)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data?.data) {
-            const group = data.data as Group
-            setGroupName(group.name ?? null)
-          }
-        })
+      if (!resolvedInvite?.groupId || !supabaseEnabled) return
+      void groupRepository.fetch(resolvedInvite.groupId).then((record) => {
+        if (record) setGroupName(record.group.name ?? null)
+      })
     })
   }, [getInviteLink, token])
 
@@ -118,15 +111,15 @@ export default function InvitePage() {
       <div className="mb-8 flex flex-col items-center gap-3 text-center">
         <div
           className="flex h-16 w-16 items-center justify-center rounded-2xl text-3xl shadow-md"
-          style={{ background: 'var(--ms-accent, #8b6e4e)', color: '#fdfaf5' }}
+          style={{ background: 'var(--ms-accent, #d9782d)', color: '#fffaf3' }}
         >
-          ✈
+          T
         </div>
         <h1
           className="text-3xl font-bold uppercase tracking-widest"
           style={{ color: 'var(--ms-text, #2c2520)', fontFamily: "'Departure Mono', monospace" }}
         >
-          Mono Split
+          TabbyTally
         </h1>
         <div
           className="mt-1 rounded-xl border px-4 py-2 text-center"

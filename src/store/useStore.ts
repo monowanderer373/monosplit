@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { generateId, generateGroupId } from '../lib/id'
-import { todayISO } from '../lib/format'
 import { saveGroupBackup } from '../lib/groupBackups'
 import { normalizeExpense, normalizeGroup, normalizeSettlementPayment } from '../lib/groupNormalize'
 import type {
@@ -54,11 +53,6 @@ type AppState = {
   updateSettlementPayment: (groupId: string, paymentId: string, updates: Partial<Omit<SettlementPayment, 'id' | 'createdAt'>>) => void
   removeSettlementPayment: (groupId: string, paymentId: string) => void
   restoreGroupFromBackup: (groupId: string, expenses: Group['expenses'], settlementPayments: Group['settlementPayments']) => void
-  markSplitRepaid: (groupId: string, expenseId: string, splitIndex: number, repaidDate: string) => void
-  unmarkSplitRepaid: (groupId: string, expenseId: string, splitIndex: number) => void
-  markSettlementPairRepaid: (groupId: string, debtorId: string, creditorId: string, currency: string, repaidDate: string) => void
-  markAllDebtorSplitsRepaid: (groupId: string, debtorId: string, repaidDate: string) => void
-  markRedirectRepaid: (groupId: string, fromCreditorIds: string[], toPersonId: string, amountInPaidCurrency: number, currency: string, repaidDate: string) => void
   setPersonSkipRepaidConfirm: (groupId: string, personId: string, skip: boolean) => void
   addGroupComment: (groupId: string, personId: string, message: string) => void
 }
@@ -382,156 +376,6 @@ export const useStore = create<AppState>()(
             ...group,
             expenses,
             settlementPayments: settlementPayments ?? [],
-          })),
-        }))
-      },
-      markSplitRepaid: (groupId, expenseId, splitIndex, repaidDate) => {
-        set((state) => ({
-          groups: updateGroupById(state.groups, groupId, (group) => ({
-            ...group,
-            expenses: group.expenses.map((expense) => {
-              if (expense.id !== expenseId) return expense
-              return {
-                ...expense,
-                splits: expense.splits.map((split, index) =>
-                  index === splitIndex
-                    ? {
-                        ...split,
-                        repaid: true,
-                        repaidAt: new Date().toISOString(),
-                        repaidDate: repaidDate || todayISO(),
-                      }
-                    : split,
-                ),
-              }
-            }),
-          })),
-        }))
-      },
-      unmarkSplitRepaid: (groupId, expenseId, splitIndex) => {
-        set((state) => ({
-          groups: updateGroupById(state.groups, groupId, (group) => ({
-            ...group,
-            expenses: group.expenses.map((expense) => {
-              if (expense.id !== expenseId) return expense
-              return {
-                ...expense,
-                splits: expense.splits.map((split, index) =>
-                  index === splitIndex
-                    ? {
-                        ...split,
-                        repaid: false,
-                        repaidAt: null,
-                        repaidDate: null,
-                      }
-                    : split,
-                ),
-              }
-            }),
-          })),
-        }))
-      },
-      markSettlementPairRepaid: (groupId, debtorId, creditorId, currency, repaidDate) => {
-        set((state) => ({
-          groups: updateGroupById(state.groups, groupId, (group) => ({
-            ...group,
-            expenses: group.expenses.map((expense) => {
-              if (!(expense.payerIds ?? []).includes(creditorId)) return expense
-              const cur = expense.paidCurrency
-              if (cur !== currency) return expense
-
-              // Refund expenses represent one debtor paying back multiple recipients.
-              // Keep the original refund bill intact and only mark the specific
-              // recipient's share as repaid so history stays visible in Summary.
-              if (expense.type === 'refund') {
-                const payerIds = expense.payerIds ?? []
-                if (!payerIds.includes(creditorId)) return expense
-
-                return {
-                  ...expense,
-                  splits: expense.splits.map((split) => {
-                    if (split.personId !== debtorId || split.repaid || split.amount == null) return split
-                    const nextRepaidPayerIds = Array.from(new Set([...(split.repaidPayerIds ?? []), creditorId]))
-                    const validRepaidPayerIds = nextRepaidPayerIds.filter((payerId) => payerIds.includes(payerId))
-                    const fullyRepaid = validRepaidPayerIds.length >= payerIds.length
-                    return {
-                      ...split,
-                      repaidPayerIds: validRepaidPayerIds,
-                      repaid: fullyRepaid,
-                      repaidAt: fullyRepaid ? new Date().toISOString() : split.repaidAt,
-                      repaidDate: fullyRepaid ? (repaidDate || todayISO()) : split.repaidDate,
-                    }
-                  }),
-                }
-              }
-
-              return {
-                ...expense,
-                splits: expense.splits.map((split) => {
-                  const shouldMark = split.personId === debtorId && !split.repaid && cur === currency
-                  if (!shouldMark) return split
-                  return {
-                    ...split,
-                    repaid: true,
-                    repaidAt: new Date().toISOString(),
-                    repaidDate: repaidDate || todayISO(),
-                  }
-                }),
-              }
-            }),
-          })),
-        }))
-      },
-      markRedirectRepaid: (groupId, fromCreditorIds, toPersonId, amountInPaidCurrency, currency, repaidDate) => {
-        set((state) => ({
-          groups: updateGroupById(state.groups, groupId, (group) => {
-            let remaining = amountInPaidCurrency
-            return {
-              ...group,
-              expenses: group.expenses.map((expense) => {
-                if (remaining <= 0.001) return expense
-                if (!(expense.payerIds ?? []).includes(toPersonId)) return expense
-                if (expense.paidCurrency !== currency) return expense
-                return {
-                  ...expense,
-                  splits: expense.splits.map((split) => {
-                    if (remaining <= 0.001) return split
-                    if (!fromCreditorIds.includes(split.personId) || split.repaid) return split
-                    const splitAmt = split.amount ?? 0
-                    remaining -= splitAmt
-                    return {
-                      ...split,
-                      repaid: true,
-                      repaidAt: new Date().toISOString(),
-                      repaidDate: repaidDate || todayISO(),
-                    }
-                  }),
-                }
-              }),
-            }
-          }),
-        }))
-      },
-      markAllDebtorSplitsRepaid: (groupId, debtorId, repaidDate) => {
-        set((state) => ({
-          groups: updateGroupById(state.groups, groupId, (group) => ({
-            ...group,
-            expenses: group.expenses.map((expense) => {
-              const payerIds = expense.payerIds ?? []
-              return {
-                ...expense,
-                splits: expense.splits.map((split) => {
-                  if (split.personId !== debtorId || split.repaid) return split
-                  return {
-                    ...split,
-                    repaid: true,
-                    repaidAt: new Date().toISOString(),
-                    repaidDate: repaidDate || todayISO(),
-                    repaidPayerIds: expense.type === 'refund' ? [...payerIds] : split.repaidPayerIds,
-                  }
-                }),
-              }
-            }),
           })),
         }))
       },
