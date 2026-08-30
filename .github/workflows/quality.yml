@@ -69,9 +69,9 @@ jobs:
           done
           pg_isready -d "$LOCAL_DATABASE_URL"
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/fixtures/legacy_pre_007.sql
-      - name: Apply release and hardening migrations
+      - name: Apply release, hardening, and archive migrations
         run: npx supabase migration up --local
-      - name: Assert historical lockdown and normalization
+      - name: Assert historical lockdown, normalization, and archive
         run: psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/fixtures/legacy_post_009_assertions.sql
       - run: npx supabase db lint --local --fail-on warning
       - if: always()

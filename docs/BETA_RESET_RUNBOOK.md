@@ -244,6 +244,10 @@ After the push, rerun the Realtime query and confirm any existing legacy tables:
 - grant no table privileges to `anon` or `authenticated`;
 - remain readable to the operator/service role for recovery.
 
+Confirm migration 010 copied every legacy group, membership, and invite into
+`private.legacy_beta_recovery`; invite tokens must be stored only as SHA-256
+digests. The archive must grant no access to `anon` or `authenticated`.
+
 Also confirm migration 009 reported no
 `anonymous_space_owner_requires_remediation` exception. If it did, stop: an
 operator must choose a permanent replacement owner before retrying. Never
@@ -278,14 +282,17 @@ test, reopen writes and resume workers; record the UTC time.
 
 ## 9. Explicit destructive reset go/no-go
 
-`npx supabase db reset --linked` destroys beta database state. It is **not**
-part of baseline deployment and defaults to **NO-GO**.
+The operator reset script deletes all Auth users and active relational data. It
+preserves the locked legacy group tables and requires their private recovery
+archive counts to match before deleting anything. It defaults to **NO-GO**.
 
 All of the following are required for **GO**:
 
 - product owner and database operator approvals are recorded;
 - the typed project ref matches the linked project and release ticket;
-- provider recovery point and encrypted logical dumps both exist;
+- a provider recovery point exists, or the product owner explicitly accepts
+  its absence for disposable legacy beta data;
+- encrypted logical dumps exist;
 - hashes pass and the disposable restore plus exact row-count comparison pass;
 - Auth identities, Storage objects, policies, and one legacy group were checked;
 - migration, pgTAP, lint, and build gates pass;
@@ -296,10 +303,11 @@ All of the following are required for **GO**:
 If any item is false or unknown, the decision is **NO-GO** and no destructive
 command is run. After a second operator reads the checklist and records GO,
 type the expected project ref again, compare it with
-`supabase/.temp/project-ref`, and only then run:
+`supabase/.temp/project-ref`, inspect `scripts/private-beta-reset.sql`, and only
+then run:
 
 ```powershell
-npx supabase db reset --linked
+npx supabase db query --linked --file scripts/private-beta-reset.sql
 ```
 
 Immediately repeat sections 6 through 8. Preserve the pre-reset backup for the

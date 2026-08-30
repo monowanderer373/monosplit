@@ -209,5 +209,45 @@ begin
         raise exception 'unexpected anonymous owner error: %', sqlerrm;
       end if;
   end;
+
+  if (
+    select pg_catalog.count(*)
+    from private.legacy_beta_recovery
+    where source_table = 'groups'
+  ) <> 1 or (
+    select pg_catalog.count(*)
+    from private.legacy_beta_recovery
+    where source_table = 'user_groups'
+  ) <> 1 or (
+    select pg_catalog.count(*)
+    from private.legacy_beta_recovery
+    where source_table = 'group_invite_links'
+  ) <> 1 then
+    raise exception 'legacy recovery archive counts do not match the fixture';
+  end if;
+
+  if exists (
+    select 1
+    from private.legacy_beta_recovery
+    where source_table = 'group_invite_links'
+      and (
+        row_data ? 'token'
+        or not row_data ? 'token_sha256'
+      )
+  ) then
+    raise exception 'legacy invite archive retained a raw token';
+  end if;
+
+  if pg_catalog.has_table_privilege(
+    'authenticated',
+    'private.legacy_beta_recovery',
+    'SELECT'
+  ) or not pg_catalog.has_table_privilege(
+    'service_role',
+    'private.legacy_beta_recovery',
+    'SELECT'
+  ) then
+    raise exception 'legacy recovery archive privileges are incorrect';
+  end if;
 end
 $$;
