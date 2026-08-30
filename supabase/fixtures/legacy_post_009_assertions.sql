@@ -1,8 +1,5 @@
 -- Plain-SQL assertions for the historical upgrade job. Any failed invariant
 -- raises and fails CI.
-create extension if not exists pgtap with schema extensions;
-select plan(1);
-
 do $$
 declare
   legacy_relation record;
@@ -214,6 +211,3 @@ begin
   end;
 end
 $$;
-
-select pass('historical legacy upgrade and lockdown assertions passed');
-select * from finish();
