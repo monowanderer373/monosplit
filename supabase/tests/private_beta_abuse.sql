@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(24);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -443,6 +443,59 @@ select results_eq(
   $$,
   $$ values ('MYR'::text, 111::bigint), ('USD'::text, 222::bigint) $$,
   'multi-currency amounts remain separated by ISO currency'
+);
+
+select ok(
+  not pg_catalog.has_function_privilege(
+    'anon',
+    'public.create_expense(uuid,text,uuid,bigint,text,text,text,date,uuid[],bigint[],bigint[])',
+    'EXECUTE'
+  ),
+  'unauthenticated callers cannot execute expense commands'
+);
+
+select ok(
+  pg_catalog.has_function_privilege(
+    'anon',
+    'public.preview_space_invite(text)',
+    'EXECUTE'
+  ),
+  'unauthenticated callers can preview a tokenized Space invite'
+);
+
+select ok(
+  not pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.handle_tabby_tally_user()',
+    'EXECUTE'
+  ),
+  'browser roles cannot invoke the Auth provisioning trigger directly'
+);
+
+select ok(
+  coalesce(
+    not pg_catalog.has_function_privilege(
+      'authenticated',
+      pg_catalog.to_regprocedure(
+        'public.delete_group_and_memberships(text,text)'
+      ),
+      'EXECUTE'
+    ),
+    true
+  ),
+  'browser roles cannot invoke the retired legacy group mutator'
+);
+
+select ok(
+  coalesce(
+    not pg_catalog.has_function_privilege(
+      'authenticated',
+      pg_catalog.to_regprocedure('public.rls_auto_enable()'),
+      'EXECUTE'
+    ),
+    true
+  ),
+  'browser roles cannot invoke the provider RLS event trigger function'
 );
 
 reset role;
