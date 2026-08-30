@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
 import { supabaseEnabled } from '../lib/supabase'
+import { authErrorKey, safeInternalRedirect } from '../lib/authUi'
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -13,49 +14,57 @@ const GoogleIcon = () => (
   </svg>
 )
 
-function mapAuthError(err: unknown, t: ReturnType<typeof useT>): string {
-  const msg = err instanceof Error ? err.message.toLowerCase() : ''
-  if (msg.includes('not-configured')) return t('auth.errorNotConfigured')
-  if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('wrong password')) return t('auth.errorCredentials')
-  return t('auth.errorGeneric')
-}
-
 export default function LoginPage() {
   const t = useT()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const redirect = searchParams.get('redirect') ?? '/'
-  const { signIn, signInWithGoogle } = useAuth()
+  const redirect = safeInternalRedirect(searchParams.get('redirect')) ?? '/'
+  const { authUser, loading: authLoading, signIn, signInWithGoogle } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const profileUpgradePath = `/profile?upgrade=preserve-session&redirect=${encodeURIComponent(redirect)}`
+
+  useEffect(() => {
+    if (!authLoading && authUser?.isAnonymous) {
+      navigate(profileUpgradePath, { replace: true })
+    }
+  }, [authLoading, authUser?.isAnonymous, navigate, profileUpgradePath])
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim() || !password) return
+    if (authUser?.isAnonymous) {
+      navigate(profileUpgradePath, { replace: true })
+      return
+    }
     setError('')
     setLoading(true)
     try {
       await signIn(email.trim(), password)
       navigate(redirect, { replace: true })
     } catch (err) {
-      setError(mapAuthError(err, t))
+      setError(t(authErrorKey(err)))
     } finally {
       setLoading(false)
     }
   }
 
   const handleGoogle = async () => {
+    if (authUser?.isAnonymous) {
+      navigate(profileUpgradePath, { replace: true })
+      return
+    }
     setError('')
     setGoogleLoading(true)
     if (redirect && redirect !== '/') window.localStorage.setItem('ms_post_auth_redirect', redirect)
     try {
       await signInWithGoogle(redirect !== '/' ? redirect : undefined)
     } catch (err) {
-      setError(mapAuthError(err, t))
+      setError(t(authErrorKey(err)))
       setGoogleLoading(false)
     }
   }
@@ -108,17 +117,12 @@ export default function LoginPage() {
         {supabaseEnabled && (
           <button
             type="button"
-            disabled={googleLoading}
+            disabled={googleLoading || authLoading}
             onClick={handleGoogle}
-            className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border font-medium transition-colors"
-            style={{
-              borderColor: 'var(--ms-border, #d8d0c4)',
-              color: 'var(--ms-text, #2c2520)',
-              background: 'var(--ms-bg, #f4f0e8)',
-            }}
+            className="ms-btn-primary mb-4 flex h-11 w-full items-center justify-center gap-2.5 font-medium"
           >
             {googleLoading ? (
-              <span className="text-sm" style={{ color: 'var(--ms-text-secondary, #6b6058)' }}>{t('auth.signingIn')}</span>
+              <span className="text-sm">{t('auth.signingIn')}</span>
             ) : (
               <>
                 <GoogleIcon />
@@ -133,7 +137,7 @@ export default function LoginPage() {
           <div className="mb-4 flex items-center gap-3">
             <div className="h-px flex-1" style={{ background: 'var(--ms-border, #d8d0c4)' }} />
             <span className="text-xs" style={{ color: 'var(--ms-text-muted, #9a9088)', fontFamily: "'Departure Mono', monospace" }}>
-              {t('auth.orDivider')}
+              {t('auth.emailFallback')}
             </span>
             <div className="h-px flex-1" style={{ background: 'var(--ms-border, #d8d0c4)' }} />
           </div>
@@ -142,12 +146,14 @@ export default function LoginPage() {
         <form onSubmit={handleSignIn} className="space-y-4">
           <div>
             <label
+              htmlFor="login-email"
               className="mb-1 block text-xs font-semibold uppercase tracking-wider"
               style={{ color: 'var(--ms-text-secondary, #6b6058)', fontFamily: "'Departure Mono', monospace" }}
             >
               {t('auth.email')}
             </label>
             <input
+              id="login-email"
               type="email"
               autoComplete="email"
               className="ms-input h-11 w-full"
@@ -160,12 +166,14 @@ export default function LoginPage() {
 
           <div>
             <label
+              htmlFor="login-password"
               className="mb-1 block text-xs font-semibold uppercase tracking-wider"
               style={{ color: 'var(--ms-text-secondary, #6b6058)', fontFamily: "'Departure Mono', monospace" }}
             >
               {t('auth.password')}
             </label>
             <input
+              id="login-password"
               type="password"
               autoComplete="current-password"
               className="ms-input h-11 w-full"
@@ -182,11 +190,9 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || !supabaseEnabled}
-            className="h-11 w-full rounded-xl font-semibold uppercase tracking-widest transition-opacity disabled:opacity-50"
+            disabled={loading || authLoading || !supabaseEnabled}
+            className="ms-btn-ghost h-11 w-full font-semibold uppercase tracking-widest"
             style={{
-              background: 'var(--ms-accent, #8b6e4e)',
-              color: '#fdfaf5',
               fontFamily: "'Departure Mono', monospace",
               fontSize: '0.8rem',
             }}

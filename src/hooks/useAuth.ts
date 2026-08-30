@@ -3,21 +3,46 @@ import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase, supabaseEnabled } from '../lib/supabase'
-import { groupRepository } from '../lib/groupRepository'
+import { applyProfileEnrichment } from '../lib/authProfile'
+import {
+  observeAuthFailure,
+  observeAuthOutcome,
+  type AuthMethod,
+  type AuthOperation,
+} from '../lib/telemetry'
 import { useStore } from '../store/useStore'
-import type { Group, GroupInviteLink, GroupMembership, GroupRole, UserProfile } from '../types'
+import type { UserProfile } from '../types'
+import { safeInternalRedirect } from '../lib/authUi'
 
-function isViewingGroup(groupId: string): boolean {
-  if (typeof window === 'undefined') return false
-  return window.location.pathname === `/group/${groupId}`
+async function observeAuthRequest<T>(
+  operation: AuthOperation,
+  method: AuthMethod,
+  request: () => Promise<T>,
+): Promise<T> {
+  observeAuthOutcome(operation, 'started', method)
+  try {
+    const result = await request()
+    observeAuthOutcome(operation, 'succeeded', method)
+    return result
+  } catch (cause) {
+    observeAuthFailure(operation, method, cause)
+    throw cause
+  }
 }
 
 function buildProfile(
   user: User,
-  row?: { display_name?: string | null; avatar_url?: string | null } | null,
+  row?: {
+    display_name?: string | null
+    avatar_url?: string | null
+    default_currency?: string | null
+    timezone?: string | null
+  } | null,
+  participantId?: string | null,
 ): UserProfile {
   return {
     id: user.id,
+    participantId: participantId ?? null,
     email: user.email,
     displayName:
       row?.display_name ??
@@ -27,6 +52,9 @@ function buildProfile(
     avatarUrl: row?.avatar_url ?? user.user_metadata?.avatar_url ?? null,
     lang: 'en',
     themeId: 'solid-vintage',
+    defaultCurrency: row?.default_currency ?? 'MYR',
+    timezone: row?.timezone ?? 'Asia/Kuala_Lumpur',
+    isAnonymous: user.is_anonymous ?? false,
   }
 }
 
@@ -35,21 +63,14 @@ function buildProfile(
 type AuthContextValue = {
   authUser: UserProfile | null
   loading: boolean
-  memberships: GroupMembership[]
   signUp: (email: string, password: string, displayName: string, emailRedirectTo?: string) => Promise<unknown>
   signIn: (email: string, password: string) => Promise<unknown>
+  signInAnonymously: () => Promise<unknown>
+  linkAnonymousEmail: (email: string, emailRedirectTo?: string) => Promise<void>
+  setAccountPassword: (password: string) => Promise<void>
   signInWithGoogle: (afterLoginPath?: string) => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: { displayName?: string }) => Promise<void>
-  claimGroup: (groupId: string) => Promise<void>
-  releaseGroup: (groupId: string) => Promise<void>
-  transferGroupOwnership: (groupId: string, nextOwnerUserId: string) => Promise<void>
-  registerGroupMembership: (groupId: string, role?: GroupRole) => Promise<void>
-  updateGroupMembershipRole: (groupId: string, userId: string, role: Exclude<GroupRole, 'owner'>) => Promise<void>
-  removeGroupMembership: (groupId: string, userId: string) => Promise<void>
-  createInviteLink: (groupId: string, role: Exclude<GroupRole, 'owner'>) => Promise<GroupInviteLink | null>
-  getInviteLink: (token: string) => Promise<GroupInviteLink | null>
-  acceptInviteLink: (token: string) => Promise<GroupMembership | null>
 }
 
 // ── Context ──────────────────────────────────────────────────────────────────
@@ -60,146 +81,37 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [memberships, setMemberships] = useState<GroupMembership[]>([])
-  const upsertGroup = useStore((s) => s.upsertGroup)
-
-  const hydrateGroupFromAuthSync = useCallback(
-    (group: Group) => {
-      const store = useStore.getState()
-      const existing = store.groups.find((entry) => entry.id === group.id)
-
-      // `useGroupSync` owns freshness for the currently open group. Avoid letting
-      // slower auth bootstrap queries overwrite newer local edits with stale remote data.
-      if (existing && isViewingGroup(group.id)) {
-        if (group.ownerId && group.ownerId !== existing.ownerId) {
-          store.updateGroup(group.id, { ownerId: group.ownerId })
-        }
-        store.unhideDeletedGroup(group.id)
-        return
-      }
-
-      upsertGroup(group)
-      store.unhideDeletedGroup(group.id)
-    },
-    [upsertGroup],
-  )
+  const [loading, setLoading] = useState(supabaseEnabled)
 
   // Set auth user immediately from session token; enrich from DB in background
   const fetchProfileAndSet = useCallback((user: User) => {
     setAuthUser(buildProfile(user))
 
     if (!supabase) return
-    void Promise.resolve(
-      supabase
+    void Promise.all([
+      Promise.resolve(supabase
         .from('user_profiles')
-        .select('display_name, avatar_url')
+        .select('display_name, avatar_url, default_currency, timezone')
         .eq('id', user.id)
-        .maybeSingle(),
-    )
-      .then(({ data }) => {
-        if (data) setAuthUser(buildProfile(user, data))
+        .maybeSingle()),
+      Promise.resolve(supabase
+        .from('participants')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle()),
+    ])
+      .then(([profileResult, participantResult]) => {
+        const enriched = buildProfile(user, profileResult.data, participantResult.data?.id ?? null)
+        setAuthUser((current) => applyProfileEnrichment(current, enriched))
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
         // DB unavailable — basic profile already set, continue
+        observeAuthFailure('profile_load', 'session', cause)
       })
   }, [])
 
-  const syncOwnedGroups = useCallback(
-    (userId: string) => {
-      if (!supabase) return
-      void groupRepository
-        .listOwned(userId)
-        .then(async (records) => {
-          records.forEach((record) => {
-            hydrateGroupFromAuthSync({ ...record.group, ownerId: userId })
-          })
-
-          // Recovery pass for pre-permission groups that still exist remotely with
-          // owner_id = null. If the current user is already linked to a traveller
-          // profile inside the group payload, restore it locally so they can open
-          // the group and claim ownership again.
-          const { data: legacyRows, error: legacyError } = await supabase!
-            .from('groups')
-            .select('id, data, owner_id')
-            .is('owner_id', null)
-
-          if (legacyError || !legacyRows?.length) return
-
-          legacyRows.forEach((row: { id: string; data: unknown; owner_id: string | null }) => {
-            const group = row.data as Group | null
-            if (!group) return
-
-            const linkedToUser =
-              group.ownerId === userId ||
-              group.people?.some((person) => person.authUserId === userId)
-
-            if (!linkedToUser) return
-
-            hydrateGroupFromAuthSync({
-              ...group,
-              id: row.id,
-              ...(row.owner_id ? { ownerId: row.owner_id } : {}),
-            })
-          })
-        })
-        .catch((e: unknown) => {
-          console.warn('[auth] syncOwnedGroups error', e)
-        })
-    },
-    [hydrateGroupFromAuthSync],
-  )
-
-  // Fetch groups the user has joined as a member (via user_groups table)
-  const syncMemberGroups = useCallback(
-    (userId: string) => {
-      if (!supabase) return
-      void Promise.resolve(
-        supabase.from('user_groups').select('group_id, role').eq('user_id', userId),
-      )
-        .then(async ({ data: memberships, error }) => {
-          if (error) {
-            // user_groups table may not exist yet — fail silently
-            console.warn('[auth] syncMemberGroups error', error.message)
-            return
-          }
-          const normalizedMemberships: GroupMembership[] = (memberships || []).map((m: { group_id: string; role?: string | null }) => ({
-            groupId: m.group_id,
-            userId,
-            role: m.role === 'owner' || m.role === 'full_access' || m.role === 'view' ? m.role : 'full_access',
-          }))
-          setMemberships(normalizedMemberships)
-          if (!memberships?.length) return
-          const groupIds = memberships.map((m: { group_id: string }) => m.group_id)
-          const records = await groupRepository.fetchMany(groupIds)
-          const remoteMemberIds = new Set(records.map((record) => record.group.id))
-          // Prune stale local member groups (non-owned) that were removed/left remotely.
-          useStore.setState((state) => ({
-            groups: state.groups.filter((g) => {
-              const isOwnedByUser = g.ownerId === userId
-              if (isOwnedByUser) return true
-              const hasLinkedPerson = g.people.some((p) => p.authUserId === userId)
-              if (!hasLinkedPerson) return true
-              return remoteMemberIds.has(g.id)
-            }),
-          }))
-          records.forEach((record) => {
-            hydrateGroupFromAuthSync({
-              ...record.group,
-              ...(record.ownerId ? { ownerId: record.ownerId } : {}),
-            })
-          })
-        })
-        .catch((e: unknown) => {
-          console.warn('[auth] syncMemberGroups exception', e)
-        })
-    },
-    [hydrateGroupFromAuthSync],
-  )
-
   useEffect(() => {
     if (!supabase || !supabaseEnabled) {
-      setLoading(false)
       return
     }
 
@@ -217,17 +129,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         // Synchronous: sets authUser immediately, DB enrich runs in background
         fetchProfileAndSet(session.user)
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-          syncOwnedGroups(session.user.id)
-          syncMemberGroups(session.user.id)
-        }
       } else {
         setAuthUser(null)
-        setMemberships([])
       }
 
       if (event === 'INITIAL_SESSION') {
         initialSessionFired = true
+        observeAuthOutcome('initial_session', 'succeeded', 'session')
         resolveLoading()
       }
     })
@@ -240,14 +148,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then(({ data: { session } }) => {
           if (session?.user) {
             fetchProfileAndSet(session.user)
-            syncOwnedGroups(session.user.id)
-            syncMemberGroups(session.user.id)
           } else {
             setAuthUser(null)
           }
         })
         .catch((e: unknown) => {
-          console.warn('[auth] fallback error', e)
+          observeAuthFailure('initial_session', 'session', e)
+          console.warn('[auth] initial session fallback unavailable')
         })
         .finally(resolveLoading)
     }, 3000)
@@ -256,198 +163,100 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe()
       clearTimeout(fallbackTimer)
     }
-  }, [fetchProfileAndSet, syncOwnedGroups, syncMemberGroups])
+  }, [fetchProfileAndSet])
 
   // ── Auth methods ────────────────────────────────────────────────────────────
 
   const signUp = async (email: string, password: string, displayName: string, emailRedirectTo?: string) => {
-    if (!supabase) throw new Error('not-configured')
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { display_name: displayName },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
-      },
+    return observeAuthRequest('sign_up', 'email', async () => {
+      if (!supabase) throw new Error('not-configured')
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: displayName },
+          ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        },
+      })
+      if (error) throw error
+      return data
     })
-    if (error) throw error
-    return data
   }
 
   const signIn = async (email: string, password: string) => {
-    if (!supabase) throw new Error('not-configured')
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    return data
-  }
-
-  // afterLoginPath: optional path to redirect to after OAuth completes (e.g. /group/:id?autoJoin=true)
-  const signInWithGoogle = async (afterLoginPath?: string) => {
-    if (!supabase) throw new Error('not-configured')
-    const callbackUrl = new URL(`${window.location.origin}/auth/callback`)
-    if (afterLoginPath) callbackUrl.searchParams.set('redirect', afterLoginPath)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: callbackUrl.toString() },
+    return observeAuthRequest('sign_in', 'email', async () => {
+      if (!supabase) throw new Error('not-configured')
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+      return data
     })
-    if (error) throw error
   }
 
-  // Register the current user as a member of a group in the user_groups table.
-  // This makes the group persist across devices on next login.
-  const registerGroupMembership = async (groupId: string, role: GroupRole = 'full_access') => {
-    if (!supabase || !supabase.auth) return
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) return
-    const { error } = await supabase
-      .from('user_groups')
-      .upsert(
-        { user_id: session.user.id, group_id: groupId, role },
-        { onConflict: 'user_id,group_id' },
+  const signInAnonymously = async () => {
+    return observeAuthRequest('anonymous_sign_in', 'anonymous', async () => {
+      if (!supabase) throw new Error('not-configured')
+      const { data, error } = await supabase.auth.signInAnonymously()
+      if (error) throw error
+      return data
+    })
+  }
+
+  const linkAnonymousEmail = async (email: string, emailRedirectTo?: string) => {
+    return observeAuthRequest('link_email', 'email', async () => {
+      if (!supabase || !authUser?.isAnonymous) throw new Error('anonymous_session_required')
+      const { error } = await supabase.auth.updateUser(
+        { email: email.trim() },
+        emailRedirectTo ? { emailRedirectTo } : undefined,
       )
-    if (error) console.warn('[auth] registerGroupMembership error', error.message)
-    if (!error) {
-      setMemberships((prev) => {
-        const next = prev.filter((entry) => !(entry.groupId === groupId && entry.userId === session.user.id))
-        return [...next, { groupId, userId: session.user.id, role }]
+      if (error) throw error
+    })
+  }
+
+  const setAccountPassword = async (password: string) => {
+    return observeAuthRequest('set_password', 'email', async () => {
+      if (!supabase || !authUser || authUser.isAnonymous) throw new Error('verified_account_required')
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) throw error
+    })
+  }
+
+  // afterLoginPath preserves the intended relational route across OAuth.
+  const signInWithGoogle = async (afterLoginPath?: string) => {
+    return observeAuthRequest('google_sign_in', 'google', async () => {
+      if (!supabase) throw new Error('not-configured')
+      const callbackUrl = new URL(`${window.location.origin}/auth/callback`)
+      const safePath = safeInternalRedirect(afterLoginPath)
+      if (safePath) callbackUrl.searchParams.set('redirect', safePath)
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: callbackUrl.toString() },
       })
-    }
-  }
-
-  const updateGroupMembershipRole = async (groupId: string, userId: string, role: Exclude<GroupRole, 'owner'>) => {
-    if (!supabase) throw new Error('not-configured')
-    const { error } = await supabase
-      .from('user_groups')
-      .upsert({ user_id: userId, group_id: groupId, role }, { onConflict: 'user_id,group_id' })
-    if (error) throw error
-    setMemberships((prev) => {
-      const next = prev.filter((entry) => !(entry.groupId === groupId && entry.userId === userId))
-      return [...next, { groupId, userId, role }]
+      if (error) throw error
     })
-  }
-
-  const removeGroupMembership = async (groupId: string, userId: string) => {
-    if (!supabase) throw new Error('not-configured')
-    const { error } = await supabase
-      .from('user_groups')
-      .delete()
-      .eq('group_id', groupId)
-      .eq('user_id', userId)
-    if (error) throw error
-    setMemberships((prev) => prev.filter((entry) => !(entry.groupId === groupId && entry.userId === userId)))
-  }
-
-  const createInviteLink = async (groupId: string, role: Exclude<GroupRole, 'owner'>): Promise<GroupInviteLink | null> => {
-    if (!supabase || !authUser) throw new Error('not-authenticated')
-    const token = crypto.randomUUID()
-    const invite: GroupInviteLink = {
-      token,
-      groupId,
-      role,
-      createdBy: authUser.id,
-      active: true,
-      createdAt: new Date().toISOString(),
-      expiresAt: null,
-    }
-    const { error } = await supabase.from('group_invite_links').upsert({
-      token: invite.token,
-      group_id: invite.groupId,
-      role: invite.role,
-      created_by: invite.createdBy,
-      active: invite.active,
-      created_at: invite.createdAt,
-      expires_at: invite.expiresAt,
-    })
-    if (error) throw error
-    return invite
-  }
-
-  const getInviteLink = async (token: string): Promise<GroupInviteLink | null> => {
-    if (!supabase) return null
-    const { data, error } = await supabase
-      .from('group_invite_links')
-      .select('*')
-      .eq('token', token)
-      .eq('active', true)
-      .maybeSingle()
-    if (error || !data) return null
-    return {
-      token: data.token,
-      groupId: data.group_id,
-      role: data.role,
-      createdBy: data.created_by,
-      active: data.active,
-      createdAt: data.created_at,
-      expiresAt: data.expires_at,
-    } as GroupInviteLink
-  }
-
-  const acceptInviteLink = async (token: string): Promise<GroupMembership | null> => {
-    if (!supabase || !authUser) throw new Error('not-authenticated')
-    const invite = await getInviteLink(token)
-    if (!invite || invite.groupId == null) return null
-    const membership: GroupMembership = {
-      groupId: invite.groupId,
-      userId: authUser.id,
-      role: invite.role,
-    }
-    const { error } = await supabase
-      .from('user_groups')
-      .upsert({ user_id: authUser.id, group_id: invite.groupId, role: invite.role }, { onConflict: 'user_id,group_id' })
-    if (error) throw error
-    setMemberships((prev) => {
-      const next = prev.filter((entry) => !(entry.groupId === invite.groupId && entry.userId === authUser.id))
-      return [...next, membership]
-    })
-    return membership
   }
 
   const signOut = async () => {
-    if (!supabase) throw new Error('not-configured')
-    await supabase.auth.signOut()
-    setAuthUser(null)
+    return observeAuthRequest('sign_out', 'session', async () => {
+      if (!supabase) throw new Error('not-configured')
+      const signingOutUserId = authUser?.id
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      if (signingOutUserId) useStore.getState().clearLedgerIdentity(signingOutUserId)
+      setAuthUser(null)
+    })
   }
 
   const updateProfile = async (updates: { displayName?: string }) => {
-    if (!supabase || !authUser) throw new Error('not-authenticated')
-    const { error } = await supabase
-      .from('user_profiles')
-      .upsert({ id: authUser.id, display_name: updates.displayName })
-    if (error) throw error
-    setAuthUser((prev) =>
-      prev ? { ...prev, displayName: updates.displayName ?? prev.displayName } : null,
-    )
-  }
-
-  const claimGroup = async (groupId: string) => {
-    if (!supabase || !authUser) throw new Error('not-authenticated')
-    const { error } = await supabase
-      .from('groups')
-      .update({ owner_id: authUser.id })
-      .eq('id', groupId)
-    if (error) throw error
-  }
-
-  const releaseGroup = async (groupId: string) => {
-    if (!supabase || !authUser) throw new Error('not-authenticated')
-    const { error } = await supabase
-      .from('groups')
-      .update({ owner_id: null })
-      .eq('id', groupId)
-    if (error) throw error
-  }
-
-  const transferGroupOwnership = async (groupId: string, nextOwnerUserId: string) => {
-    if (!supabase || !authUser) throw new Error('not-authenticated')
-    const { error: membershipError } = await supabase
-      .from('user_groups')
-      .upsert({ user_id: nextOwnerUserId, group_id: groupId, role: 'full_access' }, { onConflict: 'user_id,group_id' })
-    if (membershipError) throw membershipError
-    const { error } = await supabase
-      .from('groups')
-      .update({ owner_id: nextOwnerUserId })
-      .eq('id', groupId)
-    if (error) throw error
+    return observeAuthRequest('update_profile', 'session', async () => {
+      if (!supabase || !authUser) throw new Error('not-authenticated')
+      const { error } = await supabase
+        .from('user_profiles')
+        .upsert({ id: authUser.id, display_name: updates.displayName })
+      if (error) throw error
+      setAuthUser((prev) =>
+        prev ? { ...prev, displayName: updates.displayName ?? prev.displayName } : null,
+      )
+    })
   }
 
   return createElement(
@@ -456,21 +265,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value: {
         authUser,
         loading,
-        memberships,
         signUp,
         signIn,
+        signInAnonymously,
+        linkAnonymousEmail,
+        setAccountPassword,
         signInWithGoogle,
         signOut,
         updateProfile,
-        claimGroup,
-        releaseGroup,
-        transferGroupOwnership,
-        registerGroupMembership,
-        updateGroupMembershipRole,
-        removeGroupMembership,
-        createInviteLink,
-        getInviteLink,
-        acceptInviteLink,
       },
     },
     children,

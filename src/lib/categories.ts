@@ -9,15 +9,13 @@ export const EXPENSE_CATEGORIES = [
   'Sightseeing',
   'Activities',
   'Other',
-  'Refund',
 ] as const
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
 
-// Categories shown in the normal expense category dropdown (excludes Refund — set automatically)
-export const SELECTABLE_EXPENSE_CATEGORIES = EXPENSE_CATEGORIES.filter((c) => c !== 'Refund')
+export const SELECTABLE_EXPENSE_CATEGORIES = EXPENSE_CATEGORIES
 
-const legacyMap: Record<string, ExpenseCategory> = {
+const categoryAliases: Record<string, ExpenseCategory> = {
   food: 'Food',
   drinks: 'Drinks',
   groceries: 'Groceries',
@@ -31,8 +29,6 @@ const legacyMap: Record<string, ExpenseCategory> = {
   activity: 'Activities',
   activities: 'Activities',
   other: 'Other',
-  refund: 'Refund',
-  adjustment: 'Refund',
 }
 
 export const CATEGORY_ICONS: Record<ExpenseCategory, string> = {
@@ -46,7 +42,6 @@ export const CATEGORY_ICONS: Record<ExpenseCategory, string> = {
   Sightseeing: '🗺️',
   Activities: '🎯',
   Other: '📌',
-  Refund: '↩',
 }
 
 export function getCategoryIcon(input: string): string {
@@ -57,7 +52,7 @@ export function getCategoryIcon(input: string): string {
 export function normalizeCategory(input: string): ExpenseCategory {
   const raw = String(input || '').trim()
   if (!raw) return 'Other'
-  const mapped = legacyMap[raw.toLowerCase()]
+  const mapped = categoryAliases[raw.toLowerCase()]
   if (mapped) return mapped
   const exact = EXPENSE_CATEGORIES.find((category) => category.toLowerCase() === raw.toLowerCase())
   return exact ?? 'Other'

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Departure Mono is now brand-only (logo, wordmark, small labels).
+   Body copy and money were moved to Plus Jakarta Sans because monospace
+   renders digits and letters at the same width, which is what made every
+   screen read as one undifferentiated block of characters. */
 @font-face {
   font-family: 'Departure Mono';
   src: url('/fonts/DepartureMono-Regular.woff2') format('woff2'),
@@ -9,87 +13,69 @@
   font-display: swap;
 }
 
-@font-face {
-  font-family: 'Bebas Neue';
-  src: url('/fonts/BebasNeue-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Caesar Dressing';
-  src: url('/fonts/CaesarDressing-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Modern Antiqua';
-  src: url('/fonts/ModernAntiqua-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Source Code Pro';
-  src: url('/fonts/SourceCodePro-Regular.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* ── Font overrides — :root[data-font] beats :root (specificity 0,2,0 > 0,1,0) ── */
+/* ═══════════════════════════════════════════════════════
+   TOKENS — Warm Ledger
+   Swapping the palette should only ever mean editing this block.
+   ═══════════════════════════════════════════════════════ */
 
 :root {
-  font-family: 'DM Sans', Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 
-  --ms-bg: #fff7ed;
-  --ms-bg-warm: #f8ead8;
-  --ms-surface: #fffaf3;
-  --ms-surface-dim: #f6eadb;
-  --ms-border: #ead8c0;
-  --ms-day-bar: #f1d6b6;
-  --ms-border-light: #f3e5d2;
-  --ms-text: #32241c;
-  --ms-text-secondary: #765a45;
-  --ms-text-muted: #a9876a;
-  --ms-sketch-line: #d9b98f;
-  --ms-accent: #d9782d;
-  --ms-accent-hover: #bd6120;
-  --ms-accent-light: #f1b06f;
-  --ms-accent-bg: rgba(217, 120, 45, 0.12);
-  --ms-success: #5f8a64;
-  --ms-success-bg: rgba(95, 138, 100, 0.10);
-  --ms-danger: #b65a45;
-  --ms-danger-bg: rgba(182, 90, 69, 0.10);
-  --ms-info: #5d7f9f;
-  --ms-info-bg: rgba(93, 127, 159, 0.10);
+  /* ── Surfaces ── */
+  --ms-bg: #fdfbf7;
+  --ms-bg-warm: #f6f1e9;
+  --ms-surface: #ffffff;
+  --ms-surface-dim: #f6f1e9;
+  /* ── Lines ── */
+  --ms-border: #efe7dc;
+  --ms-border-light: #f6f0e7;
+  --ms-hairline: #efe7dc;
+  /* Retained so older markup keeps resolving; now just a hairline value. */
+  --ms-sketch-line: #efe7dc;
+
+  /* ── Text: three levels only, so hierarchy stays decidable ── */
+  --ms-text: #1f1b18;
+  --ms-text-secondary: #7a6a5c;
+  --ms-text-muted: #a79684;
+
+  /* ── Accent: reserved for primary actions and brand, never decoration ── */
+  --ms-accent: #c2571a;
+  --ms-accent-hover: #a6470f;
+  --ms-accent-light: #e9a276;
+  --ms-accent-bg: #fbede2;
+
+  /* ── Status ── */
+  --ms-success: #3f6b4a;
+  --ms-success-bg: #eaf1eb;
+  --ms-danger: #a63d2e;
+  --ms-danger-bg: #f8ece9;
+  --ms-info: #4a6e86;
+  --ms-info-bg: #ebf0f3;
+
+  /* ── Elevation: the only tool that creates hierarchy.
+        elev-3 is for the one thing on screen that matters most. ── */
+  --ms-elev-1: 0 1px 2px rgba(31, 27, 24, 0.05);
+  --ms-elev-2: 0 2px 10px rgba(31, 27, 24, 0.05);
+  --ms-elev-3: 0 6px 22px rgba(31, 27, 24, 0.09), 0 1px 2px rgba(31, 27, 24, 0.05);
+  --ms-elev-accent: 0 8px 20px rgba(194, 87, 26, 0.24);
+
+  /* ── Shape ── */
+  --ms-radius-card: 1.375rem;
+  --ms-radius-row: 1rem;
+  --ms-radius-field: 0.875rem;
 
   color: var(--ms-text);
   background: var(--ms-bg);
+
+  /* Fixed-width digits: amount columns line up and the eye stops re-focusing.
+     This is the single most load-bearing typographic rule in the app. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* ── Font overrides — higher specificity (0,2,0) beats :root (0,1,0) ── */
-:root[data-font="bebas-neue"] {
-  font-family: 'Bebas Neue', 'Departure Mono', system-ui, sans-serif;
-  letter-spacing: 0.04em;
-}
-:root[data-font="caesar-dressing"] {
-  font-family: 'Caesar Dressing', Georgia, 'Times New Roman', serif;
-  letter-spacing: 0.02em;
-}
-:root[data-font="modern-antiqua"] {
-  font-family: 'Modern Antiqua', Georgia, 'Times New Roman', serif;
-}
-:root[data-font="source-code-pro"] {
-  font-family: 'Source Code Pro', 'Courier New', monospace;
 }
 
 * {
@@ -97,16 +83,13 @@
 }
 
 input, select, textarea {
-  border-radius: 1rem !important;
+  border-radius: var(--ms-radius-field) !important;
   -webkit-appearance: none;
 }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(1200px 520px at 50% -220px, rgba(217, 120, 45, 0.14), transparent 62%),
-    radial-gradient(900px 420px at 100% 8%, rgba(95, 138, 100, 0.10), transparent 58%),
-    var(--ms-bg);
+  background: var(--ms-bg);
 }
 
 #root {
@@ -118,46 +101,34 @@ body {
     @apply mx-auto w-full max-w-7xl px-4 py-4 pb-28 sm:px-6 lg:px-8 lg:pb-28;
   }
 
+  /* ── Brand wordmark: the only place the retro face survives ── */
+  .ms-brand {
+    font-family: 'Departure Mono', ui-monospace, monospace;
+    letter-spacing: 0.06em;
+  }
+
+  /* Small uppercase section label — replaces bordered headers as the
+     way to separate regions without adding another box. */
+  .ms-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ms-text-muted);
+  }
+
+  /* ── Cards ──
+     Flat by default. Depth is opt-in via .ms-card-hero so that exactly
+     one element per screen can claim to be the primary one. */
   .ms-card,
   .ms-card-soft,
   .ms-sketch {
     position: relative;
     border: 1px solid var(--ms-border);
-    border-radius: 1.5rem;
-    background: color-mix(in srgb, var(--ms-surface) 92%, white);
+    border-radius: var(--ms-radius-card);
+    background: var(--ms-surface);
     padding: 1.25rem;
-    box-shadow: 0 18px 45px rgba(119, 76, 36, 0.08), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
-  }
-  .ms-card::before,
-  .ms-card::after,
-  .ms-card-soft::before,
-  .ms-card-soft::after,
-  .ms-sketch::before,
-  .ms-sketch::after {
-    content: '';
-    position: absolute;
-    pointer-events: none;
-    filter: none;
-  }
-  .ms-card::before,
-  .ms-card-soft::before,
-  .ms-sketch::before {
-    top: 0;
-    bottom: 0;
-    left: 1rem;
-    right: 1rem;
-    border-top: 1px solid rgba(217, 185, 143, 0.36);
-    border-bottom: 1px solid rgba(217, 185, 143, 0.22);
-  }
-  .ms-card::after,
-  .ms-card-soft::after,
-  .ms-sketch::after {
-    left: 0;
-    right: 0;
-    top: 1rem;
-    bottom: 1rem;
-    border-left: 1px solid rgba(217, 185, 143, 0.20);
-    border-right: 1px solid rgba(217, 185, 143, 0.20);
+    box-shadow: var(--ms-elev-2);
   }
   @media (min-width: 1024px) {
     .ms-card-soft {
@@ -165,44 +136,95 @@ body {
     }
   }
 
-  /* Inner cards: keep the new soft journal radius across reused Tailwind classes. */
-  .ms-card-soft div[class*="rounded-"][class*="border"],
-  .ms-card-soft button[class*="rounded-"][class*="border"]:not(.ms-btn-primary):not(.ms-btn-ghost):not(.ms-chip):not([class*="rounded-full"]),
-  .ms-sketch div[class*="rounded-"][class*="border"] {
-    filter: none;
+  /* The one visual protagonist: raised, borderless, roomier. */
+  .ms-card-hero {
+    border: none;
+    border-radius: var(--ms-radius-card);
+    background: var(--ms-surface);
+    padding: 1.5rem;
+    box-shadow: var(--ms-elev-3);
   }
 
-  /* ── Keyboard-key button (adapted from CodePen Alansdead/GgjdKvL) ── */
+  /* Borderless list container. Rows inside are split by .ms-divider,
+     not by giving every row its own outline. */
+  .ms-list {
+    border-radius: var(--ms-radius-card);
+    background: var(--ms-surface);
+    box-shadow: var(--ms-elev-2);
+    overflow: hidden;
+  }
+  .ms-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .ms-divider {
+    height: 1px;
+    background: var(--ms-hairline);
+    border: none;
+    margin: 0 1rem;
+  }
+
+  /* ── Money ──
+     Currency code is deliberately demoted; the number is the subject. */
+  .ms-amount {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--ms-text);
+  }
+  .ms-amount-hero {
+    font-size: clamp(2.375rem, 11vw, 2.875rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ms-text);
+  }
+  .ms-currency {
+    font-size: 0.875em;
+    font-weight: 600;
+    color: var(--ms-text-secondary);
+  }
+  .ms-amount-owe { color: var(--ms-danger); }
+  .ms-amount-owed { color: var(--ms-success); }
+
+  .ms-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--ms-text);
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Pressable surface (kept: many screens reference .ms-key) ── */
   .ms-key {
     position: relative;
     background: var(--ms-surface);
-    border-radius: 1.1rem;
+    border-radius: var(--ms-radius-row);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     user-select: none;
     overflow: hidden;
-    border: none;
+    border: 1px solid var(--ms-border);
     padding: 0;
-    box-shadow: 0 5px 14px rgba(119, 76, 36, 0.07), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
+    box-shadow: var(--ms-elev-1);
     transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   }
   .ms-key:active,
   .ms-key.pressed {
     background: var(--ms-surface-dim);
-    transform: translateY(1px) scale(0.99);
-    box-shadow: 0 3px 9px rgba(119, 76, 36, 0.07), 0 1px 0 rgba(255, 255, 255, 0.54) inset;
+    transform: scale(0.99);
   }
   .ms-key-active {
-    background: var(--ms-bg-warm);
-    box-shadow: 0 8px 18px rgba(217, 120, 45, 0.12), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
+    background: var(--ms-accent-bg);
+    border-color: var(--ms-accent);
   }
   .ms-key-active:active,
   .ms-key-active.pressed {
-    background: var(--ms-surface-dim);
-    transform: translateY(1px) scale(0.99);
-    box-shadow: 0 4px 12px rgba(217, 120, 45, 0.10), 0 1px 0 rgba(255, 255, 255, 0.56) inset;
+    background: var(--ms-accent-bg);
+    transform: scale(0.99);
   }
   .ms-key-round {
     border-radius: 50% !important;
@@ -210,16 +232,18 @@ body {
 
   .ms-key .ripple,
   .ms-btn-primary .ripple,
-  .ms-btn-ghost .ripple {
+  .ms-btn-ghost .ripple,
+  .ms-fab .ripple {
     position: absolute;
     border-radius: 50%;
-    background: rgba(139, 110, 78, 0.10);
+    background: rgba(122, 106, 92, 0.12);
     transform: scale(0);
     animation: ms-ripple 0.4s ease-out forwards;
     pointer-events: none;
   }
-  .ms-btn-primary .ripple {
-    background: rgba(255, 255, 255, 0.18);
+  .ms-btn-primary .ripple,
+  .ms-fab .ripple {
+    background: rgba(255, 255, 255, 0.22);
   }
   @keyframes ms-ripple {
     to {
@@ -228,132 +252,124 @@ body {
     }
   }
 
-  /* Bottom navigation bar with sketch outline */
+  /* Bottom navigation container */
   .ms-sketch-bar {
     position: relative;
-    border: none;
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-card);
+    background: var(--ms-surface);
+    box-shadow: 0 -2px 16px rgba(31, 27, 24, 0.06);
     padding: 0;
-  }
-  .ms-sketch-bar::before,
-  .ms-sketch-bar::after {
-    content: '';
-    position: absolute;
-    pointer-events: none;
-    filter: url(#pencil);
-  }
-  .ms-sketch-bar::before {
-    top: 0;
-    bottom: 0;
-    left: -4px;
-    right: -4px;
-    border-top: 2.5px solid var(--ms-sketch-line);
-    border-bottom: 2.5px solid var(--ms-sketch-line);
-  }
-  .ms-sketch-bar::after {
-    left: 0;
-    right: 0;
-    top: -4px;
-    bottom: -4px;
-    border-left: 2.5px solid var(--ms-sketch-line);
-    border-right: 2.5px solid var(--ms-sketch-line);
-  }
-
-  .ms-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    font-synthesis: weight;
-    color: var(--ms-text);
-    line-height: 1.4;
-    letter-spacing: 0.01em;
   }
 
   .ms-input {
     height: 2.75rem;
-    border-radius: 0;
+    border-radius: var(--ms-radius-field);
     border: 1px solid var(--ms-border);
     background: var(--ms-surface);
-    padding-inline: 0.75rem;
-    font-size: 0.875rem;
+    padding-inline: 0.875rem;
+    font-size: 0.9375rem;
     outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
     color: var(--ms-text);
   }
   .ms-input:focus {
     border-color: var(--ms-accent);
-    box-shadow: 0 0 0 2px var(--ms-accent-bg);
+    box-shadow: 0 0 0 3px var(--ms-accent-bg);
   }
   .ms-input:disabled {
     opacity: 0.55;
     cursor: not-allowed;
   }
 
-  /* ── Primary button — accent-colored key ── */
   .ms-btn-primary {
     position: relative;
-    border-radius: 999px;
+    border-radius: var(--ms-radius-field);
     background: var(--ms-accent);
-    color: #faf8f4;
-    padding: 0.625rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 600;
+    color: #fffaf5;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
     border: none;
     cursor: pointer;
     user-select: none;
     overflow: hidden;
-    box-shadow: 0 12px 24px rgba(217, 120, 45, 0.22), 0 1px 0 rgba(255, 255, 255, 0.24) inset;
+    box-shadow: var(--ms-elev-accent);
     transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   }
   .ms-btn-primary:hover {
-    background: var(--ms-accent);
+    background: var(--ms-accent-hover);
   }
   .ms-btn-primary:active {
     background: var(--ms-accent-hover);
-    transform: translateY(1px) scale(0.99);
-    box-shadow: 0 7px 16px rgba(217, 120, 45, 0.18), 0 1px 0 rgba(255, 255, 255, 0.16) inset;
+    transform: scale(0.99);
+    box-shadow: 0 4px 12px rgba(194, 87, 26, 0.20);
   }
 
-  /* ── Ghost button — light key ── */
   .ms-btn-ghost {
     position: relative;
-    border-radius: 999px;
+    border-radius: var(--ms-radius-field);
     border: 1px solid var(--ms-border);
     background: var(--ms-surface);
-    padding: 0.3rem 0.625rem;
-    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
     color: var(--ms-text-secondary);
     cursor: pointer;
     user-select: none;
     overflow: hidden;
-    box-shadow: 0 6px 16px rgba(119, 76, 36, 0.08), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
-    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    box-shadow: var(--ms-elev-1);
+    transition: transform 0.12s ease, background 0.12s ease;
   }
   .ms-btn-ghost:hover {
-    background: var(--ms-surface);
+    background: var(--ms-surface-dim);
   }
   .ms-btn-ghost:active {
     background: var(--ms-surface-dim);
-    transform: translateY(1px) scale(0.99);
-    box-shadow: 0 3px 10px rgba(119, 76, 36, 0.07), 0 1px 0 rgba(255, 255, 255, 0.56) inset;
+    transform: scale(0.99);
   }
 
-  /* ── Nav pill — warm active tab for TabbyTally ── */
+  /* ── Segmented control (Me / Everyone) ── */
+  .ms-segment {
+    display: flex;
+    padding: 0.25rem;
+    border-radius: var(--ms-radius-row);
+    background: var(--ms-surface-dim);
+  }
+  .ms-segment-item {
+    flex: 1;
+    border: none;
+    background: transparent;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ms-text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .ms-segment-item--active {
+    background: var(--ms-surface);
+    color: var(--ms-text);
+    font-weight: 800;
+    box-shadow: var(--ms-elev-1);
+  }
+
   .ms-nav-active {
     background: var(--ms-accent) !important;
-    box-shadow: 0 8px 18px rgba(217, 120, 45, 0.18) !important;
+    border-color: var(--ms-accent) !important;
+    box-shadow: var(--ms-elev-accent) !important;
   }
   .ms-nav-active:active,
   .ms-nav-active.pressed {
     background: var(--ms-accent-hover) !important;
-    transform: translateY(1px) scale(0.99);
-    box-shadow: 0 5px 12px rgba(217, 120, 45, 0.16) !important;
+    transform: scale(0.99);
   }
 
-  /* ── Floating Action Button ── */
+  /* Circular accent action. Positioning belongs to the call site: it is docked
+     into the nav bar in BottomTabs and absolutely placed inside the pay sheet. */
   .ms-fab {
-    position: fixed;
-    right: 1.25rem;
-    bottom: calc(env(safe-area-inset-bottom) + 64px);
-    z-index: 31;
+    position: relative;
     width: 54px;
     height: 54px;
     min-width: 54px;
@@ -368,64 +384,59 @@ body {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    box-shadow:
-      0 6px 18px rgba(44, 37, 32, 0.45),
-      0 3px 8px rgba(44, 37, 32, 0.28);
+    box-shadow: 0 8px 22px rgba(194, 87, 26, 0.36);
     transition: box-shadow 0.12s ease, opacity 0.12s ease;
   }
   .ms-fab:active {
-    opacity: 0.82;
-    box-shadow:
-      0 2px 8px rgba(44, 37, 32, 0.32),
-      0 1px 4px rgba(44, 37, 32, 0.20);
-  }
-  .ms-fab .ripple {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.18);
-    transform: scale(0);
-    animation: ms-ripple 0.4s ease-out forwards;
-    pointer-events: none;
+    opacity: 0.88;
+    box-shadow: 0 3px 10px rgba(194, 87, 26, 0.28);
   }
 
   .ms-chip {
     @apply border px-3 py-1.5 text-sm;
+    border-radius: var(--ms-radius-field);
     border-color: var(--ms-border);
     color: var(--ms-text-secondary);
+    font-weight: 600;
+  }
+  .ms-chip-active-indigo {
+    border-color: var(--ms-accent);
+    background: var(--ms-accent-bg);
+    color: var(--ms-accent-hover);
+  }
+  .ms-chip-active-emerald {
+    border-color: var(--ms-success);
+    background: var(--ms-success-bg);
+    color: var(--ms-success);
   }
 
-  /* ── Split Expander (CodePen expanding panel mechanic) ── */
-  /* Wrapper uses CSS grid trick: grid-template-rows 0fr→1fr animates to real content height */
+  /* ── Split Expander: grid-template-rows 0fr→1fr animates to real height ── */
   .ms-split-grid {
     display: grid;
     grid-template-rows: 0fr;
-    transition: grid-template-rows 0.5s linear;
+    transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .ms-split-grid.ms-split-grid--open {
     grid-template-rows: 1fr;
   }
-  /* Inner div must have overflow:hidden for the grid trick to clip correctly */
   .ms-split-inner {
     overflow: hidden;
   }
-  /* Content fades in after expansion (0.3s delay on open, instant on close — matches CodePen) */
   .ms-split-content {
     opacity: 0;
     transition: opacity 0.15s ease-in;
   }
   .ms-split-grid--open .ms-split-content {
     opacity: 1;
-    transition: opacity 0.2s ease-in 0.3s;
+    transition: opacity 0.2s ease-in 0.25s;
   }
-  /* Active split tab underline */
   .ms-split-tab {
     position: relative;
     padding: 0.5rem 0.75rem;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     white-space: nowrap;
     color: var(--ms-text-muted);
-    letter-spacing: 0.03em;
     transition: color 0.15s;
     border-bottom: 2px solid transparent;
   }
@@ -434,1055 +445,83 @@ body {
     border-bottom-color: var(--ms-accent);
   }
 
-  .ms-chip-active-indigo {
-    border-color: var(--ms-accent);
-    background: var(--ms-accent-bg);
-    color: var(--ms-accent-hover);
+  /* ── Ledger ──
+     The expense list is a continuous run of hairline-separated rows sitting
+     directly on the page, not a stack of cards: one card per day made the eye
+     re-enter a new container for every day of the trip. */
+  .ms-ledger-day {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    /* Opaque, or rows would show through while scrolling under the header. */
+    background: var(--ms-bg);
+    padding: 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--ms-hairline);
   }
 
-  /* ── Expense Summary Cards (CodePen card expand mechanic) ── */
-
-  /* Day card — full pencil-sketch outline, same technique as ms-card-soft */
-  .ms-day-card {
-    position: relative;
-    border-radius: 0;
-    overflow: visible;  /* allow sketch pseudo-elements to bleed outside */
-    border: none;
-    background: var(--ms-surface, #f0ece3);
-    transition: box-shadow 0.28s ease, transform 0.28s ease;
+  .ms-ledger-row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8125rem 0.25rem;
+    text-align: left;
+    border-bottom: 1px solid var(--ms-hairline);
+    transition: background 0.12s ease;
   }
-  .ms-day-card::before,
-  .ms-day-card::after {
-    content: '';
-    position: absolute;
-    pointer-events: none;
-    filter: url(#pencil);
-    z-index: 2;
+  .ms-ledger-row:active {
+    background: var(--ms-surface-dim);
   }
-  .ms-day-card::before {
-    top: 0; bottom: 0;
-    left: -6px; right: -6px;
-    border-top: 2px solid var(--ms-sketch-line);
-    border-bottom: 2px solid var(--ms-sketch-line);
-  }
-  .ms-day-card::after {
-    left: 0; right: 0;
-    top: -6px; bottom: -6px;
-    border-left: 2px solid var(--ms-sketch-line);
-    border-right: 2px solid var(--ms-sketch-line);
-  }
-  .ms-day-card:hover {
-    transform: translateY(-1px);
-  }
-  .ms-day-card--open {
-    transform: translateY(-2px);
+  /* Settled rows stay in place but stop competing for attention. */
+  .ms-ledger-row--settled {
+    opacity: 0.5;
   }
 
-  /* Expense card — smaller pencil-sketch outline using CSS custom props for dynamic category colors */
-  .ms-expense-card {
-    position: relative;
-    border-radius: 0;
-    overflow: visible;  /* ms-exp-inner already clips the expand animation */
-    border: none;
-    border-left: 3px solid var(--ec-left, #9a6030);
-    background: var(--ec-bg, rgba(110,92,72,0.07));
-    transition: box-shadow 0.2s ease;
-  }
-  .ms-expense-card::before,
-  .ms-expense-card::after {
-    content: '';
-    position: absolute;
-    pointer-events: none;
-    filter: url(#pencil-sm);
-    z-index: 2;
-  }
-  /* Top & bottom sketch lines */
-  .ms-expense-card::before {
-    top: 0; bottom: 0;
-    left: -3px; right: -3px;
-    border-top: 1.5px solid var(--ec-border, rgba(110,92,72,0.22));
-    border-bottom: 1.5px solid var(--ec-border, rgba(110,92,72,0.22));
-  }
-  /* Right sketch line (left is the thick colored bar) */
-  .ms-expense-card::after {
-    left: 0; right: 0;
-    top: -3px; bottom: -3px;
-    border-right: 1.5px solid var(--ec-border, rgba(110,92,72,0.22));
-  }
-  .ms-expense-card:hover {
-    box-shadow: 0 2px 14px rgba(44,37,32,0.10);
-  }
-  .ms-expense-card--open {
-    box-shadow: 0 4px 18px rgba(44,37,32,0.13);
-  }
-
-  .ms-exp-grid {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.38s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .ms-exp-grid--open {
-    grid-template-rows: 1fr;
-  }
-  .ms-exp-inner {
-    overflow: hidden;
-  }
-  .ms-day-chevron {
-    transition: transform 0.3s ease;
+  .ms-ledger-glyph {
+    display: flex;
+    height: 2rem;
+    width: 2rem;
     flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.6875rem;
+    background: var(--ms-surface-dim);
+    color: var(--ms-text-secondary);
   }
-  .ms-day-chevron--open {
-    transform: rotate(180deg);
+
+  /* ── Bottom sheet ── */
+  .ms-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(31, 27, 24, 0.42);
+    opacity: 0;
+    transition: opacity 0.22s ease;
   }
-
-  .ms-chip-active-emerald {
-    border-color: var(--ms-success);
-    background: var(--ms-success-bg);
-    color: var(--ms-success);
+  .ms-sheet-backdrop--open {
+    opacity: 1;
   }
-}
-
-/* ═══════════════════════════════════════════════════════
-   THEME: Calling of Dungeons
-   Based on codepen.io/pharaohleap/pen/QwEMJEx
-   ═══════════════════════════════════════════════════════ */
-
-[data-theme="calling-of-dungeons"] {
-  --ms-bg: #ddd;
-  --ms-bg-warm: #d5d5d5;
-  --ms-surface: #e5e5e5;
-  --ms-surface-dim: #d5d5d5;
-  --ms-border: #c5c5c5;
-  --ms-border-light: #d0d0d0;
-  --ms-text: #444;
-  --ms-text-secondary: #666;
-  --ms-text-muted: #999;
-  --ms-sketch-line: #b5b5b5;
-  --ms-accent: #3a8a9a;
-  --ms-accent-hover: #2e7a8a;
-  --ms-accent-light: #6aabb6;
-  --ms-accent-bg: rgba(58, 138, 154, 0.08);
-  --ms-success: #5a8a62;
-  --ms-success-bg: rgba(90, 138, 98, 0.07);
-  --ms-danger: #a05050;
-  --ms-danger-bg: rgba(160, 80, 80, 0.07);
-  --ms-info: #5a949f;
-  --ms-info-bg: rgba(90, 148, 159, 0.07);
-
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--ms-bg);
-  font-synthesis: none;
-}
-
-/* Dark outer frame */
-[data-theme="calling-of-dungeons"] body {
-  background: #444;
-  overflow-x: hidden;
-}
-[data-theme="calling-of-dungeons"] #root {
-  margin: 0 8px;
-  border-left: solid 1px var(--ms-border);
-  border-right: solid 1px var(--ms-border);
-  background-color: var(--ms-bg);
-  min-height: 100dvh;
-  position: relative;
-  overflow: clip;
-}
-@media (min-width: 1024px) {
-  [data-theme="calling-of-dungeons"] #root {
-    margin: 12px;
-    border: solid 1px var(--ms-border);
-    border-radius: 15px;
-    min-height: calc(100dvh - 24px);
+  .ms-sheet-panel {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 51;
+    margin-inline: auto;
+    max-width: 32rem;
+    max-height: 88dvh;
+    overflow-y: auto;
+    border-radius: var(--ms-radius-card) var(--ms-radius-card) 0 0;
+    background: var(--ms-surface);
+    box-shadow: var(--ms-elev-3);
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(100%);
+    transition: transform 0.26s cubic-bezier(0.22, 0.68, 0.24, 1);
   }
-}
-/* Muted accent radial glow (bottom-left) */
-[data-theme="calling-of-dungeons"] #root::before {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
-  bottom: 0;
-  left: 0;
-  height: 70vh;
-  width: 70vh;
-  background: radial-gradient(circle at bottom left, var(--ms-accent), transparent 70%);
-  opacity: 0.12;
-}
-/* Decorative circle borders */
-[data-theme="calling-of-dungeons"] #root::after {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
-  top: -380px;
-  left: -80px;
-  height: 560px;
-  width: 560px;
-  border: solid 1px var(--ms-border);
-  border-radius: 100%;
-  opacity: 0.5;
-}
-[data-theme="calling-of-dungeons"] .ms-page {
-  position: relative;
-  z-index: 1;
-}
-
-/* Restore rounded corners globally */
-[data-theme="calling-of-dungeons"] input,
-[data-theme="calling-of-dungeons"] select,
-[data-theme="calling-of-dungeons"] textarea {
-  border-radius: 8px !important;
-}
-[data-theme="calling-of-dungeons"] [class*="rounded-xl"],
-[data-theme="calling-of-dungeons"] [class*="rounded-2xl"],
-[data-theme="calling-of-dungeons"] [class*="rounded-lg"],
-[data-theme="calling-of-dungeons"] [class*="rounded-md"],
-[data-theme="calling-of-dungeons"] [class*="rounded-["] {
-  border-radius: 8px !important;
-}
-
-/* Cards: solid 1px border, rounded, no pencil pseudo-elements */
-[data-theme="calling-of-dungeons"] .ms-card,
-[data-theme="calling-of-dungeons"] .ms-card-soft,
-[data-theme="calling-of-dungeons"] .ms-sketch {
-  border: solid 1px var(--ms-border);
-  border-radius: 10px !important;
-  background: var(--ms-bg);
-  box-shadow: none;
-}
-[data-theme="calling-of-dungeons"] .ms-card::before,
-[data-theme="calling-of-dungeons"] .ms-card::after,
-[data-theme="calling-of-dungeons"] .ms-card-soft::before,
-[data-theme="calling-of-dungeons"] .ms-card-soft::after,
-[data-theme="calling-of-dungeons"] .ms-sketch::before,
-[data-theme="calling-of-dungeons"] .ms-sketch::after {
-  display: none !important;
-}
-
-/* Remove inner card pencil filter */
-[data-theme="calling-of-dungeons"] .ms-card-soft div[class*="rounded-"][class*="border"],
-[data-theme="calling-of-dungeons"] .ms-sketch div[class*="rounded-"][class*="border"] {
-  filter: none;
-}
-
-/* Title: DM Sans, uppercase, tight tracking */
-[data-theme="calling-of-dungeons"] .ms-title {
-  font-family: 'DM Sans', system-ui, sans-serif;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-/* Input: rounded, clean */
-[data-theme="calling-of-dungeons"] .ms-input {
-  border-radius: 8px !important;
-  background: var(--ms-surface);
-}
-
-/* Buttons: keep key 3D effect, adapt shape */
-[data-theme="calling-of-dungeons"] .ms-key {
-  border-radius: 8px !important;
-}
-[data-theme="calling-of-dungeons"] .ms-btn-primary {
-  border-radius: 8px !important;
-}
-[data-theme="calling-of-dungeons"] .ms-btn-ghost {
-  border-radius: 8px !important;
-}
-
-/* Chip: rounded pill */
-[data-theme="calling-of-dungeons"] .ms-chip {
-  border-radius: 10px !important;
-}
-
-/* Nav active: teal dark for Dungeons */
-[data-theme="calling-of-dungeons"] .ms-nav-active {
-  background: #2e5a64 !important;
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.10) inset,
-    0 -1px 0px 0px #254a54 inset,
-    1px 0 0px 0px #2a5058 inset,
-    -1px 0 0px 0px #2a5058 inset,
-    0 4px 0px 0px #1e4048,
-    0 5px 2px 0px rgba(0,0,0,0.16),
-    0 7px 12px 0px rgba(0,0,0,0.10) !important;
-}
-[data-theme="calling-of-dungeons"] .ms-nav-active:active,
-[data-theme="calling-of-dungeons"] .ms-nav-active.pressed {
-  background: #264e58 !important;
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.10) inset,
-    0 -1px 0px 0px #254a54 inset,
-    1px 0 0px 0px #2a5058 inset,
-    -1px 0 0px 0px #2a5058 inset,
-    0 1px 0px 0px #1e4048,
-    0 2px 3px 0px rgba(0,0,0,0.10) !important;
-}
-[data-theme="calling-of-dungeons"] .ms-fab {
-  background: var(--ms-accent);
-  border-radius: 50%;
-  box-shadow:
-    0 6px 18px rgba(0,0,0,0.35),
-    0 3px 8px rgba(0,0,0,0.22);
-}
-
-/* Bottom bar: solid rounded border, no pencil */
-[data-theme="calling-of-dungeons"] .ms-sketch-bar {
-  border: solid 1px var(--ms-border);
-  border-radius: 15px !important;
-  background: var(--ms-bg);
-}
-[data-theme="calling-of-dungeons"] .ms-sketch-bar::before,
-[data-theme="calling-of-dungeons"] .ms-sketch-bar::after {
-  display: none !important;
-}
-
-/* Accent gradient: teal → deep blue-teal */
-[data-theme="calling-of-dungeons"] .ms-btn-primary {
-  background: linear-gradient(to top, #4a96a4, #2e5a64);
-  color: #eee;
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.12) inset,
-    0 -1px 0px 0px #25505a inset,
-    1px 0 0px 0px rgba(255,255,255,0.05) inset,
-    -1px 0 0px 0px rgba(255,255,255,0.05) inset,
-    0 4px 0px 0px #1e4048,
-    0 5px 2px 0px rgba(0,0,0,0.14),
-    0 7px 12px 0px rgba(0,0,0,0.08);
-}
-[data-theme="calling-of-dungeons"] .ms-btn-primary:hover {
-  background: linear-gradient(to top, #4a96a4, #2e5a64);
-}
-[data-theme="calling-of-dungeons"] .ms-btn-primary:active {
-  background: linear-gradient(to top, #3a8694, #264e58);
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.12) inset,
-    0 -1px 0px 0px #25505a inset,
-    1px 0 0px 0px rgba(255,255,255,0.05) inset,
-    -1px 0 0px 0px rgba(255,255,255,0.05) inset,
-    0 1px 0px 0px #1e4048,
-    0 2px 3px 0px rgba(0,0,0,0.08);
-}
-
-/* Key shadows adapted for neutral gray */
-[data-theme="calling-of-dungeons"] .ms-key {
-  box-shadow:
-    0 1px 0px 0px #f0f0f0 inset,
-    0 -1px 0px 0px var(--ms-border) inset,
-    1px 0 0px 0px var(--ms-border-light) inset,
-    -1px 0 0px 0px var(--ms-border-light) inset,
-    0 4px 0px 0px var(--ms-sketch-line),
-    0 5px 2px 0px rgba(0,0,0,0.12),
-    0 7px 12px 0px rgba(0,0,0,0.08);
-}
-[data-theme="calling-of-dungeons"] .ms-key:active,
-[data-theme="calling-of-dungeons"] .ms-key.pressed {
-  box-shadow:
-    0 1px 0px 0px #f0f0f0 inset,
-    0 -1px 0px 0px var(--ms-border) inset,
-    1px 0 0px 0px var(--ms-border-light) inset,
-    -1px 0 0px 0px var(--ms-border-light) inset,
-    0 1px 0px 0px var(--ms-sketch-line),
-    0 2px 3px 0px rgba(0,0,0,0.08);
-}
-[data-theme="calling-of-dungeons"] .ms-key-active {
-  background: #2e5a64;
-  color: #eee !important;
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.10) inset,
-    0 -1px 0px 0px #254a54 inset,
-    1px 0 0px 0px #2a5058 inset,
-    -1px 0 0px 0px #2a5058 inset,
-    0 4px 0px 0px #1e4048,
-    0 5px 2px 0px rgba(0,0,0,0.16),
-    0 7px 12px 0px rgba(0,0,0,0.10);
-}
-[data-theme="calling-of-dungeons"] .ms-key-active:active,
-[data-theme="calling-of-dungeons"] .ms-key-active.pressed {
-  background: #264e58;
-  box-shadow:
-    0 1px 0px 0px rgba(255,255,255,0.10) inset,
-    0 -1px 0px 0px #254a54 inset,
-    1px 0 0px 0px #2a5058 inset,
-    -1px 0 0px 0px #2a5058 inset,
-    0 1px 0px 0px #1e4048,
-    0 2px 3px 0px rgba(0,0,0,0.10);
-}
-
-/* Ghost button for dungeon theme */
-[data-theme="calling-of-dungeons"] .ms-btn-ghost {
-  box-shadow:
-    0 1px 0px 0px #f0f0f0 inset,
-    0 -1px 0px 0px var(--ms-border) inset,
-    1px 0 0px 0px var(--ms-border-light) inset,
-    -1px 0 0px 0px var(--ms-border-light) inset,
-    0 3px 0px 0px var(--ms-sketch-line),
-    0 4px 2px 0px rgba(0,0,0,0.10),
-    0 5px 10px 0px rgba(0,0,0,0.06);
-}
-[data-theme="calling-of-dungeons"] .ms-btn-ghost:active {
-  box-shadow:
-    0 1px 0px 0px #f0f0f0 inset,
-    0 -1px 0px 0px var(--ms-border) inset,
-    1px 0 0px 0px var(--ms-border-light) inset,
-    -1px 0 0px 0px var(--ms-border-light) inset,
-    0 1px 0px 0px var(--ms-sketch-line),
-    0 2px 3px 0px rgba(0,0,0,0.06);
-}
-
-/* Label-style uppercase (matching the CodePen's uppercase labels) */
-[data-theme="calling-of-dungeons"] label,
-[data-theme="calling-of-dungeons"] .ms-chip {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-  font-size: 0.75rem;
-}
-
-/* Active chip: deep teal */
-[data-theme="calling-of-dungeons"] .ms-chip-active-indigo {
-  background: #2e5a64;
-  border-color: transparent;
-  color: #eee;
-}
-[data-theme="calling-of-dungeons"] .ms-chip-active-emerald {
-  background: #3a8a9a;
-  border-color: transparent;
-  color: #fff;
-}
-
-/* Secondary decorative circle (bottom-right) */
-[data-theme="calling-of-dungeons"] .ms-page::after {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
-  bottom: -200px;
-  right: -120px;
-  height: 300px;
-  width: 300px;
-  border: solid 1px var(--ms-border);
-  border-radius: 100%;
-  opacity: 0.4;
-}
-
-/* Bottom bar */
-[data-theme="calling-of-dungeons"] .ms-sketch-bar {
-  background: var(--ms-bg);
-  border: solid 1px var(--ms-border);
-  border-radius: 12px !important;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
-}
-/* Bottom navs: align within the dark-framed area */
-[data-theme="calling-of-dungeons"] nav[class*="fixed"][class*="bottom-0"] {
-  left: 8px !important;
-  right: 8px !important;
-}
-@media (min-width: 1024px) {
-  [data-theme="calling-of-dungeons"] nav[class*="fixed"][class*="bottom-0"] {
-    left: 12px !important;
-    right: 12px !important;
+  .ms-sheet-panel--open {
+    transform: translateY(0);
   }
-}
-
-/* ── Title: gradient teal→dark text (CodePen h2 div style) ── */
-[data-theme="calling-of-dungeons"] .ms-title {
-  font-family: 'DM Sans', system-ui, sans-serif;
-  font-weight: 900;
-  font-size: 1.4rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  background: linear-gradient(to bottom, #3a8a9a, #2e5a64 90%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-}
-/* Group name + app name: same gradient */
-[data-theme="calling-of-dungeons"] h1[class*="font-bold"] {
-  font-family: 'DM Sans', system-ui, sans-serif;
-  font-weight: 900;
-  letter-spacing: -0.5px;
-  background: linear-gradient(to bottom, #3a8a9a, #2e5a64 80%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent !important;
-}
-
-/* ── Day headers & table headers: gradient dark→teal (CodePen HP card) ── */
-[data-theme="calling-of-dungeons"] .ms-sketch > button[class*="bg-[#f5eed8]"],
-[data-theme="calling-of-dungeons"] .ms-sketch > button[class*="bg-[#f5eed8]"]:hover {
-  background: linear-gradient(to top, #4a96a4, #2e5a64) !important;
-  color: var(--ms-bg) !important;
-  border-radius: 8px 8px 0 0;
-}
-[data-theme="calling-of-dungeons"] .ms-sketch > button[class*="bg-[#f5eed8]"] * {
-  color: var(--ms-bg) !important;
-}
-[data-theme="calling-of-dungeons"] .ms-sketch > button[class*="bg-[#f5eed8]"] [class*="bg-[rgba(139"] {
-  background-color: rgba(255, 255, 255, 0.15) !important;
-  color: var(--ms-bg) !important;
-}
-/* Settlement table header row */
-[data-theme="calling-of-dungeons"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] {
-  background: linear-gradient(to top, #4a96a4, #2e5a64) !important;
-  color: var(--ms-bg) !important;
-  border-color: transparent !important;
-}
-[data-theme="calling-of-dungeons"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] > * {
-  color: var(--ms-bg) !important;
-}
-
-/* ── Override ALL hardcoded warm colors → dungeon palette ── */
-
-/* Backgrounds: warm cream/yellow → cool gray */
-[data-theme="calling-of-dungeons"] [class*="bg-[#f5eed8]"] {
-  background-color: var(--ms-surface-dim) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="bg-[#faf8f4]"] {
-  background-color: var(--ms-surface) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="bg-[#f0ece3]"] {
-  background-color: var(--ms-surface-dim) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="bg-[#f4f0e8]"] {
-  background-color: var(--ms-bg) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="bg-[#ede8dd]"] {
-  background-color: var(--ms-bg-warm) !important;
-}
-
-/* Backgrounds: warm accent tints → teal tints */
-[data-theme="calling-of-dungeons"] [class*="bg-[rgba(139,110,78"] {
-  background-color: rgba(24, 119, 140, 0.10) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="bg-[rgba(90,122,90"] {
-  background-color: rgba(58, 140, 74, 0.08) !important;
-}
-
-/* Borders: warm tones → neutral gray */
-[data-theme="calling-of-dungeons"] [class*="border-[#e6e0d5]"] {
-  border-color: var(--ms-border) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="border-[#e6dcc0]"] {
-  border-color: var(--ms-border) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="border-[#d8d0c4]"] {
-  border-color: var(--ms-border) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="border-[#c49898]"] {
-  border-color: #b5a0a0 !important;
-}
-[data-theme="calling-of-dungeons"] [class*="divide-[#e6e0d5]"] {
-  --tw-divide-color: var(--ms-border);
-}
-
-/* Text: warm browns → cool grays and teal */
-[data-theme="calling-of-dungeons"] [class*="text-[#2c2520]"] {
-  color: var(--ms-text) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#3a3330]"] {
-  color: var(--ms-text) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#6b6058]"] {
-  color: var(--ms-text-secondary) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#74593c]"] {
-  color: var(--ms-accent) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#9a9088]"] {
-  color: var(--ms-text-muted) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#8b6e4e]"] {
-  color: var(--ms-accent) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#8a3a3a]"] {
-  color: #a03030 !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#9e4a4a]"] {
-  color: #a03030 !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#4a6a4a]"] {
-  color: #3a7a4a !important;
-}
-[data-theme="calling-of-dungeons"] [class*="text-[#5a7a8a]"] {
-  color: var(--ms-accent) !important;
-}
-
-/* Ring and focus: warm accent → teal */
-[data-theme="calling-of-dungeons"] [class*="ring-[rgba(139,110,78"] {
-  --tw-ring-color: rgba(24, 119, 140, 0.15) !important;
-}
-[data-theme="calling-of-dungeons"] [class*="border-[#8b6e4e]"] {
-  border-color: var(--ms-accent) !important;
-}
-
-/* Shadow warm → neutral */
-[data-theme="calling-of-dungeons"] [class*="shadow-[0_10px_24px_rgba(139,110,78"] {
-  box-shadow: 0 10px 24px rgba(24, 119, 140, 0.25) !important;
-}
-
-/* Background on body gradient */
-[data-theme="calling-of-dungeons"] [class*="bg-[var(--ms-bg)]"] {
-  background-color: var(--ms-bg) !important;
-}
-
-/* Active tab text color */
-[data-theme="calling-of-dungeons"] [class*="text-[var(--ms-accent-hover)]"] {
-  color: var(--ms-bg) !important;
-}
-
-/* White-on-dark overrides for primary-button-colored backgrounds */
-[data-theme="calling-of-dungeons"] [class*="bg-[#8b6e4e]"] {
-  background-color: #2e5a64 !important;
-}
-
-/* ═══════════════════════════════════════════════════════
-   THEME: Glacial
-   Deep Arctic palette — Neumorphic · Snow Texture solid base
-   Shadow tokens: --neu-light (white) · --neu-dark (navy)
-   ═══════════════════════════════════════════════════════ */
-
-[data-theme="glacial"] {
-  /* ── Color tokens ── */
-  --ms-bg: #E8EDF2;
-  --ms-bg-warm: #DDE4EC;
-  --ms-surface: #E8EDF2;        /* Same as bg — neumorphism requires equal surface */
-  --ms-surface-dim: #DDE4EC;    /* Inset / pressed state */
-  --ms-border: rgba(26, 66, 110, 0.12);
-  --ms-border-light: rgba(26, 66, 110, 0.07);
-  --ms-text: #2D3A4B;
-  --ms-text-secondary: rgba(45, 58, 75, 0.72);
-  --ms-text-muted: rgba(45, 58, 75, 0.45);
-  --ms-sketch-line: transparent;
-  --ms-accent: #1A426E;
-  --ms-accent-hover: #112C4B;
-  --ms-accent-light: #7699C2;
-  --ms-accent-bg: rgba(26, 66, 110, 0.08);
-  --ms-success: #4A8B8B;
-  --ms-success-bg: rgba(74, 139, 139, 0.10);
-  --ms-danger: #C28B8B;
-  --ms-danger-bg: rgba(194, 139, 139, 0.10);
-  --ms-info: #7699C2;
-  --ms-info-bg: rgba(118, 153, 194, 0.10);
-
-  /* ── Neumorphic shadow tokens ── */
-  --neu-light: rgba(255, 255, 255, 0.92);
-  --neu-dark:  rgba(26, 66, 110, 0.32);
-  --neu-light-sm: rgba(255, 255, 255, 0.86);
-  --neu-dark-sm:  rgba(26, 66, 110, 0.22);
-
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--ms-text);
-  font-synthesis: none;
-}
-
-/* ── Solid background — no photo ── */
-[data-theme="glacial"] body {
-  background: #E8EDF2;
-  overflow-x: hidden;
-}
-
-[data-theme="glacial"] #root {
-  min-height: 100dvh;
-  background: #E8EDF2;
-  position: relative;
-}
-
-/* Remove old glow overlay */
-[data-theme="glacial"] #root::before {
-  display: none;
-}
-
-/* ── Login page — arctic photo full-screen ── */
-[data-theme="glacial"] .glacial-login {
-  background: url('/images/glacial-bg.png') center/cover fixed;
-  position: relative;
-}
-[data-theme="glacial"] .glacial-login::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(232, 237, 242, 0.50);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  z-index: 0;
-}
-[data-theme="glacial"] .glacial-login > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* ── Rounded corners globally ── */
-[data-theme="glacial"] input,
-[data-theme="glacial"] select,
-[data-theme="glacial"] textarea {
-  border-radius: 12px !important;
-}
-[data-theme="glacial"] [class*="rounded-xl"],
-[data-theme="glacial"] [class*="rounded-2xl"],
-[data-theme="glacial"] [class*="rounded-lg"],
-[data-theme="glacial"] [class*="rounded-md"],
-[data-theme="glacial"] [class*="rounded-["] {
-  border-radius: 12px !important;
-}
-
-/* ── Neumorphic Cards ── */
-[data-theme="glacial"] .ms-card,
-[data-theme="glacial"] .ms-card-soft,
-[data-theme="glacial"] .ms-sketch {
-  background: #E8EDF2;
-  border: none;
-  border-radius: 20px !important;
-  box-shadow:
-    10px 10px 22px var(--neu-dark),
-    -10px -10px 22px var(--neu-light);
-}
-[data-theme="glacial"] .ms-card::before,
-[data-theme="glacial"] .ms-card::after,
-[data-theme="glacial"] .ms-card-soft::before,
-[data-theme="glacial"] .ms-card-soft::after,
-[data-theme="glacial"] .ms-sketch::before,
-[data-theme="glacial"] .ms-sketch::after {
-  display: none !important;
-}
-
-/* Remove inner card pencil filter */
-[data-theme="glacial"] .ms-card-soft div[class*="rounded-"][class*="border"],
-[data-theme="glacial"] .ms-card-soft button[class*="rounded-"][class*="border"],
-[data-theme="glacial"] .ms-sketch div[class*="rounded-"][class*="border"] {
-  filter: none;
-}
-
-/* ── Title ── */
-[data-theme="glacial"] .ms-title {
-  font-family: 'Inter', system-ui, sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #1A426E;
-}
-
-/* ── h1 heading gradient ── */
-[data-theme="glacial"] h1[class*="font-bold"] {
-  font-weight: 700;
-  background: linear-gradient(to bottom, #7699C2, #1A426E 85%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent !important;
-}
-
-/* ── Inputs: neumorphic inset ── */
-[data-theme="glacial"] .ms-input {
-  border-radius: 12px !important;
-  background: #DDE4EC;
-  border: none;
-  box-shadow:
-    inset 3px 3px 7px var(--neu-dark-sm),
-    inset -3px -3px 7px var(--neu-light-sm);
-  color: var(--ms-text);
-}
-[data-theme="glacial"] .ms-input:focus {
-  border: none;
-  box-shadow:
-    inset 3px 3px 7px var(--neu-dark-sm),
-    inset -3px -3px 7px var(--neu-light-sm),
-    0 0 0 2px rgba(26, 66, 110, 0.20);
-}
-
-/* ── Primary button: Deep Abyss navy gradient ── */
-[data-theme="glacial"] .ms-btn-primary {
-  border-radius: 14px !important;
-  background: linear-gradient(145deg, #265D9B, #1A426E);
-  color: #ffffff;
-  box-shadow:
-    4px 4px 10px rgba(26, 66, 110, 0.35),
-    -2px -2px 6px var(--neu-light);
-  transition: box-shadow 0.12s ease, transform 0.08s ease;
-}
-[data-theme="glacial"] .ms-btn-primary:hover {
-  background: linear-gradient(145deg, #2d6aad, #1e4e82);
-  box-shadow:
-    5px 5px 12px rgba(26, 66, 110, 0.40),
-    -2px -2px 6px var(--neu-light);
-}
-[data-theme="glacial"] .ms-btn-primary:active {
-  transform: translateY(1px);
-  box-shadow:
-    inset 3px 3px 7px rgba(17, 44, 75, 0.35),
-    inset -2px -2px 5px rgba(255, 255, 255, 0.12);
-}
-
-/* ── Key buttons: neumorphic flat ── */
-[data-theme="glacial"] .ms-key {
-  border-radius: 12px !important;
-  background: #E8EDF2;
-  box-shadow:
-    6px 6px 13px var(--neu-dark),
-    -6px -6px 13px var(--neu-light);
-  transition: box-shadow 0.10s ease, transform 0.08s ease;
-}
-[data-theme="glacial"] .ms-key:active,
-[data-theme="glacial"] .ms-key.pressed {
-  transform: translateY(1px);
-  box-shadow:
-    inset 3px 3px 7px var(--neu-dark-sm),
-    inset -3px -3px 7px var(--neu-light-sm);
-}
-[data-theme="glacial"] .ms-key-active {
-  background: linear-gradient(145deg, #1A426E, #265D9B);
-  color: #ffffff !important;
-  box-shadow:
-    inset 2px 2px 5px rgba(17, 44, 75, 0.45),
-    3px 3px 8px rgba(26, 66, 110, 0.30);
-}
-[data-theme="glacial"] .ms-key-active:active,
-[data-theme="glacial"] .ms-key-active.pressed {
-  box-shadow:
-    inset 3px 3px 7px rgba(17, 44, 75, 0.50),
-    inset -2px -2px 5px rgba(255, 255, 255, 0.10);
-}
-
-/* ── Ghost button ── */
-[data-theme="glacial"] .ms-btn-ghost {
-  border-radius: 14px !important;
-  background: #E8EDF2;
-  box-shadow:
-    5px 5px 11px var(--neu-dark-sm),
-    -5px -5px 11px var(--neu-light-sm);
-  transition: box-shadow 0.10s ease, transform 0.08s ease;
-}
-[data-theme="glacial"] .ms-btn-ghost:active {
-  transform: translateY(1px);
-  box-shadow:
-    inset 2px 2px 5px var(--neu-dark-sm),
-    inset -2px -2px 5px var(--neu-light-sm);
-}
-
-/* ── Chips ── */
-[data-theme="glacial"] .ms-chip {
-  border-radius: 50px !important;
-  background: #E8EDF2;
-  border: none;
-  box-shadow:
-    4px 4px 9px var(--neu-dark-sm),
-    -4px -4px 9px var(--neu-light-sm);
-}
-[data-theme="glacial"] .ms-chip-active-indigo {
-  background: linear-gradient(145deg, #1A426E, #265D9B);
-  border: none;
-  color: #ffffff;
-  box-shadow:
-    inset 2px 2px 4px rgba(17, 44, 75, 0.35),
-    2px 2px 6px rgba(26, 66, 110, 0.25);
-}
-[data-theme="glacial"] .ms-chip-active-emerald {
-  background: linear-gradient(145deg, #3d7a7a, #4A8B8B);
-  border: none;
-  color: #ffffff;
-  box-shadow:
-    inset 2px 2px 4px rgba(30, 70, 70, 0.30),
-    2px 2px 6px rgba(74, 139, 139, 0.25);
-}
-
-/* ── Nav active: deep navy for Glacial ── */
-[data-theme="glacial"] .ms-nav-active {
-  background: linear-gradient(145deg, #1A426E, #265D9B) !important;
-  box-shadow:
-    inset 2px 2px 5px rgba(17, 44, 75, 0.45),
-    3px 3px 8px rgba(26, 66, 110, 0.30) !important;
-}
-[data-theme="glacial"] .ms-nav-active:active,
-[data-theme="glacial"] .ms-nav-active.pressed {
-  background: linear-gradient(145deg, #1A426E, #265D9B) !important;
-  box-shadow:
-    inset 3px 3px 7px rgba(17, 44, 75, 0.50),
-    inset -2px -2px 5px rgba(255, 255, 255, 0.10) !important;
-}
-[data-theme="glacial"] .ms-fab {
-  background: var(--ms-accent);
-  border-radius: 50%;
-  box-shadow:
-    6px 6px 15px rgba(26, 66, 110, 0.40),
-    -3px -3px 8px rgba(255, 255, 255, 0.55);
-}
-[data-theme="glacial"] .ms-fab:active {
-  box-shadow:
-    inset 3px 3px 7px rgba(17, 44, 75, 0.40),
-    inset -2px -2px 5px rgba(255, 255, 255, 0.12);
-}
-
-/* ── Bottom nav: neumorphic bar ── */
-[data-theme="glacial"] .ms-sketch-bar {
-  background: #E8EDF2;
-  border: none;
-  border-radius: 24px !important;
-  box-shadow:
-    12px 12px 26px var(--neu-dark),
-    -12px -12px 26px var(--neu-light);
-}
-[data-theme="glacial"] .ms-sketch-bar::before,
-[data-theme="glacial"] .ms-sketch-bar::after {
-  display: none !important;
-}
-
-/* ── Sticky header ── */
-[data-theme="glacial"] header,
-[data-theme="glacial"] [class*="sticky"][class*="top-0"] {
-  background: #E8EDF2 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-bottom: none !important;
-  box-shadow: 0 3px 10px rgba(26, 66, 110, 0.10) !important;
-}
-
-/* ── Ripple ── */
-[data-theme="glacial"] .ms-key .ripple,
-[data-theme="glacial"] .ms-btn-primary .ripple,
-[data-theme="glacial"] .ms-btn-ghost .ripple {
-  background: rgba(26, 66, 110, 0.10);
-}
-
-/* ── Override hardcoded warm colors → glacial palette ── */
-
-/* Backgrounds */
-[data-theme="glacial"] [class*="bg-[#f5eed8]"] { background-color: #E8EDF2 !important; }
-[data-theme="glacial"] [class*="bg-[#faf8f4]"] { background-color: #E8EDF2 !important; }
-[data-theme="glacial"] [class*="bg-[#f0ece3]"] { background-color: #DDE4EC !important; }
-[data-theme="glacial"] [class*="bg-[#f4f0e8]"] { background-color: #E8EDF2 !important; }
-[data-theme="glacial"] [class*="bg-[#ede8dd]"] { background-color: #DDE4EC !important; }
-
-/* Accent-tinted backgrounds */
-[data-theme="glacial"] [class*="bg-[rgba(139,110,78"] { background-color: rgba(26, 66, 110, 0.08) !important; }
-[data-theme="glacial"] [class*="bg-[rgba(90,122,90"] { background-color: rgba(74, 139, 139, 0.08) !important; }
-
-/* Borders */
-[data-theme="glacial"] [class*="border-[#e6e0d5]"] { border-color: rgba(26, 66, 110, 0.10) !important; }
-[data-theme="glacial"] [class*="border-[#e6dcc0]"] { border-color: rgba(26, 66, 110, 0.10) !important; }
-[data-theme="glacial"] [class*="border-[#d8d0c4]"] { border-color: rgba(26, 66, 110, 0.10) !important; }
-[data-theme="glacial"] [class*="border-[#c49898]"] { border-color: rgba(194, 139, 139, 0.40) !important; }
-[data-theme="glacial"] [class*="divide-[#e6e0d5]"] { --tw-divide-color: rgba(26, 66, 110, 0.08); }
-
-/* Text */
-[data-theme="glacial"] [class*="text-[#2c2520]"] { color: var(--ms-text) !important; }
-[data-theme="glacial"] [class*="text-[#3a3330]"] { color: var(--ms-text) !important; }
-[data-theme="glacial"] [class*="text-[#6b6058]"] { color: var(--ms-text-secondary) !important; }
-[data-theme="glacial"] [class*="text-[#74593c]"] { color: var(--ms-accent) !important; }
-[data-theme="glacial"] [class*="text-[#9a9088]"] { color: var(--ms-text-muted) !important; }
-[data-theme="glacial"] [class*="text-[#8b6e4e]"] { color: var(--ms-accent) !important; }
-[data-theme="glacial"] [class*="text-[#8a3a3a]"] { color: #B07070 !important; }
-[data-theme="glacial"] [class*="text-[#9e4a4a]"] { color: #B07070 !important; }
-[data-theme="glacial"] [class*="text-[#4a6a4a]"] { color: #4A8B8B !important; }
-[data-theme="glacial"] [class*="text-[#5a7a8a]"] { color: var(--ms-info) !important; }
-
-/* Ring / focus */
-[data-theme="glacial"] [class*="ring-[rgba(139,110,78"] { --tw-ring-color: rgba(26, 66, 110, 0.18) !important; }
-[data-theme="glacial"] [class*="border-[#8b6e4e]"] { border-color: var(--ms-accent) !important; }
-
-/* Shadow */
-[data-theme="glacial"] [class*="shadow-[0_10px_24px_rgba(139,110,78"] {
-  box-shadow: 10px 10px 22px var(--neu-dark), -10px -10px 22px var(--neu-light) !important;
-}
-
-/* Primary-colored backgrounds */
-[data-theme="glacial"] [class*="bg-[#8b6e4e]"] { background-color: #1A426E !important; }
-
-/* Active tab text */
-[data-theme="glacial"] [class*="text-[var(--ms-accent-hover)]"] {
-  color: #ffffff !important;
-}
-
-/* ══════════════════════════════════════════════════════
-   GLACIAL — Color Hierarchy (SummaryTab + ExpenseCard)
-   L1: Day header     → Deep Abyss dark navy gradient
-   L2: Expense card   → Frozen Mint light blue
-   L3: Detail rows    → Tinted by role (payer/owed/repaid)
-   ══════════════════════════════════════════════════════ */
-
-/* ── L1: Day group header button → Deep Abyss navy ── */
-[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"],
-[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"]:hover {
-  background: linear-gradient(145deg, #1A426E 0%, #265D9B 100%) !important;
-  color: #ffffff !important;
-  border-radius: 16px 16px 0 0;
-}
-[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"] p,
-[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"] span {
-  color: #ffffff !important;
-}
-/* Expense count badge on dark header */
-[data-theme="glacial"] .ms-sketch > button[class*="bg-[#f5eed8]"] [class*="bg-[rgba(139"] {
-  background-color: rgba(255, 255, 255, 0.18) !important;
-  color: #ffffff !important;
-}
-
-/* ── L2: Expense sub-card → Frozen Mint tinted ── */
-[data-theme="glacial"] .ms-sketch .ms-sketch {
-  background: #D8E8F0 !important;
-  box-shadow:
-    5px 5px 11px rgba(26, 66, 110, 0.16),
-    -5px -5px 11px rgba(255, 255, 255, 0.78) !important;
-}
-
-/* Category badge inside sub-cards */
-[data-theme="glacial"] .ms-sketch .ms-sketch [class*="bg-[rgba(139,110,78,0.12)"] {
-  background-color: rgba(118, 153, 194, 0.22) !important;
-  color: #1A426E !important;
-}
-
-/* ── L3a: Expanded payer row → Glacial Blue tint ── */
-[data-theme="glacial"] div[class*="bg-[#f5eed8]"][class*="border-[#e6dcc0]"] {
-  background: rgba(26, 66, 110, 0.10) !important;
-  border-color: rgba(26, 66, 110, 0.22) !important;
-}
-[data-theme="glacial"] div[class*="bg-[#f5eed8]"][class*="border-[#e6dcc0]"] p,
-[data-theme="glacial"] div[class*="bg-[#f5eed8]"][class*="border-[#e6dcc0]"] span {
-  color: var(--ms-text) !important;
-}
-[data-theme="glacial"] div[class*="bg-[#f5eed8]"][class*="border-[#e6dcc0]"] [class*="bg-[rgba(139"] {
-  background-color: rgba(26, 66, 110, 0.14) !important;
-  color: #1A426E !important;
-}
-
-/* ── L3b: Expanded split owed row → Dust Rose tint ── */
-[data-theme="glacial"] div[class*="bg-[#faf8f4]"][class*="border-[#e6e0d5]"] {
-  background: rgba(194, 139, 139, 0.09) !important;
-  border-color: rgba(194, 139, 139, 0.28) !important;
-}
-
-/* ── Settlement table header → Deep Abyss (echoes L1) ── */
-[data-theme="glacial"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] {
-  background: linear-gradient(145deg, #1A426E, #265D9B) !important;
-  color: #ffffff !important;
-  border-color: transparent !important;
-  border-radius: 12px !important;
-}
-[data-theme="glacial"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] > * {
-  color: #ffffff !important;
-}
-[data-theme="glacial"] div[class*="bg-[#f0ece3]"][class*="uppercase"][class*="tracking-wide"] select {
-  color: var(--ms-text) !important;
-  background: rgba(255, 255, 255, 0.92) !important;
-}
-
-/* ── Settlement alternating rows: Glacial Blue tints ── */
-[data-theme="glacial"] [class*="bg-[rgba(139,110,78,0.10)"] {
-  background: rgba(118, 153, 194, 0.09) !important;
-}
-[data-theme="glacial"] [class*="bg-[rgba(139,110,78,0.03)"] {
-  background: rgba(118, 153, 194, 0.03) !important;
-}
-
-/* ── General badge bg (not on dark header): Glacial Blue ── */
-[data-theme="glacial"] [class*="bg-[rgba(139,110,78,0.12)"] {
-  background-color: rgba(118, 153, 194, 0.18) !important;
-}
-
-/* ── Outer day card: slightly more contrast vs body ── */
-[data-theme="glacial"] .ms-sketch.overflow-hidden {
-  background: #EBF0F5 !important;
-}
-
-/* ── No-records empty state border ── */
-[data-theme="glacial"] [class*="border-dashed"][class*="border-[#d8d0c4]"] {
-  border-color: rgba(26, 66, 110, 0.18) !important;
 }

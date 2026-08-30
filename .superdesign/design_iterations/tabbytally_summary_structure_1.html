@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TabbyTally · Summary 结构三方案</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* ═══════════════════════════════════════════════════════
+   TOKENS — copied verbatim from src/index.css (Warm Ledger)
+   ═══════════════════════════════════════════════════════ */
+:root{
+  --ms-bg:#fdfbf7;
+  --ms-bg-warm:#f6f1e9;
+  --ms-surface:#ffffff;
+  --ms-surface-dim:#f6f1e9;
+  --ms-day-bar:#f3eadd;
+  --ms-border:#efe7dc;
+  --ms-border-light:#f6f0e7;
+  --ms-text:#1f1b18;
+  --ms-text-secondary:#7a6a5c;
+  --ms-text-muted:#a79684;
+  --ms-accent:#c2571a;
+  --ms-accent-hover:#a6470f;
+  --ms-accent-bg:#fbede2;
+  --ms-success:#3f6b4a;
+  --ms-success-bg:#eaf1eb;
+  --ms-danger:#a63d2e;
+  --ms-elev-1:0 1px 2px rgba(31,27,24,.05);
+  --ms-elev-2:0 2px 10px rgba(31,27,24,.05);
+  --ms-elev-3:0 6px 22px rgba(31,27,24,.09),0 1px 2px rgba(31,27,24,.05);
+  --ms-elev-accent:0 8px 20px rgba(194,87,26,.24);
+  --ms-radius-card:1.375rem;
+  --ms-radius-row:1rem;
+  --ms-radius-field:.875rem;
+  /* backdrop for this comparison sheet only — dark so the light UI pops */
+  --page:#241e1a;
+  --page-2:#2e2620;
+  --page-line:#463a31;
+  --page-text:#f0e7dc;
+  --page-muted:#a3907e;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif !important;
+  background:var(--page) !important;
+  color:var(--page-text) !important;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+  -webkit-font-smoothing:antialiased;
+  padding:32px 20px 72px;
+}
+h1,h2,h3,h4,p{margin:0;}
+
+.wrap{max-width:1240px;margin:0 auto;}
+
+/* ── page header ───────────────────────────────────── */
+.kicker{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ms-accent);}
+.page-title{font-size:clamp(24px,4vw,34px);font-weight:800;letter-spacing:-.02em;margin-top:10px !important;}
+.page-sub{margin-top:10px !important;font-size:14px;line-height:1.65;color:var(--page-muted);max-width:70ch;}
+.constant{
+  margin-top:22px !important;display:flex;gap:12px;align-items:flex-start;
+  border:1px solid var(--page-line);border-radius:14px;background:var(--page-2);
+  padding:14px 16px;font-size:13px;line-height:1.6;color:var(--page-muted);max-width:78ch;
+}
+.constant b{color:var(--page-text);font-weight:700;}
+
+/* ── option column ─────────────────────────────────── */
+.grid3{display:grid;grid-template-columns:1fr;gap:38px;margin-top:38px;}
+@media(min-width:900px){.grid3{grid-template-columns:repeat(3,1fr);gap:26px;}}
+
+.opt-head{display:flex;align-items:baseline;gap:10px;}
+.opt-letter{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;flex:none;
+  background:var(--ms-accent);color:#fff;font-size:13px;font-weight:800;
+}
+.opt-name{font-size:17px;font-weight:800;letter-spacing:-.01em;}
+.opt-line{margin-top:8px !important;font-size:13px;line-height:1.6;color:var(--page-muted);min-height:3.2em;}
+
+/* ── phone frame ───────────────────────────────────── */
+.phone{
+  margin-top:16px;
+  width:100%;max-width:352px;
+  border-radius:36px;
+  background:var(--ms-bg);
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 24px 60px rgba(0,0,0,.42);
+  overflow:hidden;
+  position:relative;
+  height:672px;
+  display:flex;flex-direction:column;
+}
+.notch{height:26px;flex:none;display:flex;align-items:center;justify-content:center;}
+.notch i{display:block;width:74px;height:5px;border-radius:99px;background:rgba(31,27,24,.14);}
+
+/* app header inside phone */
+.app-top{
+  flex:none;padding:2px 18px 12px;background:var(--ms-bg);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.trip-name{font-size:17px;font-weight:800;color:var(--ms-text);letter-spacing:-.01em;}
+.trip-meta{font-size:11px;font-weight:600;color:var(--ms-text-muted);margin-top:2px !important;}
+.icon-btn{
+  width:34px;height:34px;border-radius:11px;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--ms-surface-dim);color:var(--ms-text-secondary);
+  border:1px solid var(--ms-border);
+}
+
+/* scroll body */
+.screen{flex:1;overflow:hidden;position:relative;background:var(--ms-bg);}
+.scroll{height:100%;overflow-y:auto;padding-bottom:104px;}
+.scroll::-webkit-scrollbar{width:0;}
+
+/* ── sticky day header (option A & B) ──────────────── */
+.day-sticky{
+  position:sticky;top:0;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:7px 18px;
+  background:var(--ms-day-bar);
+  border-top:1px solid var(--ms-border);
+  border-bottom:1px solid var(--ms-border);
+}
+.day-tag{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8a7460;}
+.day-tot{font-size:12.5px;font-weight:800;color:var(--ms-text);}
+
+/* ── collapsible day header (option C) ─────────────── */
+.day-btn{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:13px 18px;background:var(--ms-day-bar);
+  border:none;border-top:1px solid var(--ms-border);border-bottom:1px solid var(--ms-border);
+  text-align:left;cursor:default;
+}
+.day-btn .l{display:flex;align-items:center;gap:9px;min-width:0;}
+.day-btn .name{font-size:14px;font-weight:800;color:var(--ms-text);}
+.day-btn .sub{font-size:11.5px;font-weight:600;color:#8a7460;}
+.chev{color:#8a7460;flex:none;transition:transform .18s;}
+.chev.open{transform:rotate(90deg);}
+
+/* ── expense row (shared by all three) ─────────────── */
+.rows{background:var(--ms-surface);}
+.row{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 18px;
+  border-bottom:1px solid var(--ms-border-light);
+  background:var(--ms-surface);
+}
+.row:last-child{border-bottom:none;}
+.cat{
+  width:32px;height:32px;border-radius:10px;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--ms-surface-dim);color:var(--ms-text-secondary);
+}
+.row-mid{min-width:0;flex:1;}
+.row-title{font-size:14px;font-weight:700;color:var(--ms-text);letter-spacing:-.005em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.row-meta{font-size:11.5px;font-weight:500;color:var(--ms-text-muted);margin-top:2px !important;}
+.row-amt{font-size:14.5px;font-weight:800;color:var(--ms-text);flex:none;letter-spacing:-.01em;}
+.row.settled{opacity:.44;}
+.row.settled .row-amt{font-weight:700;}
+.row.you .row-title::after{
+  content:'你付的';margin-left:7px;
+  font-size:9.5px;font-weight:700;letter-spacing:.06em;
+  color:var(--ms-accent);background:var(--ms-accent-bg);
+  padding:2px 5px;border-radius:5px;vertical-align:1.5px;
+}
+.row.tapped{background:var(--ms-accent-bg);}
+
+/* ── inline expanded detail (option B) ─────────────── */
+.inline-det{
+  background:var(--ms-surface-dim);
+  border-bottom:1px solid var(--ms-border);
+  padding:12px 18px 14px 62px;
+}
+.det-lab{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ms-text-muted);}
+.split-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;
+  border-bottom:1px solid var(--ms-border);}
+.split-row:last-of-type{border-bottom:none;}
+.split-name{font-size:13px;font-weight:600;color:var(--ms-text-secondary);}
+.split-amt{font-size:13px;font-weight:700;color:var(--ms-text);}
+.edit-inline{
+  margin-top:10px;display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:700;color:var(--ms-accent);
+  background:var(--ms-surface);border:1px solid var(--ms-border);
+  padding:7px 12px;border-radius:10px;
+}
+
+/* ── detail sheet (option A & C) ───────────────────── */
+.scrim{position:absolute;inset:0;background:rgba(31,27,24,.34);z-index:20;}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:21;
+  background:var(--ms-surface);
+  border-radius:26px 26px 0 0;
+  box-shadow:0 -10px 40px rgba(31,27,24,.22);
+  padding:10px 20px 22px;
+}
+.sheet-grab{width:38px;height:4px;border-radius:99px;background:var(--ms-border);margin:0 auto 14px;}
+.sheet-cat{display:flex;align-items:center;gap:10px;}
+.sheet-chip{
+  font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ms-text-secondary);background:var(--ms-surface-dim);
+  padding:4px 8px;border-radius:7px;
+}
+.sheet-title{font-size:19px;font-weight:800;color:var(--ms-text);margin-top:10px !important;letter-spacing:-.015em;}
+.sheet-amt{font-size:34px;font-weight:800;color:var(--ms-text);letter-spacing:-.03em;margin-top:2px !important;line-height:1.1;}
+.sheet-amt span{font-size:15px;font-weight:700;color:var(--ms-text-muted);margin-right:4px;}
+.sheet-sub{font-size:12.5px;font-weight:500;color:var(--ms-text-secondary);margin-top:8px !important;}
+.sheet-hr{height:1px;background:var(--ms-border);margin:14px 0;}
+.sheet-btns{display:flex;gap:9px;margin-top:16px;}
+.btn-primary{
+  flex:1;text-align:center;padding:12px;border-radius:13px;
+  background:var(--ms-accent);color:#fff;font-size:13.5px;font-weight:800;
+  box-shadow:var(--ms-elev-accent);
+}
+.btn-ghost{
+  flex:none;padding:12px 16px;border-radius:13px;
+  background:var(--ms-surface);border:1px solid var(--ms-border);
+  color:var(--ms-text-secondary);font-size:13.5px;font-weight:700;
+}
+
+/* ── bottom nav: 3 tabs + raised centre action ─────── */
+.nav{
+  position:absolute;left:0;right:0;bottom:0;z-index:30;
+  background:var(--ms-bg);
+  border-top:1px solid var(--ms-border);
+  padding:9px 16px 14px;
+  display:flex;align-items:flex-end;justify-content:space-between;
+}
+.nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
+  color:var(--ms-text-muted);
+}
+.nav-item.on{color:var(--ms-accent);}
+.nav-item span{font-size:9.5px;font-weight:700;letter-spacing:.03em;}
+.nav-fab{
+  flex:none;width:52px;height:52px;border-radius:99px;margin:0 6px -14px;
+  background:var(--ms-accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--ms-elev-accent);
+  border:3px solid var(--ms-bg);
+}
+
+/* ── pros / cons under each phone ──────────────────── */
+.pc{margin-top:20px;font-size:13px;line-height:1.65;}
+.pc-h{font-size:10.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--page-muted);}
+.pc ul{list-style:none;padding:0;margin:8px 0 0;}
+.pc li{position:relative;padding-left:18px;margin-bottom:7px;color:var(--page-text);}
+.pc li::before{position:absolute;left:0;top:-1px;font-weight:800;}
+.pc li.up::before{content:'+';color:#8fbf9b;}
+.pc li.dn::before{content:'−';color:#dd9a86;}
+.pc .grp+.grp{margin-top:16px;}
+
+/* ── comparison table ──────────────────────────────── */
+.cmp{margin-top:56px;border:1px solid var(--page-line);border-radius:18px;overflow:hidden;background:var(--page-2);}
+.cmp-h{padding:16px 20px;border-bottom:1px solid var(--page-line);}
+.cmp-h h3{font-size:15px;font-weight:800;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--page-line);vertical-align:top;}
+th{font-size:10.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--page-muted);}
+td:first-child{color:var(--page-muted);font-weight:600;white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+.win{color:#8fbf9b;font-weight:700;}
+.bad{color:#dd9a86;font-weight:700;}
+.foot{margin-top:26px;font-size:12.5px;line-height:1.7;color:var(--page-muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">TabbyTally · Grill Q3</p>
+  <h1 class="page-title">Summary 的层级结构 — 三个方案</h1>
+  <p class="page-sub">
+    同一趟行程、同一批数据、同一套 Warm Ledger 色值。三个方案唯一的差别是<b style="color:var(--page-text)">「日期怎么分组」</b>和<b style="color:var(--page-text)">「点一笔支出后详情出现在哪」</b>。
+  </p>
+
+  <div class="constant">
+    <div style="flex:none;margin-top:1px;">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#c2571a" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div>
+      三个方案里都已经套用了你刚才定下的两条：<b>Summary 不再显示「谁还欠多少 / Outstanding Amount」</b>（那些归 Settle Up），以及<b>已全部结清的支出只是整笔变淡</b>，不加彩色徽章、不显示状态金额。分类色也全部收成了同一个中性灰底图标 —— 配色是下一刀要单独决定的事，这里刻意不当变量。
+    </div>
+  </div>
+
+  <div class="grid3">
+
+    <!-- ═══════════════ OPTION A ═══════════════ -->
+    <div>
+      <div class="opt-head">
+        <span class="opt-letter">A</span>
+        <h2 class="opt-name">全平铺 + 详情层</h2>
+      </div>
+      <p class="opt-line">日期变成吸顶小标题，永远不折叠。支出行平铺；点一行，详情从底部升起来，编辑就在里面。</p>
+
+      <div class="phone">
+        <div class="notch"><i></i></div>
+        <div class="app-top">
+          <div>
+            <p class="trip-name">Bali 2026</p>
+            <p class="trip-meta">4 人 · 8月13–20日</p>
+          </div>
+          <div class="icon-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+          </div>
+        </div>
+
+        <div class="screen">
+          <div class="scroll">
+            <!-- day 2 -->
+            <div class="day-sticky">
+              <span class="day-tag">Day 2 · 8月14日 · 5 笔</span>
+              <span class="day-tot">RM 642.90</span>
+            </div>
+            <div class="rows">
+              <div class="row settled">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 11v11"/><path d="M18 2a4 4 0 0 0-3 3.9V12h3Zm0 10v10"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">机场早餐</p>
+                  <p class="row-meta">Mei 付 · 分 4 人 · 已结清</p>
+                </div>
+                <p class="row-amt">RM 48.00</p>
+              </div>
+              <div class="row">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 17h2v-4a3 3 0 0 0-1.5-1.9L16 10l-2.2-2.3a2.4 2.4 0 0 0-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.2 10.8A3.7 3.7 0 0 0 2 12v5h3"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">机场 → 酒店包车</p>
+                  <p class="row-meta">Wei 付 · 分 4 人</p>
+                </div>
+                <p class="row-amt">RM 168.00</p>
+              </div>
+            </div>
+
+            <!-- day 3 -->
+            <div class="day-sticky">
+              <span class="day-tag">Day 3 · 8月15日 · 4 笔</span>
+              <span class="day-tot">RM 1,538.40</span>
+            </div>
+            <div class="rows">
+              <div class="row">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 11v11"/><path d="M18 2a4 4 0 0 0-3 3.9V12h3Zm0 10v10"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">Nasi Campur 午餐</p>
+                  <p class="row-meta">Ali 付 · 分 4 人</p>
+                </div>
+                <p class="row-amt">RM 86.00</p>
+              </div>
+              <div class="row">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 17h2v-4a3 3 0 0 0-1.5-1.9L16 10l-2.2-2.3a2.4 2.4 0 0 0-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.2 10.8A3.7 3.7 0 0 0 2 12v5h3"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">Grab 到 Ubud</p>
+                  <p class="row-meta">Mei 付 · 分 4 人</p>
+                </div>
+                <p class="row-amt">RM 52.40</p>
+              </div>
+              <div class="row tapped">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 11v2M13 17v2"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">猴林门票</p>
+                  <p class="row-meta">Ali 付 · 分 3 人</p>
+                </div>
+                <p class="row-amt">RM 120.00</p>
+              </div>
+              <div class="row you">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">Villa 尾款</p>
+                  <p class="row-meta">分 4 人</p>
+                </div>
+                <p class="row-amt">RM 1,280.00</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- detail sheet -->
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="sheet-grab"></div>
+            <div class="sheet-cat">
+              <span class="sheet-chip">观光</span>
+              <span class="sheet-chip" style="color:var(--ms-text-muted);">8月15日</span>
+            </div>
+            <p class="sheet-title">猴林门票</p>
+            <p class="sheet-amt"><span>RM</span>120.00</p>
+            <p class="sheet-sub">Ali 付款 · 平均分给 3 人</p>
+            <div class="sheet-hr"></div>
+            <p class="det-lab">怎么分的</p>
+            <div style="margin-top:6px;">
+              <div class="split-row"><span class="split-name">Ali</span><span class="split-amt">RM 40.00</span></div>
+              <div class="split-row"><span class="split-name">Mei</span><span class="split-amt">RM 40.00</span></div>
+              <div class="split-row"><span class="split-name" style="color:var(--ms-text);font-weight:700;">你</span><span class="split-amt">RM 40.00</span></div>
+            </div>
+            <div class="sheet-btns">
+              <div class="btn-primary">编辑这笔</div>
+              <div class="btn-ghost">关闭</div>
+            </div>
+          </div>
+
+          <!-- nav (dimmed behind sheet) -->
+        </div>
+
+        <div class="nav" style="opacity:.35;">
+          <div class="nav-item on">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+            <span>账本</span>
+          </div>
+          <div class="nav-fab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="nav-item">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <span>结算</span>
+          </div>
+          <div class="nav-item">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            <span>我</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pc">
+        <div class="grp">
+          <p class="pc-h">好处</p>
+          <ul>
+            <li class="up">两套展开状态全删（<code style="color:#e9a276">openDateMap</code> + <code style="color:#e9a276">openExpenseMap</code>），列表永远不会因为你点一下而上下弹</li>
+            <li class="up">到编辑只要 2 步（点行 → 点编辑），现在是 3 步</li>
+            <li class="up">详情层有空间放更多东西：备注、收据照、汇率说明，以后加不用挤</li>
+            <li class="up">吸顶标题让你滚到哪都知道自己在第几天</li>
+          </ul>
+        </div>
+        <div class="grp">
+          <p class="pc-h">代价</p>
+          <ul>
+            <li class="dn">10 天行程要一路滚到底，没法把某几天收起来</li>
+            <li class="dn">想对比两笔支出怎么分的，得开一个关一个</li>
+            <li class="dn">改动量最大：要新写一个详情层组件</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ OPTION B ═══════════════ -->
+    <div>
+      <div class="opt-head">
+        <span class="opt-letter" style="background:#7a6a5c;">B</span>
+        <h2 class="opt-name">吸顶日期 + 就地展开</h2>
+      </div>
+      <p class="opt-line">日期同样吸顶不折叠，但点一笔支出是在原地往下撑开明细 —— 只剩一层手风琴，不引入新的层。</p>
+
+      <div class="phone">
+        <div class="notch"><i></i></div>
+        <div class="app-top">
+          <div>
+            <p class="trip-name">Bali 2026</p>
+            <p class="trip-meta">4 人 · 8月13–20日</p>
+          </div>
+          <div class="icon-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+          </div>
+        </div>
+
+        <div class="screen">
+          <div class="scroll">
+            <div class="day-sticky">
+              <span class="day-tag">Day 2 · 8月14日 · 5 笔</span>
+              <span class="day-tot">RM 642.90</span>
+            </div>
+            <div class="rows">
+              <div class="row settled">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 11v11"/><path d="M18 2a4 4 0 0 0-3 3.9V12h3Zm0 10v10"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">机场早餐</p>
+                  <p class="row-meta">Mei 付 · 分 4 人 · 已结清</p>
+                </div>
+                <p class="row-amt">RM 48.00</p>
+              </div>
+              <div class="row">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 17h2v-4a3 3 0 0 0-1.5-1.9L16 10l-2.2-2.3a2.4 2.4 0 0 0-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.2 10.8A3.7 3.7 0 0 0 2 12v5h3"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">机场 → 酒店包车</p>
+                  <p class="row-meta">Wei 付 · 分 4 人</p>
+                </div>
+                <p class="row-amt">RM 168.00</p>
+              </div>
+            </div>
+
+            <div class="day-sticky">
+              <span class="day-tag">Day 3 · 8月15日 · 4 笔</span>
+              <span class="day-tot">RM 1,538.40</span>
+            </div>
+            <div class="rows">
+              <div class="row">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 11v11"/><path d="M18 2a4 4 0 0 0-3 3.9V12h3Zm0 10v10"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">Nasi Campur 午餐</p>
+                  <p class="row-meta">Ali 付 · 分 4 人</p>
+                </div>
+                <p class="row-amt">RM 86.00</p>
+              </div>
+
+              <!-- expanded in place -->
+              <div class="row tapped" style="border-bottom:none;">
+                <div class="cat" style="background:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 11v2M13 17v2"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">猴林门票</p>
+                  <p class="row-meta">Ali 付 · 分 3 人 · 观光</p>
+                </div>
+                <svg class="chev open" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+              <div class="inline-det">
+                <p class="det-lab">怎么分的</p>
+                <div style="margin-top:4px;">
+                  <div class="split-row"><span class="split-name">Ali</span><span class="split-amt">RM 40.00</span></div>
+                  <div class="split-row"><span class="split-name">Mei</span><span class="split-amt">RM 40.00</span></div>
+                  <div class="split-row"><span class="split-name" style="color:var(--ms-text);font-weight:700;">你</span><span class="split-amt">RM 40.00</span></div>
+                </div>
+                <div class="edit-inline">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  编辑这笔
+                </div>
+              </div>
+
+              <div class="rows">
+                <div class="row">
+                  <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 17h2v-4a3 3 0 0 0-1.5-1.9L16 10l-2.2-2.3a2.4 2.4 0 0 0-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.2 10.8A3.7 3.7 0 0 0 2 12v5h3"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>
+                  <div class="row-mid">
+                    <p class="row-title">Grab 到 Ubud</p>
+                    <p class="row-meta">Mei 付 · 分 4 人</p>
+                  </div>
+                  <p class="row-amt">RM 52.40</p>
+                </div>
+                <div class="row you">
+                  <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+                  <div class="row-mid">
+                    <p class="row-title">Villa 尾款</p>
+                    <p class="row-meta">分 4 人</p>
+                  </div>
+                  <p class="row-amt">RM 1,280.00</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav">
+          <div class="nav-item on">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+            <span>账本</span>
+          </div>
+          <div class="nav-fab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="nav-item">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <span>结算</span>
+          </div>
+          <div class="nav-item">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            <span>我</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pc">
+        <div class="grp">
+          <p class="pc-h">好处</p>
+          <ul>
+            <li class="up">改动量最小：现有代码删掉一层折叠就成，风险最低</li>
+            <li class="up">明细就在原位，可以同时展开两三笔互相对照</li>
+            <li class="up">没有弹层，不打断滚动位置</li>
+          </ul>
+        </div>
+        <div class="grp">
+          <p class="pc-h">代价</p>
+          <ul>
+            <li class="dn">展开还是会把下面的行往下推，长列表里容易「找不到刚才那一行」</li>
+            <li class="dn">到编辑仍是 3 步，而且编辑按钮藏在展开区里</li>
+            <li class="dn">明细区宽度受限，以后想加收据照/备注会挤</li>
+            <li class="dn">10 天行程一样没法收起</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ OPTION C ═══════════════ -->
+    <div>
+      <div class="opt-head">
+        <span class="opt-letter" style="background:#7a6a5c;">C</span>
+        <h2 class="opt-name">日可折叠 + 详情层</h2>
+      </div>
+      <p class="opt-line">保留「把某几天收起来」的能力，但支出改成点开详情层。长行程能压缩，同时也只剩一层展开。</p>
+
+      <div class="phone">
+        <div class="notch"><i></i></div>
+        <div class="app-top">
+          <div>
+            <p class="trip-name">Bali 2026</p>
+            <p class="trip-meta">4 人 · 8月13–20日</p>
+          </div>
+          <div class="icon-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+          </div>
+        </div>
+
+        <div class="screen">
+          <div class="scroll">
+            <!-- collapsed days -->
+            <button class="day-btn">
+              <span class="l">
+                <svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+                <span class="name">Day 1</span>
+                <span class="sub">8月13日 · 3 笔</span>
+              </span>
+              <span class="day-tot">RM 418.00</span>
+            </button>
+            <button class="day-btn">
+              <span class="l">
+                <svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+                <span class="name">Day 2</span>
+                <span class="sub">8月14日 · 5 笔</span>
+              </span>
+              <span class="day-tot">RM 642.90</span>
+            </button>
+
+            <!-- open day -->
+            <button class="day-btn" style="background:var(--ms-day-bar);">
+              <span class="l">
+                <svg class="chev open" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+                <span class="name">Day 3</span>
+                <span class="sub">8月15日 · 4 笔</span>
+              </span>
+              <span class="day-tot">RM 1,538.40</span>
+            </button>
+            <div class="rows">
+              <div class="row">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 11v11"/><path d="M18 2a4 4 0 0 0-3 3.9V12h3Zm0 10v10"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">Nasi Campur 午餐</p>
+                  <p class="row-meta">Ali 付 · 分 4 人</p>
+                </div>
+                <p class="row-amt">RM 86.00</p>
+              </div>
+              <div class="row">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 17h2v-4a3 3 0 0 0-1.5-1.9L16 10l-2.2-2.3a2.4 2.4 0 0 0-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.2 10.8A3.7 3.7 0 0 0 2 12v5h3"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">Grab 到 Ubud</p>
+                  <p class="row-meta">Mei 付 · 分 4 人</p>
+                </div>
+                <p class="row-amt">RM 52.40</p>
+              </div>
+              <div class="row tapped">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 11v2M13 17v2"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">猴林门票</p>
+                  <p class="row-meta">Ali 付 · 分 3 人</p>
+                </div>
+                <p class="row-amt">RM 120.00</p>
+              </div>
+              <div class="row you">
+                <div class="cat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+                <div class="row-mid">
+                  <p class="row-title">Villa 尾款</p>
+                  <p class="row-meta">分 4 人</p>
+                </div>
+                <p class="row-amt">RM 1,280.00</p>
+              </div>
+            </div>
+
+            <button class="day-btn">
+              <span class="l">
+                <svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+                <span class="name">Day 4</span>
+                <span class="sub">8月16日 · 2 笔</span>
+              </span>
+              <span class="day-tot">RM 96.50</span>
+            </button>
+          </div>
+
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="sheet-grab"></div>
+            <div class="sheet-cat">
+              <span class="sheet-chip">观光</span>
+              <span class="sheet-chip" style="color:var(--ms-text-muted);">8月15日</span>
+            </div>
+            <p class="sheet-title">猴林门票</p>
+            <p class="sheet-amt"><span>RM</span>120.00</p>
+            <p class="sheet-sub">Ali 付款 · 平均分给 3 人</p>
+            <div class="sheet-hr"></div>
+            <p class="det-lab">怎么分的</p>
+            <div style="margin-top:6px;">
+              <div class="split-row"><span class="split-name">Ali</span><span class="split-amt">RM 40.00</span></div>
+              <div class="split-row"><span class="split-name">Mei</span><span class="split-amt">RM 40.00</span></div>
+              <div class="split-row"><span class="split-name" style="color:var(--ms-text);font-weight:700;">你</span><span class="split-amt">RM 40.00</span></div>
+            </div>
+            <div class="sheet-btns">
+              <div class="btn-primary">编辑这笔</div>
+              <div class="btn-ghost">关闭</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav" style="opacity:.35;">
+          <div class="nav-item on">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+            <span>账本</span>
+          </div>
+          <div class="nav-fab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="nav-item">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <span>结算</span>
+          </div>
+          <div class="nav-item">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            <span>我</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pc">
+        <div class="grp">
+          <p class="pc-h">好处</p>
+          <ul>
+            <li class="up">长行程能压缩：10 天全收起来就是 10 行，一屏看完整趟花费节奏</li>
+            <li class="up">到编辑 2 步，详情层有空间</li>
+            <li class="up">「Day 3 花了 RM1,538」这种按天对比最直观 —— 很符合旅行日记的调性</li>
+          </ul>
+        </div>
+        <div class="grp">
+          <p class="pc-h">代价</p>
+          <ul>
+            <li class="dn">还留着一套折叠状态要管（默认展开哪几天？加了新支出要不要自动展开？）</li>
+            <li class="dn">默认全收起会「藏起」支出，新用户可能以为记录丢了；默认全展开又回到方案 A</li>
+            <li class="dn">日期不吸顶，滚到中间会不知道自己在第几天</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ comparison ═══════════════ -->
+  <div class="cmp">
+    <div class="cmp-h"><h3>并排对比</h3></div>
+    <table>
+      <thead>
+        <tr><th></th><th>A · 全平铺 + 详情层</th><th>B · 吸顶 + 就地展开</th><th>C · 日折叠 + 详情层</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>要管的展开状态</td>
+          <td class="win">0 套</td>
+          <td>1 套（每笔支出）</td>
+          <td>1 套（每天）</td>
+        </tr>
+        <tr>
+          <td>点到「编辑」几步</td>
+          <td class="win">2 步</td>
+          <td class="bad">3 步</td>
+          <td class="win">2 步</td>
+        </tr>
+        <tr>
+          <td>10 天行程扫读</td>
+          <td>一路滚</td>
+          <td>一路滚</td>
+          <td class="win">全收起＝10 行看完</td>
+        </tr>
+        <tr>
+          <td>滚动位置会不会跳</td>
+          <td class="win">不会</td>
+          <td class="bad">会（展开推挤下方）</td>
+          <td>只在收合整天时跳</td>
+        </tr>
+        <tr>
+          <td>以后加备注/收据照</td>
+          <td class="win">有空间</td>
+          <td class="bad">会挤</td>
+          <td class="win">有空间</td>
+        </tr>
+        <tr>
+          <td>滚到中间知道第几天</td>
+          <td class="win">知道（吸顶）</td>
+          <td class="win">知道（吸顶）</td>
+          <td class="bad">不知道</td>
+        </tr>
+        <tr>
+          <td>改动量 / 风险</td>
+          <td class="bad">大（新写详情层）</td>
+          <td class="win">小（删一层折叠）</td>
+          <td>中（新写详情层，留折叠）</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot">
+    另外三个方案都顺手画上了另一个决定：底部栏从 4 个 tab 收成 <b style="color:var(--page-text)">账本 / 结算 / 我</b>，中间是一个凸起的橘色圆按钮 —— 它刻意不带文字标签，也不做成 tab 的形状，这样它读起来是「一个动作」而不是「第四个页面」。
+  </p>
+</div>
+</body>
+</html>

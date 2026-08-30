@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TabbyTally — 三个设计方向对比</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  body {
+    background: #15131a !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
+    margin: 0 !important;
+  }
+
+  /* Money numerals: fixed-width digits so columns align — the single most
+     important typographic rule for a bill-splitting app. */
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+  .phone {
+    width: 390px;
+    height: 800px;
+    border-radius: 42px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 70px rgba(0,0,0,.55), 0 0 0 10px #24202c, 0 0 0 11px #3a3446;
+    display: flex;
+    flex-direction: column;
+  }
+  .phone-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .phone-scroll::-webkit-scrollbar { width: 0; }
+
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 26px; background: #24202c;
+    border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; z-index: 30;
+  }
+
+  .swatch { width: 26px; height: 26px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+
+  /* ══ Direction A — Warm Ledger ══ */
+  .dirA {
+    --bg:#FDFBF7; --surface:#FFFFFF; --surface-dim:#F6F1E9;
+    --text:#1F1B18; --text-2:#7A6A5C; --text-3:#A79684;
+    --accent:#C2571A; --accent-soft:#FBEDE2;
+    --ok:#3F6B4A; --ok-soft:#EAF1EB;
+    --warn:#A63D2E; --border:#EFE7DC;
+    font-family:'Plus Jakarta Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  /* ══ Direction B — Quiet Premium ══ */
+  .dirB {
+    --bg:#FBFBFA; --surface:#FFFFFF; --surface-dim:#F4F4F2;
+    --text:#0E0E0D; --text-2:#6B6B67; --text-3:#9A9A95;
+    --accent:#2F4F3A; --accent-soft:#EDF1EE;
+    --ok:#2F4F3A; --ok-soft:#EDF1EE;
+    --warn:#8C3A2B; --border:#E7E7E3;
+    font-family:'Inter', sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  .dirB .display { font-family:'Source Serif 4', Georgia, serif; }
+  /* ══ Direction C — Playful Bento ══ */
+  .dirC {
+    --bg:#FFF7EF; --surface:#FFFFFF; --surface-dim:#FFF0E2;
+    --text:#2A2118; --text-2:#8A7563; --text-3:#B8A797;
+    --accent:#FF7A3D; --accent-soft:#FFE9DC;
+    --ok:#6FAE85; --ok-soft:#E6F3EB;
+    --warn:#E8695C; --peach:#FFD9C2; --sage:#DCEDE2; --honey:#FBE6B8;
+    --border:#F5E4D4;
+    font-family:'Outfit', sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+
+  .tabbar { border-top:1px solid var(--border); background: var(--surface); }
+</style>
+</head>
+<body class="p-6 lg:p-10">
+
+  <header class="mx-auto mb-10 max-w-[1400px] text-center">
+    <p class="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">TabbyTally · Design Bake-off</p>
+    <h1 class="mb-3 text-3xl font-bold text-neutral-100 lg:text-4xl">三个方向,同一屏,同样的数据</h1>
+    <p class="mx-auto max-w-2xl text-sm leading-relaxed text-neutral-400">
+      这是 Settle Up 的「我的结算」页——你朋友当初看不懂的那一屏。三个方向不是三种配色,是三种产品人格。
+      请只看一件事:<span class="text-neutral-200">哪一个让你 3 秒内知道「我要付谁多少钱」,并且相信这个数字没算错。</span>
+    </p>
+  </header>
+
+  <div class="mx-auto grid max-w-[1400px] grid-cols-1 justify-items-center gap-14 xl:grid-cols-3 xl:gap-8">
+
+    <!-- ═══════════════════════════ A ═══════════════════════════ -->
+    <section class="w-full max-w-[390px]">
+      <div class="mb-5">
+        <div class="mb-2 flex items-center gap-2">
+          <span class="rounded-full bg-[#C2571A] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white">A · 推荐</span>
+          <h2 class="text-lg font-bold text-neutral-100">Warm Ledger 温暖账本</h2>
+        </div>
+        <p class="mb-3 text-[13px] leading-relaxed text-neutral-400">
+          保留橘色方向,推翻执行。橘色降到只做 CTA 和品牌,金额用近黑高对比。
+          像一张排版精良的旅行收据——温暖,但账目一目了然。
+        </p>
+        <div class="mb-2 flex gap-1.5">
+          <div class="swatch" style="background:#FDFBF7"></div>
+          <div class="swatch" style="background:#F6F1E9"></div>
+          <div class="swatch" style="background:#C2571A"></div>
+          <div class="swatch" style="background:#3F6B4A"></div>
+          <div class="swatch" style="background:#A63D2E"></div>
+          <div class="swatch" style="background:#1F1B18"></div>
+        </div>
+        <p class="text-[11px] text-neutral-500">Plus Jakarta Sans · tabular-nums · 圆角 20px · 柔和阴影分层</p>
+      </div>
+
+      <div class="phone dirA mx-auto">
+        <div class="notch"></div>
+        <div class="phone-scroll">
+          <!-- header -->
+          <div class="px-5 pb-4 pt-11" style="background:var(--surface)">
+            <div class="mb-4 flex items-center justify-between">
+              <button class="flex h-9 w-9 items-center justify-center rounded-full" style="background:var(--surface-dim)">
+                <i data-lucide="chevron-left" class="h-5 w-5" style="color:var(--text-2)"></i>
+              </button>
+              <div class="flex -space-x-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white" style="background:#C2571A;box-shadow:0 0 0 2px var(--surface)">M</div>
+                <div class="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white" style="background:#3F6B4A;box-shadow:0 0 0 2px var(--surface)">S</div>
+                <div class="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white" style="background:#7A6A5C;box-shadow:0 0 0 2px var(--surface)">A</div>
+                <div class="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold" style="background:var(--surface-dim);color:var(--text-2);box-shadow:0 0 0 2px var(--surface)">+1</div>
+              </div>
+            </div>
+            <h1 class="text-[26px] font-extrabold leading-tight tracking-tight">Bali Trip</h1>
+            <p class="mt-0.5 text-[13px]" style="color:var(--text-3)">12–18 Jun · 4 travellers</p>
+          </div>
+
+          <!-- segmented -->
+          <div class="px-5 pt-4" style="background:var(--bg)">
+            <div class="flex rounded-2xl p-1" style="background:var(--surface-dim)">
+              <button class="flex-1 rounded-xl py-2.5 text-[13px] font-bold" style="background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(31,27,24,.10)">My settlement</button>
+              <button class="flex-1 rounded-xl py-2.5 text-[13px] font-semibold" style="color:var(--text-2)">Group overview</button>
+            </div>
+          </div>
+
+          <!-- HERO -->
+          <div class="px-5 pt-4">
+            <div class="rounded-[22px] p-6" style="background:var(--surface);box-shadow:0 6px 22px rgba(31,27,24,.09), 0 1px 2px rgba(31,27,24,.05)">
+              <p class="mb-2 text-[12px] font-bold uppercase tracking-[0.14em]" style="color:var(--text-3)">You owe</p>
+              <div class="mb-1 flex items-baseline gap-2">
+                <span class="text-[19px] font-semibold" style="color:var(--text-2)">RM</span>
+                <span class="num text-[46px] font-extrabold leading-none tracking-tight">142.50</span>
+              </div>
+              <p class="mb-5 text-[14px] leading-snug" style="color:var(--text-2)">付清 2 位朋友,这趟旅行就结清了。</p>
+              <button class="flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold text-white" style="background:var(--accent)">
+                <i data-lucide="check-circle-2" class="h-[18px] w-[18px]"></i> Settle everything
+              </button>
+            </div>
+          </div>
+
+          <!-- action rows -->
+          <div class="px-5 pt-6">
+            <p class="mb-3 text-[12px] font-bold uppercase tracking-[0.14em]" style="color:var(--text-3)">Next actions</p>
+            <div class="rounded-[22px]" style="background:var(--surface);box-shadow:0 2px 10px rgba(31,27,24,.05)">
+              <div class="flex items-center gap-3 p-4">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white" style="background:#3F6B4A">S</div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-[15px] font-bold">Pay Sarah</p>
+                  <p class="text-[12px]" style="color:var(--text-3)">4 shared expenses</p>
+                </div>
+                <div class="text-right">
+                  <p class="num text-[17px] font-extrabold" style="color:var(--warn)">92.00</p>
+                  <p class="text-[11px]" style="color:var(--text-3)">RM</p>
+                </div>
+              </div>
+              <div class="mx-4" style="height:1px;background:var(--border)"></div>
+              <div class="flex items-center gap-3 p-4">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white" style="background:#C2571A">M</div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-[15px] font-bold">Pay Ming</p>
+                  <p class="text-[12px]" style="color:var(--text-3)">2 shared expenses</p>
+                </div>
+                <div class="text-right">
+                  <p class="num text-[17px] font-extrabold" style="color:var(--warn)">50.50</p>
+                  <p class="text-[11px]" style="color:var(--text-3)">RM</p>
+                </div>
+              </div>
+              <div class="mx-4" style="height:1px;background:var(--border)"></div>
+              <div class="flex items-center gap-3 p-4">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white" style="background:#7A6A5C">A</div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-[15px] font-bold">Alex owes you</p>
+                  <p class="text-[12px]" style="color:var(--text-3)">1 shared expense</p>
+                </div>
+                <div class="text-right">
+                  <p class="num text-[17px] font-extrabold" style="color:var(--ok)">38.00</p>
+                  <p class="text-[11px]" style="color:var(--text-3)">RM</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- included items -->
+          <div class="px-5 pb-8 pt-6">
+            <p class="mb-1 text-[12px] font-bold uppercase tracking-[0.14em]" style="color:var(--text-3)">Included items</p>
+            <p class="mb-3 text-[12px]" style="color:var(--text-3)">这些费用组成了你上面的金额</p>
+
+            <div class="mb-2 flex items-center gap-3 rounded-2xl p-3.5" style="background:var(--surface)">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style="background:var(--accent-soft)">
+                <i data-lucide="utensils" class="h-[18px] w-[18px]" style="color:var(--accent)"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[14px] font-bold">Dinner at Warung Ubud</p>
+                <p class="text-[12px]" style="color:var(--text-3)">Sarah paid · RM 240.00</p>
+              </div>
+              <p class="num text-[15px] font-bold">60.00</p>
+            </div>
+
+            <div class="mb-2 flex items-center gap-3 rounded-2xl p-3.5" style="background:var(--surface)">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style="background:var(--accent-soft)">
+                <i data-lucide="car-front" class="h-[18px] w-[18px]" style="color:var(--accent)"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[14px] font-bold">Airport transfer</p>
+                <p class="text-[12px]" style="color:var(--text-3)">Sarah paid · IDR 480,000</p>
+              </div>
+              <p class="num text-[15px] font-bold">32.00</p>
+            </div>
+
+            <div class="flex items-center gap-3 rounded-2xl p-3.5" style="background:var(--surface)">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style="background:var(--accent-soft)">
+                <i data-lucide="bed-double" class="h-[18px] w-[18px]" style="color:var(--accent)"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[14px] font-bold">Villa · 2 nights</p>
+                <p class="text-[12px]" style="color:var(--text-3)">Ming paid · RM 404.00</p>
+              </div>
+              <p class="num text-[15px] font-bold">101.00</p>
+            </div>
+
+            <!-- mascot: 只在页脚出现,不干扰金额 -->
+            <div class="mt-7 flex items-center justify-center gap-2 opacity-45">
+              <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+                <path d="M6 12L5 5l6 3.2a12 12 0 0 1 10 0L27 5l-1 7" stroke="#C2571A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6 12a10 10 0 0 0 20 0" stroke="#C2571A" stroke-width="2.2" stroke-linecap="round"/>
+                <circle cx="12" cy="16" r="1.5" fill="#C2571A"/><circle cx="20" cy="16" r="1.5" fill="#C2571A"/>
+              </svg>
+              <span class="text-[11px] font-semibold tracking-wide" style="color:var(--text-3)">TabbyTally</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabbar flex items-center justify-around px-2 py-3">
+          <div class="flex flex-col items-center gap-1"><i data-lucide="home" class="h-5 w-5" style="color:var(--text-3)"></i><span class="text-[10px] font-semibold" style="color:var(--text-3)">Home</span></div>
+          <div class="flex flex-col items-center gap-1"><i data-lucide="receipt" class="h-5 w-5" style="color:var(--text-3)"></i><span class="text-[10px] font-semibold" style="color:var(--text-3)">Expenses</span></div>
+          <div class="-mt-6 flex h-13 w-13 items-center justify-center rounded-full p-4 text-white" style="background:#C2571A;box-shadow:0 6px 16px rgba(194,87,26,.4)"><i data-lucide="plus" class="h-6 w-6"></i></div>
+          <div class="flex flex-col items-center gap-1"><i data-lucide="handshake" class="h-5 w-5" style="color:#C2571A"></i><span class="text-[10px] font-bold" style="color:#C2571A">Settle</span></div>
+          <div class="flex flex-col items-center gap-1"><i data-lucide="user" class="h-5 w-5" style="color:var(--text-3)"></i><span class="text-[10px] font-semibold" style="color:var(--text-3)">You</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ B ═══════════════════════════ -->
+    <section class="w-full max-w-[390px]">
+      <div class="mb-5">
+        <div class="mb-2 flex items-center gap-2">
+          <span class="rounded-full bg-[#2F4F3A] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white">B</span>
+          <h2 class="text-lg font-bold text-neutral-100">Quiet Premium 静默高级</h2>
+        </div>
+        <p class="mb-3 text-[13px] leading-relaxed text-neutral-400">
+          几乎无色,金额用衬线字体放到最大。牺牲可爱,换 Wise / Monzo 那种「这个 app 算钱不会错」的信任感。
+          猫只活在 logo 里。
+        </p>
+        <div class="mb-2 flex gap-1.5">
+          <div class="swatch" style="background:#FBFBFA"></div>
+          <div class="swatch" style="background:#F4F4F2"></div>
+          <div class="swatch" style="background:#2F4F3A"></div>
+          <div class="swatch" style="background:#8C3A2B"></div>
+          <div class="swatch" style="background:#E7E7E3"></div>
+          <div class="swatch" style="background:#0E0E0D"></div>
+        </div>
+        <p class="text-[11px] text-neutral-500">Source Serif 4 (金额) + Inter (界面) · 圆角 12px · 极大留白</p>
+      </div>
+
+      <div class="phone dirB mx-auto">
+        <div class="notch"></div>
+        <div class="phone-scroll">
+          <div class="px-6 pb-5 pt-11">
+            <div class="mb-6 flex items-center justify-between">
+              <i data-lucide="chevron-left" class="h-5 w-5" style="color:var(--text-2)"></i>
+              <span class="text-[11px] font-medium uppercase tracking-[0.22em]" style="color:var(--text-3)">Settle</span>
+              <i data-lucide="more-horizontal" class="h-5 w-5" style="color:var(--text-2)"></i>
+            </div>
+            <p class="mb-1 text-[11px] font-medium uppercase tracking-[0.22em]" style="color:var(--text-3)">Bali Trip · 12–18 Jun</p>
+            <h1 class="display text-[27px] font-semibold leading-tight tracking-tight">Your position</h1>
+          </div>
+
+          <div class="px-6">
+            <div class="flex gap-6 border-b pb-3" style="border-color:var(--border)">
+              <button class="border-b-2 pb-2.5 text-[13px] font-semibold" style="border-color:var(--text);margin-bottom:-14px">Mine</button>
+              <button class="pb-2.5 text-[13px] font-medium" style="color:var(--text-3)">Everyone</button>
+            </div>
+          </div>
+
+          <!-- HERO: 极大留白 + 衬线数字 -->
+          <div class="px-6 pb-10 pt-11">
+            <p class="mb-4 text-[11px] font-medium uppercase tracking-[0.22em]" style="color:var(--text-3)">You owe in total</p>
+            <div class="mb-7 flex items-baseline gap-2.5">
+              <span class="display text-[22px] font-normal" style="color:var(--text-2)">RM</span>
+              <span class="display num text-[58px] font-semibold leading-none tracking-tight">142.50</span>
+            </div>
+            <button class="flex h-12 w-full items-center justify-center rounded-xl text-[14px] font-semibold text-white" style="background:var(--accent)">
+              Settle all
+            </button>
+          </div>
+
+          <div class="px-6">
+            <div style="height:1px;background:var(--border)"></div>
+          </div>
+
+          <!-- rows: 无卡片,纯排版 -->
+          <div class="px-6 pt-8">
+            <p class="mb-5 text-[11px] font-medium uppercase tracking-[0.22em]" style="color:var(--text-3)">Breakdown</p>
+
+            <div class="mb-6 flex items-baseline justify-between">
+              <div>
+                <p class="text-[15px] font-semibold">Sarah Lim</p>
+                <p class="mt-0.5 text-[12px]" style="color:var(--text-3)">You pay · 4 expenses</p>
+              </div>
+              <p class="display num text-[20px] font-semibold" style="color:var(--warn)">92.00</p>
+            </div>
+
+            <div class="mb-6 flex items-baseline justify-between">
+              <div>
+                <p class="text-[15px] font-semibold">Ming Tan</p>
+                <p class="mt-0.5 text-[12px]" style="color:var(--text-3)">You pay · 2 expenses</p>
+              </div>
+              <p class="display num text-[20px] font-semibold" style="color:var(--warn)">50.50</p>
+            </div>
+
+            <div class="mb-8 flex items-baseline justify-between">
+              <div>
+                <p class="text-[15px] font-semibold">Alex Wong</p>
+                <p class="mt-0.5 text-[12px]" style="color:var(--text-3)">Owes you · 1 expense</p>
+              </div>
+              <p class="display num text-[20px] font-semibold" style="color:var(--accent)">38.00</p>
+            </div>
+
+            <div style="height:1px;background:var(--border)"></div>
+          </div>
+
+          <!-- ledger table -->
+          <div class="px-6 pb-10 pt-8">
+            <p class="mb-5 text-[11px] font-medium uppercase tracking-[0.22em]" style="color:var(--text-3)">Included</p>
+
+            <div class="mb-5 flex items-baseline justify-between gap-4">
+              <div class="min-w-0">
+                <p class="truncate text-[14px] font-medium">Dinner at Warung Ubud</p>
+                <p class="mt-0.5 text-[12px]" style="color:var(--text-3)">Sarah · RM 240.00 · split 4</p>
+              </div>
+              <p class="num shrink-0 text-[15px] font-semibold">60.00</p>
+            </div>
+            <div class="mb-5 flex items-baseline justify-between gap-4">
+              <div class="min-w-0">
+                <p class="truncate text-[14px] font-medium">Airport transfer</p>
+                <p class="mt-0.5 text-[12px]" style="color:var(--text-3)">Sarah · IDR 480,000 · rate 0.00029</p>
+              </div>
+              <p class="num shrink-0 text-[15px] font-semibold">32.00</p>
+            </div>
+            <div class="flex items-baseline justify-between gap-4">
+              <div class="min-w-0">
+                <p class="truncate text-[14px] font-medium">Villa · 2 nights</p>
+                <p class="mt-0.5 text-[12px]" style="color:var(--text-3)">Ming · RM 404.00 · split 4</p>
+              </div>
+              <p class="num shrink-0 text-[15px] font-semibold">101.00</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabbar flex items-center justify-around px-2 py-3.5">
+          <i data-lucide="home" class="h-[18px] w-[18px]" style="color:var(--text-3)"></i>
+          <i data-lucide="receipt" class="h-[18px] w-[18px]" style="color:var(--text-3)"></i>
+          <i data-lucide="plus-circle" class="h-[22px] w-[22px]" style="color:var(--text)"></i>
+          <i data-lucide="handshake" class="h-[18px] w-[18px]" style="color:var(--accent)"></i>
+          <i data-lucide="user" class="h-[18px] w-[18px]" style="color:var(--text-3)"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ C ═══════════════════════════ -->
+    <section class="w-full max-w-[390px]">
+      <div class="mb-5">
+        <div class="mb-2 flex items-center gap-2">
+          <span class="rounded-full bg-[#FF7A3D] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white">C</span>
+          <h2 class="text-lg font-bold text-neutral-100">Playful Bento 活泼便当</h2>
+        </div>
+        <p class="mb-3 text-[13px] leading-relaxed text-neutral-400">
+          小红书审美:便当格布局、低饱和多色块、大圆角、头像和类别图标唱主角。社交感最强,
+          代价是财务可信度让位给可爱度。
+        </p>
+        <div class="mb-2 flex gap-1.5">
+          <div class="swatch" style="background:#FFF7EF"></div>
+          <div class="swatch" style="background:#FFD9C2"></div>
+          <div class="swatch" style="background:#FF7A3D"></div>
+          <div class="swatch" style="background:#DCEDE2"></div>
+          <div class="swatch" style="background:#FBE6B8"></div>
+          <div class="swatch" style="background:#2A2118"></div>
+        </div>
+        <p class="text-[11px] text-neutral-500">Outfit (圆润) · 圆角 28px · 色块分区,无边框</p>
+      </div>
+
+      <div class="phone dirC mx-auto">
+        <div class="notch"></div>
+        <div class="phone-scroll">
+          <div class="px-5 pb-3 pt-11">
+            <div class="mb-4 flex items-center justify-between">
+              <button class="flex h-10 w-10 items-center justify-center rounded-2xl" style="background:var(--surface)">
+                <i data-lucide="chevron-left" class="h-5 w-5" style="color:var(--text-2)"></i>
+              </button>
+              <div class="flex items-center gap-1.5 rounded-full px-3 py-1.5" style="background:var(--surface)">
+                <span class="text-[16px]">🌴</span>
+                <span class="text-[12px] font-bold">Bali Trip</span>
+              </div>
+              <button class="flex h-10 w-10 items-center justify-center rounded-2xl" style="background:var(--surface)">
+                <i data-lucide="share-2" class="h-[18px] w-[18px]" style="color:var(--text-2)"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- toggle -->
+          <div class="px-5 pb-4">
+            <div class="flex rounded-full p-1" style="background:var(--surface)">
+              <button class="flex-1 rounded-full py-2.5 text-[13px] font-bold text-white" style="background:var(--accent)">我的 🐱</button>
+              <button class="flex-1 rounded-full py-2.5 text-[13px] font-semibold" style="color:var(--text-2)">全部</button>
+            </div>
+          </div>
+
+          <!-- HERO bento -->
+          <div class="px-5">
+            <div class="rounded-[28px] p-5" style="background:var(--accent)">
+              <div class="mb-3 flex items-start justify-between">
+                <p class="text-[13px] font-bold text-white/85">你还欠</p>
+                <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+                  <path d="M6 12L5 5l6 3.2a12 12 0 0 1 10 0L27 5l-1 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M6 12a10 10 0 0 0 20 0" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+                  <circle cx="12" cy="16" r="1.6" fill="#fff"/><circle cx="20" cy="16" r="1.6" fill="#fff"/>
+                  <path d="M14.5 20.5h3" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="flex items-baseline gap-2 text-white">
+                <span class="text-[19px] font-bold opacity-85">RM</span>
+                <span class="num text-[46px] font-extrabold leading-none">142.50</span>
+              </div>
+              <p class="mt-2 text-[13px] font-medium text-white/85">付给 2 位朋友就结清啦 🎉</p>
+            </div>
+          </div>
+
+          <!-- bento grid: 两个小卡 -->
+          <div class="grid grid-cols-2 gap-3 px-5 pt-3">
+            <div class="rounded-[24px] p-4" style="background:var(--sage)">
+              <p class="mb-1 text-[12px] font-bold" style="color:#4F7A61">别人欠你</p>
+              <p class="num text-[24px] font-extrabold" style="color:#3E6A50">38.00</p>
+              <p class="text-[11px] font-semibold" style="color:#5F8A70">1 位朋友</p>
+            </div>
+            <div class="rounded-[24px] p-4" style="background:var(--honey)">
+              <p class="mb-1 text-[12px] font-bold" style="color:#8A6A20">旅程总花费</p>
+              <p class="num text-[24px] font-extrabold" style="color:#7A5C18">1,240</p>
+              <p class="text-[11px] font-semibold" style="color:#9A7A2C">12 笔消费</p>
+            </div>
+          </div>
+
+          <!-- friend rows -->
+          <div class="px-5 pt-5">
+            <p class="mb-3 text-[13px] font-extrabold">该付给谁</p>
+
+            <div class="mb-2.5 flex items-center gap-3 rounded-[24px] p-4" style="background:var(--surface)">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[15px] font-extrabold text-white" style="background:#6FAE85">S</div>
+              <div class="min-w-0 flex-1">
+                <p class="text-[15px] font-extrabold">Sarah</p>
+                <p class="text-[12px] font-medium" style="color:var(--text-3)">🍜 🚕 4 笔</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <p class="num text-[17px] font-extrabold" style="color:var(--warn)">92.00</p>
+                <button class="rounded-full px-3 py-1.5 text-[12px] font-bold text-white" style="background:var(--accent)">付</button>
+              </div>
+            </div>
+
+            <div class="mb-2.5 flex items-center gap-3 rounded-[24px] p-4" style="background:var(--surface)">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[15px] font-extrabold text-white" style="background:#FF7A3D">M</div>
+              <div class="min-w-0 flex-1">
+                <p class="text-[15px] font-extrabold">Ming</p>
+                <p class="text-[12px] font-medium" style="color:var(--text-3)">🏠 2 笔</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <p class="num text-[17px] font-extrabold" style="color:var(--warn)">50.50</p>
+                <button class="rounded-full px-3 py-1.5 text-[12px] font-bold text-white" style="background:var(--accent)">付</button>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 rounded-[24px] p-4" style="background:var(--sage)">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[15px] font-extrabold text-white" style="background:#8A7563">A</div>
+              <div class="min-w-0 flex-1">
+                <p class="text-[15px] font-extrabold">Alex</p>
+                <p class="text-[12px] font-medium" style="color:#5F8A70">欠你 · 1 笔</p>
+              </div>
+              <p class="num text-[17px] font-extrabold" style="color:#3E6A50">+38.00</p>
+            </div>
+          </div>
+
+          <!-- items -->
+          <div class="px-5 pb-8 pt-6">
+            <p class="mb-3 text-[13px] font-extrabold">包含哪些消费</p>
+            <div class="mb-2.5 flex items-center gap-3 rounded-[22px] p-3.5" style="background:var(--surface)">
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-[19px]" style="background:var(--peach)">🍜</div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[14px] font-bold">Warung 晚餐</p>
+                <p class="text-[12px] font-medium" style="color:var(--text-3)">Sarah 垫付 · RM 240</p>
+              </div>
+              <p class="num text-[15px] font-extrabold">60.00</p>
+            </div>
+            <div class="mb-2.5 flex items-center gap-3 rounded-[22px] p-3.5" style="background:var(--surface)">
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-[19px]" style="background:var(--honey)">🚕</div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[14px] font-bold">机场接送</p>
+                <p class="text-[12px] font-medium" style="color:var(--text-3)">Sarah 垫付 · IDR 480,000</p>
+              </div>
+              <p class="num text-[15px] font-extrabold">32.00</p>
+            </div>
+            <div class="flex items-center gap-3 rounded-[22px] p-3.5" style="background:var(--surface)">
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-[19px]" style="background:var(--sage)">🏠</div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[14px] font-bold">Villa 两晚</p>
+                <p class="text-[12px] font-medium" style="color:var(--text-3)">Ming 垫付 · RM 404</p>
+              </div>
+              <p class="num text-[15px] font-extrabold">101.00</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabbar flex items-center justify-around px-2 py-3" style="border-color:var(--border)">
+          <div class="flex flex-col items-center gap-0.5"><i data-lucide="home" class="h-5 w-5" style="color:var(--text-3)"></i><span class="text-[10px] font-bold" style="color:var(--text-3)">首页</span></div>
+          <div class="flex flex-col items-center gap-0.5"><i data-lucide="receipt" class="h-5 w-5" style="color:var(--text-3)"></i><span class="text-[10px] font-bold" style="color:var(--text-3)">消费</span></div>
+          <div class="-mt-6 flex items-center justify-center rounded-full p-4 text-white" style="background:var(--accent);box-shadow:0 8px 20px rgba(255,122,61,.45)"><i data-lucide="plus" class="h-6 w-6"></i></div>
+          <div class="flex flex-col items-center gap-0.5"><i data-lucide="handshake" class="h-5 w-5" style="color:var(--accent)"></i><span class="text-[10px] font-extrabold" style="color:var(--accent)">结算</span></div>
+          <div class="flex flex-col items-center gap-0.5"><i data-lucide="user" class="h-5 w-5" style="color:var(--text-3)"></i><span class="text-[10px] font-bold" style="color:var(--text-3)">我</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 对照表 -->
+  <section class="mx-auto mt-16 max-w-[1000px] rounded-3xl border border-neutral-800 bg-neutral-900/60 p-7">
+    <h3 class="mb-5 text-lg font-bold text-neutral-100">三个方向的取舍</h3>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-[13px]">
+        <thead>
+          <tr class="border-b border-neutral-800 text-neutral-500">
+            <th class="pb-3 pr-4 font-semibold">维度</th>
+            <th class="pb-3 pr-4 font-semibold text-[#E88C4F]">A 温暖账本</th>
+            <th class="pb-3 pr-4 font-semibold text-[#7FB08A]">B 静默高级</th>
+            <th class="pb-3 font-semibold text-[#FF9F6E]">C 活泼便当</th>
+          </tr>
+        </thead>
+        <tbody class="text-neutral-300">
+          <tr class="border-b border-neutral-800/60"><td class="py-3 pr-4 text-neutral-500">金额可读性</td><td class="py-3 pr-4">高</td><td class="py-3 pr-4">最高</td><td class="py-3">中</td></tr>
+          <tr class="border-b border-neutral-800/60"><td class="py-3 pr-4 text-neutral-500">「算得准」信任感</td><td class="py-3 pr-4">高</td><td class="py-3 pr-4">最高</td><td class="py-3">低</td></tr>
+          <tr class="border-b border-neutral-800/60"><td class="py-3 pr-4 text-neutral-500">品牌记忆点</td><td class="py-3 pr-4">中高</td><td class="py-3 pr-4">低</td><td class="py-3">最高</td></tr>
+          <tr class="border-b border-neutral-800/60"><td class="py-3 pr-4 text-neutral-500">小红书传播力</td><td class="py-3 pr-4">中</td><td class="py-3 pr-4">低</td><td class="py-3">最高</td></tr>
+          <tr class="border-b border-neutral-800/60"><td class="py-3 pr-4 text-neutral-500">橘猫 mascot 空间</td><td class="py-3 pr-4">克制(页脚/空状态)</td><td class="py-3 pr-4">几乎没有</td><td class="py-3">充足</td></tr>
+          <tr class="border-b border-neutral-800/60"><td class="py-3 pr-4 text-neutral-500">改造工作量</td><td class="py-3 pr-4">中</td><td class="py-3 pr-4">中</td><td class="py-3">大(布局也要改)</td></tr>
+          <tr><td class="py-3 pr-4 text-neutral-500">最大风险</td><td class="py-3 pr-4">不够独特</td><td class="py-3 pr-4">冷,像会计软件</td><td class="py-3">显得不专业,不敢托付金钱</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

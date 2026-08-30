@@ -1,0 +1,95 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --omit=dev
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx supabase start
+      - run: npx supabase db reset
+      - run: npx supabase db lint --fail-on warning
+      - run: npx supabase test db
+      - if: always()
+        run: npx supabase stop --no-backup
+
+  historical-database-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+      - run: npx supabase start
+      - name: Reconstruct schema before legacy lockdown
+        run: |
+          npx supabase db reset --local --version 202608300006
+          for attempt in {1..30}; do
+            pg_isready -d "$LOCAL_DATABASE_URL" && break
+            sleep 2
+          done
+          pg_isready -d "$LOCAL_DATABASE_URL"
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/fixtures/legacy_pre_007.sql
+      - name: Apply release, hardening, and archive migrations
+        run: npx supabase migration up --local
+      - name: Assert historical lockdown, normalization, and archive
+        run: psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/fixtures/legacy_post_009_assertions.sql
+      - run: npx supabase db lint --local --fail-on warning
+      - if: always()
+        run: npx supabase stop --no-backup
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx supabase start
+      - run: npx supabase db reset
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - if: always()
+        run: npx supabase stop --no-backup
