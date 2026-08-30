@@ -1,46 +1,40 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { useStore } from '../store/useStore'
 import { useT } from '../lib/i18n'
-import { supabaseEnabled } from '../lib/supabase'
-import { groupRepository } from '../lib/groupRepository'
-import { formatDateRange } from '../lib/format'
-import type { Group } from '../types'
+import { authErrorKey, safeInternalRedirect } from '../lib/authUi'
+import { useStore } from '../store/useStore'
 
-type OwnedGroupRow = { id: string; group: Group }
+function isStrongPassword(password: string): boolean {
+  return password.length >= 8 && /[a-z]/i.test(password) && /\d/.test(password)
+}
 
 export default function ProfilePage() {
   const t = useT()
   const navigate = useNavigate()
-  const { authUser, loading, signOut, updateProfile } = useAuth()
-  const groups = useStore((s) => s.groups)
+  const [searchParams] = useSearchParams()
+  const lang = useStore((state) => state.lang)
+  const setLang = useStore((state) => state.setLang)
+  const {
+    authUser,
+    loading,
+    signOut,
+    updateProfile,
+    linkAnonymousEmail,
+    setAccountPassword,
+  } = useAuth()
 
   const [displayNameDraft, setDisplayName] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [saveError, setSaveError] = useState('')
-  const [ownedState, setOwnedState] = useState<{ userId: string | null; groups: OwnedGroupRow[] }>({
-    userId: null,
-    groups: [],
-  })
+  const [upgradeEmail, setUpgradeEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [accountAction, setAccountAction] = useState<'idle' | 'sending' | 'password'>('idle')
+  const [accountMessage, setAccountMessage] = useState('')
+  const [showGuestSignOutWarning, setShowGuestSignOutWarning] = useState(false)
   const displayName = displayNameDraft ?? authUser?.displayName ?? ''
-  const ownedGroups = ownedState.userId === authUser?.id ? ownedState.groups : []
-  const ownedLoading = Boolean(authUser && supabaseEnabled && ownedState.userId !== authUser.id)
-
-  useEffect(() => {
-    if (!authUser || !supabaseEnabled) return
-    let cancelled = false
-    void groupRepository.listOwned(authUser.id).then((records) => {
-      if (cancelled) return
-      setOwnedState({
-        userId: authUser.id,
-        groups: records.map((record) => ({ id: record.group.id, group: record.group })),
-      })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [authUser])
+  const intendedRedirect = safeInternalRedirect(searchParams.get('redirect')) ?? '/profile'
+  const preserveSessionNotice = searchParams.get('upgrade') === 'preserve-session'
 
   const handleSaveProfile = async () => {
     if (!displayName.trim()) return
@@ -62,6 +56,38 @@ export default function ProfilePage() {
     navigate('/')
   }
 
+  const handleLinkEmail = async () => {
+    if (!upgradeEmail.trim()) return
+    setAccountAction('sending')
+    setAccountMessage('')
+    try {
+      await linkAnonymousEmail(
+        upgradeEmail.trim(),
+        `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(intendedRedirect)}`,
+      )
+      setAccountMessage(t('auth.profile.verificationSent'))
+    } catch (cause) {
+      setAccountMessage(t(authErrorKey(cause)))
+    } finally {
+      setAccountAction('idle')
+    }
+  }
+
+  const handleSetPassword = async () => {
+    if (!isStrongPassword(password)) return
+    setAccountAction('password')
+    setAccountMessage('')
+    try {
+      await setAccountPassword(password)
+      setPassword('')
+      setAccountMessage(t('auth.profile.passwordUpdated'))
+    } catch (cause) {
+      setAccountMessage(t(authErrorKey(cause)))
+    } finally {
+      setAccountAction('idle')
+    }
+  }
+
   if (loading) {
     return (
       <main className="ms-page flex min-h-dvh items-center justify-center">
@@ -79,34 +105,79 @@ export default function ProfilePage() {
             {t('auth.signIn')}
           </button>
           <button className="ms-btn-ghost w-full" onClick={() => navigate('/')}>
-            {t('auth.backToGroups')}
+            {t('common.back')} · {t('common.ledger')}
           </button>
         </div>
       </main>
     )
   }
 
-  const localOnlyGroups = groups.filter(
-    (g) => !ownedGroups.some((o) => o.id === g.id),
-  )
-
   return (
     <main className="ms-page pb-10">
       <header className="mb-6 flex items-center justify-between">
         <button className="ms-btn-ghost" onClick={() => navigate('/')}>
-          {t('auth.backToGroups')}
+          {t('common.back')} · {t('common.ledger')}
         </button>
-        <button className="ms-btn-ghost text-[var(--ms-danger)]" onClick={handleSignOut}>
+        <button
+          className="ms-btn-ghost text-[var(--ms-danger)]"
+          title={authUser.isAnonymous ? t('auth.profile.signOutRisk') : undefined}
+          onClick={() => authUser.isAnonymous ? setShowGuestSignOutWarning(true) : void handleSignOut()}
+        >
           {t('auth.signOut')}
         </button>
       </header>
+
+      {showGuestSignOutWarning ? (
+        <section className="ms-card-hero mb-5 border border-[var(--ms-danger)] p-5">
+          <p className="ms-label text-[var(--ms-danger)]">{t('auth.profile.signOutWarningTitle')}</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--ms-text-secondary)]">
+            {t('auth.profile.signOutWarningHelp')}
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button className="ms-btn-ghost" onClick={() => setShowGuestSignOutWarning(false)}>{t('auth.profile.keepSession')}</button>
+            <button className="ms-btn-primary bg-[var(--ms-danger)]" onClick={() => void handleSignOut()}>{t('auth.profile.signOutAnyway')}</button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="ms-card-soft mb-5 p-5">
+        <h2 className="ms-title">{t('lang.title')}</h2>
+        <p className="mt-1 text-xs text-[var(--ms-text-muted)]">{t('lang.desc')}</p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t('lang.title')}>
+          <button
+            className={lang === 'en' ? 'ms-btn-primary' : 'ms-btn-ghost'}
+            aria-pressed={lang === 'en'}
+            onClick={() => setLang('en')}
+          >
+            EN
+          </button>
+          <button
+            className={lang === 'zh' ? 'ms-btn-primary' : 'ms-btn-ghost'}
+            aria-pressed={lang === 'zh'}
+            onClick={() => setLang('zh')}
+          >
+            简中
+          </button>
+        </div>
+      </section>
+
+      {preserveSessionNotice && authUser.isAnonymous ? (
+        <section className="ms-card-hero mb-5 p-5" role="status">
+          <p className="ms-label">{t('auth.profile.preserveTitle')}</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--ms-text-secondary)]">
+            {t('auth.profile.preserveHelp')}
+          </p>
+        </section>
+      ) : null}
 
       <section className="ms-card-soft mb-5 p-5">
         <h2 className="ms-title mb-4">{t('auth.account')}</h2>
 
         <div className="space-y-1 mb-4">
           <p className="text-xs text-[var(--ms-text-muted)]">{t('auth.email')}</p>
-          <p className="text-sm font-medium text-[var(--ms-text)]">{authUser.email}</p>
+          <p className="text-sm font-medium text-[var(--ms-text)]">
+            {authUser.isAnonymous ? t('auth.profile.guestSession') : authUser.email}
+          </p>
         </div>
 
         <label className="block text-xs font-medium text-[var(--ms-text-secondary)]">
@@ -135,58 +206,55 @@ export default function ProfilePage() {
         </button>
       </section>
 
-      <section className="ms-card-soft mb-5 p-5">
-        <h2 className="ms-title mb-4">{t('auth.myGroups')}</h2>
-
-        {ownedLoading ? (
-          <p className="text-sm text-[var(--ms-text-muted)]">{t('expense.loading')}</p>
-        ) : ownedGroups.length === 0 ? (
-          <p className="text-sm text-[var(--ms-text-muted)]">{t('auth.noOwnedGroups')}</p>
-        ) : (
-          <div className="space-y-2">
-            {ownedGroups.map(({ id, group }) => (
-              <article
-                key={id}
-                className="ms-card-soft cursor-pointer p-3"
-                onClick={() => navigate(`/group/${id}`)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--ms-text)]">{group.name}</p>
-                    <p className="mt-0.5 text-xs text-[var(--ms-text-secondary)]">
-                      {group.people.length} {t('groups.people')} · {group.expenses.length} {t('groups.expenses')}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[var(--ms-text-muted)]">
-                      {formatDateRange(group.startDate, group.endDate)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs text-[var(--ms-success)]">● {t('auth.groupClaimed')}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {localOnlyGroups.length > 0 && (
-        <section className="ms-card-soft p-5">
-          <h2 className="text-sm font-semibold text-[var(--ms-text-secondary)] mb-3">
-            Local groups (not saved to account)
-          </h2>
-          <div className="space-y-2">
-            {localOnlyGroups.map((group) => (
-              <article
-                key={group.id}
-                className="ms-card-soft cursor-pointer p-3"
-                onClick={() => navigate(`/group/${group.id}`)}
-              >
-                <p className="text-sm font-semibold text-[var(--ms-text)]">{group.name}</p>
-                <p className="mt-0.5 text-xs text-[var(--ms-text-secondary)]">
-                  {group.people.length} {t('groups.people')} · {group.expenses.length} {t('groups.expenses')}
-                </p>
-              </article>
-            ))}
-          </div>
+      {authUser.isAnonymous ? (
+        <section className="ms-card-hero mb-5 p-5">
+          <p className="ms-label">{t('auth.profile.keepAccess')}</p>
+          <h2 className="mt-1 text-xl font-extrabold">{t('auth.profile.linkTitle')}</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--ms-text-secondary)]">
+            {t('auth.profile.linkHelp')}
+          </p>
+          <label className="mt-4 block text-xs font-bold text-[var(--ms-text-secondary)]">
+            {t('auth.email')}
+            <input
+              className="ms-input mt-1 w-full"
+              type="email"
+              autoComplete="email"
+              value={upgradeEmail}
+              onChange={(event) => setUpgradeEmail(event.target.value)}
+            />
+          </label>
+          <button className="ms-btn-primary mt-3 w-full" disabled={accountAction !== 'idle' || !upgradeEmail.trim()} onClick={() => void handleLinkEmail()}>
+            {accountAction === 'sending' ? t('auth.profile.sending') : t('auth.profile.sendVerification')}
+          </button>
+          {accountMessage ? <p className="mt-3 text-xs leading-5 text-[var(--ms-text-secondary)]" aria-live="polite">{accountMessage}</p> : null}
+        </section>
+      ) : (
+        <section className="ms-card-soft mb-5 p-5">
+          <h2 className="ms-title mb-2">{t('auth.profile.passwordTitle')}</h2>
+          <p className="text-xs leading-5 text-[var(--ms-text-muted)]">
+            {t('auth.profile.passwordHelp')}
+          </p>
+          <label className="mt-3 block text-xs font-bold text-[var(--ms-text-secondary)]">
+            {t('auth.profile.newPassword')}
+            <input
+              className="ms-input mt-1 w-full"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              pattern="(?=.*[A-Za-z])(?=.*\d).{8,}"
+              aria-describedby="profile-password-help"
+              placeholder={t('auth.passwordPlaceholder')}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+          <p id="profile-password-help" className="mt-1 text-[11px] leading-4 text-[var(--ms-text-muted)]">
+            {t('auth.passwordHelp')}
+          </p>
+          <button className="ms-btn-ghost mt-3 w-full" disabled={accountAction !== 'idle' || !isStrongPassword(password)} onClick={() => void handleSetPassword()}>
+            {accountAction === 'password' ? t('auth.profile.updating') : t('auth.profile.setPassword')}
+          </button>
+          {accountMessage ? <p className="mt-3 text-xs text-[var(--ms-text-secondary)]" aria-live="polite">{accountMessage}</p> : null}
         </section>
       )}
     </main>

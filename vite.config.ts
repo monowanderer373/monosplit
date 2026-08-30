@@ -19,35 +19,45 @@ export default defineConfig({
         background_color: '#fff7ed',
         theme_color: '#d9782d',
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        shortcuts: [
+          {
+            name: 'Quick tally',
+            short_name: 'Add expense',
+            description: 'Open amount-first personal expense capture.',
+            url: '/quick-add?source=pwa-shortcut',
+            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
         ],
       },
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        globPatterns: ['**/*.{js,css,html,ico,woff,woff2}', 'icons/*.png'],
+        globPatterns: ['**/*.{js,css,html,ico,woff,woff2}', 'icon-*.png'],
         navigateFallback: 'index.html',
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/api\.frankfurter\.(app|dev)\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'exchange-rates',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
-        ],
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('@supabase') || id.includes('/ws/')) return 'vendor-supabase'
+          if (id.includes('@sentry')) return 'vendor-observability'
+          if (id.includes('tesseract.js')) return 'vendor-ocr'
+          if (
+            id.includes('/react/')
+            || id.includes('/react-dom/')
+            || id.includes('react-router')
+            || id.includes('/zustand/')
+          ) return 'vendor-react'
+          return 'vendor'
+        },
+      },
+    },
+  },
 })

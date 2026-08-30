@@ -1,16 +1,13 @@
-export function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-}
-
 /**
- * Group ids must stay UUID-shaped because Supabase stores them in uuid columns.
+ * Relational request and record ids must stay UUID-shaped for PostgreSQL uuid
+ * columns and idempotent command keys.
  *
  * crypto.randomUUID is only exposed in secure contexts, so it is absent when the
  * app is opened over plain http on a LAN address — which is exactly how phone
  * testing against the dev server happens. getRandomValues has no such
  * restriction, so build the v4 UUID by hand when randomUUID is unavailable.
  */
-export function generateGroupId(): string {
+export function generateId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
   }

@@ -1,148 +1,4 @@
-export type SplitMode = 'equal' | 'itemized' | 'percentage' | 'shares' | 'adjustment' | 'receipt'
-export type ItemizedInputMode = 'pretax' | 'total'
-export type RateMode = 'auto' | 'manual'
-export type PaymentMethod = 'card' | 'cash'
 export type GroupRole = 'owner' | 'full_access' | 'view'
-
-export interface PaymentInfo {
-  qrCodeDataUrl: string | null
-  bankName: string
-  accountHolder: string
-  accountNumber: string
-  notes: string
-}
-
-export interface PaymentProof {
-  id: string
-  title: string
-  dataUrl: string
-  createdAt: string
-}
-
-export interface Person {
-  id: string
-  name: string
-  avatarDataUrl: string | null
-  nameColor: string | null
-  authUserId?: string
-  bio?: string | null
-  paymentInfo: PaymentInfo
-  paymentProofs: PaymentProof[]
-  skipRepaidConfirm?: boolean
-}
-
-export interface Split {
-  personId: string
-  amount: number | null
-  baseAmount: number | null
-  taxAmount: number | null
-  repayCurrency: string
-  convertedAmount: number | null
-  rate: number | null
-  rateSource: string | null
-  rateDate: string | null
-  repaid: boolean
-  repaidAt: string | null
-  repaidDate: string | null
-  repaidPayerIds?: string[]
-}
-
-export interface ReceiptItem {
-  id: string
-  name: string
-  unitPrice: number | null
-  quantity: number | null
-  amount: number | null
-  debtorIds: string[]
-}
-
-export type ExpenseType = 'expense' | 'refund'
-
-export interface Expense {
-  id: string
-  type?: ExpenseType
-  category: string
-  description: string
-  payerIds: string[]
-  amount: number
-  paidCurrency: string
-  repayCurrency: string
-  paymentMethod: PaymentMethod
-  splitMode: SplitMode
-  itemizedInputMode: ItemizedInputMode | null
-  serviceTaxPct: number | null
-  salesTaxPct: number | null
-  tipsPct: number | null
-  taxPctTotal: number | null
-  receiptItems?: ReceiptItem[] | null
-  receiptTaxAmount?: number | null
-  date: string
-  createdAt: string
-  splits: Split[]
-}
-
-export interface SettlementPaymentAllocation {
-  creditorId: string
-  amount: number
-}
-
-export type SettlementPaymentSource = 'record_payment' | 'quick_settle' | 'history_edit'
-
-export interface SettlementPayment {
-  id: string
-  debtorId: string
-  currency: string
-  repayCurrency: string
-  repayAmount: number
-  paymentDate: string
-  createdAt: string
-  updatedAt: string
-  rate: number | null
-  rateSource: string | null
-  rateDate: string | null
-  source: SettlementPaymentSource
-  note?: string | null
-  allocations: SettlementPaymentAllocation[]
-}
-
-export interface Group {
-  id: string
-  name: string
-  startDate: string | null
-  endDate: string | null
-  defaultPaidCurrency: string
-  defaultRepayCurrency: string
-  people: Person[]
-  expenses: Expense[]
-  settlementPayments: SettlementPayment[]
-  createdAt: string
-  ownerId?: string
-  deletedAt?: string | null
-  deletedBy?: string | null
-}
-
-export interface GroupMembership {
-  groupId: string
-  userId: string
-  role: GroupRole
-}
-
-export interface GroupInviteLink {
-  token: string
-  groupId: string
-  role: Exclude<GroupRole, 'owner'>
-  createdBy: string
-  active: boolean
-  createdAt: string
-  expiresAt?: string | null
-}
-
-export interface Settlement {
-  debtorId: string
-  creditorId: string
-  currency: string
-  amount: number
-}
 
 export interface Currency {
   code: string
@@ -152,9 +8,100 @@ export interface Currency {
 
 export interface UserProfile {
   id: string
+  participantId?: string | null
   displayName: string | null
   avatarUrl: string | null
   lang: 'en' | 'zh'
   themeId: string
+  defaultCurrency?: string
+  timezone?: string
+  isAnonymous?: boolean
   email: string | undefined
+}
+
+export type ParticipantKind = 'account' | 'manual'
+export type SpaceType = 'group' | 'trip'
+export type ExpenseScope = 'personal' | 'direct' | 'space'
+export type FinancialRecordStatus = 'active' | 'voided'
+export type DirectParticipationState = 'pending' | 'accepted' | 'declined' | 'untracked'
+export type TrackingMode = 'tracked' | 'untracked'
+export type SettlementConfirmationState =
+  | 'pending'
+  | 'partially_confirmed'
+  | 'confirmed'
+  | 'declined'
+  | 'reversed'
+
+export interface Participant {
+  id: string
+  authUserId: string | null
+  kind: ParticipantKind
+  displayName: string
+  createdBy: string | null
+}
+
+export interface Space {
+  id: string
+  type: SpaceType
+  name: string
+  ownerParticipantId: string
+  startDate: string | null
+  endDate: string | null
+  defaultCurrency: string
+  status: 'active' | 'archived' | 'voided'
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SpaceMember {
+  spaceId: string
+  participantId: string
+  role: GroupRole
+  joinedAt: string
+  removedAt: string | null
+}
+
+export interface ExpenseParticipation {
+  id: string
+  expenseId: string
+  participantId: string
+  nameSnapshot: string
+  order: number
+  state: DirectParticipationState
+  trackingMode: TrackingMode
+}
+
+export interface PayerContribution {
+  expenseParticipationId: string
+  expenseId: string
+  amountMinor: number
+}
+
+export interface ExpenseShare {
+  expenseParticipationId: string
+  expenseId: string
+  amountMinor: number
+}
+
+export interface CanonicalExpense {
+  id: string
+  clientRequestId: string
+  scope: ExpenseScope
+  spaceId: string | null
+  createdBy: string
+  totalMinor: number
+  participantCount: number
+  currency: string
+  description: string | null
+  category: string
+  occurredOn: string
+  status: FinancialRecordStatus
+  version: number
+  voidedAt: string | null
+  createdAt: string
+  updatedAt: string
+  participations: ExpenseParticipation[]
+  payerContributions: PayerContribution[]
+  shares: ExpenseShare[]
 }

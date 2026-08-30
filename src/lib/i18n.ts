@@ -16,84 +16,14 @@ const translations = {
     zh: '和朋友一起分摊旅行花费，最后用一份清楚账单完成结算。',
   },
   'app.loading': { en: 'Loading...', zh: '加载中...' },
-  'groups.createPlaceholder': { en: 'Create a travel group...', zh: '创建旅行群组...' },
-  'groups.create': { en: 'Create', zh: '创建' },
-  'groups.hideDate': { en: 'Hide trip date calendar', zh: '隐藏日期选择' },
-  'groups.setDate': { en: 'Set trip start/end date', zh: '设置旅程日期' },
-  'groups.startDate': { en: 'Start date', zh: '开始日期' },
-  'groups.endDate': { en: 'End date', zh: '结束日期' },
-  'groups.joinTitle': { en: 'Join an existing group', zh: '加入现有群组' },
-  'groups.joinPlaceholder': { en: 'Paste group ID or link...', zh: '粘贴群组ID或链接...' },
-  'groups.join': { en: 'Join', zh: '加入' },
-  'groups.notFound': { en: 'Group not found. Check the ID or link.', zh: '找不到群组。请检查ID或链接。' },
-  'groups.empty': { en: 'No groups yet. Create your first trip group.', zh: '暂无群组。创建你的第一个旅行群组。' },
-  'groups.people': { en: 'people', zh: '人' },
-  'groups.expenses': { en: 'expenses', zh: '笔支出' },
-  'groups.delete': { en: 'Delete', zh: '删除' },
-  'groups.leave': { en: 'Leave', zh: '离开' },
-  'groups.signInToSeeGroups': { en: 'Sign in to see your travel groups.', zh: '登录后查看你的旅行群组。' },
-  'groups.deleteConfirm': { en: 'Delete', zh: '确认删除' },
-  'groups.deleteEveryonePrompt': { en: 'Delete this trip for everyone? This cannot be undone.', zh: '要为所有人删除这个旅程吗？此操作无法撤销。' },
-  'groups.leaveNeedsInvite': { en: 'Leave this trip? You will need a fresh invite link from the owner to rejoin.', zh: '要离开这个旅程吗？之后需要拥有者重新发送邀请链接才能再加入。' },
-  'groups.transferOwnerPrompt': { en: 'Press OK to transfer ownership before leaving. Press Cancel if you want to delete this trip for everyone instead.', zh: '按确定可先转让拥有者后离开；按取消则会为所有人删除这个旅程。' },
-  'groups.transferOwnerPick': { en: 'Transfer ownership to which member?', zh: '要把拥有者转让给哪位成员？' },
-  'groups.invalidMemberSelection': { en: 'Invalid member selection.', zh: '选择的成员无效。' },
-  'feedback.title': { en: 'Testing this beta with friends?', zh: '准备和朋友测试 Beta？' },
-  'feedback.help': { en: 'Copy a short feedback template so testers can report confusion right after a trip.', zh: '复制一份简短反馈模板，方便测试者在旅程后记录哪里不清楚。' },
-  'feedback.copyTemplate': { en: 'Copy feedback template', zh: '复制反馈模板' },
-
-  // ── Group Page ──
-  'group.notFound': { en: 'Group not found.', zh: '找不到群组。' },
-  'group.backToGroups': { en: 'Back to groups', zh: '返回群组列表' },
-  'group.back': { en: 'Back', zh: '返回' },
-  'group.edit': { en: 'Edit', zh: '编辑' },
-  'group.shareLink': { en: 'Share Link', zh: '分享链接' },
-  'group.share': { en: 'Share', zh: '分享' },
-  'group.copied': { en: 'Copied!', zh: '已复制！' },
-  'group.copyPrompt': { en: 'Copy this link to share:', zh: '复制此链接以分享：' },
-  'group.inviteFullAccess': { en: 'Invite Full Access', zh: '邀请完全权限' },
-  'group.inviteView': { en: 'Invite View', zh: '邀请只读权限' },
-  'group.noAccess': { en: 'You do not have access to this trip. Ask the owner for an invite link.', zh: '你目前没有此旅程的访问权限。请向拥有者索取邀请链接。' },
-  'group.synced': { en: 'Synced', zh: '已同步' },
-  'group.syncing': { en: 'Syncing...', zh: '同步中...' },
-  'group.localOnly': { en: 'Local only', zh: '仅本地' },
-  'group.local': { en: 'Local', zh: '本地' },
-  'group.syncError': { en: 'Sync error', zh: '同步错误' },
-  'group.syncDebugTitle': { en: 'Sync diagnostics', zh: '同步诊断' },
-  'group.syncDebugHelp': { en: 'Shows the current access and sync state for this trip.', zh: '显示当前旅程的访问权限与同步状态。' },
-  'group.syncDebugCopy': { en: 'Copy diagnostics', zh: '复制诊断信息' },
-  'group.syncDebugCopied': { en: 'Diagnostics copied', zh: '诊断信息已复制' },
-  'group.syncDebugRepair': { en: 'Repair access', zh: '修复权限' },
-  'group.syncDebugRepairing': { en: 'Repairing...', zh: '修复中...' },
-  'group.syncDebugRepairDone': { en: 'Access repair requested. Try saving again.', zh: '已尝试修复权限，请再保存一次。' },
-  'group.syncDebugStatus': { en: 'Sync status', zh: '同步状态' },
-  'group.syncDebugLastError': { en: 'Last error', zh: '最近错误' },
-  'group.syncDebugGroupId': { en: 'Group ID', zh: '群组 ID' },
-  'group.syncDebugOwnerId': { en: 'Owner ID', zh: '拥有者 ID' },
-  'group.syncDebugAuthUserId': { en: 'Auth user ID', zh: '当前账号 ID' },
-  'group.syncDebugRole': { en: 'Resolved role', zh: '解析后角色' },
-  'group.syncDebugMembershipRole': { en: 'Membership role', zh: 'Membership 角色' },
-  'group.syncDebugLinkedPerson': { en: 'Linked person', zh: '绑定成员' },
-  'group.syncDebugCanEditExpenses': { en: 'Can edit expenses', zh: '可编辑支出' },
-  'group.syncDebugYes': { en: 'Yes', zh: '是' },
-  'group.syncDebugNo': { en: 'No', zh: '否' },
-  'group.syncDebugNone': { en: 'None', zh: '无' },
-  'group.editTrip': { en: 'Edit Trip', zh: '编辑旅程' },
-  'group.close': { en: 'Close', zh: '关闭' },
-  'group.tripName': { en: 'Trip name', zh: '旅程名称' },
-  'group.calendarRange': { en: 'Monthly calendar range', zh: '月历范围' },
-  'group.saveChanges': { en: 'Save changes', zh: '保存更改' },
-  'group.identityTitle': { en: 'Personal setup', zh: '个人身份设置' },
-  'group.identityQuestion': { en: 'Who are you in this trip?', zh: '你是这趟旅程里的哪一位？' },
-  'group.identityHelp': { en: 'Choose your traveller profile so TabbyTally can show what you owe and who owes you.', zh: '选择你的旅伴身份后，TabbyTally 才能显示你欠谁、谁欠你。' },
-  'group.identityCreateMe': { en: 'Create me from my account', zh: '用我的账号创建身份' },
-  'group.identityCreateMeGuest': { en: 'Add me as a traveller', zh: '把我加为旅伴' },
-  'group.identityChooseThis': { en: 'This is me', zh: '这是我' },
-  'group.identityGuestName': { en: 'Me', zh: '我' },
-  'group.identityGuestHelp': { en: 'You are using TabbyTally without an account, so this choice is saved on this device only. Sign in to carry it to your phone.', zh: '你正在未登录状态下使用 TabbyTally，这个选择只保存在这台设备上。登录后可同步到手机。' },
-
-  // ── Desktop Tabs ──
-
+  'app.opening': { en: 'Opening Tabby Tally…', zh: '正在打开 Tabby Tally…' },
+  'app.errorLabel': { en: 'Safe recovery', zh: '安全恢复' },
+  'app.errorTitle': { en: 'Tabby Tally could not finish opening.', zh: 'Tabby Tally 暂时无法完成打开。' },
+  'app.errorHelp': {
+    en: 'Your financial details were not included in the error report. Retry, or reload the app if the problem continues.',
+    zh: '错误报告不包含你的财务资料。请重试；若问题持续，可重新加载应用。',
+  },
+  'app.reload': { en: 'Reload app', zh: '重新加载应用' },
   // ── Expense Form ──
   'expense.addTitle': { en: 'Add Expense', zh: '添加支出' },
   'expense.editTitle': { en: 'Edit Expense', zh: '编辑支出' },
@@ -493,7 +423,15 @@ const translations = {
   'auth.password': { en: 'Password', zh: '密码' },
   'auth.displayName': { en: 'Display name', zh: '显示名称' },
   'auth.emailPlaceholder': { en: 'your@email.com', zh: '你的邮箱' },
-  'auth.passwordPlaceholder': { en: 'Min. 6 characters', zh: '至少6个字符' },
+  'auth.passwordPlaceholder': { en: 'At least 8 characters', zh: '至少 8 个字符' },
+  'auth.passwordHelp': {
+    en: 'Use at least 8 characters with a letter and a number.',
+    zh: '请使用至少 8 个字符，并包含字母和数字。',
+  },
+  'auth.emailFallback': {
+    en: 'Or create a verified email account',
+    zh: '或创建已验证的邮箱账号',
+  },
   'auth.displayNamePlaceholder': { en: 'Your name', zh: '你的名字' },
   'auth.signIn': { en: 'Sign In', zh: '登录' },
   'auth.signUp': { en: 'Sign Up', zh: '注册' },
@@ -508,30 +446,58 @@ const translations = {
   'auth.verifyEmail': { en: 'Account created! Check your email to verify before signing in.', zh: '账号已创建！请检查邮箱验证后再登录。' },
   'auth.errorCredentials': { en: 'Invalid email or password.', zh: '邮箱或密码错误。' },
   'auth.errorEmailTaken': { en: 'Email already in use.', zh: '该邮箱已被注册。' },
-  'auth.errorWeakPassword': { en: 'Password must be at least 6 characters.', zh: '密码至少需要6个字符。' },
+  'auth.errorWeakPassword': {
+    en: 'Password must have at least 8 characters, including a letter and a number.',
+    zh: '密码至少需要 8 个字符，并包含字母和数字。',
+  },
   'auth.errorGeneric': { en: 'Something went wrong. Please try again.', zh: '出现错误，请重试。' },
   'auth.errorNotConfigured': { en: 'Auth not available — Supabase not configured.', zh: '认证不可用 — Supabase 未配置。' },
-  'auth.myAccount': { en: 'My Account', zh: '我的账号' },
   'auth.account': { en: 'Account', zh: '账号' },
-  'auth.myGroups': { en: 'My Groups', zh: '我的群组' },
-  'auth.noOwnedGroups': { en: 'No groups saved to your account yet.', zh: '还没有群组保存到你的账号。' },
   'auth.editDisplayName': { en: 'Display name', zh: '显示名称' },
   'auth.saveProfile': { en: 'Save', zh: '保存' },
   'auth.saving': { en: 'Saving...', zh: '保存中...' },
   'auth.saved': { en: 'Saved!', zh: '已保存！' },
-  'auth.backToGroups': { en: 'Back to groups', zh: '返回群组列表' },
-  'auth.claimGroup': { en: 'Save to my account', zh: '保存到我的账号' },
-  'auth.claimGroupHint': { en: 'Access this group from any device when logged in.', zh: '登录后可在任何设备访问此群组。' },
-  'auth.groupClaimed': { en: 'Saved to account', zh: '已保存到账号' },
-  'auth.claiming': { en: 'Saving...', zh: '保存中...' },
-  'auth.signInToSave': { en: 'Sign in to save groups to your account.', zh: '登录以将群组保存到你的账号。' },
+  'auth.signInToSave': { en: 'Sign in to open your profile.', zh: '登录后打开个人资料。' },
   'auth.loginTagline': { en: 'Split your adventures', zh: '分摊你的旅行' },
-  'auth.invite': { en: 'Invite', zh: '邀请' },
-  'auth.inviteLink': { en: 'Copy invite link (requires login)', zh: '复制邀请链接（需要登录）' },
-  'auth.invitedTo': { en: "You're invited to", zh: '你被邀请加入' },
-  'auth.aTrip': { en: 'a trip', zh: '一次旅行' },
-  'auth.inviteSignInPrompt': { en: 'Sign in to join this trip and track expenses together.', zh: '登录以加入此旅行并共同记录费用。' },
-  'auth.joinTrip': { en: 'Join Trip', zh: '加入旅行' },
+  'auth.callback': { en: 'Signing you in…', zh: '正在登录…' },
+  'auth.profile.guestSession': { en: 'Anonymous guest session', zh: '匿名访客会话' },
+  'auth.profile.verificationSent': {
+    en: 'Verification sent. Open that email on this device, then return here to set a password.',
+    zh: '验证邮件已发送。请在此设备上打开邮件完成验证，然后回到这里设置密码。',
+  },
+  'auth.profile.passwordUpdated': { en: 'Password updated.', zh: '密码已更新。' },
+  'auth.profile.passwordTitle': { en: 'Password', zh: '密码' },
+  'auth.profile.passwordHelp': {
+    en: 'Set a password after verifying a newly linked guest email, or change the password for this account.',
+    zh: '验证新绑定的访客邮箱后设置密码，或更改此账号的密码。',
+  },
+  'auth.profile.setPassword': { en: 'Set password', zh: '设置密码' },
+  'auth.profile.updating': { en: 'Updating…', zh: '正在更新…' },
+  'auth.profile.newPassword': { en: 'New password', zh: '新密码' },
+  'auth.profile.preserveTitle': { en: 'Keep this invited-space session', zh: '保留此受邀空间会话' },
+  'auth.profile.preserveHelp': {
+    en: 'Signing in or creating a separate account here would replace this guest identity and can lose its invited-space access. Link an email below to upgrade this same session safely.',
+    zh: '在这里登录或另建账号会替换当前访客身份，并可能失去受邀空间权限。请在下方绑定邮箱，以安全升级同一个会话。',
+  },
+  'auth.profile.keepAccess': { en: 'Keep your guest access', zh: '保留访客权限' },
+  'auth.profile.linkTitle': { en: 'Link an email before changing device.', zh: '更换设备前请先绑定邮箱。' },
+  'auth.profile.linkHelp': {
+    en: 'Clearing browser data or signing out before linking an identity can permanently lose this guest membership.',
+    zh: '绑定身份前清除浏览器数据或退出登录，可能会永久失去此访客成员资格。',
+  },
+  'auth.profile.sendVerification': { en: 'Send verification', zh: '发送验证邮件' },
+  'auth.profile.sending': { en: 'Sending…', zh: '正在发送…' },
+  'auth.profile.signOutRisk': {
+    en: 'Signing out of a guest session can permanently lose access.',
+    zh: '退出访客会话可能会永久失去访问权限。',
+  },
+  'auth.profile.signOutWarningTitle': { en: 'Guest access can be lost', zh: '访客权限可能丢失' },
+  'auth.profile.signOutWarningHelp': {
+    en: 'This anonymous account cannot be recovered after sign-out unless you link an email first.',
+    zh: '除非先绑定邮箱，否则此匿名账号退出后将无法恢复。',
+  },
+  'auth.profile.keepSession': { en: 'Keep session', zh: '保留会话' },
+  'auth.profile.signOutAnyway': { en: 'Sign out anyway', zh: '仍要退出' },
 
   // ── Categories ──
   'cat.Food': { en: 'Food', zh: '餐饮' },
@@ -544,39 +510,515 @@ const translations = {
   'cat.Sightseeing': { en: 'Sightseeing', zh: '观光' },
   'cat.Activities': { en: 'Activities', zh: '活动' },
   'cat.Other': { en: 'Other', zh: '其他' },
-  'cat.Refund': { en: 'Refund', zh: '退款' },
 
-  // Refund expense type
-  'expense.typeExpense': { en: 'Expense', zh: '支出' },
-  'expense.typeRefund': { en: 'Refund', zh: '退款' },
-  'expense.refundedTo': { en: 'Refunded to', zh: '退款给' },
-  'expense.refundedToHint': { en: 'Who gets money back?', zh: '谁收到退款？' },
-  'expense.paidBackBy': { en: 'Paid back by', zh: '退款人' },
-  'expense.paidBackByHint': { en: 'Who sends the money?', zh: '谁付退款？' },
-  'expense.totalRefundAmt': { en: 'Total refund amount', zh: '退款总额' },
-  'expense.saveRefund': { en: 'Save Refund', zh: '保存退款' },
-  'expense.editRefundTitle': { en: 'Edit Refund', zh: '编辑退款' },
-  'expense.addRefundTitle': { en: 'Add Refund', zh: '添加退款' },
-  'expense.refundEqualHint': { en: 'per recipient', zh: '每位收款人' },
-  'expense.refundSummaryNone': { en: 'Fill in the details above to see a summary.', zh: '请填写上方信息以查看摘要。' },
-  'card.refundedTo': { en: 'Refunded to', zh: '退款给' },
-  'card.refundLabel': { en: 'Refund', zh: '退款' },
+  // ── Tabby Tally relational UI ──
+  'common.loading': { en: 'Loading…', zh: '加载中…' },
+  'common.back': { en: 'Back', zh: '返回' },
+  'common.close': { en: 'Close', zh: '关闭' },
+  'common.continue': { en: 'Continue', zh: '继续' },
+  'common.signIn': { en: 'Sign in', zh: '登录' },
+  'common.ledger': { en: 'Ledger', zh: '账本' },
+  'common.spaces': { en: 'Spaces', zh: '共享空间' },
+  'common.friends': { en: 'Friends', zh: '朋友' },
+  'common.profile': { en: 'Profile', zh: '个人资料' },
+  'common.me': { en: 'Me', zh: '我' },
+  'common.you': { en: 'You', zh: '你' },
+  'common.member': { en: 'Member', zh: '成员' },
+  'common.someone': { en: 'Someone', zh: '某位成员' },
+  'common.retry': { en: 'Retry', zh: '重试' },
+  'common.refresh': { en: 'Refresh', zh: '刷新' },
+  'common.remove': { en: 'Remove', zh: '移除' },
+  'common.leave': { en: 'Leave', zh: '退出' },
+  'common.decline': { en: 'Decline', zh: '拒绝' },
+  'common.accept': { en: 'Accept', zh: '接受' },
+  'common.pending': { en: 'Pending', zh: '待处理' },
+  'common.optional': { en: 'optional', zh: '选填' },
+  'common.other': { en: 'Other', zh: '其他' },
+  'common.all': { en: 'All', zh: '全部' },
+  'common.paid': { en: 'Paid', zh: '已付款' },
+  'common.saving': { en: 'Saving…', zh: '保存中…' },
+  'common.adding': { en: 'Adding…', zh: '添加中…' },
+  'common.creating': { en: 'Creating…', zh: '创建中…' },
+  'common.count.member.one': { en: '{{count}} member', zh: '{{count}} 位成员' },
+  'common.count.member.many': { en: '{{count}} members', zh: '{{count}} 位成员' },
+  'common.count.people.one': { en: '{{count}} person', zh: '{{count}} 人' },
+  'common.count.people.many': { en: '{{count}} people', zh: '{{count}} 人' },
+  'common.count.expense.one': { en: '{{count}} expense', zh: '{{count}} 笔支出' },
+  'common.count.expense.many': { en: '{{count}} expenses', zh: '{{count}} 笔支出' },
+  'common.count.rule.one': { en: '{{count}} active recurring rule', zh: '{{count}} 条启用中的定期规则' },
+  'common.count.rule.many': { en: '{{count}} active recurring rules', zh: '{{count}} 条启用中的定期规则' },
+
+  'spaces.opening': { en: 'Opening spaces…', zh: '正在打开共享空间…' },
+  'spaces.sharedExpenses': { en: 'Shared expenses', zh: '共享支出' },
+  'spaces.signInTitle': { en: 'Sign in or open an invite.', zh: '请登录或打开邀请链接。' },
+  'spaces.signInHelp': {
+    en: 'Account holders can create spaces. Invited guests can join with a secure invite link.',
+    zh: '正式账号可以创建共享空间；受邀访客可通过安全邀请链接加入。',
+  },
+  'spaces.backLedger': { en: 'Back to ledger', zh: '返回账本' },
+  'spaces.title': { en: 'Spaces', zh: '共享空间' },
+  'spaces.subtitle': { en: 'Trips and groups share one reliable ledger.', zh: '旅程与群组共用一个可靠账本。' },
+  'spaces.name': { en: 'Name', zh: '名称' },
+  'spaces.tripPlaceholder': { en: 'Penang weekend', zh: '槟城周末游' },
+  'spaces.groupPlaceholder': { en: 'Household', zh: '家庭账本' },
+  'spaces.type': { en: 'Type', zh: '类型' },
+  'spaces.currency': { en: 'Currency', zh: '币种' },
+  'spaces.create': { en: 'Create space', zh: '创建共享空间' },
+  'spaces.guestSession': { en: 'Guest session', zh: '访客会话' },
+  'spaces.guestHelp': {
+    en: 'You can use invited spaces. Upgrade this session from your profile before creating a space or personal ledger.',
+    zh: '你可以使用受邀空间。创建共享空间或个人账本前，请先在个人资料中升级此会话。',
+  },
+  'spaces.yourAccess': { en: 'Your access', zh: '你的权限' },
+  'spaces.active': { en: 'Active spaces', zh: '可用共享空间' },
+  'spaces.loading': { en: 'Loading spaces…', zh: '正在加载共享空间…' },
+  'spaces.emptyTitle': { en: 'No spaces yet', zh: '还没有共享空间' },
+  'spaces.emptyHelp': {
+    en: 'Create one above or join from a secure invite.',
+    zh: '请在上方创建，或通过安全邀请加入。',
+  },
+  'spaces.noDates': { en: 'No dates set', zh: '未设置日期' },
+
+  'role.owner': { en: 'Owner', zh: '拥有者' },
+  'role.full_access': { en: 'Full access', zh: '完全权限' },
+  'role.view': { en: 'View only', zh: '只读' },
+  'scope.personal': { en: 'Personal', zh: '个人' },
+  'scope.direct': { en: 'Direct Split', zh: '直接分摊' },
+  'scope.space': { en: 'Space', zh: '共享空间' },
+  'spaceType.group': { en: 'Group', zh: '群组' },
+  'spaceType.trip': { en: 'Trip', zh: '旅程' },
+
+  'ledger.opening': { en: 'Opening your ledger…', zh: '正在打开你的账本…' },
+  'ledger.brand': { en: 'TABBY TALLY', zh: 'TABBY TALLY' },
+  'ledger.privateLabel': { en: 'Tabby Tally', zh: 'Tabby Tally' },
+  'ledger.privateTitle': { en: 'Your private ledger starts here.', zh: '你的私人账本从这里开始。' },
+  'ledger.privateHelp': {
+    en: 'Sign in to keep personal expenses private and synchronized. Guest access is reserved for invited spaces.',
+    zh: '登录后可私密保存并同步个人支出。访客账号仅用于受邀的共享空间。',
+  },
+  'ledger.openSpaces': { en: 'Open shared spaces', zh: '打开共享空间' },
+  'ledger.schemaLabel': { en: 'Database update required', zh: '需要更新数据库' },
+  'ledger.schemaTitle': {
+    en: 'Your account is signed in, but the new ledger schema is not active.',
+    zh: '你已登录，但新版账本数据库结构尚未启用。',
+  },
+  'ledger.schemaHelp': {
+    en: 'Apply the Tabby Tally Supabase migrations, then sign in again. No local expense will be presented as synchronized before that.',
+    zh: '请应用 Tabby Tally 的 Supabase 迁移后重新登录。在此之前，本地支出不会显示为已同步。',
+  },
+  'ledger.openSpacesAnyway': { en: 'Open shared spaces', zh: '打开共享空间' },
+  'ledger.personal': { en: 'Personal ledger', zh: '个人账本' },
+  'ledger.hello': { en: 'Hello, {{name}}.', zh: '你好，{{name}}。' },
+  'ledger.there': { en: 'there', zh: '朋友' },
+  'ledger.smartCapture': { en: 'Smart capture', zh: '智能录入' },
+  'ledger.thisMonth': { en: 'This month', zh: '本月' },
+  'ledger.emptyTitle': { en: 'No tallies yet', zh: '还没有记录' },
+  'ledger.emptyHelp': { en: 'Add only an amount to create your first private expense.', zh: '只需输入金额，即可创建第一笔私人支出。' },
+  'ledger.allActive': { en: 'all active records', zh: '所有有效记录' },
+  'ledger.yourSpending': { en: 'your spending', zh: '你的支出' },
+  'ledger.trackedReceivable': { en: 'Tracked receivable', zh: '可追踪应收款' },
+  'ledger.pendingAdvance': { en: 'Pending', zh: '待确认垫付款' },
+  'ledger.untrackedAdvance': { en: 'Untracked', zh: '未追踪垫付款' },
+  'ledger.entries': { en: 'Entries', zh: '记录' },
+  'ledger.activity': { en: 'Your activity', zh: '你的活动' },
+  'ledger.noEntries': { en: 'No entries match this view.', zh: '当前筛选条件下没有记录。' },
+  'ledger.needsAttention': { en: 'Needs attention', zh: '需要处理' },
+  'ledger.pendingSync': { en: 'Pending sync', zh: '等待同步' },
+  'ledger.paidAmount': { en: 'paid {{amount}}', zh: '已付 {{amount}}' },
+  'ledger.quickAddLabel': { en: 'Quick add expense', zh: '快速添加支出' },
+
+  'capture.opening': { en: 'Opening capture…', zh: '正在打开智能录入…' },
+  'capture.accountRequired': { en: 'Smart capture requires a permanent account.', zh: '智能录入需要正式账号。' },
+  'capture.backLedger': { en: '← Ledger', zh: '← 账本' },
+  'capture.reviewLabel': { en: 'Review before save', zh: '保存前请检查' },
+  'capture.title': { en: 'Smart capture', zh: '智能录入' },
+  'capture.help': {
+    en: 'Text, voice, and on-device receipt OCR only prepare a draft. Nothing is added until you review and save it.',
+    zh: '文字、语音和设备端小票识别只会生成草稿。你检查并保存前，不会新增任何支出。',
+  },
+  'capture.describe': { en: 'Describe the expense', zh: '描述这笔支出' },
+  'capture.example': { en: 'Dinner RM 48 yesterday', zh: '昨天晚餐 RM 48' },
+  'capture.parseText': { en: 'Parse text', zh: '解析文字' },
+  'capture.listening': { en: 'Listening…', zh: '正在聆听…' },
+  'capture.useVoice': { en: 'Use voice', zh: '使用语音' },
+  'capture.readingReceipt': { en: 'Reading receipt…', zh: '正在读取小票…' },
+  'capture.scanReceipt': { en: 'Scan receipt', zh: '扫描小票' },
+  'capture.receiptPrivacy': {
+    en: 'Receipt images are re-encoded to remove metadata, processed locally, and not uploaded or retained by Tabby Tally. The OCR language model may be downloaded and cached by the OCR library.',
+    zh: '小票图片会重新编码以移除元数据，并只在本机处理；Tabby Tally 不会上传或保留图片。OCR 组件可能会下载并缓存识别模型。',
+  },
+  'capture.quotaStatus': { en: 'Monthly capture quota', zh: '每月录入额度' },
+  'capture.quotaAllowance': {
+    en: 'Monthly quota · {{textVoice}} text/voice · {{ocr}} receipts · {{status}}',
+    zh: '每月额度 · 文字/语音 {{textVoice}} 次 · 小票 {{ocr}} 次 · {{status}}',
+  },
+  'capture.quotaTextVoice': { en: '{{used}}/{{quota}} text or voice captures used this month', zh: '本月文字或语音已使用 {{used}}/{{quota}} 次' },
+  'capture.quotaOcr': { en: '{{used}}/{{quota}} receipt captures used this month', zh: '本月小票识别已使用 {{used}}/{{quota}} 次' },
+  'capture.planStatus': { en: '{{plan}} · {{status}}', zh: '{{plan}} · {{status}}' },
+  'capture.plan.free': { en: 'Free', zh: '免费版' },
+  'capture.plan.trial': { en: 'Beta', zh: 'Beta 版' },
+  'capture.plan.pro': { en: 'Pro', zh: '专业版' },
+  'capture.status.active': { en: 'active', zh: '可用' },
+  'capture.status.past_due': { en: 'unavailable', zh: '暂不可用' },
+  'capture.status.cancelled': { en: 'unavailable', zh: '已停用' },
+  'capture.manualFallback': { en: 'Enter expense manually', zh: '手动输入支出' },
+  'capture.source.natural_language': { en: 'Text', zh: '文字' },
+  'capture.source.voice': { en: 'Voice', zh: '语音' },
+  'capture.source.ocr': { en: 'Receipt', zh: '小票' },
+  'capture.source.manual': { en: 'Manual', zh: '手动' },
+  'capture.source.template': { en: 'Template', zh: '模板' },
+  'capture.source.recurring': { en: 'Recurring', zh: '定期' },
+  'capture.draftLabel': { en: '{{source}} draft', zh: '{{source}}草稿' },
+  'capture.checkFields': { en: 'Check every field', zh: '请检查每个字段' },
+  'capture.continueReview': { en: 'Continue to final review', zh: '继续最终检查' },
+  'capture.error.permission': { en: 'Microphone permission was denied. Allow access or enter the expense manually.', zh: '麦克风权限被拒绝。请允许访问或改用手动输入。' },
+  'capture.error.voiceUnavailable': { en: 'Voice capture is unavailable in this browser. Enter the expense manually.', zh: '此浏览器不支持语音录入，请改用手动输入。' },
+  'capture.error.noSpeech': { en: 'No speech was detected. Try again or enter the expense manually.', zh: '没有检测到语音。请重试或改用手动输入。' },
+  'capture.error.ocrUnavailable': { en: 'Receipt reading is temporarily unavailable. Enter the expense manually.', zh: '小票识别暂时不可用，请改用手动输入。' },
+  'capture.error.invalidImage': { en: 'Choose a valid JPEG, PNG, or WebP receipt image.', zh: '请选择有效的 JPEG、PNG 或 WebP 小票图片。' },
+  'capture.error.imageTooLarge': { en: 'This image is too large. Choose an image under 10 MB.', zh: '图片过大，请选择小于 10 MB 的图片。' },
+  'capture.error.noText': { en: 'No readable receipt text was found. Try another image or enter it manually.', zh: '没有识别到可读的小票文字。请更换图片或手动输入。' },
+  'capture.error.quota': { en: 'You have used this month’s capture quota. Manual quick add is still available.', zh: '本月智能录入额度已用完。你仍可使用手动快速添加。' },
+  'capture.error.rate': { en: 'Too many capture attempts. Wait a minute, then try again.', zh: '录入尝试过于频繁，请稍等一分钟后重试。' },
+  'capture.error.inactive': { en: 'Smart capture is unavailable for this account. Manual quick add is still available.', zh: '此账号暂时无法使用智能录入。你仍可使用手动快速添加。' },
+  'capture.error.unavailable': { en: 'Smart capture is temporarily unavailable. Manual quick add is still available.', zh: '智能录入暂时不可用。你仍可使用手动快速添加。' },
+  'capture.warning.emptyTranscript': { en: 'Enter or say an expense before continuing.', zh: '请先输入或说出一笔支出。' },
+  'capture.warning.amountMissing': { en: 'Amount was not found. Add it during review.', zh: '未找到金额，请在检查时补充。' },
+  'capture.warning.multipleAmounts': { en: 'Several amounts were found. Choose the correct amount during review.', zh: '检测到多个金额，请在检查时选择正确金额。' },
+  'capture.warning.currencyMissing': { en: 'Currency was not found. Choose it during review.', zh: '未找到币种，请在检查时选择。' },
+  'capture.warning.currencyAmbiguous': { en: 'The currency symbol is ambiguous. Confirm the currency during review.', zh: '币种符号不明确，请在检查时确认币种。' },
+  'capture.warning.currencyConflict': { en: 'More than one currency was found. Confirm the correct currency.', zh: '检测到多个币种，请确认正确币种。' },
+  'capture.warning.dateAmbiguous': { en: 'More than one date was found. Confirm the expense date.', zh: '检测到多个日期，请确认支出日期。' },
+  'capture.warning.categoryAmbiguous': { en: 'More than one category matched. Confirm the category.', zh: '匹配到多个分类，请确认分类。' },
+  'capture.warning.participantReview': { en: 'Participant names need manual review before splitting.', zh: '分摊前需要手动确认参与者姓名。' },
+
+  'quickAdd.title': { en: 'Quick tally', zh: '快速记账' },
+  'quickAdd.close': { en: 'Close quick add', zh: '关闭快速添加' },
+  'quickAdd.note': { en: 'Note', zh: '备注' },
+  'quickAdd.notePlaceholder': { en: 'What was this for?', zh: '这笔支出是什么？' },
+  'quickAdd.save': { en: 'Save expense', zh: '保存支出' },
+  'quickAdd.help': { en: 'Amount is enough. Details can be added later.', zh: '只填金额即可，其他资料之后再补。' },
+  'quickAdd.recurringPending': {
+    en: 'The expense is queued, but the recurring draft still needs confirmation. Retry to finish.',
+    zh: '支出已排队等待同步，但定期草稿仍需确认。请重试以完成操作。',
+  },
+
+  'expenseCapture.close': { en: 'Close expense capture', zh: '关闭支出录入' },
+  'expenseCapture.splitWith': { en: 'Split with', zh: '分摊给' },
+  'expenseCapture.split': { en: 'Split', zh: '分摊方式' },
+  'expenseCapture.equally': { en: 'Equally', zh: '平均分' },
+  'expenseCapture.exact': { en: 'Exact amounts', zh: '准确金额' },
+  'expenseCapture.eachShare': { en: 'Each person’s share', zh: '每个人的分摊金额' },
+  'expenseCapture.hidePayers': { en: 'Hide payer details', zh: '隐藏付款人资料' },
+  'expenseCapture.multiplePayers': { en: 'Multiple payers', zh: '多个付款人' },
+  'expenseCapture.amountPaid': { en: 'Amount paid', zh: '付款金额' },
+  'expenseCapture.shareFor': { en: 'Share for {{name}}', zh: '{{name}} 的分摊金额' },
+  'expenseCapture.paidBy': { en: 'Paid by {{name}}', zh: '{{name}} 的付款金额' },
+  'expenseCapture.payerHelp': { en: 'Leave blank to record the full amount as paid by you.', zh: '留空时会把全部金额记录为由你支付。' },
+
+  'library.label': { en: 'Faster next time', zh: '下次更快' },
+  'library.due': { en: 'Recurring drafts due', zh: '到期的定期草稿' },
+  'library.recurringExpense': { en: 'Recurring expense', zh: '定期支出' },
+  'library.dismiss': { en: 'Dismiss', zh: '忽略' },
+  'library.templates': { en: 'Templates', zh: '模板' },
+  'library.schedulePlaceholder': { en: 'Schedule a template…', zh: '为模板设置定期计划…' },
+  'library.weekly': { en: 'Weekly', zh: '每周' },
+  'library.monthly': { en: 'Monthly', zh: '每月' },
+  'library.schedule': { en: 'Schedule', zh: '设置计划' },
+  'library.templateName': { en: 'Recurring template', zh: '定期模板' },
+  'library.cadence': { en: 'Cadence', zh: '重复频率' },
+  'library.nextDue': { en: 'Next due date', zh: '下次到期日' },
+  'library.recent': { en: 'Recent details', zh: '最近使用的资料' },
+  'library.amountBlank': { en: '{{label}} · amount left blank', zh: '{{label}} · 金额留空' },
+  'library.saveTemplate': { en: 'Save template', zh: '保存为模板' },
+
+  'space.opening': { en: 'Opening space…', zh: '正在打开共享空间…' },
+  'space.shared': { en: 'Shared space', zh: '共享空间' },
+  'space.unavailable': { en: 'This space is unavailable.', zh: '此共享空间不可用。' },
+  'space.unavailableHelp': { en: 'Open a valid invite or sign in with the correct account.', zh: '请打开有效邀请，或使用正确账号登录。' },
+  'space.notFound': { en: 'Space not found or access was removed.', zh: '找不到共享空间，或你的访问权限已被移除。' },
+  'space.back': { en: 'Back to spaces', zh: '返回共享空间' },
+  'space.addExpense': { en: '+ Add expense', zh: '+ 添加支出' },
+  'space.people': { en: 'People', zh: '成员' },
+  'space.untracked': { en: 'untracked', zh: '未追踪' },
+  'space.accessFor': { en: 'Access for {{name}}', zh: '{{name}} 的访问权限' },
+  'space.removeMember': { en: 'Remove {{name}}', zh: '移除 {{name}}' },
+  'space.addPersonPlaceholder': { en: 'Add someone without an account', zh: '添加没有账号的人' },
+  'space.addUntracked': { en: 'Add untracked person', zh: '添加未追踪成员' },
+  'space.inviteAccess': { en: 'Invite access', zh: '邀请权限' },
+  'space.inviteWrite': { en: 'Can add own expenses', zh: '可添加自己的支出' },
+  'space.copyInvite': { en: 'Copy secure invite', zh: '复制安全邀请' },
+  'space.inviteCopied': { en: 'Invite copied · expires in 7 days', zh: '邀请已复制 · 7 天后到期' },
+  'space.expenses': { en: 'Expenses', zh: '支出' },
+  'space.emptyTitle': { en: 'Nothing tallied yet', zh: '还没有记录' },
+  'space.emptyHelp': { en: 'The first expense will appear for everyone in this space.', zh: '第一笔支出会显示给此空间中的所有成员。' },
+  'space.paidBy': { en: '{{date}} · paid by {{names}}', zh: '{{date}} · 付款人：{{names}}' },
+  'space.yourShare': { en: 'Your share {{amount}}', zh: '你的份额 {{amount}}' },
+  'space.void': { en: 'Void', zh: '作废' },
+  'space.tripRecap': { en: 'Trip recap', zh: '旅程回顾' },
+  'space.insights': { en: 'Space insights', zh: '空间分析' },
+  'space.totalsCurrency': { en: 'Totals by currency', zh: '按币种统计' },
+  'space.insightsEmpty': { en: 'Insights appear after the first expense.', zh: '添加第一笔支出后会显示分析。' },
+
+  'spaceInvite.label': { en: 'Secure space invite', zh: '安全空间邀请' },
+  'spaceInvite.checking': { en: 'Checking invite…', zh: '正在检查邀请…' },
+  'spaceInvite.invalid': { en: 'This invite is invalid, expired, revoked, or already used.', zh: '此邀请无效、已过期、已撤销或已使用。' },
+  'spaceInvite.invitedRole': { en: 'You were invited as {{role}}.', zh: '你受邀成为{{role}}。' },
+  'spaceInvite.joining': { en: 'Joining…', zh: '正在加入…' },
+  'spaceInvite.join': { en: 'Join space', zh: '加入共享空间' },
+  'spaceInvite.guest': { en: 'Continue as guest', zh: '以访客身份继续' },
+  'spaceInvite.signIn': { en: 'Sign in and join', zh: '登录并加入' },
+  'spaceInvite.guestHelp': { en: 'Guest access uses a private anonymous account and is limited to invited spaces.', zh: '访客访问使用私密匿名账号，并仅限受邀的共享空间。' },
+
+  'friends.opening': { en: 'Opening friends…', zh: '正在打开朋友列表…' },
+  'friends.accountRequired': { en: 'A permanent account is required.', zh: '需要正式账号。' },
+  'friends.accountHelp': { en: 'Friend relationships and Direct Splits are private account features. Invited guests can still use their Spaces.', zh: '朋友关系和直接分摊是正式账号的私密功能。受邀访客仍可使用共享空间。' },
+  'friends.linkAccount': { en: 'Link an account', zh: '绑定正式账号' },
+  'friends.directLabel': { en: 'Direct splits', zh: '直接分摊' },
+  'friends.title': { en: 'Friends', zh: '朋友' },
+  'friends.subtitle': { en: 'Share an expense directly with friends.', zh: '直接与朋友分摊支出。' },
+  'friends.needsAnswer': { en: 'Needs your answer', zh: '需要你回应' },
+  'friends.share': { en: 'Your share {{amount}} · {{date}}', zh: '你的份额 {{amount}} · {{date}}' },
+  'friends.total': { en: 'Total {{amount}} · {{people}}', zh: '总额 {{amount}} · {{people}}' },
+  'friends.paidBy': { en: 'Paid by {{names}}', zh: '付款人：{{names}}' },
+  'friends.visibilityHelp': { en: 'Only your share and the information needed to answer are shown.', zh: '这里只显示你的份额和回应所需的资料。' },
+  'friends.acceptShare': { en: 'Accept share', zh: '接受份额' },
+  'friends.historyRequest': { en: 'Historical identity request', zh: '历史身份绑定请求' },
+  'friends.linkRequestTitle': { en: 'A friend wants to link an untracked person to your account.', zh: '一位朋友想把未追踪成员绑定到你的账号。' },
+  'friends.linkRequestHelp': { en: 'Accepting can expose historical entries to you. Any linked Direct Split stays pending until you separately accept its share.', zh: '接受后，你可能会看到历史记录。已绑定的直接分摊仍会保持待处理，直到你另行接受相应份额。' },
+  'friends.acceptLink': { en: 'Accept link', zh: '接受绑定' },
+  'friends.secureInvite': { en: 'Secure invite', zh: '安全邀请' },
+  'friends.addAccount': { en: 'Add an account friend', zh: '添加账号朋友' },
+  'friends.inviteHelp': { en: 'The one-use link expires in seven days.', zh: '一次性链接会在 7 天后到期。' },
+  'friends.copyInvite': { en: 'Copy friend invite', zh: '复制朋友邀请' },
+  'friends.inviteCopied': { en: 'Invite copied', zh: '邀请已复制' },
+  'friends.accepted': { en: 'Accepted', zh: '已接受' },
+  'friends.yours': { en: 'Your friends', zh: '你的朋友' },
+  'friends.directSplit': { en: '+ Direct Split', zh: '+ 直接分摊' },
+  'friends.loading': { en: 'Loading…', zh: '加载中…' },
+  'friends.empty': { en: 'No accepted friends yet. Share a secure invite above.', zh: '还没有已接受的朋友，请分享上方的安全邀请。' },
+  'friends.acceptedFriend': { en: 'Accepted friend', zh: '已接受的朋友' },
+  'friends.balance': { en: 'Balance', zh: '余额' },
+  'friends.split': { en: 'Split', zh: '分摊' },
+  'friends.unfriend': { en: 'Unfriend', zh: '解除朋友关系' },
+  'friends.block': { en: 'Block', zh: '封锁' },
+  'friends.past': { en: 'Past friends', zh: '过往朋友' },
+  'friends.history': { en: 'History and settlement', zh: '历史和结算' },
+  'friends.historyHelp': { en: 'Unfriending stops new Direct Splits but keeps existing history and settlement access.', zh: '解除朋友关系会停止新的直接分摊，但会保留现有历史和结算权限。' },
+  'friends.noAccount': { en: 'Without an account', zh: '没有账号' },
+  'friends.untracked': { en: 'Untracked people', zh: '未追踪成员' },
+  'friends.personName': { en: 'Person’s name', zh: '成员姓名' },
+  'friends.addPerson': { en: 'Add person', zh: '添加成员' },
+  'friends.splitWith': { en: 'Split with {{name}}', zh: '与 {{name}} 分摊' },
+  'friends.linkAria': { en: 'Link {{name}} to friend', zh: '把 {{name}} 绑定到朋友' },
+  'friends.linkPlaceholder': { en: 'Link historical entries to…', zh: '把历史记录绑定到…' },
+  'friends.requestLink': { en: 'Request link', zh: '请求绑定' },
+
+  'friendInvite.label': { en: 'Secure friend invite', zh: '安全朋友邀请' },
+  'friendInvite.title': { en: 'Connect for Direct Splits', zh: '建立直接分摊联系' },
+  'friendInvite.help': { en: 'Accepting creates an account-level friendship. It does not create a group or expose your personal ledger.', zh: '接受后会建立账号层级的朋友关系，不会创建群组，也不会公开你的个人账本。' },
+  'friendInvite.checking': { en: 'Checking account…', zh: '正在检查账号…' },
+  'friendInvite.signIn': { en: 'Sign in to accept', zh: '登录后接受' },
+  'friendInvite.linkHelp': { en: 'Link this guest session to a permanent account before accepting a friend invite.', zh: '接受朋友邀请前，请先把此访客会话绑定到正式账号。' },
+  'friendInvite.link': { en: 'Link account', zh: '绑定账号' },
+  'friendInvite.accepting': { en: 'Accepting…', zh: '正在接受…' },
+  'friendInvite.accept': { en: 'Accept friend invite', zh: '接受朋友邀请' },
+  'friendInvite.notNow': { en: 'Not now', zh: '暂时不要' },
+
+  'settlement.confirmed': { en: 'Confirmed balances', zh: '已确认余额' },
+  'settlement.title': { en: 'Settle up', zh: '结算' },
+  'settlement.help': { en: 'Proposals do not change a balance until each recipient accepts.', zh: '在每位收款人接受前，付款提议不会改变余额。' },
+  'settlement.confirmation': { en: 'Payment confirmation', zh: '付款确认' },
+  'settlement.saysPaid': { en: '{{name}} says they paid you {{amount}}', zh: '{{name}} 表示已向你支付 {{amount}}' },
+  'settlement.confirmReceived': { en: 'Confirm received', zh: '确认收款' },
+  'settlement.empty': { en: 'No confirmed amount is outstanding.', zh: '没有待付的已确认金额。' },
+  'settlement.youOwe': { en: 'You owe {{name}}', zh: '你欠 {{name}}' },
+  'settlement.personOwes': { en: '{{debtor}} owes {{creditor}}', zh: '{{debtor}} 欠 {{creditor}}' },
+  'settlement.fullAmount': { en: 'Full amount', zh: '全部金额' },
+  'settlement.amountFor': { en: 'Payment amount for {{name}}', zh: '支付给 {{name}} 的金额' },
+  'settlement.proposePaid': { en: 'Propose paid', zh: '提议已付款' },
+  'settlement.receipts': { en: 'Your confirmed receipts', zh: '你已确认的收款' },
+  'settlement.reverse': { en: 'Reverse {{amount}}', zh: '撤销 {{amount}}' },
+
+  'activity.label': { en: 'Activity', zh: '活动' },
+  'activity.title': { en: 'Audit trail', zh: '审计记录' },
+  'activity.empty': { en: 'No visible activity yet.', zh: '还没有可见活动。' },
+  'activity.event.space.created': { en: 'Space created', zh: '已创建共享空间' },
+  'activity.event.space.updated': { en: 'Space updated', zh: '已更新共享空间' },
+  'activity.event.space.manual_member_added': { en: 'Untracked person added', zh: '已添加未追踪成员' },
+  'activity.event.space.member_role_updated': { en: 'Member access updated', zh: '已更新成员权限' },
+  'activity.event.space.member_removed': { en: 'Member removed', zh: '已移除成员' },
+  'activity.event.space.invite_revoked': { en: 'Invite revoked', zh: '已撤销邀请' },
+  'activity.event.expense.created': { en: 'Expense created', zh: '已创建支出' },
+  'activity.event.expense.metadata_updated': { en: 'Expense details updated', zh: '已更新支出资料' },
+  'activity.event.expense.financials_replaced': { en: 'Expense amounts updated', zh: '已更新支出金额' },
+  'activity.event.expense.manual_participant_linked': { en: 'Historical participant linked', zh: '已绑定历史成员' },
+  'activity.event.expense.voided': { en: 'Expense voided', zh: '已作废支出' },
+  'activity.event.direct.accepted': { en: 'Direct Split accepted', zh: '已接受直接分摊' },
+  'activity.event.direct.declined': { en: 'Direct Split declined', zh: '已拒绝直接分摊' },
+  'activity.event.settlement.proposed': { en: 'Settlement proposed', zh: '已提出结算' },
+  'activity.event.settlement.allocation_accepted': { en: 'Settlement received', zh: '已确认收到结算款' },
+  'activity.event.settlement.allocation_declined': { en: 'Settlement declined', zh: '已拒绝结算' },
+  'activity.event.settlement.allocation_reversed': { en: 'Settlement reversed', zh: '已撤销结算' },
+  'activity.event.updated': { en: 'Financial activity updated', zh: '财务活动已更新' },
+
+  'friendlyError.generic': { en: 'Something went wrong. Please try again.', zh: '出现问题，请重试。' },
+  'friendlyError.notConfigured': { en: 'The online service is not configured yet.', zh: '在线服务尚未配置。' },
+  'friendlyError.notAuthenticated': { en: 'Sign in and try again.', zh: '请登录后重试。' },
+  'friendlyError.accountRequired': { en: 'A permanent account is required for this action.', zh: '此操作需要正式账号。' },
+  'friendlyError.accessDenied': { en: 'You do not have permission to do that.', zh: '你没有执行此操作的权限。' },
+  'friendlyError.notFound': { en: 'This item is no longer available.', zh: '此项目已不可用。' },
+  'friendlyError.invalid': { en: 'Check the entered details and try again.', zh: '请检查输入资料后重试。' },
+  'friendlyError.versionConflict': { en: 'This item changed on another device. Refresh and try again.', zh: '此项目已在其他设备更新。请刷新后重试。' },
+  'friendlyError.inviteUnavailable': { en: 'This invite is invalid, expired, revoked, or already used.', zh: '此邀请无效、已过期、已撤销或已使用。' },
+  'friendlyError.balanceExceeded': { en: 'The payment cannot exceed the outstanding balance.', zh: '付款金额不能超过待付余额。' },
+  'friendlyError.saveExpense': { en: 'Could not save this expense. Please try again.', zh: '无法保存此支出，请重试。' },
+  'friendlyError.load': { en: 'Could not load this information. Please try again.', zh: '无法加载资料，请重试。' },
 } as const
 
 export type TranslationKey = keyof typeof translations
 
-export function t(key: TranslationKey, lang?: Lang): string {
+export type TranslationParams = Readonly<Record<string, string | number>>
+
+export function missingTranslationKeys(
+  lang: Lang,
+  prefixes?: readonly string[],
+): TranslationKey[] {
+  return (Object.keys(translations) as TranslationKey[]).filter((key) => {
+    if (prefixes && !prefixes.some((prefix) => key.startsWith(prefix))) return false
+    const value = translations[key][lang]
+    return typeof value !== 'string' || value.trim() === ''
+  })
+}
+
+function interpolate(value: string, params?: TranslationParams): string {
+  if (!params) return value
+  return value.replace(/\{\{(\w+)\}\}/g, (match, name: string) => (
+    Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match
+  ))
+}
+
+export function t(key: TranslationKey, lang?: Lang, params?: TranslationParams): string {
   const entry = translations[key]
   const activeLang = lang ?? useStore.getState().lang
-  return entry?.[activeLang] ?? entry?.en ?? key
+  return interpolate(entry?.[activeLang] ?? entry?.en ?? key, params)
 }
 
 export function useT() {
   const lang = useStore((s) => s.lang)
-  return (key: TranslationKey) => {
+  return (key: TranslationKey, params?: TranslationParams) => {
     const entry = translations[key]
-    return entry?.[lang] ?? entry?.en ?? key
+    return interpolate(entry?.[lang] ?? entry?.en ?? key, params)
   }
+}
+
+export function countKey(
+  one: TranslationKey,
+  many: TranslationKey,
+  count: number,
+): TranslationKey {
+  return count === 1 ? one : many
+}
+
+export function categoryKey(category: string): TranslationKey {
+  const aliases: Record<string, TranslationKey> = {
+    Transport: 'cat.Transportation',
+    Stay: 'cat.Accommodation',
+  }
+  const key = `cat.${category}` as TranslationKey
+  return aliases[category] ?? (translations[key] ? key : 'cat.Other')
+}
+
+export function roleKey(role: string): TranslationKey {
+  if (role === 'owner') return 'role.owner'
+  if (role === 'full_access') return 'role.full_access'
+  return 'role.view'
+}
+
+export function scopeKey(scope: string): TranslationKey {
+  if (scope === 'personal') return 'scope.personal'
+  if (scope === 'direct') return 'scope.direct'
+  return 'scope.space'
+}
+
+export function spaceTypeKey(type: string): TranslationKey {
+  return type === 'trip' ? 'spaceType.trip' : 'spaceType.group'
+}
+
+export function captureSourceKey(source: string): TranslationKey {
+  const key = `capture.source.${source}` as TranslationKey
+  return translations[key] ? key : 'capture.source.manual'
+}
+
+export function activityEventKey(eventType: string): TranslationKey {
+  const key = `activity.event.${eventType}` as TranslationKey
+  return translations[key] ? key : 'activity.event.updated'
+}
+
+function machineCode(value: unknown): string {
+  const message = value instanceof Error ? value.message : String(value ?? '')
+  const knownCode = message.match(/[a-z][a-z0-9_]+/g)?.find((part) => part.includes('_'))
+  return knownCode ?? message.trim().toLowerCase()
+}
+
+export function captureMessageKey(value: unknown): TranslationKey {
+  const code = machineCode(value)
+  const keys: Record<string, TranslationKey> = {
+    permission_denied: 'capture.error.permission',
+    unavailable: 'capture.error.voiceUnavailable',
+    no_speech: 'capture.error.noSpeech',
+    provider_unavailable: 'capture.error.ocrUnavailable',
+    invalid_image: 'capture.error.invalidImage',
+    image_too_large: 'capture.error.imageTooLarge',
+    no_text: 'capture.error.noText',
+    capture_quota_exceeded: 'capture.error.quota',
+    capture_rate_limit_exceeded: 'capture.error.rate',
+    capture_entitlement_inactive: 'capture.error.inactive',
+  }
+  return keys[code] ?? 'capture.error.unavailable'
+}
+
+export function captureWarningKey(value: string): TranslationKey {
+  const keys: Record<string, TranslationKey> = {
+    empty_transcript: 'capture.warning.emptyTranscript',
+    amount_not_found: 'capture.warning.amountMissing',
+    multiple_amounts: 'capture.warning.multipleAmounts',
+    currency_not_found: 'capture.warning.currencyMissing',
+    ambiguous_currency_symbol: 'capture.warning.currencyAmbiguous',
+    conflicting_currencies: 'capture.warning.currencyConflict',
+    ambiguous_date: 'capture.warning.dateAmbiguous',
+    ambiguous_category: 'capture.warning.categoryAmbiguous',
+    participant_split_requires_review: 'capture.warning.participantReview',
+  }
+  return keys[value] ?? 'capture.error.unavailable'
+}
+
+export function friendlyErrorKey(value: unknown): TranslationKey {
+  const code = machineCode(value)
+  if (code === 'not_configured') return 'friendlyError.notConfigured'
+  if (code === 'not_authenticated') return 'friendlyError.notAuthenticated'
+  if (code === 'permanent_account_required') return 'friendlyError.accountRequired'
+  if (code === 'version_conflict') return 'friendlyError.versionConflict'
+  if (code === 'invite_unavailable' || code.includes('invite_not_found')) {
+    return 'friendlyError.inviteUnavailable'
+  }
+  if (code === 'amount_exceeds_outstanding_balance') return 'friendlyError.balanceExceeded'
+  if (
+    code.includes('denied')
+    || code.endsWith('_required')
+    || code.includes('owner_')
+    || code.includes('write_')
+  ) return 'friendlyError.accessDenied'
+  if (code.includes('not_found') || code.includes('unavailable') || code.includes('archived')) {
+    return 'friendlyError.notFound'
+  }
+  if (
+    code.startsWith('invalid_')
+    || code.startsWith('duplicate_')
+    || code.includes('does_not_reconcile')
+    || code.includes('conflict')
+  ) return 'friendlyError.invalid'
+  return 'friendlyError.generic'
 }
 
 export function tCategory(category: string, lang?: Lang): string {

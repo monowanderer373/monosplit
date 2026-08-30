@@ -1,8 +1,11 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useT } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
+import { safeInternalRedirect } from '../lib/authUi'
 
 export default function AuthCallbackPage() {
+  const t = useT()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -19,7 +22,8 @@ export default function AuthCallbackPage() {
     const redirectFromStorage = typeof window !== 'undefined'
       ? window.localStorage.getItem('ms_post_auth_redirect')
       : null
-    const afterLoginPath = redirectFromParam || redirectFromStorage || null
+    const afterLoginPath = safeInternalRedirect(redirectFromParam)
+      ?? safeInternalRedirect(redirectFromStorage)
 
     if (redirectFromStorage) {
       window.localStorage.removeItem('ms_post_auth_redirect')
@@ -36,7 +40,7 @@ export default function AuthCallbackPage() {
 
   return (
     <main className="ms-page flex min-h-dvh items-center justify-center">
-      <p className="text-sm text-[var(--ms-text-secondary)]">Signing you in...</p>
+      <p className="text-sm text-[var(--ms-text-secondary)]">{t('auth.callback')}</p>
     </main>
   )
 }

@@ -3,6 +3,11 @@ node_modules/
 
 # Build output
 dist/
+test-results/
+playwright-report/
+
+# Operator-created database backups
+/backups/
 
 # Environment variables
 .env

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
 import { supabaseEnabled } from '../lib/supabase'
+import { authErrorKey, safeInternalRedirect } from '../lib/authUi'
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -13,22 +14,19 @@ const GoogleIcon = () => (
   </svg>
 )
 
-function mapAuthError(err: unknown, t: (k: Parameters<ReturnType<typeof useT>>[0]) => string): string {
-  const msg = err instanceof Error ? err.message.toLowerCase() : ''
-  if (msg.includes('not-configured')) return t('auth.errorNotConfigured')
-  if (msg.includes('already registered') || msg.includes('already in use') || msg.includes('user already exists')) return t('auth.errorEmailTaken')
-  if (msg.includes('password') && msg.includes('6')) return t('auth.errorWeakPassword')
-  return t('auth.errorGeneric')
+function isStrongPassword(password: string): boolean {
+  return password.length >= 8 && /[a-z]/i.test(password) && /\d/.test(password)
 }
 
 export default function SignupPage() {
   const t = useT()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { signUp, signInWithGoogle } = useAuth()
+  const { authUser, loading: authLoading, signUp, signInWithGoogle } = useAuth()
 
-  // Preserve the intended destination (e.g. /group/:id?autoJoin=true from invite link)
-  const redirectPath = searchParams.get('redirect') || null
+  const redirectPath = safeInternalRedirect(searchParams.get('redirect'))
+  const destination = redirectPath ?? '/'
+  const profileUpgradePath = `/profile?upgrade=preserve-session&redirect=${encodeURIComponent(destination)}`
 
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
@@ -38,10 +36,20 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
 
+  useEffect(() => {
+    if (!authLoading && authUser?.isAnonymous) {
+      navigate(profileUpgradePath, { replace: true })
+    }
+  }, [authLoading, authUser?.isAnonymous, navigate, profileUpgradePath])
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim() || !password || !displayName.trim()) return
-    if (password.length < 6) {
+    if (authUser?.isAnonymous) {
+      navigate(profileUpgradePath, { replace: true })
+      return
+    }
+    if (!isStrongPassword(password)) {
       setError(t('auth.errorWeakPassword'))
       return
     }
@@ -55,13 +63,17 @@ export default function SignupPage() {
       await signUp(email.trim(), password, displayName.trim(), emailRedirectTo)
       setSuccess(true)
     } catch (err) {
-      setError(mapAuthError(err, t))
+      setError(t(authErrorKey(err)))
     } finally {
       setLoading(false)
     }
   }
 
   const handleGoogle = async () => {
+    if (authUser?.isAnonymous) {
+      navigate(profileUpgradePath, { replace: true })
+      return
+    }
     setError('')
     setGoogleLoading(true)
     // Store as localStorage fallback in case the OAuth redirect strips query params
@@ -69,7 +81,7 @@ export default function SignupPage() {
     try {
       await signInWithGoogle(redirectPath ?? undefined)
     } catch (err) {
-      setError(mapAuthError(err, t))
+      setError(t(authErrorKey(err)))
       setGoogleLoading(false)
     }
   }
@@ -81,7 +93,10 @@ export default function SignupPage() {
           <div className="ms-card-soft space-y-4 p-5 text-center">
             <div className="text-3xl">✉️</div>
             <p className="text-sm font-medium text-[var(--ms-text)]">{t('auth.verifyEmail')}</p>
-            <button className="ms-btn-primary w-full" onClick={() => navigate('/login')}>
+            <button
+              className="ms-btn-primary w-full"
+              onClick={() => navigate(redirectPath ? `/login?redirect=${encodeURIComponent(redirectPath)}` : '/login')}
+            >
               {t('auth.signIn')}
             </button>
           </div>
@@ -108,9 +123,9 @@ export default function SignupPage() {
           {supabaseEnabled && (
             <button
               type="button"
-              disabled={googleLoading}
+              disabled={googleLoading || authLoading}
               onClick={handleGoogle}
-              className="ms-btn-ghost flex h-11 w-full items-center justify-center gap-2 font-medium"
+              className="ms-btn-primary flex h-11 w-full items-center justify-center gap-2 font-medium"
             >
               {googleLoading ? (
                 <span className="text-sm text-[var(--ms-text-secondary)]">{t('auth.signingIn')}</span>
@@ -126,7 +141,7 @@ export default function SignupPage() {
           {supabaseEnabled && (
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-[var(--ms-border)]" />
-              <span className="text-xs text-[var(--ms-text-muted)]">{t('auth.orDivider')}</span>
+              <span className="text-xs text-[var(--ms-text-muted)]">{t('auth.emailFallback')}</span>
               <div className="h-px flex-1 bg-[var(--ms-border)]" />
             </div>
           )}
@@ -167,9 +182,14 @@ export default function SignupPage() {
                 placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                aria-describedby="signup-password-help"
                 required
-                minLength={6}
+                minLength={8}
+                pattern="(?=.*[A-Za-z])(?=.*\d).{8,}"
               />
+              <span id="signup-password-help" className="mt-1 block text-[11px] leading-4 text-[var(--ms-text-muted)]">
+                {t('auth.passwordHelp')}
+              </span>
             </label>
 
             {error && (
@@ -178,8 +198,8 @@ export default function SignupPage() {
 
             <button
               type="submit"
-              disabled={loading || !supabaseEnabled}
-              className="ms-btn-primary h-11 w-full"
+              disabled={loading || authLoading || !supabaseEnabled}
+              className="ms-btn-ghost h-11 w-full"
             >
               {loading ? t('auth.signingUp') : t('auth.signUp')}
             </button>
