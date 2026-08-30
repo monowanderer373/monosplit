@@ -139,7 +139,11 @@ Hash verification is necessary but not sufficient. Before a destructive reset:
    Supabase project using the current Supabase backup/restore procedure.
 2. Keep outbound email and OAuth callbacks disabled in the scratch project.
 3. Run the section 2 exact inventory on the restore target and compare every
-   `public`, `auth`, and `storage` table against `exact-row-counts.csv`.
+   `public`, `auth`, and `storage` table against `exact-row-counts.csv`, except
+   `auth.schema_migrations` and `storage.migrations`. Supabase CLI deliberately
+   omits those provider-managed migration ledgers from logical data dumps; keep
+   their source counts in the inventory, expect zero rows in an isolated
+   logical restore, and rely on the provider-managed backup for their recovery.
 4. Confirm at least one restored Auth identity can be correlated to
    `public.user_profiles` and `public.participants`.
 5. If a legacy table existed, inspect one restored group, its memberships, and
@@ -148,7 +152,8 @@ Hash verification is necessary but not sufficient. Before a destructive reset:
 6. Record the restore target, verifier, completion time, and comparison result
    in the release ticket.
 
-Any missing artifact, hash mismatch, restore error, or row-count mismatch is an
+Any missing artifact, hash mismatch, restore error, or row-count mismatch
+outside those two documented provider-managed migration ledgers is an
 automatic **NO-GO**.
 
 ## 5. Validate migrations and tests

@@ -175,6 +175,10 @@ $manifest = [ordered]@{
     createdAtUtc = [DateTime]::UtcNow.ToString('o')
     projectRef = $ExpectedProjectRef
     schemas = @('public', 'auth', 'storage')
+    logicalRestoreExclusions = @(
+        'auth.schema_migrations',
+        'storage.migrations'
+    )
     files = $files
 }
 
