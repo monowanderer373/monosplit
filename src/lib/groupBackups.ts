@@ -59,13 +59,17 @@ export function deleteGroupBackup(groupId: string, backupId: string): void {
     const key = `${BACKUP_KEY_PREFIX}${groupId}`
     const existing: GroupBackup[] = JSON.parse(localStorage.getItem(key) || '[]')
     localStorage.setItem(key, JSON.stringify(existing.filter((b) => b.id !== backupId)))
-  } catch {}
+  } catch {
+    // A storage failure must not block the settlement screen.
+  }
 }
 
 export function clearAllGroupBackups(groupId: string): void {
   try {
     localStorage.removeItem(`${BACKUP_KEY_PREFIX}${groupId}`)
-  } catch {}
+  } catch {
+    // A storage failure must not block the settlement screen.
+  }
 }
 
 /** Returns a human-readable relative time string like "3 minutes ago" */

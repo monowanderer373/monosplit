@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { getCurrencySymbol } from '../lib/currency'
 import { formatMoney, todayISO } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { getGroupBackups, relativeTime, type GroupBackup } from '../lib/groupBackups'
 import { getPersonNameStyle } from '../lib/personTheme'
+import { getMyPerson } from '../lib/permissions'
 import {
   autoAllocateSettlement,
   createGroupSettlementSnapshot,
@@ -14,12 +15,20 @@ import {
 } from '../lib/settlementLedger'
 import { editPayment as editPaymentCommand, quickSettle as quickSettleCommand } from '../lib/settlementCommands'
 import { useStore } from '../store/useStore'
-import type { Group } from '../types'
+import type { Group, PaymentInfo } from '../types'
+import type { SettlePayPrefill } from './SettlePaySheet'
 
 type Props = {
   group: Group
   canSettle?: boolean
   authUserId?: string
+  /** Resolved "me" from the workspace — set for guests too, not just signed-in users. */
+  myPersonId?: string | null
+  /**
+   * Opens the payment sheet. Passing a prefill skips the counterparty picker,
+   * which is the point of tapping a row you can already read the answer off.
+   */
+  onRecordPayment?: (prefill: SettlePayPrefill | null) => void
 }
 
 type QuickSettleState = {
@@ -42,7 +51,7 @@ function round4(value: number): number {
   return Number(value.toFixed(4))
 }
 
-export default function SettleTab({ group, canSettle = true, authUserId }: Props) {
+export default function SettleTab({ group, canSettle = true, authUserId, myPersonId, onRecordPayment }: Props) {
   const t = useT()
   const addSettlementPayment = useStore((state) => state.addSettlementPayment)
   const updateSettlementPayment = useStore((state) => state.updateSettlementPayment)
@@ -71,11 +80,6 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
     [editPayment, snapshot.paymentSummaries],
   )
 
-  useEffect(() => {
-    setSettlePayerFilterId('all')
-    setSettleRepayFilterId('all')
-  }, [group.id])
-
   const personNameById = useMemo(() => {
     const map: Record<string, string> = {}
     group.people.forEach((person) => {
@@ -84,9 +88,10 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
     return map
   }, [group.people])
   const myPerson = useMemo(
-    () => authUserId ? group.people.find((person) => person.authUserId === authUserId) ?? null : null,
-    [authUserId, group.people],
+    () => getMyPerson(group, authUserId, myPersonId),
+    [authUserId, group, myPersonId],
   )
+  const canRecordPayment = Boolean(canSettle && onRecordPayment && myPerson)
   const currencies = useMemo(
     () => Array.from(new Set(settlements.map((settlement) => settlement.currency))).sort(),
     [settlements],
@@ -114,6 +119,25 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
     () => mySettlementRows.filter((row) => row.owedAmount > 0.001).sort((a, b) => b.owedAmount - a.owedAmount),
     [mySettlementRows],
   )
+  /**
+   * Presentation-only totals so the card can lead with a single number.
+   * Grouped per currency and never summed across them — a MYR debt and an IDR
+   * debt are two separate obligations, not one blended figure.
+   */
+  const myOweTotals = useMemo(() => {
+    const totals: Record<string, number> = {}
+    myOweRows.forEach((row) => {
+      totals[row.currency] = round4((totals[row.currency] || 0) + row.oweAmount)
+    })
+    return Object.entries(totals).sort((a, b) => b[1] - a[1])
+  }, [myOweRows])
+  const myOwedTotals = useMemo(() => {
+    const totals: Record<string, number> = {}
+    myOwedRows.forEach((row) => {
+      totals[row.currency] = round4((totals[row.currency] || 0) + row.owedAmount)
+    })
+    return Object.entries(totals).sort((a, b) => b[1] - a[1])
+  }, [myOwedRows])
   const totalSpendByCurrency = useMemo(() => {
     const totals: Record<string, number> = {}
     group.expenses.forEach((expense) => {
@@ -301,10 +325,6 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
   const [backupsOpen, setBackupsOpen] = useState(false)
   const [backups, setBackups] = useState<GroupBackup[]>([])
 
-  useEffect(() => {
-    if (backupsOpen) setBackups(getGroupBackups(group.id))
-  }, [backupsOpen, group.id])
-
   const handleRestore = (backup: GroupBackup) => {
     if (!window.confirm(t('backup.confirmRestore'))) return
     restoreGroupFromBackup(group.id, backup.data.expenses, backup.data.settlementPayments)
@@ -460,20 +480,16 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
 
   return (
     <section className="space-y-4 pb-20 lg:pb-0">
-      <div className="ms-card-soft">
-        <div className="mb-4 flex rounded-full border border-[var(--ms-border)] bg-[var(--ms-surface-dim)] p-1">
+      <div className="ms-card-hero">
+        <div className="ms-segment mb-5">
           <button
-            className={`flex-1 rounded-full px-3 py-2 text-sm font-bold transition ${
-              settleView === 'me' ? 'bg-[var(--ms-accent)] text-white shadow-sm' : 'text-[var(--ms-text-secondary)]'
-            }`}
+            className={`ms-segment-item ${settleView === 'me' ? 'ms-segment-item--active' : ''}`}
             onClick={() => setSettleView('me')}
           >
             {t('settle.mySettlement')}
           </button>
           <button
-            className={`flex-1 rounded-full px-3 py-2 text-sm font-bold transition ${
-              settleView === 'overall' ? 'bg-[var(--ms-accent)] text-white shadow-sm' : 'text-[var(--ms-text-secondary)]'
-            }`}
+            className={`ms-segment-item ${settleView === 'overall' ? 'ms-segment-item--active' : ''}`}
             onClick={() => setSettleView('overall')}
           >
             {t('settle.groupOverview')}
@@ -482,77 +498,116 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
 
         {settleView === 'me' ? (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ms-text-muted)]">
-              {t('settle.yourConclusion')}
-            </p>
-            <h2 className="mt-2 text-3xl font-black leading-tight text-[var(--ms-text)]">
+            <p className="ms-label">{t('settle.yourConclusion')}</p>
+            <h2 className="mt-2 text-lg font-bold leading-snug text-[var(--ms-text)]">
               {myPerson ? (
-                myOweRows.length > 0
+                myOweTotals.length > 0
                   ? t('settle.youNeedToPay')
-                  : myOwedRows.length > 0
+                  : myOwedTotals.length > 0
                     ? t('settle.friendsNeedToPayYou')
                     : t('settle.youAreAllSet')
               ) : (
                 t('settle.chooseIdentity')
               )}
             </h2>
-            <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
+
+            {/* The single number this screen exists to deliver. Owed-to-you only
+                takes the headline when there is nothing to pay out. */}
+            {myPerson && (myOweTotals.length > 0 || myOwedTotals.length > 0) ? (
+              <div className="mt-2 space-y-1">
+                {(myOweTotals.length > 0 ? myOweTotals : myOwedTotals).map(([currency, amount], index) => (
+                  <p
+                    key={currency}
+                    className={`${index === 0 ? 'ms-amount-hero' : 'ms-amount text-2xl'} ${
+                      myOweTotals.length > 0 ? 'ms-amount-owe' : 'ms-amount-owed'
+                    }`}
+                  >
+                    <span className="ms-currency">{getCurrencySymbol(currency)}</span>
+                    {formatMoney(amount)}
+                    <span className="ms-currency ml-1.5">{currency}</span>
+                  </p>
+                ))}
+              </div>
+            ) : null}
+
+            <p className="mt-3 text-sm leading-relaxed text-[var(--ms-text-secondary)]">
               {myPerson ? t('settle.personalHelp') : t('settle.chooseIdentityHelp')}
             </p>
 
-            <div className="mt-5 space-y-3">
-              {myOweRows.map((row) => {
-                const person = group.people.find((entry) => entry.id === row.personId)
-                return (
-                  <div key={`me-owe-${row.personId}-${row.currency}`} className="rounded-3xl border border-[rgba(182,90,69,0.22)] bg-[var(--ms-danger-bg)] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-base font-black text-[var(--ms-text)]">
-                          {t('settle.youPay')} {person?.name ?? t('card.unknown')}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--ms-text-secondary)]">{t('settle.tapOverallForItems')}</p>
-                      </div>
-                      <p className="shrink-0 text-2xl font-black text-[var(--ms-danger)]">
-                        {getCurrencySymbol(row.currency)}{formatMoney(row.oweAmount)}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
+            {myPerson && myOweRows.length === 0 && myOwedRows.length === 0 ? (
+              <div className="mt-4 flex items-center gap-2.5 rounded-2xl bg-[var(--ms-success-bg)] px-4 py-3">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--ms-success)]" />
+                <span className="text-sm font-bold text-[var(--ms-success)]">{t('settle.noPersonalAction')}</span>
+              </div>
+            ) : null}
 
-              {myOwedRows.map((row) => {
-                const person = group.people.find((entry) => entry.id === row.personId)
-                return (
-                  <div key={`me-owed-${row.personId}-${row.currency}`} className="rounded-3xl border border-[rgba(95,138,100,0.22)] bg-[var(--ms-success-bg)] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-base font-black text-[var(--ms-text)]">
-                          {person?.name ?? t('card.unknown')} {t('settle.paysYou')}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--ms-text-secondary)]">{t('settle.waitForPayment')}</p>
-                      </div>
-                      <p className="shrink-0 text-2xl font-black text-[var(--ms-success)]">
-                        {getCurrencySymbol(row.currency)}{formatMoney(row.owedAmount)}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
+            {/* Per-counterparty detail. Rows are separated by hairlines instead of
+                each carrying its own tinted box. */}
+            {myOweRows.length > 0 || myOwedRows.length > 0 ? (
+              <div className="mt-4 border-t border-[var(--ms-hairline)]">
+                {myOweRows.map((row) => {
+                  const person = group.people.find((entry) => entry.id === row.personId)
+                  return (
+                    <PersonAmountRow
+                      key={`me-owe-${row.personId}-${row.currency}`}
+                      name={person?.name ?? t('card.unknown')}
+                      nameStyle={getPersonNameStyle(person)}
+                      caption={`${t('settle.youPay')} · ${canRecordPayment ? t('settle.tapToRecord') : t('settle.tapOverallForItems')}`}
+                      currency={row.currency}
+                      amount={row.oweAmount}
+                      tone="owe"
+                      paymentInfo={person?.paymentInfo}
+                      onClick={
+                        canRecordPayment && myPerson
+                          ? () =>
+                              onRecordPayment?.({
+                                debtorId: myPerson.id,
+                                creditorId: row.personId,
+                                currency: row.currency,
+                              })
+                          : undefined
+                      }
+                    />
+                  )
+                })}
+                {myOwedRows.map((row) => {
+                  const person = group.people.find((entry) => entry.id === row.personId)
+                  return (
+                    <PersonAmountRow
+                      key={`me-owed-${row.personId}-${row.currency}`}
+                      name={person?.name ?? t('card.unknown')}
+                      nameStyle={getPersonNameStyle(person)}
+                      caption={`${t('settle.paysYou')} · ${canRecordPayment ? t('settle.tapToRecordReceived') : t('settle.waitForPayment')}`}
+                      currency={row.currency}
+                      amount={row.owedAmount}
+                      tone="owed"
+                      onClick={
+                        canRecordPayment && myPerson
+                          ? () =>
+                              onRecordPayment?.({
+                                debtorId: row.personId,
+                                creditorId: myPerson.id,
+                                currency: row.currency,
+                              })
+                          : undefined
+                      }
+                    />
+                  )
+                })}
+              </div>
+            ) : null}
 
-              {myPerson && myOweRows.length === 0 && myOwedRows.length === 0 ? (
-                <div className="rounded-3xl border border-[rgba(95,138,100,0.22)] bg-[var(--ms-success-bg)] p-4 text-sm font-semibold text-[var(--ms-success)]">
-                  {t('settle.noPersonalAction')}
-                </div>
-              ) : null}
-            </div>
+            {canRecordPayment ? (
+              <button className="ms-btn-primary mt-4 w-full py-3 text-base" onClick={() => onRecordPayment?.(null)}>
+                {t('settle.recordPayment')}
+              </button>
+            ) : null}
           </div>
         ) : (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ms-text-muted)]">
-              {t('settle.overallRoutes')}
-            </p>
-            <h2 className="mt-2 text-3xl font-black leading-tight text-[var(--ms-text)]">{t('settle.groupOverview')}</h2>
-            <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">{t('settle.overallHelp')}</p>
+            <p className="ms-label">{t('settle.overallRoutes')}</p>
+            <h2 className="mt-2 text-2xl font-extrabold leading-tight text-[var(--ms-text)]">{t('settle.groupOverview')}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--ms-text-secondary)]">{t('settle.overallHelp')}</p>
           </div>
         )}
       </div>
@@ -592,32 +647,30 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
         </div>
 
         {displayedSettlementRows.length === 0 ? (
-          <div className="py-6 text-center text-sm text-[#6b6058]">
+          <div className="py-8 text-center text-sm text-[var(--ms-text-secondary)]">
             {settleView === 'me' && !myPerson ? t('settle.chooseIdentityHelp') : t('summary.noSettlement')}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {displayedSettlementRows.map((row) => {
               const isFullySettled = row.outstandingTotal <= 0.001
               return (
                 <div
                   key={row.expenseId}
-                  className="overflow-hidden rounded-2xl border"
+                  className="overflow-hidden rounded-2xl bg-[var(--ms-surface)] shadow-[var(--ms-elev-1)]"
                   style={{
-                    borderColor: isFullySettled ? 'rgba(80,106,70,0.30)' : 'rgba(158,74,74,0.22)',
-                    background: isFullySettled ? 'rgba(80,106,70,0.05)' : 'rgba(158,74,74,0.04)',
+                    /* Status lives in a 3px spine rather than a full-card wash,
+                       so amounts keep the strongest colour on the row. */
+                    borderLeft: `3px solid ${isFullySettled ? 'var(--ms-success)' : 'var(--ms-accent)'}`,
                   }}
                 >
-                  <div
-                    className="flex items-center gap-3 px-4 py-3"
-                    style={{ borderBottom: `1px solid ${isFullySettled ? 'rgba(80,106,70,0.18)' : 'rgba(158,74,74,0.12)'}` }}
-                  >
+                  <div className="flex items-center gap-3 border-b border-[var(--ms-hairline)] px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-[#2c2520]">{row.description}</p>
-                      <p className="text-xs text-[#9a9088]">
+                      <p className="truncate font-bold text-[var(--ms-text)]">{row.description}</p>
+                      <p className="mt-0.5 truncate text-xs text-[var(--ms-text-muted)]">
                         {t('card.paidBy')}{' '}
                         {row.payerIds.map((pid, index) => (
-                          <span key={pid} className="font-medium text-[#6b6058]">
+                          <span key={pid} className="font-semibold text-[var(--ms-text-secondary)]">
                             {index > 0 ? ', ' : ''}{personNameById[pid] ?? t('card.unknown')}
                           </span>
                         ))}
@@ -625,16 +678,18 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-[#2c2520]">
-                        {getCurrencySymbol(row.paidCurrency)}{formatMoney(row.amount)}
+                      <p className="ms-amount text-sm">
+                        <span className="ms-currency">{getCurrencySymbol(row.paidCurrency)}</span>
+                        {formatMoney(row.amount)}
                       </p>
                       {isFullySettled ? (
-                        <span className="inline-block rounded-full bg-[rgba(80,106,70,0.15)] px-2 py-0.5 text-[10px] font-semibold text-[#4e6642]">
+                        <span className="mt-0.5 inline-block rounded-full bg-[var(--ms-success-bg)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--ms-success)]">
                           {t('settle.settledBadge')}
                         </span>
                       ) : (
-                        <p className="text-xs font-bold text-[#9e4a4a]">
-                          {getCurrencySymbol(row.paidCurrency)}{formatMoney(row.outstandingTotal)} {t('settle.due')}
+                        <p className="mt-0.5 text-xs font-bold text-[var(--ms-accent)]">
+                          <span className="ms-currency">{getCurrencySymbol(row.paidCurrency)}</span>
+                          {formatMoney(row.outstandingTotal)} {t('settle.due')}
                         </p>
                       )}
                     </div>
@@ -647,29 +702,31 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                       return (
                         <div
                           key={`${row.expenseId}-${line.personId}-${idx}`}
-                          className="flex items-center gap-3 px-4 py-2.5"
-                          style={{
-                            borderTop: idx > 0 ? `1px solid ${isFullySettled ? 'rgba(80,106,70,0.10)' : 'rgba(139,110,78,0.10)'}` : undefined,
-                            background: line.repaid ? 'rgba(80,106,70,0.04)' : 'transparent',
-                          }}
+                          className={`flex items-center gap-3 px-4 py-2.5 ${
+                            idx > 0 ? 'border-t border-[var(--ms-hairline)]' : ''
+                          }`}
                         >
                           <div
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
                             style={{
-                              background: line.repaid ? 'rgba(80,106,70,0.15)' : 'rgba(139,110,78,0.12)',
-                              color: line.repaid ? '#4e6642' : '#5a4838',
+                              background: line.repaid ? 'var(--ms-success-bg)' : 'var(--ms-surface-dim)',
+                              color: line.repaid ? 'var(--ms-success)' : 'var(--ms-text-secondary)',
                             }}
                           >
                             {initial}
                           </div>
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#2c2520]">
+                          <span
+                            className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--ms-text)]"
+                            style={getPersonNameStyle(person)}
+                          >
                             {person?.name ?? t('card.unknown')}
                           </span>
                           {line.repaid ? (
-                            <span className="shrink-0 text-sm font-semibold text-[#4e6642]">{t('summary.paid')}</span>
+                            <span className="shrink-0 text-sm font-bold text-[var(--ms-success)]">{t('summary.paid')}</span>
                           ) : (
-                            <span className="shrink-0 text-sm font-bold text-[#9e4a4a]">
-                              {getCurrencySymbol(row.paidCurrency)}{formatMoney(line.amount)}
+                            <span className="ms-amount shrink-0 text-sm">
+                              <span className="ms-currency">{getCurrencySymbol(row.paidCurrency)}</span>
+                              {formatMoney(line.amount)}
                             </span>
                           )}
                         </div>
@@ -686,10 +743,8 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
       <div className="ms-card-soft">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ms-text-muted)]">
-              {t('settle.statementPreviewLabel')}
-            </p>
-            <h2 className="mt-2 text-2xl font-black text-[var(--ms-text)]">{t('settle.statementTitle')}</h2>
+            <p className="ms-label">{t('settle.statementPreviewLabel')}</p>
+            <h2 className="mt-2 text-2xl font-extrabold text-[var(--ms-text)]">{t('settle.statementTitle')}</h2>
             <p className="mt-1 max-w-2xl text-sm text-[var(--ms-text-secondary)]">{t('settle.statementHelp')}</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
@@ -703,8 +758,8 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
-          <div className="rounded-3xl border border-[var(--ms-border)] bg-[var(--ms-surface)] p-4">
-            <h3 className="text-sm font-black text-[var(--ms-text)]">{t('settle.personalStatement')}</h3>
+          <div className="rounded-2xl bg-[var(--ms-surface-dim)] p-4">
+            <h3 className="text-sm font-extrabold text-[var(--ms-text)]">{t('settle.personalStatement')}</h3>
             <p className="mt-1 text-xs text-[var(--ms-text-muted)]">{myPerson?.name ?? t('settle.chooseIdentity')}</p>
             <div className="mt-4 space-y-2">
               {myOweRows.length === 0 && myOwedRows.length === 0 ? (
@@ -717,7 +772,7 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                 return (
                   <div key={`statement-owe-${row.personId}-${row.currency}`} className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--ms-text-secondary)]">{t('settle.youPay')} {person?.name ?? t('card.unknown')}</span>
-                    <span className="font-black text-[var(--ms-danger)]">{formatAmount(row.currency, row.oweAmount)}</span>
+                    <span className="ms-amount ms-amount-owe">{formatAmount(row.currency, row.oweAmount)}</span>
                   </div>
                 )
               })}
@@ -726,32 +781,32 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                 return (
                   <div key={`statement-owed-${row.personId}-${row.currency}`} className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--ms-text-secondary)]">{person?.name ?? t('card.unknown')} {t('settle.paysYou')}</span>
-                    <span className="font-black text-[var(--ms-success)]">{formatAmount(row.currency, row.owedAmount)}</span>
+                    <span className="ms-amount ms-amount-owed">{formatAmount(row.currency, row.owedAmount)}</span>
                   </div>
                 )
               })}
             </div>
           </div>
 
-          <div className="rounded-3xl border border-[var(--ms-border)] bg-[var(--ms-surface)] p-4">
-            <h3 className="text-sm font-black text-[var(--ms-text)]">{t('settle.groupStatement')}</h3>
+          <div className="rounded-2xl bg-[var(--ms-surface-dim)] p-4">
+            <h3 className="text-sm font-extrabold text-[var(--ms-text)]">{t('settle.groupStatement')}</h3>
             <p className="mt-1 text-xs text-[var(--ms-text-muted)]">
               {group.people.length} {t('groups.people')} · {group.expenses.length} {t('groups.expenses')}
             </p>
             <div className="mt-4 space-y-2">
               {Object.entries(totalSpendByCurrency).length === 0 ? (
-                <p className="text-sm text-[var(--ms-text-muted)]">{t('dash.noRecentExpenses')}</p>
+                <p className="text-sm text-[var(--ms-text-muted)]">{t('settle.noExpensesYet')}</p>
               ) : (
                 Object.entries(totalSpendByCurrency).map(([currency, amount]) => (
                   <div key={currency} className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--ms-text-secondary)]">{t('settle.totalSpend')}</span>
-                    <span className="font-black text-[var(--ms-text)]">{formatAmount(currency, amount)}</span>
+                    <span className="ms-amount">{formatAmount(currency, amount)}</span>
                   </div>
                 ))
               )}
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-[var(--ms-text-secondary)]">{t('settle.openRoutes')}</span>
-                <span className="font-black text-[var(--ms-accent)]">{filteredSettlements.length}</span>
+                <span className="ms-amount text-[var(--ms-accent)]">{filteredSettlements.length}</span>
               </div>
             </div>
           </div>
@@ -775,45 +830,54 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
           </select>
         </div>
 
-        {filteredSettlements.length === 0 ? <p className="text-sm text-[#4a6a4a]">{t('settle.noBalances')}</p> : null}
-        <div className="space-y-2">
+        {filteredSettlements.length === 0 ? (
+          <p className="py-2 text-sm text-[var(--ms-text-secondary)]">{t('settle.noBalances')}</p>
+        ) : null}
+        <div className="space-y-2.5">
           {filteredSettlements.map((settlement) => {
             const debtorPerson = group.people.find((person) => person.id === settlement.debtorId)
             const creditorPerson = group.people.find((person) => person.id === settlement.creditorId)
             const metaKey = `${settlement.debtorId}|${settlement.creditorId}|${settlement.currency}`
             const meta = pairMeta.get(metaKey)
             return (
-              <div key={`${settlement.debtorId}-${settlement.creditorId}-${settlement.currency}`} className="rounded-xl border border-[#d4a8a8] bg-[rgba(158,74,74,0.06)] p-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div
+                key={`${settlement.debtorId}-${settlement.creditorId}-${settlement.currency}`}
+                className="rounded-2xl bg-[var(--ms-surface)] p-4 shadow-[var(--ms-elev-1)]"
+                style={{ borderLeft: '3px solid var(--ms-accent)' }}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-[#2c2520]">
-                      <span style={getPersonNameStyle(debtorPerson)}>{debtorPerson?.name ?? t('card.unknown')}</span>{' '}
+                    <p className="text-sm font-semibold text-[var(--ms-text-secondary)]">
+                      <span className="font-bold text-[var(--ms-text)]" style={getPersonNameStyle(debtorPerson)}>
+                        {debtorPerson?.name ?? t('card.unknown')}
+                      </span>{' '}
                       {t('settle.needsToPay')}{' '}
-                      <span style={getPersonNameStyle(creditorPerson)}>{creditorPerson?.name ?? t('card.unknown')}</span>
+                      <span className="font-bold text-[var(--ms-text)]" style={getPersonNameStyle(creditorPerson)}>
+                        {creditorPerson?.name ?? t('card.unknown')}
+                      </span>
                     </p>
-                    <button
-                      className="mt-1 cursor-pointer text-left text-xs text-[#6b6058] underline-offset-2 hover:text-[#9e4a4a] hover:underline active:opacity-70"
-                      onClick={() => setExpandedPairKey(expandedPairKey === metaKey ? null : metaKey)}
-                      title={t('settle.tapToSeeBreakdown')}
-                    >
-                      {t('settle.across')} {meta?.expenseCount ?? 0} {t('settle.expenseCount')}, {meta?.splitCount ?? 0} {t('settle.splitLines')} ›
-                    </button>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-[rgba(158,74,74,0.12)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9e4a4a]">
-                        {t('settle.netBadge')}
-                      </span>
-                      <span className="text-xl font-bold text-[#9e4a4a]">
-                        {getCurrencySymbol(settlement.currency)}{formatMoney(settlement.amount)}
-                      </span>
+                    <p className="ms-amount mt-1.5 text-2xl">
+                      <span className="ms-currency">{getCurrencySymbol(settlement.currency)}</span>
+                      {formatMoney(settlement.amount)}
+                      <span className="ms-currency ml-1.5">{settlement.currency}</span>
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <button
+                        className="cursor-pointer text-left text-xs text-[var(--ms-text-muted)] underline-offset-2 hover:text-[var(--ms-accent)] hover:underline active:opacity-70"
+                        onClick={() => setExpandedPairKey(expandedPairKey === metaKey ? null : metaKey)}
+                        title={t('settle.tapToSeeBreakdown')}
+                      >
+                        {t('settle.across')} {meta?.expenseCount ?? 0} {t('settle.expenseCount')}, {meta?.splitCount ?? 0} {t('settle.splitLines')} ›
+                      </button>
                       {settlement.contraAmount > 0.001 ? (
-                        <span className="text-sm font-medium text-[#8b6e4e]">
+                        <span className="text-xs font-semibold text-[var(--ms-info)]">
                           ({t('settle.contraBadge')} {getCurrencySymbol(settlement.currency)}{formatMoney(settlement.contraAmount)})
                         </span>
                       ) : null}
                     </div>
                   </div>
                   <button
-                    className="ms-btn-ghost min-h-11 px-3 py-2 text-xs font-medium text-[#8a3a3a]"
+                    className="ms-btn-primary min-h-11 shrink-0 px-4 text-xs"
                     disabled={!canSettle}
                     onClick={() => openQuickSettle(settlement.debtorId, settlement.creditorId, settlement.currency, settlement.amount)}
                   >
@@ -832,11 +896,11 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
           const creditorPerson = group.people.find((p) => p.id === cId)
           const total = expandedPairMeta.items.reduce((sum, item) => sum + item.splitAmount, 0)
           return (
-            <div className="mt-2 rounded-xl border border-[#d4a8a8] bg-[rgba(158,74,74,0.04)] p-3 transition-all">
-              <div className="mb-2 flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-[#2c2520]">{t('settle.breakdownTitle')}</p>
-                  <p className="text-xs text-[#6b6058]">
+            <div className="mt-2.5 rounded-2xl bg-[var(--ms-surface-dim)] p-4">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[var(--ms-text)]">{t('settle.breakdownTitle')}</p>
+                  <p className="mt-0.5 text-xs text-[var(--ms-text-secondary)]">
                     <span style={getPersonNameStyle(debtorPerson)}>{debtorPerson?.name ?? '?'}</span>{' '}
                     {t('settle.breakdownOwes')}{' '}
                     <span style={getPersonNameStyle(creditorPerson)}>{creditorPerson?.name ?? '?'}</span>
@@ -844,98 +908,124 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                   </p>
                 </div>
                 <button
-                  className="shrink-0 rounded-full p-1 text-[#9e4a4a] hover:bg-[rgba(158,74,74,0.1)]"
+                  className="shrink-0 rounded-full p-1.5 text-[var(--ms-text-muted)] hover:bg-[var(--ms-surface)] hover:text-[var(--ms-text)]"
                   onClick={() => setExpandedPairKey(null)}
                   aria-label="Close"
                 >
                   ✕
                 </button>
               </div>
-              <div className="space-y-1.5">
-                {expandedPairMeta.items.map((item) => (
-                  <div key={item.expenseId} className="flex items-center justify-between gap-2 rounded-lg bg-white/60 px-2.5 py-1.5">
+              <div className="overflow-hidden rounded-xl bg-[var(--ms-surface)]">
+                {expandedPairMeta.items.map((item, index) => (
+                  <div
+                    key={item.expenseId}
+                    className={`flex items-center justify-between gap-2 px-3 py-2.5 ${
+                      index > 0 ? 'border-t border-[var(--ms-hairline)]' : ''
+                    }`}
+                  >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-[#2c2520]">{item.description}</p>
-                      <p className="text-[10px] text-[#8b7d72]">{item.date}</p>
+                      <p className="truncate text-xs font-semibold text-[var(--ms-text)]">{item.description}</p>
+                      <p className="text-[10px] text-[var(--ms-text-muted)]">{item.date}</p>
                     </div>
-                    <p className="shrink-0 text-xs font-semibold text-[#9e4a4a]">
-                      {getCurrencySymbol(item.paidCurrency)}{formatMoney(item.splitAmount)}
+                    <p className="ms-amount shrink-0 text-xs">
+                      <span className="ms-currency">{getCurrencySymbol(item.paidCurrency)}</span>
+                      {formatMoney(item.splitAmount)}
                     </p>
                   </div>
                 ))}
               </div>
-              <div className="mt-2 flex items-center justify-between border-t border-[#d4a8a8]/40 pt-2">
-                <p className="text-xs font-semibold text-[#2c2520]">Total outstanding</p>
-                <p className="text-sm font-bold text-[#9e4a4a]">{getCurrencySymbol(curr)}{formatMoney(total)}</p>
+              <div className="mt-3 flex items-center justify-between">
+                <p className="ms-label">{t('settle.outstandingTotals')}</p>
+                <p className="ms-amount text-base">
+                  <span className="ms-currency">{getCurrencySymbol(curr)}</span>
+                  {formatMoney(total)}
+                </p>
               </div>
             </div>
           )
         })()}
 
-        <div className="mt-3 rounded-xl border border-[#e6e0d5] bg-[#faf8f4] p-3">
-          <h3 className="mb-2 text-sm font-semibold text-[#2c2520]">{t('settle.totalSummary')}</h3>
+        <div className="mt-3 rounded-2xl bg-[var(--ms-surface-dim)] p-4">
+          <h3 className="mb-2.5 text-sm font-bold text-[var(--ms-text)]">{t('settle.totalSummary')}</h3>
           {summary.mode === 'generic' ? (
             <div className="space-y-1">
-              <p className="text-xs text-[#6b6058]">{t('settle.outstandingTotals')}</p>
+              <p className="ms-label">{t('settle.outstandingTotals')}</p>
               {Object.entries(summary.totalByCurrency).map(([currency, amount]) => (
-                <p key={currency} className="text-sm font-semibold text-[#9e4a4a]">
-                  {getCurrencySymbol(currency)}{formatMoney(amount)} {currency}
+                <p key={currency} className="ms-amount text-base">
+                  <span className="ms-currency">{getCurrencySymbol(currency)}</span>
+                  {formatMoney(amount)}
+                  <span className="ms-currency ml-1.5">{currency}</span>
                 </p>
               ))}
-              {Object.keys(summary.totalByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noOutstanding')}</p> : null}
+              {Object.keys(summary.totalByCurrency).length === 0 ? (
+                <p className="text-sm text-[var(--ms-text-secondary)]">{t('settle.noOutstanding')}</p>
+              ) : null}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('settle.overallOutstanding')}</p>
-                <p className="text-xs text-[#6b6058]">
+                <p className="ms-label">{t('settle.overallOutstanding')}</p>
+                <p className="mt-0.5 text-xs text-[var(--ms-text-secondary)]">
                   <span style={getPersonNameStyle(group.people.find((person) => person.id === debtorFilterId))}>{selectedDebtorName}</span>{' '}
                   {t('settle.owes')}{' '}
                   <span style={getPersonNameStyle(group.people.find((person) => person.id === payerFilterId))}>{selectedPayerName}</span>{' '}
                   {t('settle.beforeContra')}
                 </p>
                 {Object.entries(summary.directByCurrency).map(([currency, amount]) => (
-                  <p key={currency} className="mt-1 text-sm font-semibold text-[#9e4a4a]">
-                    {getCurrencySymbol(currency)}{formatMoney(amount)} {currency}
+                  <p key={currency} className="ms-amount mt-1 text-base">
+                    <span className="ms-currency">{getCurrencySymbol(currency)}</span>
+                    {formatMoney(amount)}
+                    <span className="ms-currency ml-1.5">{currency}</span>
                   </p>
                 ))}
-                {Object.keys(summary.directByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noDirectDebt')}</p> : null}
+                {Object.keys(summary.directByCurrency).length === 0 ? (
+                  <p className="text-sm text-[var(--ms-text-secondary)]">{t('settle.noDirectDebt')}</p>
+                ) : null}
               </div>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('settle.contra')}</p>
-                <p className="text-xs text-[#6b6058]">
+                <p className="ms-label">{t('settle.contra')}</p>
+                <p className="mt-0.5 text-xs text-[var(--ms-text-secondary)]">
                   <span style={getPersonNameStyle(group.people.find((person) => person.id === payerFilterId))}>{selectedPayerName}</span>{' '}
                   {t('settle.owes')}{' '}
                   <span style={getPersonNameStyle(group.people.find((person) => person.id === debtorFilterId))}>{selectedDebtorName}</span>{' '}
                   {t('settle.canOffset')}
                 </p>
                 {Object.entries(summary.contraByCurrency).map(([currency, amount]) => (
-                  <p key={currency} className="mt-1 text-sm font-semibold text-[#8b6e4e]">
-                    {getCurrencySymbol(currency)}{formatMoney(amount)} {currency}
+                  <p key={currency} className="ms-amount mt-1 text-base text-[var(--ms-info)]">
+                    <span className="ms-currency">{getCurrencySymbol(currency)}</span>
+                    {formatMoney(amount)}
+                    <span className="ms-currency ml-1.5">{currency}</span>
                   </p>
                 ))}
-                {Object.keys(summary.contraByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noContra')}</p> : null}
+                {Object.keys(summary.contraByCurrency).length === 0 ? (
+                  <p className="text-sm text-[var(--ms-text-secondary)]">{t('settle.noContra')}</p>
+                ) : null}
               </div>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('settle.netAfterContra')}</p>
+                <p className="ms-label">{t('settle.netAfterContra')}</p>
                 {Object.entries(summary.netAfterContraByCurrency).map(([currency, amountAfterContra]) => {
                   if (Math.abs(amountAfterContra) < 0.0001) {
                     return (
-                      <p key={currency} className="mt-1 text-sm font-semibold text-[#6b6058]">
+                      <p key={currency} className="mt-1 text-sm font-semibold text-[var(--ms-text-secondary)]">
                         {selectedDebtorName} and {selectedPayerName} {t('settle.settledIn')} {currency} {t('settle.afterContra')}
                       </p>
                     )
                   }
                   if (amountAfterContra < 0) {
                     return (
-                      <div key={currency} className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm font-semibold text-[#8a3a3a]">
-                          {getCurrencySymbol(currency)}{formatMoney(Math.abs(amountAfterContra))} {currency} · {selectedDebtorName} {t('settle.stillPay')} {selectedPayerName}.
+                      <div key={currency} className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-semibold text-[var(--ms-text-secondary)]">
+                          <span className="ms-amount ms-amount-owe text-base">
+                            <span className="ms-currency">{getCurrencySymbol(currency)}</span>
+                            {formatMoney(Math.abs(amountAfterContra))}
+                            <span className="ms-currency ml-1.5">{currency}</span>
+                          </span>
+                          {' · '}{selectedDebtorName} {t('settle.stillPay')} {selectedPayerName}.
                         </p>
                         <button
-                          className="ms-btn-primary px-3 py-1 text-xs font-semibold"
+                          className="ms-btn-primary shrink-0 px-3 py-1.5 text-xs"
                           disabled={!canSettle}
                           onClick={() => openQuickSettle(debtorFilterId, payerFilterId, currency, Math.abs(amountAfterContra))}
                         >
@@ -945,12 +1035,14 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                     )
                   }
                   return (
-                    <p key={currency} className="mt-1 text-sm font-semibold text-[#4a6a4a]">
+                    <p key={currency} className="mt-1 text-sm font-semibold text-[var(--ms-success)]">
                       {getCurrencySymbol(currency)}{formatMoney(Math.abs(amountAfterContra))} {currency} · {selectedDebtorName} {t('settle.noNeedPay')} {selectedPayerName} {t('settle.stillOwes')} {selectedDebtorName} {t('settle.afterContra')}
                     </p>
                   )
                 })}
-                {Object.keys(summary.netAfterContraByCurrency).length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noNet')}</p> : null}
+                {Object.keys(summary.netAfterContraByCurrency).length === 0 ? (
+                  <p className="text-sm text-[var(--ms-text-secondary)]">{t('settle.noNet')}</p>
+                ) : null}
               </div>
             </div>
           )}
@@ -959,47 +1051,58 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
 
       <div className="ms-card-soft">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="ms-title" style={{ color: '#4a6a4a' }}>{t('settle.historyTitle')}</h3>
+          <h3 className="ms-title">{t('settle.historyTitle')}</h3>
         </div>
-        <div className="space-y-2">
-          {paymentHistory.length === 0 ? <p className="text-sm text-[#6b6058]">{t('settle.noRepaid')}</p> : null}
+        <div className="space-y-2.5">
+          {paymentHistory.length === 0 ? (
+            <p className="text-sm text-[var(--ms-text-secondary)]">{t('settle.noRepaid')}</p>
+          ) : null}
           {paymentHistory.map((summaryRow) => {
             const debtor = group.people.find((person) => person.id === summaryRow.payment.debtorId)
             const creditorNames = summaryRow.payment.allocations.map((allocation) => personNameById[allocation.creditorId] ?? t('card.unknown'))
             return (
-              <div key={summaryRow.payment.id} className="rounded-xl border border-[#a8c4a8] bg-[rgba(90,122,90,0.06)] p-3">
+              <div
+                key={summaryRow.payment.id}
+                className="rounded-2xl bg-[var(--ms-surface)] p-4 shadow-[var(--ms-elev-1)]"
+                style={{ borderLeft: '3px solid var(--ms-success)' }}
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[#2c2520]">
-                      <span style={getPersonNameStyle(debtor)}>{debtor?.name ?? t('card.unknown')}</span> →{' '}
-                      <span>{creditorNames.length === 1 ? creditorNames[0] : `${creditorNames.length} ${t('settle.creditorsLabel')}`}</span>
+                    <p className="text-sm font-semibold text-[var(--ms-text-secondary)]">
+                      <span className="font-bold text-[var(--ms-text)]" style={getPersonNameStyle(debtor)}>
+                        {debtor?.name ?? t('card.unknown')}
+                      </span> →{' '}
+                      <span className="font-bold text-[var(--ms-text)]">
+                        {creditorNames.length === 1 ? creditorNames[0] : `${creditorNames.length} ${t('settle.creditorsLabel')}`}
+                      </span>
                     </p>
-                    <p className="text-base font-bold text-[#4a6a4a]">
-                      {getCurrencySymbol(summaryRow.payment.repayCurrency)}{formatMoney(summaryRow.payment.repayAmount)}
+                    <p className="ms-amount ms-amount-owed mt-1 text-xl">
+                      <span className="ms-currency">{getCurrencySymbol(summaryRow.payment.repayCurrency)}</span>
+                      {formatMoney(summaryRow.payment.repayAmount)}
                     </p>
-                    <p className="text-xs text-[#6b6058]">
+                    <p className="mt-0.5 text-xs text-[var(--ms-text-muted)]">
                       {t('settle.repaidOn')} {summaryRow.payment.paymentDate}
                     </p>
                     <div className="mt-2 space-y-1">
                       {summaryRow.allocations.map((allocation) => (
-                        <p key={`${summaryRow.payment.id}-${allocation.creditorId}`} className="text-xs text-[#4f463f]">
+                        <p key={`${summaryRow.payment.id}-${allocation.creditorId}`} className="text-xs text-[var(--ms-text-secondary)]">
                           {personNameById[allocation.creditorId] ?? t('card.unknown')}: {getCurrencySymbol(summaryRow.payment.currency)}{formatMoney(allocation.amount)}
                           {summaryRow.payment.currency !== summaryRow.payment.repayCurrency ? ` ${summaryRow.payment.currency}` : ''}
                         </p>
                       ))}
                     </div>
                     {summaryRow.unappliedAmount > 0.001 ? (
-                      <p className="mt-2 text-xs font-semibold text-[#9e4a4a]">
+                      <p className="mt-2 text-xs font-bold text-[var(--ms-danger)]">
                         {t('settle.unappliedWarning')} {getCurrencySymbol(summaryRow.payment.currency)}{formatMoney(summaryRow.unappliedAmount)}
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex shrink-0 gap-2">
                     <button className="ms-btn-ghost px-3 py-2 text-xs" disabled={!canSettle} onClick={() => startEditPayment(summaryRow)}>
                       {t('group.edit')}
                     </button>
                     <button
-                      className="ms-btn-ghost border-[#c49898] px-3 py-2 text-xs text-[#9e4a4a]"
+                      className="ms-btn-ghost px-3 py-2 text-xs text-[var(--ms-danger)]"
                       disabled={!canSettle}
                       onClick={() => {
                         if (!window.confirm(t('settle.undoPaymentConfirm'))) return
@@ -1020,15 +1123,18 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
       <div className="ms-card-soft">
         <button
           className="flex w-full items-center justify-between gap-3"
-          onClick={() => setBackupsOpen((v) => !v)}
+          onClick={() => {
+            if (!backupsOpen) setBackups(getGroupBackups(group.id))
+            setBackupsOpen((v) => !v)
+          }}
         >
           <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6058" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--ms-text-secondary)]">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>
             </svg>
-            <span className="text-sm font-semibold text-[#6b6058]">{t('backup.title')}</span>
+            <span className="text-sm font-bold text-[var(--ms-text-secondary)]">{t('backup.title')}</span>
           </div>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: backupsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--ms-text-muted)]" style={{ transform: backupsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }}>
             <polyline points="6 9 12 15 18 9"/>
           </svg>
         </button>
@@ -1036,7 +1142,7 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
         {backupsOpen && (
           <div className="mt-3 space-y-2">
             {backups.length === 0 ? (
-              <p className="text-sm text-[#9a9088]">{t('backup.noBackups')}</p>
+              <p className="text-sm text-[var(--ms-text-muted)]">{t('backup.noBackups')}</p>
             ) : (
               backups.slice(0, 10).map((backup) => {
                 const triggerLabel = {
@@ -1046,13 +1152,13 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                   manual: t('backup.triggerManual'),
                 }[backup.trigger] ?? backup.trigger
                 return (
-                  <div key={backup.id} className="flex items-center gap-3 rounded-xl border border-[var(--ms-border,#e6e0d5)] bg-[var(--ms-surface,#faf8f4)] px-3 py-2.5">
+                  <div key={backup.id} className="flex items-center gap-3 rounded-2xl bg-[var(--ms-surface-dim)] px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-[#2c2520]">{relativeTime(backup.savedAt, lang)}</p>
-                      <p className="text-xs text-[#9a9088]">{triggerLabel}</p>
+                      <p className="text-sm font-bold text-[var(--ms-text)]">{relativeTime(backup.savedAt, lang)}</p>
+                      <p className="text-xs text-[var(--ms-text-muted)]">{triggerLabel}</p>
                     </div>
                     <button
-                      className="shrink-0 rounded-lg border border-[#c49898] px-3 py-1.5 text-xs font-semibold text-[#9e4a4a] transition-colors hover:bg-[rgba(158,74,74,0.08)] active:opacity-70"
+                      className="ms-btn-ghost shrink-0 px-3 py-1.5 text-xs text-[var(--ms-danger)]"
                       onClick={() => handleRestore(backup)}
                     >
                       {t('backup.restore')}
@@ -1061,21 +1167,25 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                 )
               })
             )}
-            <p className="pt-1 text-[11px] text-[#9a9088]">{t('backup.deviceOnly')}</p>
+            <p className="pt-1 text-[11px] text-[var(--ms-text-muted)]">{t('backup.deviceOnly')}</p>
           </div>
         )}
       </div>
 
       {quickSettle.open && canSettle ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/40 p-3 lg:items-center">
-          <div className="w-full max-w-md rounded-3xl bg-[#faf8f4] p-5 shadow-xl">
-            <h3 className="text-2xl font-semibold text-[#2c2520]">{t('settle.repayModal')}</h3>
-            <p className="mt-3 text-base leading-8 text-[#3a3330]">{t('settle.repayDesc')}</p>
-            <p className="mt-4 text-lg font-semibold text-[#8a3a3a]">
-              {getCurrencySymbol(quickSettle.currency)}{formatMoney(quickSettle.amount)} {quickSettle.currency}
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(31,27,24,0.45)] p-3 lg:items-center">
+          <div className="w-full max-w-md rounded-3xl bg-[var(--ms-surface)] p-6 shadow-[var(--ms-elev-3)]">
+            <p className="ms-label">{t('settle.repayModal')}</p>
+            <p className="ms-amount-hero mt-2">
+              <span className="ms-currency">{getCurrencySymbol(quickSettle.currency)}</span>
+              {formatMoney(quickSettle.amount)}
+              <span className="ms-currency ml-1.5">{quickSettle.currency}</span>
             </p>
-            <div className="mt-4 flex items-center gap-3">
-              <label htmlFor="quick-settle-date" className="text-sm text-[#3a3330]">{t('settle.repaidOn')}</label>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--ms-text-secondary)]">{t('settle.repayDesc')}</p>
+            <div className="mt-5 flex items-center gap-3">
+              <label htmlFor="quick-settle-date" className="text-sm font-semibold text-[var(--ms-text-secondary)]">
+                {t('settle.repaidOn')}
+              </label>
               <input
                 id="quick-settle-date"
                 type="date"
@@ -1084,12 +1194,12 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                 onChange={(e) => setQuickSettle((prev) => ({ ...prev, paymentDate: e.target.value }))}
               />
             </div>
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-              <button className="rounded-2xl bg-[#8b6e4e] px-6 py-3 text-lg font-semibold text-white" onClick={confirmQuickSettle}>
+            <div className="mt-6 flex gap-2">
+              <button className="ms-btn-primary flex-1 py-3 text-base" onClick={confirmQuickSettle}>
                 {t('settle.confirm')}
               </button>
               <button
-                className="rounded-2xl border border-[#e6e0d5] bg-[#faf8f4] px-6 py-3 text-lg font-medium text-[#3a3330]"
+                className="ms-btn-ghost flex-1 py-3 text-base"
                 onClick={() => setQuickSettle({ open: false, debtorId: '', creditorId: '', currency: '', amount: 0, paymentDate: todayISO() })}
               >
                 {t('expense.cancel')}
@@ -1100,11 +1210,11 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
       ) : null}
 
       {editPayment ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2c2520]/40 p-3 lg:items-center">
-          <div className="w-full max-w-lg rounded-3xl bg-[#faf8f4] p-5 shadow-xl">
-            <h3 className="text-xl font-semibold text-[#2c2520]">{t('settle.editPaymentTitle')}</h3>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(31,27,24,0.45)] p-3 lg:items-center">
+          <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-[var(--ms-surface)] p-6 shadow-[var(--ms-elev-3)]">
+            <h3 className="ms-title">{t('settle.editPaymentTitle')}</h3>
             <div className="mt-4 space-y-3">
-              <label className="block text-sm text-[#3a3330]">
+              <label className="block text-sm font-semibold text-[var(--ms-text-secondary)]">
                 {t('settle.repaidOn')}
                 <input
                   type="date"
@@ -1113,7 +1223,7 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
                   onChange={(e) => setEditPayment((prev) => (prev ? { ...prev, paymentDate: e.target.value } : prev))}
                 />
               </label>
-              <label className="block text-sm text-[#3a3330]">
+              <label className="block text-sm font-semibold text-[var(--ms-text-secondary)]">
                 {t('settle.paymentAmount')}
                 <input
                   className="ms-input mt-1 w-full"
@@ -1125,13 +1235,13 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
               </label>
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6058]">{t('settle.paymentAllocations')}</p>
-                  <button className="text-xs font-medium text-[#6b6058] underline underline-offset-2" onClick={adjustEditedPaymentByCurrentDebt}>
+                  <p className="ms-label">{t('settle.paymentAllocations')}</p>
+                  <button className="text-xs font-semibold text-[var(--ms-accent)] underline underline-offset-2" onClick={adjustEditedPaymentByCurrentDebt}>
                     {t('settle.adjustedByCurrentDebt')}
                   </button>
                 </div>
                 {Object.entries(editPayment.allocations).map(([creditorId, amount]) => (
-                  <label key={creditorId} className="block text-sm text-[#3a3330]">
+                  <label key={creditorId} className="block text-sm font-semibold text-[var(--ms-text-secondary)]">
                     {personNameById[creditorId] ?? t('card.unknown')}
                     <input
                       className="ms-input mt-1 w-full"
@@ -1165,5 +1275,116 @@ export default function SettleTab({ group, canSettle = true, authUserId }: Props
         </div>
       ) : null}
     </section>
+  )
+}
+
+type PersonAmountRowProps = {
+  name: string
+  nameStyle?: CSSProperties
+  caption: string
+  currency: string
+  amount: number
+  tone: 'owe' | 'owed'
+  onClick?: () => void
+  /**
+   * The counterparty's bank details, shown inline because copying an account
+   * number and recording a payment are two separate errands — putting the
+   * details behind the record-payment sheet would block the first one.
+   */
+  paymentInfo?: PaymentInfo | null
+}
+
+/** One counterparty line. Separated by a hairline rather than its own box. */
+function PersonAmountRow({ name, nameStyle, caption, currency, amount, tone, onClick, paymentInfo }: PersonAmountRowProps) {
+  const t = useT()
+  const isOwe = tone === 'owe'
+  const [copied, setCopied] = useState(false)
+  const accountNumber = paymentInfo?.accountNumber?.trim() ?? ''
+  const bankName = paymentInfo?.bankName?.trim() ?? ''
+  const accountHolder = paymentInfo?.accountHolder?.trim() ?? ''
+  const hasPayTo = isOwe && (accountNumber || bankName)
+
+  const copyAccount = async () => {
+    if (!accountNumber) return
+    try {
+      await navigator.clipboard.writeText(accountNumber)
+    } catch {
+      window.prompt(t('pay.accountNumber'), accountNumber)
+      return
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1600)
+  }
+
+  const body = (
+    <>
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+        style={{
+          background: isOwe ? 'var(--ms-danger-bg)' : 'var(--ms-success-bg)',
+          color: isOwe ? 'var(--ms-danger)' : 'var(--ms-success)',
+        }}
+      >
+        {name.slice(0, 1).toUpperCase()}
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-sm font-bold text-[var(--ms-text)]" style={nameStyle}>
+          {name}
+        </span>
+        <span className="block truncate text-xs text-[var(--ms-text-muted)]">{caption}</span>
+      </span>
+      <span className={`ms-amount shrink-0 text-base ${isOwe ? 'ms-amount-owe' : 'ms-amount-owed'}`}>
+        <span className="ms-currency">{getCurrencySymbol(currency)}</span>
+        {formatMoney(amount)}
+      </span>
+      {onClick ? (
+        <svg
+          className="shrink-0 text-[var(--ms-text-muted)]"
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        >
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      ) : null}
+    </>
+  )
+
+  return (
+    <div className="border-b border-[var(--ms-hairline)] last:border-b-0">
+      {onClick ? (
+        <button className="flex w-full items-center gap-3 py-3 active:opacity-60" onClick={onClick}>
+          {body}
+        </button>
+      ) : (
+        <div className="flex items-center gap-3 py-3">{body}</div>
+      )}
+
+      {hasPayTo ? (
+        <div className="mb-3 ml-12 flex items-center gap-2 rounded-[var(--ms-radius-row)] bg-[var(--ms-surface-dim)] px-3 py-2">
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-xs font-semibold text-[var(--ms-text-secondary)]">
+              {bankName || t('pay.details')}
+              {accountNumber ? ` · ${accountNumber}` : ''}
+            </span>
+            {accountHolder ? (
+              <span className="block truncate text-[11px] text-[var(--ms-text-muted)]">{accountHolder}</span>
+            ) : null}
+          </span>
+          {accountNumber ? (
+            <button
+              className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold text-[var(--ms-accent)] active:opacity-60"
+              onClick={copyAccount}
+            >
+              {copied ? t('pay.copied') : t('pay.copy')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   )
 }

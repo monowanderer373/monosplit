@@ -25,7 +25,6 @@ function buildGroup(overrides: Partial<Group> = {}): Group {
     people: [buildPerson({ id: 'voo' }), buildPerson({ id: 'soon', name: 'Soon' })],
     expenses: [],
     settlementPayments: [],
-    comments: [],
     createdAt: '2026-04-23T00:00:00.000Z',
     ...overrides,
   }

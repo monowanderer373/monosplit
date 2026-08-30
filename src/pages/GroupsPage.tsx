@@ -27,18 +27,20 @@ export default function GroupsPage() {
   const sortedGroups = useMemo(() => {
     // While auth is resolving, show nothing to avoid flash of wrong state
     if (authLoading) return []
-    // Not logged in → show no groups (groups are private to their owner)
-    if (!authUser) return []
-    // Logged in → show only groups I own, groups I'm a member of, or unowned local groups
     return [...groups]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .filter(
-        (g) =>
+      .filter((g) => {
+        // Guest: only trips nobody has claimed. These live on this device, so
+        // hiding them would strand a trip the user just created.
+        if (!authUser) return !g.ownerId
+        // Signed in: trips I own, was invited to, or that are still unclaimed.
+        return (
           !g.ownerId ||
           g.ownerId === authUser.id ||
           g.people.some((p) => p.authUserId === authUser.id) ||
-          memberships.some((membership) => membership.groupId === g.id && membership.userId === authUser.id),
-      )
+          memberships.some((membership) => membership.groupId === g.id && membership.userId === authUser.id)
+        )
+      })
       .filter((g) => !g.deletedAt)
       .filter((g) => !hiddenDeletedGroupIds.includes(g.id))
   }, [groups, authUser, authLoading, hiddenDeletedGroupIds, memberships])
@@ -47,7 +49,8 @@ export default function GroupsPage() {
 
   // Delete (owner) or Leave (member) a group
   const handleRemoveGroup = async (group: Group) => {
-    const isOwner = !!authUser && group.ownerId === authUser.id
+    // A guest owns whatever nobody has claimed, matching getGroupRole().
+    const isOwner = authUser ? group.ownerId === authUser.id : !group.ownerId
     if (isOwner && authUser) {
       const transferableMembers = group.people.filter((person) => person.authUserId && person.authUserId !== authUser.id)
       if (transferableMembers.length > 0) {
@@ -270,19 +273,8 @@ export default function GroupsPage() {
             <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#9a9088] border-t-transparent" />
             {t('app.loading')}
           </div>
-        ) : !authUser ? (
-          /* Not logged in — groups are private, prompt sign in */
-          <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-6 text-center lg:col-span-2 2xl:col-span-3">
-            <p className="mb-3 text-sm text-[#6b6058]">{t('groups.signInToSeeGroups')}</p>
-            <button
-              className="ms-btn-primary text-sm"
-              onClick={() => navigate('/login')}
-            >
-              {t('auth.signIn')}
-            </button>
-          </div>
         ) : sortedGroups.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#faf8f4]/80 p-6 text-center text-sm text-[#6b6058] lg:col-span-2 2xl:col-span-3">
+          <div className="rounded-2xl border border-dashed border-[var(--ms-border)] bg-[var(--ms-surface)] p-6 text-center text-sm text-[var(--ms-text-secondary)] lg:col-span-2 2xl:col-span-3">
             {t('groups.empty')}
           </div>
         ) : null}
@@ -311,7 +303,7 @@ export default function GroupsPage() {
                   void handleRemoveGroup(group)
                 }}
               >
-                {authUser && group.ownerId === authUser.id ? t('groups.delete') : t('groups.leave')}
+                {(authUser ? group.ownerId === authUser.id : !group.ownerId) ? t('groups.delete') : t('groups.leave')}
               </button>
             </div>
           </article>

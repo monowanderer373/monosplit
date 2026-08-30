@@ -60,7 +60,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(supabaseEnabled)
   const [memberships, setMemberships] = useState<GroupMembership[]>([])
   const upsertGroup = useStore((s) => s.upsertGroup)
 
@@ -199,7 +199,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supabase || !supabaseEnabled) {
-      setLoading(false)
       return
     }
 

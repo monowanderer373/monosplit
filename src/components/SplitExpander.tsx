@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { formatMoney } from '../lib/format'
 import { getCurrencySymbol } from '../lib/currency'
 import { getPersonNameStyle } from '../lib/personTheme'
@@ -118,12 +118,15 @@ export default function SplitExpander({
   const set = (patch: Partial<SplitSheetState>) =>
     onChange({ ...state, ...patch })
 
-  const switchMode = (mode: SplitMode) =>
+  const switchMode = (mode: SplitMode) => {
+    setOpenReceiptItemId(mode === 'receipt' ? state.receiptItems[0]?.id ?? null : null)
+    setPeoplePickerItemId(null)
     set({
       splitMode: mode,
       splitPersonIds:
         mode === 'equal' ? state.splitPersonIds : group.people.map((p) => p.id),
     })
+  }
 
   const togglePerson = (id: string) =>
     set({
@@ -145,22 +148,6 @@ export default function SplitExpander({
       debtorIds: has ? item.debtorIds.filter((id) => id !== personId) : [...item.debtorIds, personId],
     })
   }
-
-  useEffect(() => {
-    if (state.splitMode !== 'receipt') {
-      setOpenReceiptItemId(null)
-      setPeoplePickerItemId(null)
-      return
-    }
-
-    const firstItemId = state.receiptItems[0]?.id ?? null
-    setOpenReceiptItemId((prev) =>
-      prev && state.receiptItems.some((item) => item.id === prev) ? prev : firstItemId,
-    )
-    setPeoplePickerItemId((prev) =>
-      prev && state.receiptItems.some((item) => item.id === prev) ? prev : null,
-    )
-  }, [state.receiptItems, state.splitMode])
 
   // ── Footer summary ──────────────────────────────────────────────────────────
   const footer = (() => {

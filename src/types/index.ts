@@ -115,7 +115,6 @@ export interface Group {
   people: Person[]
   expenses: Expense[]
   settlementPayments: SettlementPayment[]
-  comments: GroupComment[]
   createdAt: string
   ownerId?: string
   deletedAt?: string | null
@@ -136,13 +135,6 @@ export interface GroupInviteLink {
   active: boolean
   createdAt: string
   expiresAt?: string | null
-}
-
-export interface GroupComment {
-  id: string
-  personId: string
-  message: string
-  createdAt: string
 }
 
 export interface Settlement {

@@ -14,23 +14,36 @@ import {
   getSplitOutstandingAmountFromSnapshot,
 } from '../lib/settlementLedger'
 import { recordPayment } from '../lib/settlementCommands'
+import { getMyPerson } from '../lib/permissions'
+import { generateId } from '../lib/id'
 
-// FAB position — must match .ms-fab in index.css
-const FAB_W = 54
-const FAB_H = 54
-const FAB_RIGHT = 24
-const FAB_BOTTOM = 88
-
-type Phase = 'closed' | 'placed' | 'flying' | 'expanding' | 'revealing' | 'open' | 'closing'
+type Phase = 'closed' | 'opening' | 'open' | 'closing'
 
 function round4(value: number): number {
   return Number(value.toFixed(4))
+}
+
+/**
+ * Who is paying whom, when the sheet is opened from a row that already knows.
+ * Carries the debtor explicitly so a row can also record "they paid me".
+ */
+export type SettlePayPrefill = {
+  debtorId: string
+  creditorId: string
+  currency: string
 }
 
 type Props = {
   isOpen: boolean
   group: Group
   authUserId?: string
+  /** Resolved "me" from the workspace — set for guests too, not just signed-in users. */
+  myPersonId?: string | null
+  /**
+   * Skips the counterparty picker and lands directly on the amount step. Left
+   * null when the sheet is opened as a general "record a payment" action.
+   */
+  prefill?: SettlePayPrefill | null
   onClose: () => void
 }
 
@@ -298,7 +311,8 @@ function RecordPaymentView({
   const [creditorEnabled, setCreditorEnabled] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return
+    const timer = window.setTimeout(() => {
       // Enable only presetCreditorIds if given, else enable all
       const enabledMap: Record<string, boolean> = {}
       counterpartyBalances.forEach((row) => {
@@ -316,7 +330,8 @@ function RecordPaymentView({
       setEditingAmount(false)
       setPaymentDate(new Date().toISOString().slice(0, 10))
       setAllocationsDirty(false)
-    }
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [isOpen, totalOwedConverted, counterpartyBalances, presetCreditorIds, canConvert, parsedRate])
 
   useEffect(() => {
@@ -325,22 +340,25 @@ function RecordPaymentView({
 
   useEffect(() => {
     if (!isOpen || allocationsDirty) return
-    const enteredDisplayAmount = parseFloat(amountInput) || 0
-    const debtBudget = canConvert && parsedRate ? enteredDisplayAmount / parsedRate : enteredDisplayAmount
-    const activeBalances = counterpartyBalances.filter((row) => creditorEnabled[row.creditorId] !== false)
-    const nextAllocations = autoAllocateSettlement(
-      activeBalances.map((row) => ({ creditorId: row.creditorId, amount: row.netAmount })),
-      debtBudget,
-    )
-    const nextMap: Record<string, string> = {}
-    nextAllocations.forEach((allocation) => {
-      nextMap[allocation.creditorId] = allocation.amount > 0 ? String(allocation.amount) : ''
-    })
-    // Zero out disabled creditors
-    counterpartyBalances.forEach((row) => {
-      if (creditorEnabled[row.creditorId] === false) nextMap[row.creditorId] = ''
-    })
-    setAllocations(nextMap)
+    const timer = window.setTimeout(() => {
+      const enteredDisplayAmount = parseFloat(amountInput) || 0
+      const debtBudget = canConvert && parsedRate ? enteredDisplayAmount / parsedRate : enteredDisplayAmount
+      const activeBalances = counterpartyBalances.filter((row) => creditorEnabled[row.creditorId] !== false)
+      const nextAllocations = autoAllocateSettlement(
+        activeBalances.map((row) => ({ creditorId: row.creditorId, amount: row.netAmount })),
+        debtBudget,
+      )
+      const nextMap: Record<string, string> = {}
+      nextAllocations.forEach((allocation) => {
+        nextMap[allocation.creditorId] = allocation.amount > 0 ? String(allocation.amount) : ''
+      })
+      // Zero out disabled creditors
+      counterpartyBalances.forEach((row) => {
+        if (creditorEnabled[row.creditorId] === false) nextMap[row.creditorId] = ''
+      })
+      setAllocations(nextMap)
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [allocationsDirty, amountInput, canConvert, counterpartyBalances, creditorEnabled, isOpen, parsedRate])
 
   const budgetRaw = canConvert && parsedRate ? (parseFloat(amountInput) || 0) / parsedRate : parseFloat(amountInput) || 0
@@ -407,7 +425,7 @@ function RecordPaymentView({
     addSettlementPayment(group.id, result.value)
     if (unallocatedDisplay > 0.009 && debtor) {
       onRecord({
-        id: Date.now().toString(),
+        id: generateId('payment-notice'),
         debtorName: debtor.name,
         owedAmount: totalAllocatedConverted,
         paidAmount: paid,
@@ -733,11 +751,9 @@ function RecordPaymentView({
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: Props) {
+export default function SettlePaySheet({ isOpen, group, authUserId, myPersonId: resolvedMyPersonId, prefill = null, onClose }: Props) {
   const t = useT()
   const [phase, setPhase] = useState<Phase>('closed')
-  const [translate, setTranslate] = useState({ x: 0, y: 0 })
-  const [fillScale, setFillScale] = useState(40)
 
   // Repay currency state
   const [repayCurrency, setRepayCurrency] = useState(group.defaultRepayCurrency || 'MYR')
@@ -761,23 +777,12 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
   const clear = () => timers.current.forEach(clearTimeout)
   const after = (fn: () => void, ms: number) => { const id = setTimeout(fn, ms); timers.current.push(id) }
 
-  const measure = () => {
-    const vw = window.innerWidth; const vh = window.innerHeight
-    const cx = vw - FAB_RIGHT - FAB_W / 2
-    const cy = vh - FAB_BOTTOM - FAB_H / 2
-    setTranslate({ x: vw / 2 - cx, y: vh / 2 - cy })
-    setFillScale(Math.ceil((Math.sqrt(vw * vw + vh * vh) / (FAB_W / 2)) * 0.75))
-  }
-
   useEffect(() => {
     clear()
     if (isOpen) {
-      measure()
-      setPhase('placed')
-      after(() => setPhase('flying'), 30)
-      after(() => setPhase('expanding'), 380)
-      after(() => setPhase('revealing'), 780)
-      after(() => setPhase('open'), 1050)
+      // One frame at translateY(100%) so the slide-up has something to animate from.
+      setPhase('opening')
+      after(() => setPhase('open'), 30)
     } else {
       if (phase === 'closed') return
       setCurrencyPanelOpen(false)
@@ -786,18 +791,26 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
       setSelectedSettlementCurrency(null)
       setSelectedCreditorIds(null)
       setPhase('closing')
-      after(() => setPhase('closed'), 480)
+      after(() => setPhase('closed'), 300)
     }
     return clear
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
-  // Logged-in user's person in this group
   const myPerson = useMemo(
-    () => authUserId ? group.people.find((p) => p.authUserId === authUserId) ?? null : null,
-    [authUserId, group.people],
+    () => getMyPerson(group, authUserId, resolvedMyPersonId),
+    [authUserId, group, resolvedMyPersonId],
   )
   const myPersonId = myPerson?.id ?? null
+
+  // A sheet launched from a debt row already knows who is being paid, so it
+  // opens on the amount step instead of asking the same question twice.
+  useEffect(() => {
+    if (!isOpen || !prefill) return
+    setSelectedSettlementCurrency(prefill.currency)
+    setSelectedDebtorId(prefill.debtorId)
+    setSelectedCreditorIds([prefill.creditorId])
+  }, [isOpen, prefill])
 
   // Settlements — raw pair totals (used only internally here)
   const settlements = useMemo(
@@ -844,32 +857,17 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
 
   if (phase === 'closed') return null
 
-  // ── Circle animation ─────────────────────────────────────────────────────
-  const isFlying = phase === 'flying'
-  const isExpanding = phase === 'expanding'
-  const isExpanded = phase === 'revealing' || phase === 'open'
+  const isPanelUp = phase === 'open'
   const isClosing = phase === 'closing'
-  const contentIn = phase === 'revealing' || phase === 'open'
-  const contentOut = isClosing
 
-  const circleStyle = (): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      position: 'fixed', right: FAB_RIGHT, bottom: FAB_BOTTOM,
-      width: FAB_W, height: FAB_H, borderRadius: '50%',
-      zIndex: 61, willChange: 'transform, background-color', pointerEvents: 'none',
-    }
-    if (phase === 'placed') return { ...base, background: 'var(--ms-accent,#8b6e4e)', transform: 'translate(0,0) scale(1)', transition: 'none' }
-    if (isFlying) return { ...base, background: 'var(--ms-accent,#8b6e4e)', transform: `translate(${translate.x}px,${translate.y}px) scale(1)`, transition: 'transform 320ms cubic-bezier(0.4,0,0.2,1)' }
-    if (isExpanding) return { ...base, background: 'var(--ms-bg,#f4f0e8)', transform: `translate(${translate.x}px,${translate.y}px) scale(${fillScale})`, transition: 'transform 380ms cubic-bezier(0.4,0,0.2,1), background-color 200ms ease' }
-    if (isExpanded) return { ...base, opacity: 0, transition: 'opacity 100ms ease', transform: `translate(${translate.x}px,${translate.y}px) scale(${fillScale})` }
-    if (isClosing) return { ...base, background: 'var(--ms-accent,#8b6e4e)', transform: 'translate(0,0) scale(0)', transition: 'transform 400ms cubic-bezier(0.4,0,0.2,1), background-color 150ms ease' }
-    return base
-  }
-
+  /**
+   * Content now rides in with the panel itself, so the per-block delay only has
+   * to soften the arrival. It used to have to wait out a 780ms morph first.
+   */
   const stagger = (i: number): React.CSSProperties => ({
-    opacity: contentIn && !contentOut ? 1 : 0,
-    transform: contentIn && !contentOut ? 'translateY(0)' : 'translateY(18px)',
-    transition: `opacity 280ms ease ${i * 55}ms, transform 280ms ease ${i * 55}ms`,
+    opacity: isPanelUp ? 1 : 0,
+    transform: isPanelUp ? 'translateY(0)' : 'translateY(10px)',
+    transition: `opacity 220ms ease ${i * 30}ms, transform 220ms ease ${i * 30}ms`,
   })
 
   // The primary recorded currency of debts (largest net-payable currency)
@@ -899,14 +897,31 @@ export default function SettlePaySheet({ isOpen, group, authUserId, onClose }: P
 
   return (
     <>
-      {/* Morphing circle */}
-      <div style={circleStyle()} />
+      {/* Scrim */}
+      <div
+        className="fixed inset-0"
+        style={{
+          zIndex: 59,
+          background: 'rgba(31,27,24,0.34)',
+          opacity: isPanelUp ? 1 : 0,
+          transition: 'opacity 280ms ease',
+          pointerEvents: 'none',
+        }}
+      />
 
-      {/* Backdrop fill */}
-      <div className="fixed inset-0" style={{ zIndex: 59, background: 'var(--ms-bg,#f4f0e8)', opacity: isExpanding || isExpanded ? 1 : 0, transition: isExpanding ? 'opacity 300ms ease 100ms' : isClosing ? 'opacity 350ms ease' : 'none', pointerEvents: 'none' }} />
-
-      {/* Content layer */}
-      <div className="fixed inset-0 overflow-hidden" style={{ zIndex: 62, pointerEvents: contentIn && !contentOut ? 'auto' : 'none' }}>
+      {/* Panel. This used to morph out of the FAB; that origin stopped existing
+          once payments are recorded from the debt rows instead. */}
+      <div
+        className="fixed inset-0 overflow-hidden"
+        style={{
+          zIndex: 62,
+          background: 'var(--ms-bg)',
+          transform: isPanelUp ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 320ms cubic-bezier(0.32,0.72,0,1)',
+          willChange: 'transform',
+          pointerEvents: isClosing ? 'none' : 'auto',
+        }}
+      >
         <div className="mx-auto flex h-full max-w-lg flex-col">
 
           {/* Back button */}

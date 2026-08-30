@@ -2,23 +2,25 @@ import { useRef, useState } from 'react'
 import { CURRENCIES } from '../lib/currency'
 import { PRESET_AVATARS } from '../lib/avatars'
 import { getPersonNameStyle } from '../lib/personTheme'
-import { canEditGroup, canManageManualTravellers, isManualTraveller } from '../lib/permissions'
-import { THEMES } from '../lib/themes'
+import { canEditGroup, canEditPaymentInfoFor, canManageManualTravellers, getMyPerson, isManualTraveller } from '../lib/permissions'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
 import { useStore } from '../store/useStore'
 import { exportGroupAsJson, exportGroupAsCsv, parseImportedJson } from '../lib/export'
 import { generateGroupId } from '../lib/id'
-import type { Group, GroupMembership, GroupRole, Person } from '../types'
+import type { Group, GroupMembership, GroupRole, PaymentInfo, Person } from '../types'
 
 type Props = {
   group: Group
   authUserId?: string
+  /** Resolved "me" from the workspace — set for guests too, not just signed-in users. */
+  myPersonId?: string | null
   role: GroupRole | null
   membershipByUserId: Record<string, GroupMembership | undefined>
   onAddPerson: (name: string) => void
   onUpdateMembershipRole: (userId: string, role: Exclude<GroupRole, 'owner'>) => void
   onUpdatePersonProfile: (personId: string, updates: Partial<Pick<Person, 'name' | 'avatarDataUrl' | 'nameColor'>>) => void
+  onUpdatePersonPaymentInfo: (personId: string, updates: Partial<PaymentInfo>) => void
   onRemovePerson: (personId: string) => void
   onUpdateGroupCurrency: (paid: string, repay: string) => void
 }
@@ -112,7 +114,7 @@ async function renderAdjustedAvatar(args: {
   return canvas.toDataURL('image/png')
 }
 
-export default function PeopleTab({ group, authUserId, role, membershipByUserId, onAddPerson, onUpdateMembershipRole, onUpdatePersonProfile, onRemovePerson, onUpdateGroupCurrency }: Props) {
+export default function PeopleTab({ group, authUserId, myPersonId, role, membershipByUserId, onAddPerson, onUpdateMembershipRole, onUpdatePersonProfile, onUpdatePersonPaymentInfo, onRemovePerson, onUpdateGroupCurrency }: Props) {
   const t = useT()
   const { authUser, updateProfile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -128,6 +130,7 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
   const [draftName, setDraftName] = useState('')
   const [draftAvatarDataUrl, setDraftAvatarDataUrl] = useState<string | null>(null)
   const [draftLinkedRole, setDraftLinkedRole] = useState<Exclude<GroupRole, 'owner'>>('view')
+  const [draftPayment, setDraftPayment] = useState({ bankName: '', accountHolder: '', accountNumber: '' })
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
   const [cropNaturalSize, setCropNaturalSize] = useState<{ width: number; height: number } | null>(null)
   const [cropScale, setCropScale] = useState(1)
@@ -162,8 +165,18 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
     }
     return false
   }
-  const isEditingSelf = isCurrentUserPerson(editingPerson)
+  // A guest has no authUserId, so the device-local pick is the only thing that
+  // can recognise them as themselves.
+  const mePerson = getMyPerson(group, authUserId, myPersonId)
+  const isEditingSelf =
+    isCurrentUserPerson(editingPerson) || (!!editingPerson && !!mePerson && editingPerson.id === mePerson.id)
   const canEditEditingPerson = !!editingPerson && (isManualTraveller(editingPerson) || isEditingSelf)
+  const canEditEditingPayment =
+    !!editingPerson && canEditPaymentInfoFor({ role, person: editingPerson, myPersonId: mePerson?.id })
+  const myPaymentInfo = mePerson?.paymentInfo
+  const myPaymentMissing = Boolean(
+    mePerson && !myPaymentInfo?.accountNumber?.trim() && !myPaymentInfo?.bankName?.trim(),
+  )
 
   const openEditPerson = (person: Person) => {
     setEditingPersonId(person.id)
@@ -175,6 +188,11 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
     setCropOffset({ x: 0, y: 0 })
     const linkedRole = person.authUserId ? membershipByUserId[person.authUserId]?.role : null
     setDraftLinkedRole(linkedRole === 'full_access' ? 'full_access' : 'view')
+    setDraftPayment({
+      bankName: person.paymentInfo?.bankName ?? '',
+      accountHolder: person.paymentInfo?.accountHolder ?? '',
+      accountNumber: person.paymentInfo?.accountNumber ?? '',
+    })
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -265,6 +283,18 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
   return (
     <section className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_360px] xl:items-start">
+      {myPaymentMissing && mePerson ? (
+        <div className="ms-card-soft mb-3 flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="ms-label">{t('pay.myDetails')}</p>
+            <p className="mt-1 text-sm leading-relaxed text-[var(--ms-text-secondary)]">{t('pay.myDetailsHelp')}</p>
+          </div>
+          <button className="ms-btn-primary shrink-0" onClick={() => openEditPerson(mePerson)}>
+            {t('pay.fillIn')}
+          </button>
+        </div>
+      ) : null}
+
       <div className="ms-card-soft">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="ms-title">{t('people.travellers')}</h2>
@@ -389,10 +419,6 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
       </div>
       </div>
 
-      <ThemeCard />
-
-      <FontCard />
-
       <LanguageCard />
 
       {canEditTrip ? <DataCard group={group} /> : null}
@@ -484,6 +510,36 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
                 />
               </label>
 
+              {canEditEditingPayment ? (
+                <div className="rounded-[var(--ms-radius-row)] bg-[var(--ms-surface-dim)] p-3">
+                  <p className="ms-label">{t('pay.details')}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--ms-text-secondary)]">
+                    {t('pay.myDetailsHelp')}
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    <input
+                      className="ms-input w-full"
+                      placeholder={t('pay.bankName')}
+                      value={draftPayment.bankName}
+                      onChange={(e) => setDraftPayment((prev) => ({ ...prev, bankName: e.target.value }))}
+                    />
+                    <input
+                      className="ms-input w-full"
+                      placeholder={t('pay.accountHolder')}
+                      value={draftPayment.accountHolder}
+                      onChange={(e) => setDraftPayment((prev) => ({ ...prev, accountHolder: e.target.value }))}
+                    />
+                    <input
+                      className="ms-input w-full"
+                      placeholder={t('pay.accountNumber')}
+                      inputMode="numeric"
+                      value={draftPayment.accountNumber}
+                      onChange={(e) => setDraftPayment((prev) => ({ ...prev, accountNumber: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
               {role === 'owner' && editingPerson.authUserId && editingPerson.authUserId !== group.ownerId ? (
                 <label className="block text-sm text-[#6b6058]">
                   {t('people.memberPermission')}
@@ -511,6 +567,13 @@ export default function PeopleTab({ group, authUserId, role, membershipByUserId,
                           avatarDataUrl: draftAvatarDataUrl,
                           nameColor: null,
                         })
+                        if (canEditEditingPayment) {
+                          onUpdatePersonPaymentInfo(editingPerson.id, {
+                            bankName: draftPayment.bankName.trim(),
+                            accountHolder: draftPayment.accountHolder.trim(),
+                            accountNumber: draftPayment.accountNumber.trim(),
+                          })
+                        }
                         if (isEditingSelf) {
                           await updateProfile({ displayName: cleanName })
                         }
@@ -656,167 +719,6 @@ function DataCard({ group }: { group: Group }) {
           {t('data.importJson')}
         </button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
-      </div>
-    </div>
-  )
-}
-
-function ThemeCard() {
-  const t = useT()
-  const themeId = useStore((s) => s.themeId)
-  const setThemeId = useStore((s) => s.setThemeId)
-
-  return (
-    <div className="ms-card-soft">
-      <h3 className="ms-title mb-1">{t('theme.title')}</h3>
-      <p className="mb-4 text-xs text-[var(--ms-text-muted)]">{t('theme.desc')}</p>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {THEMES.map((theme) => {
-          const selected = themeId === theme.id
-          const isWip = theme.wip === true
-          return (
-            <button
-              key={theme.id}
-              disabled={isWip}
-              className={`ms-key relative flex flex-col items-stretch p-0 text-left ${selected ? 'ms-key-active' : ''} ${isWip ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={() => !isWip && setThemeId(theme.id)}
-            >
-              {/* WIP overlay badge */}
-              {isWip && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center">
-                  <span className="rounded-full bg-[var(--ms-text)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--ms-bg)]">
-                    Coming soon
-                  </span>
-                </div>
-              )}
-
-              {/* Color swatch row */}
-              <div className="flex h-10 w-full overflow-hidden">
-                <div className="flex-1" style={{ background: theme.preview.bg }} />
-                <div className="flex-1" style={{ background: theme.preview.surface }} />
-                <div className="flex-1" style={{ background: theme.preview.accent }} />
-                <div className="flex-1" style={{ background: theme.preview.text }} />
-                <div className="flex-1" style={{ background: theme.preview.border }} />
-                <div className="flex-1" style={{ background: theme.preview.sketchLine }} />
-              </div>
-
-              {/* Info */}
-              <div className="px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-sm font-bold"
-                    style={{
-                      color: theme.preview.text,
-                      fontSynthesis: 'weight',
-                    }}
-                  >
-                    {theme.name}
-                  </span>
-                  {selected ? (
-                    <span className="ml-auto text-xs font-semibold text-[var(--ms-accent)]">{t('theme.active')}</span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-[11px] leading-snug text-[var(--ms-text-muted)]">
-                  {theme.description}
-                </p>
-                <p className="mt-1.5 text-[10px] tracking-wider text-[var(--ms-text-muted)]">
-                  {t('theme.font')} {theme.font}
-                </p>
-              </div>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-const FONT_OPTIONS = [
-  {
-    id: 'departure-mono',
-    name: 'Departure Mono',
-    label: 'Default',
-    sample: 'Aa — TabbyTally',
-    desc: 'Retro monospace · Built-in',
-    family: "'Departure Mono', monospace",
-  },
-  {
-    id: 'source-code-pro',
-    name: 'Source Code Pro',
-    label: 'Source Code Pro',
-    sample: 'Aa — TabbyTally',
-    desc: 'Clean monospace · Developer',
-    family: "'Source Code Pro', monospace",
-  },
-  {
-    id: 'modern-antiqua',
-    name: 'Modern Antiqua',
-    label: 'Modern Antiqua',
-    sample: 'Aa — TabbyTally',
-    desc: 'Elegant serif · Antiquarian',
-    family: "'Modern Antiqua', Georgia, serif",
-  },
-  {
-    id: 'bebas-neue',
-    name: 'Bebas Neue',
-    label: 'Bebas Neue',
-    sample: 'Aa — TabbyTally',
-    desc: 'Bold condensed · Display',
-    family: "'Bebas Neue', sans-serif",
-  },
-  {
-    id: 'caesar-dressing',
-    name: 'Caesar Dressing',
-    label: 'Caesar Dressing',
-    sample: 'Aa — TabbyTally',
-    desc: 'Decorative · Historical Roman',
-    family: "'Caesar Dressing', serif",
-  },
-] as const
-
-function FontCard() {
-  const t = useT()
-  const fontId = useStore((s) => s.fontId)
-  const setFontId = useStore((s) => s.setFontId)
-
-  return (
-    <div className="ms-card-soft">
-      <h3 className="ms-title mb-1">{t('font.title')}</h3>
-      <p className="mb-3 text-xs text-[var(--ms-text-muted)]">{t('font.desc')}</p>
-
-      <div className="flex flex-col gap-1.5">
-        {FONT_OPTIONS.map((font) => {
-          const selected = fontId === font.id || (!fontId && font.id === 'departure-mono')
-          return (
-            <button
-              key={font.id}
-              className={`flex w-full items-center gap-3 border px-3 py-2 text-left transition-colors ${
-                selected
-                  ? 'border-[var(--ms-accent)] bg-[var(--ms-accent-bg)]'
-                  : 'border-[var(--ms-border)] hover:bg-[var(--ms-surface-dim)]'
-              }`}
-              onClick={() => setFontId(font.id)}
-            >
-              {/* Live sample in that font */}
-              <span
-                className="w-24 shrink-0 text-base text-[var(--ms-text)]"
-                style={{ fontFamily: font.family }}
-              >
-                Aa — 123
-              </span>
-              {/* Name + desc */}
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs font-semibold text-[var(--ms-text)]">{font.label}</span>
-                <span className="block text-[10px] text-[var(--ms-text-muted)]">{font.desc}</span>
-              </span>
-              {/* Active dot */}
-              {selected && (
-                <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-[var(--ms-accent)]" />
-              )}
-            </button>
-          )
-        })}
       </div>
     </div>
   )

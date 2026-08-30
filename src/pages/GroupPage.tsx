@@ -4,24 +4,33 @@ import BottomTabs from '../components/BottomTabs'
 import PeopleTab from '../components/PeopleTab'
 import SettleTab from '../components/SettleTab'
 import SummaryTab from '../components/SummaryTab'
-import DashboardTab from '../components/DashboardTab'
 import ExpenseSheet from '../components/ExpenseSheet'
-import SettlePaySheet from '../components/SettlePaySheet'
+import SettlePaySheet, { type SettlePayPrefill } from '../components/SettlePaySheet'
 import { useStore } from '../store/useStore'
 import { formatDateRange } from '../lib/format'
 import { useT } from '../lib/i18n'
 
 import { useGroupWorkspace } from '../hooks/useGroupWorkspace'
 
-type Tab = 'summary' | 'dashboard' | 'settle' | 'profile'
+type Tab = 'summary' | 'settle' | 'profile'
 
 export default function GroupPage() {
   const t = useT()
   const { groupId } = useParams()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
+  /**
+   * Settle Up is what people actually open a trip for, so it is the landing tab
+   * — except on a trip with nothing in it yet, where the answer is always "you
+   * owe nothing" and the ledger's empty state is the more useful thing to see.
+   * Decided once on mount so adding a first expense does not teleport the user.
+   */
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const existing = useStore.getState().groups.find((entry) => entry.id === groupId)
+    return (existing?.expenses.length ?? 0) > 0 ? 'settle' : 'summary'
+  })
   const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
   const [settlePayOpen, setSettlePayOpen] = useState(false)
+  const [settlePayPrefill, setSettlePayPrefill] = useState<SettlePayPrefill | null>(null)
   const [groupEditOpen, setGroupEditOpen] = useState(false)
   const [editName, setEditName] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
@@ -39,9 +48,14 @@ export default function GroupPage() {
   const addExpense = useStore((state) => state.addExpense)
   const updateExpense = useStore((state) => state.updateExpense)
   const removeExpense = useStore((state) => state.removeExpense)
-  const addGroupComment = useStore((state) => state.addGroupComment)
 
   const totalExpenses = useMemo(() => group?.expenses.length ?? 0, [group?.expenses.length])
+
+  const openSettlePay = (prefill: SettlePayPrefill | null) => {
+    if (!canUseSettle) return
+    setSettlePayPrefill(prefill)
+    setSettlePayOpen(true)
+  }
 
   const openEditPanel = () => {
     if (!group) return
@@ -76,42 +90,6 @@ export default function GroupPage() {
 
   return (
     <main className="ms-page">
-      <div className="hidden lg:mb-5 lg:block">
-        <section className="ms-card-soft mb-4">
-          <div className="flex items-start justify-between gap-3">
-            <button className="ms-btn-ghost" onClick={() => navigate('/')}>
-              {t('group.back')}
-            </button>
-            <div className="flex items-center gap-2">
-              {canInvite && (
-                <>
-                  <button className="ms-btn-ghost" onClick={() => invite.copyShareLink('full_access')}>
-                    {invite.busyRole === 'full_access' ? t('group.syncing') : invite.linkCopied ? t('group.copied') : t('group.inviteFullAccess')}
-                  </button>
-                  <button className="ms-btn-ghost" onClick={() => invite.copyShareLink('view')}>
-                    {invite.busyRole === 'view' ? t('group.syncing') : invite.linkCopied ? t('group.copied') : t('group.inviteView')}
-                  </button>
-                </>
-              )}
-              <button className="ms-btn-ghost" onClick={openEditPanel} disabled={!canEditTrip}>
-                {t('group.edit')}
-              </button>
-            </div>
-          </div>
-          <h1 className="mt-3 text-4xl font-bold text-[#2c2520]">{group.name}</h1>
-          <div className="mt-2 flex items-center gap-3">
-            <p className="text-base text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
-            {sync.status === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
-            {sync.status === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.localOnly')}</span>}
-            {sync.status === 'error' && <span className="text-xs text-[#9e4a4a]">{t('group.syncError')}</span>}
-          </div>
-          <p className="mt-1 text-base text-[#6b6058]">
-            {group.people.length} {t('groups.people')} · {totalExpenses} {t('groups.expenses')}
-          </p>
-        </section>
-      </div>
-
-
       <div className="min-w-0">
           {diagnostics.show && hasAccess ? (
             <section className="ms-card-soft mb-4 border-[#c49898] bg-[rgba(158,74,74,0.05)]">
@@ -140,93 +118,98 @@ export default function GroupPage() {
             </section>
           ) : null}
 
-          {activeTab === 'summary' || activeTab === 'dashboard' ? (
-            <header className="ms-card-soft mb-4 lg:hidden">
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <button className="ms-btn-ghost" onClick={() => navigate('/')}>
-                  {t('group.back')}
-                </button>
-                <div className="flex items-center gap-2">
-                  {canInvite && (
-                    <button className="ms-btn-ghost" onClick={() => invite.copyShareLink('full_access')}>
-                      {invite.linkCopied ? t('group.copied') : t('group.share')}
-                    </button>
-                  )}
-                  <button className="ms-btn-ghost" onClick={openEditPanel} disabled={!canEditTrip}>
-                    {t('group.edit')}
-                  </button>
-                </div>
-              </div>
-              <h1 className="text-2xl font-bold text-[#2c2520]">{group.name}</h1>
-              <div className="mt-1 flex items-center gap-2">
-                <p className="text-xs text-[#6b6058]">{formatDateRange(group.startDate, group.endDate)}</p>
-                {sync.status === 'synced' && <span className="text-xs text-[#5a7a5a]">{t('group.synced')}</span>}
-                {sync.status === 'offline' && <span className="text-xs text-[#9a9088]">{t('group.local')}</span>}
-              </div>
-              <p className="mt-1 text-sm text-[#6b6058]">
-                {group.people.length} {t('groups.people')} · {totalExpenses} {t('groups.expenses')}
-              </p>
-            </header>
-          ) : null}
-
           {!hasAccess ? (
             <section className="ms-card-soft">
               <p className="text-sm text-[#6b6058]">{t('group.noAccess')}</p>
             </section>
           ) : null}
 
-          {hasAccess && authUser && !identity.linkedPerson ? (
-            <section className="ms-card-soft mb-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ms-text-muted)]">
-                    {t('group.identityTitle')}
-                  </p>
-                  <h2 className="mt-2 text-2xl font-black text-[var(--ms-text)]">{t('group.identityQuestion')}</h2>
-                  <p className="mt-1 max-w-xl text-sm text-[var(--ms-text-secondary)]">
-                    {t('group.identityHelp')}
-                  </p>
-                </div>
-                <button className="ms-btn-primary shrink-0" onClick={identity.createNew}>
-                  {t('group.identityCreateMe')}
-                </button>
-              </div>
-
-              {identity.availableIdentityPeople.length > 0 ? (
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {identity.availableIdentityPeople.map((person) => (
-                    <button
-                      key={person.id}
-                      className="flex items-center gap-3 rounded-3xl border border-[var(--ms-border)] bg-[var(--ms-surface)] p-3 text-left transition hover:bg-[var(--ms-surface-dim)]"
-                      onClick={() => identity.claim(person.id)}
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ms-accent-bg)] text-sm font-black text-[var(--ms-accent)]">
-                        {person.avatarDataUrl ? (
-                          <img src={person.avatarDataUrl} alt={person.name} className="h-full w-full object-cover" />
-                        ) : (
-                          person.name.slice(0, 1).toUpperCase()
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-[var(--ms-text)]">{person.name}</p>
-                        <p className="text-xs text-[var(--ms-text-muted)]">{t('group.identityChooseThis')}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-
           {activeTab === 'profile' && hasAccess ? (
-            <PeopleTab
+            <>
+              <header className="ms-card-soft mb-4">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <button className="ms-btn-ghost" onClick={() => navigate('/')}>
+                    {t('group.back')}
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {canInvite && (
+                      <>
+                        <button className="ms-btn-ghost" onClick={() => invite.copyShareLink('full_access')}>
+                          {invite.busyRole === 'full_access' ? t('group.syncing') : invite.linkCopied ? t('group.copied') : t('group.share')}
+                        </button>
+                        <button className="ms-btn-ghost hidden lg:inline-flex" onClick={() => invite.copyShareLink('view')}>
+                          {invite.busyRole === 'view' ? t('group.syncing') : invite.linkCopied ? t('group.copied') : t('group.inviteView')}
+                        </button>
+                      </>
+                    )}
+                    <button className="ms-btn-ghost" onClick={openEditPanel} disabled={!canEditTrip}>
+                      {t('group.edit')}
+                    </button>
+                  </div>
+                </div>
+                <h1 className="text-2xl font-bold text-[var(--ms-text)] lg:text-4xl">{group.name}</h1>
+                <div className="mt-1 flex items-center gap-2 lg:mt-2 lg:gap-3">
+                  <p className="text-xs text-[var(--ms-text-muted)] lg:text-base">{formatDateRange(group.startDate, group.endDate)}</p>
+                  {sync.status === 'synced' && <span className="text-xs text-[var(--ms-success)]">{t('group.synced')}</span>}
+                  {sync.status === 'offline' && <span className="text-xs text-[var(--ms-text-muted)]">{t('group.local')}</span>}
+                  {sync.status === 'error' && <span className="text-xs text-[var(--ms-danger)]">{t('group.syncError')}</span>}
+                </div>
+                <p className="mt-1 text-sm text-[var(--ms-text-muted)] lg:text-base">
+                  {group.people.length} {t('groups.people')} · {totalExpenses} {t('groups.expenses')}
+                </p>
+              </header>
+
+              {!identity.myPerson ? (
+                <section className="ms-card-soft mb-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="ms-label">{t('group.identityTitle')}</p>
+                      <h2 className="mt-2 text-2xl font-extrabold text-[var(--ms-text)]">{t('group.identityQuestion')}</h2>
+                      <p className="mt-1 max-w-xl text-sm text-[var(--ms-text-secondary)]">
+                        {authUser ? t('group.identityHelp') : t('group.identityGuestHelp')}
+                      </p>
+                    </div>
+                    <button className="ms-btn-primary shrink-0" onClick={identity.createNew}>
+                      {authUser ? t('group.identityCreateMe') : t('group.identityCreateMeGuest')}
+                    </button>
+                  </div>
+
+                  {identity.availableIdentityPeople.length > 0 ? (
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {identity.availableIdentityPeople.map((person) => (
+                        <button
+                          key={person.id}
+                          className="flex items-center gap-3 rounded-3xl border border-[var(--ms-border)] bg-[var(--ms-surface)] p-3 text-left transition hover:bg-[var(--ms-surface-dim)]"
+                          onClick={() => identity.claim(person.id)}
+                        >
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ms-accent-bg)] text-sm font-black text-[var(--ms-accent)]">
+                            {person.avatarDataUrl ? (
+                              <img src={person.avatarDataUrl} alt={person.name} className="h-full w-full object-cover" />
+                            ) : (
+                              person.name.slice(0, 1).toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-[var(--ms-text)]">{person.name}</p>
+                            <p className="text-xs text-[var(--ms-text-muted)]">{t('group.identityChooseThis')}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+
+              <PeopleTab
               group={group}
               authUserId={authUser?.id}
+              myPersonId={identity.myPersonId}
               role={role}
               membershipByUserId={membershipByUserId}
               onAddPerson={(name) => addPerson(group.id, name)}
               onUpdateMembershipRole={access.updateMembershipRole}
               onUpdatePersonProfile={(personId, updates) => updatePersonProfile(group.id, personId, updates)}
+              onUpdatePersonPaymentInfo={(personId, updates) => updatePersonPaymentInfo(group.id, personId, updates)}
               onRemovePerson={(personId) => {
                 if (!canManageTravellers) return
                 const used = group.expenses.some(
@@ -242,35 +225,27 @@ export default function GroupPage() {
                 canEditTrip && updateGroup(group.id, { defaultPaidCurrency: paid, defaultRepayCurrency: repay })
               }
             />
+            </>
           ) : null}
 
           {activeTab === 'summary' && hasAccess ? (
             <SummaryTab
               group={group}
               canEdit={canEditExpenseData}
+              myPersonId={identity.myPersonId}
               onDeleteExpense={(expenseId) => canEditExpenseData && removeExpense(group.id, expenseId)}
               onEditExpense={(expenseId, updates) => canEditExpenseData && updateExpense(group.id, expenseId, updates)}
             />
           ) : null}
 
-          {activeTab === 'dashboard' && hasAccess ? (
-            <DashboardTab
-              group={group}
-              authUserId={authUser?.id}
-              role={role}
-              onUpdatePersonPaymentInfo={(personId, updates) => updatePersonPaymentInfo(group.id, personId, updates)}
-              onAddComment={(personId, message) => addGroupComment(group.id, personId, message)}
-              onAddExpense={() => canEditExpenseData && setExpenseComposerOpen(true)}
-              onViewSettle={() => setActiveTab('settle')}
-              canAddExpense={canEditExpenseData}
-            />
-          ) : null}
-
           {activeTab === 'settle' && hasAccess ? (
             <SettleTab
+              key={group.id}
               group={group}
               canSettle={canUseSettle}
               authUserId={authUser?.id}
+              myPersonId={identity.myPersonId}
+              onRecordPayment={openSettlePay}
             />
           ) : null}
       </div>
@@ -293,15 +268,18 @@ export default function GroupPage() {
         active={activeTab}
         onChange={setActiveTab}
         onAddExpenseClick={() => canEditExpenseData && setExpenseComposerOpen(true)}
-        onSettlePayClick={() => canUseSettle && setSettlePayOpen(true)}
-        fabHidden={settlePayOpen}
       />
 
       <SettlePaySheet
         isOpen={settlePayOpen}
         group={group}
         authUserId={authUser?.id}
-        onClose={() => setSettlePayOpen(false)}
+        myPersonId={identity.myPersonId}
+        prefill={settlePayPrefill}
+        onClose={() => {
+          setSettlePayOpen(false)
+          setSettlePayPrefill(null)
+        }}
       />
 
       <ExpenseSheet

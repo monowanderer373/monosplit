@@ -16,23 +16,30 @@ export default function ProfilePage() {
   const { authUser, loading, signOut, updateProfile } = useAuth()
   const groups = useStore((s) => s.groups)
 
-  const [displayName, setDisplayName] = useState('')
+  const [displayNameDraft, setDisplayName] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [saveError, setSaveError] = useState('')
-  const [ownedGroups, setOwnedGroups] = useState<OwnedGroupRow[]>([])
-  const [ownedLoading, setOwnedLoading] = useState(false)
-
-  useEffect(() => {
-    if (authUser) setDisplayName(authUser.displayName ?? '')
-  }, [authUser])
+  const [ownedState, setOwnedState] = useState<{ userId: string | null; groups: OwnedGroupRow[] }>({
+    userId: null,
+    groups: [],
+  })
+  const displayName = displayNameDraft ?? authUser?.displayName ?? ''
+  const ownedGroups = ownedState.userId === authUser?.id ? ownedState.groups : []
+  const ownedLoading = Boolean(authUser && supabaseEnabled && ownedState.userId !== authUser.id)
 
   useEffect(() => {
     if (!authUser || !supabaseEnabled) return
-    setOwnedLoading(true)
+    let cancelled = false
     void groupRepository.listOwned(authUser.id).then((records) => {
-      setOwnedGroups(records.map((record) => ({ id: record.group.id, group: record.group })))
-      setOwnedLoading(false)
+      if (cancelled) return
+      setOwnedState({
+        userId: authUser.id,
+        groups: records.map((record) => ({ id: record.group.id, group: record.group })),
+      })
     })
+    return () => {
+      cancelled = true
+    }
   }, [authUser])
 
   const handleSaveProfile = async () => {
@@ -41,6 +48,7 @@ export default function ProfilePage() {
     setSaveStatus('saving')
     try {
       await updateProfile({ displayName: displayName.trim() })
+      setDisplayName(null)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch {

@@ -12,6 +12,7 @@ import {
   canSettle,
   getGroupRole,
   getLinkedPerson,
+  getMyPerson,
 } from '../lib/permissions'
 import { buildDiagnosticsText, saveExpenseWithRecovery, shouldAutoClaim, shouldRegisterMembership } from '../lib/groupWorkspace'
 import type { Group, GroupMembership, GroupRole } from '../types'
@@ -38,6 +39,9 @@ export type GroupWorkspaceSync = {
 
 export type GroupWorkspaceIdentity = {
   linkedPerson: ReturnType<typeof getLinkedPerson>
+  /** Resolved "me" — the account-linked traveller, or a guest's device-local pick. */
+  myPerson: ReturnType<typeof getMyPerson>
+  myPersonId: string | null
   availableIdentityPeople: Group['people']
   claim: (personId: string) => void
   createNew: () => void
@@ -102,6 +106,8 @@ export function useGroupWorkspace(groupId: string | undefined): GroupWorkspace {
   const group = useStore((state) => state.groups.find((entry) => entry.id === groupId))
   const addPerson = useStore((state) => state.addPerson)
   const updatePersonProfile = useStore((state) => state.updatePersonProfile)
+  const localMyPersonId = useStore((state) => (groupId ? state.myPersonIdByGroupId[groupId] ?? null : null))
+  const setMyPersonId = useStore((state) => state.setMyPersonId)
 
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed'>('idle')
   const [groupMemberships, setGroupMemberships] = useState<GroupMembership[]>([])
@@ -145,6 +151,10 @@ export function useGroupWorkspace(groupId: string | undefined): GroupWorkspace {
   const hasAccess = !!role || canClaim
 
   const linkedPerson = useMemo(() => (group ? getLinkedPerson(group, authUser?.id) : null), [group, authUser?.id])
+  const myPerson = useMemo(
+    () => (group ? getMyPerson(group, authUser?.id, localMyPersonId) : null),
+    [group, authUser?.id, localMyPersonId],
+  )
   const availableIdentityPeople = useMemo(
     () => group?.people.filter((person) => !person.authUserId) ?? [],
     [group?.people],
@@ -157,7 +167,9 @@ export function useGroupWorkspace(groupId: string | undefined): GroupWorkspace {
   // Raw read of `user_groups` — out of GroupRepository's scope (that seam only
   // covers the `groups` blob, not membership rows; see ADR 0003).
   useEffect(() => {
-    if (!groupId || !role || !supabase || !supabaseEnabled) {
+    // Membership rows only mean anything to a signed-in user; a guest would just
+    // fire an anonymous query that RLS returns nothing for.
+    if (!groupId || !role || !authUser || !supabase || !supabaseEnabled) {
       setGroupMemberships([])
       return
     }
@@ -183,7 +195,7 @@ export function useGroupWorkspace(groupId: string | undefined): GroupWorkspace {
     return () => {
       cancelled = true
     }
-  }, [groupId, role])
+  }, [groupId, role, authUser])
 
   // Auto-register: the first time we resolve a non-owner role, make sure it's backed by a real row.
   useEffect(() => {
@@ -204,14 +216,20 @@ export function useGroupWorkspace(groupId: string | undefined): GroupWorkspace {
   }
 
   const claim = (personId: string) => {
-    if (!group || !authUser) return
-    updatePersonProfile(group.id, personId, { authUserId: authUser.id })
+    if (!group) return
+    // Remember the pick on this device either way; the account link is what makes
+    // it follow the user to another device.
+    setMyPersonId(group.id, personId)
+    if (authUser) updatePersonProfile(group.id, personId, { authUserId: authUser.id })
   }
 
   const createNew = () => {
-    if (!group || !groupId || !authUser) return
-    const fallbackName = authUser.displayName ?? authUser.email?.split('@')[0] ?? 'Traveller'
-    addPerson(groupId, fallbackName, authUser.id)
+    if (!group || !groupId) return
+    const fallbackName = authUser
+      ? authUser.displayName ?? authUser.email?.split('@')[0] ?? 'Traveller'
+      : t('group.identityGuestName')
+    const personId = addPerson(groupId, fallbackName, authUser?.id)
+    if (personId) setMyPersonId(groupId, personId)
   }
 
   const copyShareLink = async (inviteRole: InviteRole) => {
@@ -293,6 +311,8 @@ export function useGroupWorkspace(groupId: string | undefined): GroupWorkspace {
     },
     identity: {
       linkedPerson,
+      myPerson,
+      myPersonId: myPerson?.id ?? null,
       availableIdentityPeople,
       claim,
       createNew,

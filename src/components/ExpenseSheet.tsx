@@ -59,14 +59,18 @@ export default function ExpenseSheet({ group, isOpen, onClose, onSave }: Props) 
   useEffect(() => {
     clearTimers()
     if (isOpen) {
-      setBackdropActive(false)
-      setMounted(true)
+      later(() => {
+        setBackdropActive(false)
+        setMounted(true)
+      }, 0)
       later(() => setVisible(true), 20)
       // Only allow backdrop-close after animation completes + a 100 ms buffer
       later(() => setBackdropActive(true), 520)
     } else {
-      setBackdropActive(false)
-      setVisible(false)
+      later(() => {
+        setBackdropActive(false)
+        setVisible(false)
+      }, 0)
       later(() => setMounted(false), 480)
     }
     return clearTimers

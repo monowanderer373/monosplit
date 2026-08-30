@@ -19,12 +19,13 @@ export default function EmbedPage() {
   const t = useT()
   const { groupId } = useParams()
   const [group, setGroup] = useState<Group | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() =>
+    !groupId || !supabaseEnabled ? t('embed.notConfigured') : null,
+  )
 
   // Fetch group via the shared group repository
   useEffect(() => {
     if (!groupId || !supabaseEnabled) {
-      setError(t('embed.notConfigured'))
       return
     }
 
@@ -54,7 +55,7 @@ export default function EmbedPage() {
       cancelled = true
       unsubscribe()
     }
-  }, [groupId])
+  }, [groupId, t])
 
   if (error) {
     return (
@@ -89,12 +90,12 @@ function EmbedContent({ group, groupId }: { group: Group; groupId: string }) {
       map.set(key, arr)
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [group.expenses])
+  }, [group])
 
   // Settlement summary
   const settlements = useMemo(
     () => createSettlementSnapshot({ expenses: group.expenses }).settlements,
-    [group.expenses],
+    [group],
   )
 
   // Grand total per currency

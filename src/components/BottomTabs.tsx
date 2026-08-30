@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React from 'react'
 import { useT } from '../lib/i18n'
 import { spawnRipple } from '../lib/ripple'
+
+export type NavTab = 'summary' | 'settle' | 'profile'
 
 // ── Nav tab icons — SVG paths exported from design ──────────────────────────
 
@@ -12,20 +14,7 @@ function SummaryIcon({ active }: { active: boolean }) {
       fill="currentColor"
       aria-hidden="true"
     >
-      <path d="M0 798.65997l0-798.65997 60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60 0 798.65997-60-60-60 60-60-60-60 60-60-60-60 60-60-59.89996-60 59.89996-60-59.89996-60 59.89996-60-59.89996-60 59.89996z m118-210l486.67004 0 0-66.65997-486.67004 0 0 66.65997z m0-156l486.67004 0 0-66.65997-486.67004 0 0 66.65997z m0-156.65997l486.67004 0 0-66.67004-486.67004 0 0 66.67004z m-51.33 416.66003l586.65996 0 0-586.66003-586.65996 0 0 586.66003z" />
-    </svg>
-  )
-}
-
-function DashboardIcon({ active }: { active: boolean }) {
-  return (
-    <svg
-      className={`h-[18px] w-[18px] shrink-0 transition-colors duration-100 ${active ? 'text-[#faf8f4]' : 'text-[var(--ms-text-muted)]'}`}
-      viewBox="0 0 766 800"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M159.32999 562l66.67001 0 0-404-66.66998 0-0.00003 404z m334.67001-80l66.66998 0 0-324-66.66998 0 0 324z m-167.32999-120l66.66001 0 0-204-66.66001 0 0 204z m-260 358q-27 0-46.83999-19.83002-19.83002-19.83996-19.83002-46.83996l0-586.65998q0-27 19.83-46.84002 19.84-19.83002 46.84-19.83002l586.65996 0q27 0 46.84002 19.83002 19.83002 19.83997 19.83002 46.83996l0 586.65998q0 27-19.83002 46.83996-19.83996 19.83008-46.83996 19.83008l-586.66001 0z m0-66.66998l586.65995 0 0-586.65998-586.65996 0 0.00001 586.65998z" />
+      <path d="M0 798.65997l0-798.65997 60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60 0 798.65997-60-60-60 60-60-60-60 60-60-60-60 60-60-59.89996-60 59.89996-60-59.89996-60 59.89996-60-59.89996-60 59.89996z m118-210l486.67004 0 0-66.65997-486.67004 0 0 66.65997z m0-156l486.67004 0 0-66.65997-486.67004 0 0 66.65997z m0-156.65997l486.67004 0 0-66.67004-486.67004 0 0 66.67004z m-51.33 416.66003l586.65996 0 0-586.66003-586.65996 0 0 586.66003z" />
     </svg>
   )
 }
@@ -56,7 +45,7 @@ function ProfileIcon({ active }: { active: boolean }) {
   )
 }
 
-// FAB icon — ZUDI7 design (circle with pointed corner + plus)
+// Add-expense icon — ZUDI7 design (circle with pointed corner + plus)
 function AddExpenseIcon() {
   return (
     <svg
@@ -71,130 +60,73 @@ function AddExpenseIcon() {
   )
 }
 
-// FAB icon — payment card (Settle Up page)
-function SettlePayIcon() {
-  return (
-    <svg
-      className="h-[26px] w-[26px] text-[#faf8f4]"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
-    </svg>
-  )
-}
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 type Props = {
-  active: 'summary' | 'dashboard' | 'settle' | 'profile'
-  onChange: (tab: 'summary' | 'dashboard' | 'settle' | 'profile') => void
+  active: NavTab
+  onChange: (tab: NavTab) => void
   onAddExpenseClick: () => void
-  onSettlePayClick: () => void
-  /** When true the FAB is visually hidden so the morph circle can take over */
-  fabHidden?: boolean
 }
 
-export default function BottomTabs({ active, onChange, onAddExpenseClick, onSettlePayClick, fabHidden = false }: Props) {
+/**
+ * Three destinations plus one action. The action is a raised circle rather than
+ * a fourth tab so it reads as "do a thing" instead of "go somewhere", and it is
+ * docked in the bar rather than floating so it stops covering amounts in long
+ * lists. It no longer changes meaning per tab — recording a payment now lives
+ * inside Settle Up, where the debt being paid is already on screen.
+ */
+export default function BottomTabs({ active, onChange, onAddExpenseClick }: Props) {
   const t = useT()
 
-  // Which icon the FAB currently shows (lags behind `active` during morph)
-  const [fabIcon, setFabIcon] = useState<'add' | 'settle'>(active === 'settle' ? 'settle' : 'add')
-  // When true → scale-0 (shrinking out); when false → scale-100 (growing in)
-  const [fabShrunk, setFabShrunk] = useState(false)
-  const prevIsSettle = useRef(active === 'settle')
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
-
-  useEffect(() => {
-    const isSettle = active === 'settle'
-    if (isSettle === prevIsSettle.current) return
-    prevIsSettle.current = isSettle
-
-    timers.current.forEach(clearTimeout)
-    timers.current = []
-
-    // Step 1: shrink FAB to zero
-    setFabShrunk(true)
-    // Step 2: halfway through — swap icon while invisible, then grow back
-    timers.current.push(
-      setTimeout(() => {
-        setFabIcon(isSettle ? 'settle' : 'add')
-        setFabShrunk(false)
-      }, 180),
-    )
-
-    return () => timers.current.forEach(clearTimeout)
-  }, [active])
-
   const tabs: Array<{
-    id: Props['active']
+    id: NavTab
     label: string
     Icon: (props: { active: boolean }) => React.ReactElement
   }> = [
     { id: 'summary', label: t('tab.summary'), Icon: SummaryIcon },
-    { id: 'dashboard', label: t('tab.dashboard'), Icon: DashboardIcon },
     { id: 'settle', label: t('tab.settle'), Icon: SettleIcon },
     { id: 'profile', label: t('tab.profile'), Icon: ProfileIcon },
   ]
 
   return (
-    <>
-      {/* Floating Action Button — morphs icon when switching to/from Settle Up */}
-      <button
-        className="ms-fab"
-        aria-label={fabIcon === 'settle' ? 'Record payment' : t('tab.addExpense')}
-        onPointerDown={(e) => { if (!fabHidden) spawnRipple(e) }}
-        onClick={() => {
-          if (fabHidden) return
-          if (fabIcon === 'settle') {
-            onSettlePayClick()
-          } else {
-            onAddExpenseClick()
-          }
-        }}
-        style={{
-          transform: fabShrunk || fabHidden ? 'scale(0)' : 'scale(1)',
-          transition: 'transform 180ms cubic-bezier(0.4, 0, 0.2, 1)',
-          willChange: 'transform',
-          pointerEvents: fabHidden ? 'none' : 'auto',
-        }}
-      >
-        {fabIcon === 'settle' ? <SettlePayIcon /> : <AddExpenseIcon />}
-      </button>
-
-      {/* Bottom nav pill */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)]">
-        <div className="ms-sketch-bar relative mx-auto max-w-2xl bg-[var(--ms-bg)]">
-          <div className="flex h-[78px] items-center justify-center px-[21px]">
-            {/* Pill container */}
-            <div className="flex h-[54px] w-full gap-[3px] bg-[var(--ms-surface)] p-1">
-              {tabs.map((tab) => {
-                const isActive = active === tab.id
-                return (
-                  <button
-                    key={tab.id}
-                    className={`ms-key flex flex-1 flex-col items-center justify-center gap-[4px] ${isActive ? 'ms-nav-active' : ''}`}
-                    onPointerDown={(e) => {
-                      spawnRipple(e)
-                      onChange(tab.id)
-                    }}
+    <nav className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)]">
+      <div className="ms-sketch-bar relative mx-auto max-w-2xl bg-[var(--ms-bg)]">
+        <div className="flex h-[78px] items-center gap-[10px] px-[21px]">
+          <div className="flex h-[54px] min-w-0 flex-1 gap-[3px] bg-[var(--ms-surface)] p-1">
+            {tabs.map((tab) => {
+              const isActive = active === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  className={`ms-key flex min-w-0 flex-1 flex-col items-center justify-center gap-[4px] ${isActive ? 'ms-nav-active' : ''}`}
+                  onPointerDown={(e) => {
+                    spawnRipple(e)
+                    onChange(tab.id)
+                  }}
+                >
+                  <tab.Icon active={isActive} />
+                  <span
+                    className={`text-[9px] font-semibold leading-none tracking-[0.04em] transition-colors duration-100 ${
+                      isActive ? 'text-[#faf8f4]' : 'text-[var(--ms-text-muted)]'
+                    }`}
                   >
-                    <tab.Icon active={isActive} />
-                    <span
-                      className={`text-[9px] font-semibold leading-none tracking-[0.04em] transition-colors duration-100 ${
-                        isActive ? 'text-[#faf8f4]' : 'text-[var(--ms-text-muted)]'
-                      }`}
-                    >
-                      {tab.label}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+                    {tab.label}
+                  </span>
+                </button>
+              )
+            })}
           </div>
+
+          <button
+            className="ms-fab -mt-3 shrink-0"
+            aria-label={t('tab.addExpense')}
+            onPointerDown={spawnRipple}
+            onClick={onAddExpenseClick}
+          >
+            <AddExpenseIcon />
+          </button>
         </div>
-      </nav>
-    </>
+      </div>
+    </nav>
   )
 }

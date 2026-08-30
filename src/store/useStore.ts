@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { generateId, generateGroupId } from '../lib/id'
 import { saveGroupBackup } from '../lib/groupBackups'
 import { normalizeExpense, normalizeGroup, normalizeSettlementPayment } from '../lib/groupNormalize'
+import { DEFAULT_THEME_ID, resolveThemeId } from '../lib/themes'
 import type {
   Expense,
   Group,
@@ -24,8 +25,6 @@ type AppState = {
   setLang: (lang: 'en' | 'zh') => void
   themeId: string
   setThemeId: (id: string) => void
-  fontId: string
-  setFontId: (id: string) => void
   groups: Group[]
   hiddenDeletedGroupIds: string[]
   hideDeletedGroup: (groupId: string) => void
@@ -35,7 +34,10 @@ type AppState = {
   deleteGroup: (groupId: string) => void
   replaceGroup: (groupId: string, data: Group) => void
   upsertGroup: (data: Group) => void
-  addPerson: (groupId: string, name: string, authUserId?: string) => void
+  /** Device-only "which traveller am I", keyed by group. Never synced. */
+  myPersonIdByGroupId: Record<string, string>
+  setMyPersonId: (groupId: string, personId: string) => void
+  addPerson: (groupId: string, name: string, authUserId?: string) => string | null
   updatePerson: (groupId: string, personId: string, name: string) => void
   updatePersonProfile: (
     groupId: string,
@@ -54,7 +56,6 @@ type AppState = {
   removeSettlementPayment: (groupId: string, paymentId: string) => void
   restoreGroupFromBackup: (groupId: string, expenses: Group['expenses'], settlementPayments: Group['settlementPayments']) => void
   setPersonSkipRepaidConfirm: (groupId: string, personId: string, skip: boolean) => void
-  addGroupComment: (groupId: string, personId: string, message: string) => void
 }
 
 function updateGroupById(groups: Group[], groupId: string, updater: (group: Group) => Group): Group[] {
@@ -88,10 +89,8 @@ export const useStore = create<AppState>()(
     (set, get) => ({
       lang: 'en' as 'en' | 'zh',
       setLang: (lang: 'en' | 'zh') => set({ lang }),
-      themeId: 'solid-vintage',
-      setThemeId: (id: string) => set({ themeId: id }),
-      fontId: 'departure-mono',
-      setFontId: (id: string) => set({ fontId: id }),
+      themeId: DEFAULT_THEME_ID,
+      setThemeId: (id: string) => set({ themeId: resolveThemeId(id) }),
       groups: [],
       hiddenDeletedGroupIds: [],
       hideDeletedGroup: (groupId) => {
@@ -125,7 +124,6 @@ export const useStore = create<AppState>()(
               people: [],
               expenses: [],
               settlementPayments: [],
-              comments: [],
               createdAt: new Date().toISOString(),
               ownerId: ownerId ?? undefined,
             },
@@ -162,16 +160,22 @@ export const useStore = create<AppState>()(
           return { groups: [...state.groups, migrated] }
         })
       },
+      myPersonIdByGroupId: {},
+      setMyPersonId: (groupId: string, personId: string) =>
+        set((state) => ({
+          myPersonIdByGroupId: { ...state.myPersonIdByGroupId, [groupId]: personId },
+        })),
       addPerson: (groupId, name, authUserId) => {
         const safeName = sanitizeName(name)
-        if (!safeName) return
+        if (!safeName) return null
+        const personId = generateId('person')
         set((state) => ({
           groups: updateGroupById(state.groups, groupId, (group) => ({
             ...group,
             people: [
               ...group.people,
               {
-                id: generateId('person'),
+                id: personId,
                 name: safeName,
                 avatarDataUrl: null,
                 nameColor: null,
@@ -182,6 +186,7 @@ export const useStore = create<AppState>()(
             ],
           })),
         }))
+        return personId
       },
       updatePerson: (groupId, personId, name) => {
         const safeName = sanitizeName(name)
@@ -228,7 +233,6 @@ export const useStore = create<AppState>()(
             return {
               ...group,
               people: group.people.filter((person) => person.id !== personId),
-              comments: group.comments.filter((comment) => comment.personId !== personId),
               expenses: updatedExpenses,
             }
           }),
@@ -389,28 +393,10 @@ export const useStore = create<AppState>()(
           })),
         }))
       },
-      addGroupComment: (groupId, personId, message) => {
-        const clean = String(message).trim()
-        if (!clean) return
-        set((state) => ({
-          groups: updateGroupById(state.groups, groupId, (group) => ({
-            ...group,
-            comments: [
-              ...(group.comments || []),
-              {
-                id: generateId('comment'),
-                personId,
-                message: clean,
-                createdAt: new Date().toISOString(),
-              },
-            ],
-          })),
-        }))
-      },
     }),
     {
       name: 'monosplit-storage',
-      version: 5,
+      version: 6,
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
         if (version < 2 && Array.isArray(state?.groups)) {
@@ -421,13 +407,12 @@ export const useStore = create<AppState>()(
               : [],
           }))
         }
-        // v3: reset themeId to solid-vintage if it was still the old glacial default
-        if (version < 3 && state.themeId === 'glacial') {
-          state.themeId = 'solid-vintage'
-        }
-        // v4: ensure fontId exists for existing users
-        if (!state.fontId) {
-          state.fontId = 'departure-mono'
+        // v6: retired palettes and the font picker are gone — normalize any
+        // stale persisted values so they cannot resolve to missing styles.
+        state.themeId = resolveThemeId(state.themeId as string | undefined)
+        delete state.fontId
+        if (!state.myPersonIdByGroupId || typeof state.myPersonIdByGroupId !== 'object') {
+          state.myPersonIdByGroupId = {}
         }
         if (version < 4 && Array.isArray(state?.groups)) {
           state.groups = (state.groups as Array<Record<string, unknown>>).map((group) => ({
@@ -450,13 +435,12 @@ export const useStore = create<AppState>()(
       partialize: (state) => ({
         lang: state.lang,
         themeId: state.themeId,
-        fontId: state.fontId,
+        myPersonIdByGroupId: state.myPersonIdByGroupId,
         hiddenDeletedGroupIds: state.hiddenDeletedGroupIds,
         groups: state.groups.map((group) => ({
           ...group,
           startDate: group.startDate || null,
           endDate: group.endDate || null,
-          comments: (group.comments || []).filter((comment) => personInGroup(group.people, comment.personId)),
           people: group.people
             .filter((person) => !!sanitizeName(person.name))
             .map((person) => ({
