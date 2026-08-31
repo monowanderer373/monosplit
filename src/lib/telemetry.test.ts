@@ -1,12 +1,19 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Breadcrumb, ErrorEvent } from '@sentry/react'
 import {
   classifyAuthFailure,
+  initializeObservability,
   sanitizeSentryBreadcrumb,
   sanitizeSentryEvent,
+  shouldReportAuthFailure,
 } from './telemetry'
 
 describe('Sentry privacy sanitizer', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
   it('retains only allowlisted diagnostics and removes financial, identity, and auth data', () => {
     const sensitive = {
       description: 'Secret dinner note',
@@ -149,5 +156,26 @@ describe('Sentry privacy sanitizer', () => {
       .toBe('email_unconfirmed')
     expect(classifyAuthFailure(new Error('request failed with an unknown private response')))
       .toBe('other')
+  })
+
+  it('does not report expected user-correctable auth failures as exceptions', () => {
+    expect(shouldReportAuthFailure('invalid_credentials')).toBe(false)
+    expect(shouldReportAuthFailure('email_unconfirmed')).toBe(false)
+    expect(shouldReportAuthFailure('weak_password')).toBe(false)
+    expect(shouldReportAuthFailure('network')).toBe(true)
+    expect(shouldReportAuthFailure('other')).toBe(true)
+  })
+
+  it('does not let Sentry initialization failure prevent application startup', () => {
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://public@example.ingest.sentry.io/1')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    expect(initializeObservability(() => {
+      throw new Error('private setup failure')
+    })).toBe(false)
+    expect(warn).toHaveBeenCalledWith(
+      'Production error monitoring could not be initialized.',
+    )
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('private setup failure')
   })
 })

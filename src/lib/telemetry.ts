@@ -49,11 +49,17 @@ const AUTH_FAILURES = new Set<AuthFailure>([
   'network',
   'other',
 ])
+const EXPECTED_AUTH_FAILURES = new Set<AuthFailure>([
+  'invalid_credentials',
+  'email_unconfirmed',
+  'weak_password',
+])
 const SAFE_AUTH_BREADCRUMBS = new Set(
   [...AUTH_OPERATIONS].flatMap((operation) => (
     [...AUTH_OUTCOMES].map((outcome) => `auth.${operation}.${outcome}`)
   )),
 )
+let observabilityInitialized = false
 
 function safeEnvironment(value: unknown): string | undefined {
   return typeof value === 'string'
@@ -190,6 +196,10 @@ export function classifyAuthFailure(cause: unknown): AuthFailure {
   return 'other'
 }
 
+export function shouldReportAuthFailure(failure: AuthFailure): boolean {
+  return !EXPECTED_AUTH_FAILURES.has(failure)
+}
+
 function addAuthBreadcrumb(
   operation: AuthOperation,
   outcome: AuthOutcome,
@@ -217,6 +227,8 @@ export function observeAuthFailure(
 ): void {
   const failure = classifyAuthFailure(cause)
   addAuthBreadcrumb(operation, 'failed')
+  if (!shouldReportAuthFailure(failure)) return
+
   Sentry.withScope((scope) => {
     scope.setLevel('warning')
     scope.setTag('feature', 'auth')
@@ -228,24 +240,47 @@ export function observeAuthFailure(
   })
 }
 
-export function initializeObservability(): boolean {
+type SentryInitializer = (options: Parameters<typeof Sentry.init>[0]) => void
+
+export function initializeObservability(
+  initialize: SentryInitializer = Sentry.init,
+): boolean {
+  if (observabilityInitialized) return true
+
   const dsn = import.meta.env.VITE_SENTRY_DSN?.trim()
   if (!dsn) return false
 
-  Sentry.init({
-    dsn,
-    environment: safeEnvironment(import.meta.env.VITE_SENTRY_ENVIRONMENT)
-      ?? safeEnvironment(import.meta.env.MODE)
-      ?? 'unknown',
-    release: safeRelease(import.meta.env.VITE_SENTRY_RELEASE) ?? 'tabby-tally@0.0.0',
-    sendDefaultPii: false,
-    tracesSampleRate: 0,
-    enableLogs: false,
-    attachStacktrace: true,
-    maxBreadcrumbs: 20,
-    normalizeDepth: 2,
-    beforeSend: sanitizeSentryEvent,
-    beforeBreadcrumb: sanitizeSentryBreadcrumb,
-  })
-  return true
+  const deploymentEnvironment = typeof __TABBY_TALLY_DEPLOYMENT_ENVIRONMENT__ === 'string'
+    ? __TABBY_TALLY_DEPLOYMENT_ENVIRONMENT__
+    : undefined
+  const deploymentRelease = typeof __TABBY_TALLY_DEPLOYMENT_RELEASE__ === 'string'
+    ? __TABBY_TALLY_DEPLOYMENT_RELEASE__
+    : undefined
+
+  try {
+    initialize({
+      dsn,
+      environment: safeEnvironment(import.meta.env.VITE_SENTRY_ENVIRONMENT)
+        ?? safeEnvironment(deploymentEnvironment)
+        ?? safeEnvironment(import.meta.env.MODE)
+        ?? 'unknown',
+      release: safeRelease(import.meta.env.VITE_SENTRY_RELEASE)
+        ?? safeRelease(deploymentRelease)
+        ?? 'tabby-tally@0.0.0',
+      sendDefaultPii: false,
+      tracesSampleRate: 0,
+      enableLogs: false,
+      attachStacktrace: true,
+      maxBreadcrumbs: 20,
+      normalizeDepth: 2,
+      beforeSend: sanitizeSentryEvent,
+      beforeBreadcrumb: sanitizeSentryBreadcrumb,
+    })
+    observabilityInitialized = true
+    return true
+  } catch {
+    // Observability must never become an application availability dependency.
+    console.warn('Production error monitoring could not be initialized.')
+    return false
+  }
 }

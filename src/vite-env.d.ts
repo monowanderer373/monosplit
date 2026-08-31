@@ -11,3 +11,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+declare const __TABBY_TALLY_DEPLOYMENT_ENVIRONMENT__: string | undefined
+declare const __TABBY_TALLY_DEPLOYMENT_RELEASE__: string | undefined

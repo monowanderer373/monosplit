@@ -18,14 +18,17 @@ or unrestricted metadata to telemetry.
 3. Set `VITE_SENTRY_DSN` to the project's client DSN. A Vite DSN is a public
    ingest identifier, not a server secret, but it should still be managed as an
    environment value.
-4. Set `VITE_SENTRY_ENVIRONMENT` to `local`, `preview`, or `production`.
-5. Set `VITE_SENTRY_RELEASE` to an immutable build identifier such as
-   `tabby-tally@<git-sha>`.
-6. In each deployment environment, set the same three variables and redeploy.
-   Leave `VITE_SENTRY_DSN` blank to disable reporting.
+4. In Vercel, set the DSN for Production and approved Preview environments.
+   `VERCEL_ENV` and `VERCEL_GIT_COMMIT_SHA` are converted at build time into
+   the Sentry environment and immutable `tabby-tally@<git-sha>` release.
+5. Keep `VITE_SENTRY_ENVIRONMENT` and `VITE_SENTRY_RELEASE` only as local or
+   emergency overrides. They are not required in Vercel.
+6. Redeploy after changing the DSN. Leave it blank to disable reporting.
 
 The client has `sendDefaultPii: false`, no replay integration, and tracing
-disabled. `beforeSend` constructs a new event from an allowlist; it does not
+disabled. Initialization is idempotent and fault-isolated so an SDK setup
+failure cannot prevent the application from starting. `beforeSend` constructs
+a new event from an allowlist; it does not
 forward user, request, context, extra, arbitrary message, or arbitrary tag
 fields. Exception values become `Application error`. Stack frames retain only
 sanitized asset filename, function, line/column, and in-app state.
@@ -44,7 +47,8 @@ In Sentry:
 
 Expected limitation: reports cannot be traced to a person, account, expense,
 invite, request, or exact backend error message. Invalid credentials and other
-expected auth failures are classified into bounded codes. Debug with release,
+expected user-correctable auth failures are classified into bounded breadcrumbs
+but are not captured as exceptions. Debug unexpected failures with release,
 environment, operation, failure class, and sanitized stack location.
 
 ## Hosted Supabase auth alignment

@@ -102,59 +102,45 @@ deployment ID, and Git commit SHA in the release ticket.
 
 First confirm that a provider-managed backup or point-in-time recovery point is
 available. This is the primary recovery path for Supabase-managed Auth and
-Storage state.
+Storage state. If none is listed, record that limitation as an explicit NO-GO
+or separately approved beta risk.
 
-With writes still frozen, create role, schema, and data-only logical dumps.
-The script validates the linked project ref, requires the exact inventory,
-restricts output to the gitignored repository `backups/` directory, and applies
-restrictive filesystem permissions where the host supports them. It does not
-accept or print database secrets:
+Complete the credential and encrypted destination setup in
+`docs/PRODUCTION_HARDENING_RUNBOOK.md`. With writes still frozen, create a
+fresh pre-migration backup:
 
 ```powershell
-.\scripts\Backup-Beta.ps1 `
-  -ExpectedProjectRef "<beta-project-ref>" `
-  -ExactCountInventoryPath "<encrypted-temp>\exact-row-counts.csv" `
-  -WritesFrozen
+.\scripts\Backup-Beta.ps1 -Mode PreMigration -WritesFrozen -Force
 ```
 
-The artifacts, exact inventory, and manifest are written under `backups/`,
-which is gitignored. Arbitrary `OutputRoot` locations are rejected. Copy the
-entire timestamped directory to encrypted storage outside the working tree.
-Do not commit or upload it to an issue or CI artifact. Securely delete the
-temporary source inventory after the copy is verified.
+The script validates dump structure, hashes, exact counts, policy shape, and
+migration state; encrypts locally with GnuPG AES-256; proves that the archive
+can be decrypted; and moves only the verified `.backup.enc` file into the
+configured OneDrive folder. It reads secrets from Windows Credential Manager
+through standard input and removes plaintext temporary artifacts.
 
 ## 4. Verify the backup
 
-Run the non-destructive integrity check:
+Run a full non-destructive restore rehearsal against the newest encrypted
+pre-migration archive:
 
 ```powershell
-.\scripts\Verify-BetaBackup.ps1 `
-  -BackupDirectory ".\backups\beta-YYYYMMDDTHHMMSSZ" `
-  -ExpectedProjectRef "<beta-project-ref>"
+$archive = Get-ChildItem "<configured-backup-folder>" `
+  -Filter "tabby-tally-*-pre-migration.backup.enc" |
+  Sort-Object LastWriteTimeUtc -Descending |
+  Select-Object -First 1
+
+.\scripts\Test-ProductionBackupRestore.ps1 -ArchivePath $archive.FullName
 ```
 
-Hash verification is necessary but not sufficient. Before a destructive reset:
+The script restores only to an isolated, unpublished Docker database; compares
+every `public`, `auth`, `storage`, and `private` table count; and verifies core
+identity, expense, payer/share, settlement, and legacy-token invariants. It
+never connects the restore target to production. Record the generated restore
+report in the release ticket.
 
-1. Restore the role, schema, and data dumps to a disposable database or scratch
-   Supabase project using the current Supabase backup/restore procedure.
-2. Keep outbound email and OAuth callbacks disabled in the scratch project.
-3. Run the section 2 exact inventory on the restore target and compare every
-   `public`, `auth`, and `storage` table against `exact-row-counts.csv`, except
-   `auth.schema_migrations` and `storage.migrations`. Supabase CLI deliberately
-   omits those provider-managed migration ledgers from logical data dumps; keep
-   their source counts in the inventory, expect zero rows in an isolated
-   logical restore, and rely on the provider-managed backup for their recovery.
-4. Confirm at least one restored Auth identity can be correlated to
-   `public.user_profiles` and `public.participants`.
-5. If a legacy table existed, inspect one restored group, its memberships, and
-   invite records. Exporting legacy JSON is a recovery aid, not a promise that
-   the relational application can import it.
-6. Record the restore target, verifier, completion time, and comparison result
-   in the release ticket.
-
-Any missing artifact, hash mismatch, restore error, or row-count mismatch
-outside those two documented provider-managed migration ledgers is an
-automatic **NO-GO**.
+Any missing artifact, hash mismatch, restore error, row-count mismatch, or
+financial-invariant violation is an automatic **NO-GO**.
 
 ## 5. Validate migrations and tests
 

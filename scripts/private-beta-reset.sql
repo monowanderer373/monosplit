@@ -62,6 +62,7 @@ begin
     public.financial_events,
     public.product_events,
     public.space_invites,
+    public.friend_invites,
     public.space_members,
     public.spaces,
     public.friendships
@@ -75,6 +76,7 @@ begin
     + (select pg_catalog.count(*) from public.user_profiles)
     + (select pg_catalog.count(*) from public.participants)
     + (select pg_catalog.count(*) from public.spaces)
+    + (select pg_catalog.count(*) from public.friend_invites)
     + (select pg_catalog.count(*) from public.expenses)
     + (select pg_catalog.count(*) from public.settlement_payments)
   into remaining_active_rows;
