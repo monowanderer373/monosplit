@@ -17,6 +17,7 @@ const SpaceInvitePage = lazy(() => import('./pages/SpaceInvitePage'))
 const FriendsPage = lazy(() => import('./pages/FriendsPage'))
 const FriendInvitePage = lazy(() => import('./pages/FriendInvitePage'))
 const SmartCapturePage = lazy(() => import('./pages/SmartCapturePage'))
+const AppShell = lazy(() => import('./components/AppShell'))
 
 function AppErrorFallback({ resetError }: { resetError: () => void }) {
   const t = useT()
@@ -63,20 +64,22 @@ function AppRoutes() {
     <BrowserRouter>
       <Suspense fallback={<main className="ms-page flex min-h-dvh items-center justify-center">{t('app.opening')}</main>}>
         <Routes>
-          <Route path="/" element={<PersonalLedgerRoute />} />
-          <Route path="/quick-add" element={<PersonalLedgerRoute />} />
-          <Route path="/spaces" element={<SpacesPage />} />
-          <Route path="/space/:spaceId" element={<SpacePage />} />
+          <Route element={<AppShell />}>
+            <Route path="/" element={<PersonalLedgerRoute />} />
+            <Route path="/quick-add" element={<PersonalLedgerRoute />} />
+            <Route path="/spaces" element={<SpacesPage />} />
+            <Route path="/space/:spaceId" element={<SpacePage />} />
+            <Route path="/friends" element={<FriendsPage />} />
+            <Route path="/capture" element={<SmartCapturePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
           <Route path="/space-invite/:token" element={<SpaceInvitePage />} />
-          <Route path="/friends" element={<FriendsPage />} />
           <Route path="/friend-invite/:token" element={<FriendInvitePage />} />
-          <Route path="/capture" element={<SmartCapturePage />} />
           <Route path="/legacy-spaces" element={<Navigate to="/spaces" replace />} />
           <Route path="/group/:groupId" element={<Navigate to="/spaces" replace />} />
           <Route path="/embed/:groupId" element={<Navigate to="/" replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/invite/:token" element={<Navigate to="/spaces" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

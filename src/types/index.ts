@@ -20,6 +20,12 @@ export interface UserProfile {
 }
 
 export type ParticipantKind = 'account' | 'manual'
+export type PersonState = 'manual' | 'link-pending' | 'linked'
+export type PersonFriendshipStatus =
+  | 'accepted'
+  | 'archived'
+  | 'blocked'
+  | null
 export type SpaceType = 'group' | 'trip'
 export type ExpenseScope = 'personal' | 'direct' | 'space'
 export type FinancialRecordStatus = 'active' | 'voided'
@@ -38,6 +44,18 @@ export interface Participant {
   kind: ParticipantKind
   displayName: string
   createdBy: string | null
+}
+
+export interface PersonRelationship {
+  id: string
+  ownerParticipantId: string
+  displayName: string
+  linkedParticipantId: string | null
+  mergedIntoPersonId: string | null
+  manualParticipantIds: string[]
+  primaryManualParticipantId: string | null
+  state: PersonState
+  friendshipStatus: PersonFriendshipStatus
 }
 
 export interface Space {

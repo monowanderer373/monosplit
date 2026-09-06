@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import ExpenseCaptureSheet, { type CaptureParticipant } from '../components/ExpenseCaptureSheet'
 import SettlementPanel from '../components/SettlementPanel'
 import ActivityFeed from '../components/ActivityFeed'
 import { useAuth } from '../hooks/useAuth'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
+import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
+import type { LedgerDraftParticipant } from '../lib/compileExpense'
 import { formatMinorAmount } from '../lib/money'
 import { spaceRepository, type SpaceWithRole } from '../lib/spaceRepository'
 import { buildTripRecap } from '../lib/insights'
@@ -33,12 +34,12 @@ export default function SpacePage() {
   const navigate = useNavigate()
   const { authUser } = useAuth()
   const ledger = usePersonalLedger()
+  const quickAdd = useUniversalQuickAdd()
   const refreshLedger = ledger.refresh
   const [entry, setEntry] = useState<SpaceWithRole | null>(null)
   const [members, setMembers] = useState<MemberEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<TranslationKey | ''>('')
-  const [captureStartedAt, setCaptureStartedAt] = useState<number | null>(null)
   const [inviteRole, setInviteRole] = useState<'full_access' | 'view'>('full_access')
   const [inviteUrl, setInviteUrl] = useState('')
   const [creatingInvite, setCreatingInvite] = useState(false)
@@ -75,7 +76,7 @@ export default function SpacePage() {
   )
   const recap = useMemo(() => buildTripRecap(expenses), [expenses])
 
-  const captureParticipants = useMemo<CaptureParticipant[]>(
+  const captureParticipants = useMemo<LedgerDraftParticipant[]>(
     () => members.map(({ participant }) => ({
       id: participant.id,
       displayName: participant.displayName,
@@ -183,7 +184,25 @@ export default function SpacePage() {
             </p>
           </div>
           {canWrite ? (
-            <button className="ms-btn-primary h-11" onClick={() => setCaptureStartedAt(Date.now())}>{t('space.addExpense')}</button>
+            <button
+              className="ms-btn-primary h-11"
+              onClick={() => quickAdd.open({
+                entryPoint: 'space',
+                context: {
+                  ref: {
+                    kind: 'space',
+                    spaceId: entry.space.id,
+                    spaceType: entry.space.type,
+                    displayName: entry.space.name,
+                  },
+                  currentParticipantId: authUser.participantId!,
+                  availableParticipants: captureParticipants,
+                  defaultCurrency: entry.space.defaultCurrency,
+                },
+              })}
+            >
+              {t('space.addExpense')}
+            </button>
           ) : null}
         </div>
       </header>
@@ -392,19 +411,6 @@ export default function SpacePage() {
         <ActivityFeed spaceId={entry.space.id} expenseIds={expenses.map((expense) => expense.id)} />
       </section>
 
-      {captureStartedAt != null ? (
-        <ExpenseCaptureSheet
-          scope="space"
-          spaceId={entry.space.id}
-          contextLabel={entry.space.name}
-          currentParticipantId={authUser.participantId}
-          participants={captureParticipants}
-          defaultCurrency={entry.space.defaultCurrency}
-          startedAtMs={captureStartedAt}
-          onClose={() => setCaptureStartedAt(null)}
-          onSave={ledger.saveDraft}
-        />
-      ) : null}
     </main>
   )
 }

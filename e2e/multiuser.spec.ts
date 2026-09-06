@@ -55,6 +55,12 @@ test.describe('local relational multi-user journey', () => {
     await owner.getByRole('button', { name: 'Create space' }).click()
     await expect(owner.getByRole('heading', { name: 'Sabah E2E Trip' })).toBeVisible()
     spaceUrl = owner.url()
+    const ownerNavigation = owner.getByRole('navigation', { name: 'Primary navigation' })
+    await expect(ownerNavigation.getByRole('button', { name: 'Groups / Trips' })).toHaveAttribute('aria-current', 'page')
+    await ownerNavigation.getByRole('button', { name: 'Quick add expense' }).click()
+    const inheritedCapture = owner.getByRole('dialog', { name: 'Add Expense' })
+    await expect(inheritedCapture).toBeVisible()
+    await inheritedCapture.getByRole('button', { name: 'Close' }).click()
 
     const fullAccessInvite = await createSpaceInvite(owner, 'full_access')
     await acceptSpaceInvite(betaBrowser.page, fullAccessInvite)
@@ -67,6 +73,13 @@ test.describe('local relational multi-user journey', () => {
     await expect(viewerBrowser.page.getByText('Trip · View only')).toBeVisible()
     await expect(viewerBrowser.page.getByRole('button', { name: '+ Add expense' })).toHaveCount(0)
     await expect(viewerBrowser.page.getByPlaceholder('Add someone without an account')).toHaveCount(0)
+    const viewerNavigation = viewerBrowser.page.getByRole('navigation', { name: 'Primary navigation' })
+    await viewerNavigation.getByRole('button', { name: 'Quick add expense' }).click()
+    const viewerGate = viewerBrowser.page.getByRole('dialog', { name: 'Where should this go?' })
+    await expect(viewerGate).toBeVisible()
+    await expect(viewerGate.getByText('Loading available contexts…')).toHaveCount(0)
+    await expect(viewerGate.getByRole('button', { name: 'Sabah E2E Trip' })).toHaveCount(0)
+    await viewerGate.getByRole('button', { name: 'Close' }).click()
 
     const guestInvite = await createSpaceInvite(owner, 'view')
     const guestContext = await browser.newContext(MOBILE_CONTEXT_OPTIONS)
@@ -168,6 +181,7 @@ test.describe('local relational multi-user journey', () => {
     const betaCard = owner.getByRole('article').filter({ hasText: 'Beta' })
     await betaCard.getByRole('button', { name: 'Split', exact: true }).click()
     await saveCapture(owner, 'Direct lunch', '9.99')
+    await expect(owner.getByRole('status')).toHaveText('Recorded · waiting for confirmation')
 
     await friend.reload()
     const pending = friend.getByRole('article').filter({ hasText: 'Direct lunch' })
@@ -226,10 +240,11 @@ test.describe('local relational multi-user journey', () => {
     await quickAdd.getByRole('textbox', { name: /^Amount/ }).fill('7.77')
     await quickAdd.getByPlaceholder('What was this for?').fill('Offline once')
     await quickAdd.getByRole('button', { name: 'Save expense' }).click()
-    await expect(owner.getByText('Pending sync')).toBeVisible()
+    await expect(owner.getByRole('status')).toHaveText('Saved on this device · pending sync')
+    await expect(owner.getByText('Pending sync', { exact: true })).toBeVisible()
 
     await alphaBrowser.context.setOffline(false)
-    await expect(owner.getByText('Pending sync')).toHaveCount(0)
+    await expect(owner.getByText('Pending sync', { exact: true })).toHaveCount(0)
     await owner.reload()
     await expect(owner.getByRole('article').filter({ hasText: 'Offline once' })).toHaveCount(1)
 

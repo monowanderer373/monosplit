@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react'
+import type { ReactNode } from 'react'
 import { useAuth } from './useAuth'
 import { useStore } from '../store/useStore'
 import {
@@ -19,7 +28,7 @@ import { supabase } from '../lib/supabase'
 
 const EMPTY_EXPENSES: never[] = []
 
-export function usePersonalLedger() {
+function usePersonalLedgerController() {
   const flushingRef = useRef(false)
   const { authUser } = useAuth()
   const identityId = authUser?.id ?? null
@@ -127,7 +136,34 @@ export function usePersonalLedger() {
     const pending = createPendingLedgerCommand(draft, result.command, captureDurationMs)
     queueLedgerCommand(identityId, pending)
     await flush()
-    return { ok: true as const, requestId: result.command.requestId }
+    const remaining = useStore
+      .getState()
+      .ledgerByIdentity[identityId]?.outbox
+      .find((item) => item.command.requestId === result.command.requestId)
+    if (remaining?.status === 'rejected') {
+      return {
+        ok: true as const,
+        requestId: result.command.requestId,
+        saveState: 'needs-attention' as const,
+      }
+    }
+    const awaitingConfirmation =
+      !remaining
+      && result.command.scope === 'direct'
+      && draft.participants.some(
+        (candidate) =>
+          candidate.id !== draft.currentParticipantId
+          && candidate.kind === 'account',
+      )
+    return {
+      ok: true as const,
+      requestId: result.command.requestId,
+      saveState: remaining
+        ? 'pending-sync' as const
+        : awaitingConfirmation
+          ? 'awaiting-confirmation' as const
+          : 'recorded' as const,
+    }
   }, [flush, identityId, participantId, queueLedgerCommand])
 
   const voidExpense = useCallback(async (expenseId: string) => {
@@ -162,4 +198,19 @@ export function usePersonalLedger() {
     retryCommand,
     voidExpense,
   }
+}
+
+type PersonalLedgerContextValue = ReturnType<typeof usePersonalLedgerController>
+
+const PersonalLedgerContext = createContext<PersonalLedgerContextValue | null>(null)
+
+export function PersonalLedgerProvider({ children }: { children: ReactNode }) {
+  const value = usePersonalLedgerController()
+  return createElement(PersonalLedgerContext.Provider, { value }, children)
+}
+
+export function usePersonalLedger(): PersonalLedgerContextValue {
+  const value = useContext(PersonalLedgerContext)
+  if (!value) throw new Error('usePersonalLedger must be used inside <PersonalLedgerProvider>')
+  return value
 }

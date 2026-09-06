@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import ExpenseCaptureSheet, { type CaptureParticipant } from '../components/ExpenseCaptureSheet'
 import SettlementPanel from '../components/SettlementPanel'
 import { useAuth } from '../hooks/useAuth'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
+import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
+import type { LedgerDraftParticipant } from '../lib/compileExpense'
 import {
   friendRepository,
   type FriendProfile,
-  type NamedParticipant,
   type ParticipantLinkRequest,
 } from '../lib/friendRepository'
+import { personRepository } from '../lib/personRepository'
+import {
+  isPersonDirectEligible,
+  resolvePersonFinancialParticipant,
+} from '../lib/personState'
 import { formatMinorAmount } from '../lib/money'
 import { ledgerRepository } from '../lib/ledgerRepository'
 import {
@@ -21,6 +26,7 @@ import {
 } from '../lib/i18n'
 import { formatDate } from '../lib/locale'
 import { useStore } from '../store/useStore'
+import type { PersonRelationship } from '../types'
 
 export default function FriendsPage() {
   const t = useT()
@@ -29,17 +35,16 @@ export default function FriendsPage() {
   const { authUser, loading: authLoading } = useAuth()
   const participantId = authUser?.participantId ?? null
   const ledger = usePersonalLedger()
+  const quickAdd = useUniversalQuickAdd()
   const refreshLedger = ledger.refresh
   const [friends, setFriends] = useState<FriendProfile[]>([])
   const [archivedFriends, setArchivedFriends] = useState<FriendProfile[]>([])
-  const [manualParticipants, setManualParticipants] = useState<NamedParticipant[]>([])
+  const [people, setPeople] = useState<PersonRelationship[]>([])
   const [linkRequests, setLinkRequests] = useState<ParticipantLinkRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<TranslationKey | ''>('')
   const [manualName, setManualName] = useState('')
   const [action, setAction] = useState('')
-  const [captureStartedAt, setCaptureStartedAt] = useState<number | null>(null)
-  const [initialSelectedIds, setInitialSelectedIds] = useState<string[]>([])
   const [inviteUrl, setInviteUrl] = useState('')
   const [balanceFriendId, setBalanceFriendId] = useState<string | null>(null)
   const [linkTargets, setLinkTargets] = useState<Record<string, string>>({})
@@ -50,16 +55,21 @@ export default function FriendsPage() {
       return
     }
     try {
-      const [nextFriends, nextArchivedFriends, nextManual, nextLinkRequests] = await Promise.all([
+      const [
+        nextFriends,
+        nextArchivedFriends,
+        nextPeople,
+        nextLinkRequests,
+      ] = await Promise.all([
         friendRepository.listAcceptedFriends(),
         friendRepository.listArchivedFriends(),
-        friendRepository.listManualParticipants(),
+        personRepository.listPeople(),
         friendRepository.listLinkRequests(),
         refreshLedger(),
       ])
       setFriends(nextFriends)
       setArchivedFriends(nextArchivedFriends)
-      setManualParticipants(nextManual)
+      setPeople(nextPeople)
       setLinkRequests(nextLinkRequests)
       setError('')
     } catch (cause) {
@@ -73,19 +83,34 @@ export default function FriendsPage() {
     void refresh()
   }, [refresh])
 
-  const captureParticipants = useMemo<CaptureParticipant[]>(() => {
+  useEffect(
+    () => personRepository.subscribeToPeople(() => void refresh()),
+    [refresh],
+  )
+
+  const manualParticipants = useMemo(() => people.flatMap((person) => {
+    const participant = resolvePersonFinancialParticipant(person)
+    return participant?.kind === 'manual'
+      ? [{ id: participant.id, displayName: person.displayName }]
+      : []
+  }), [people])
+  const captureParticipants = useMemo<LedgerDraftParticipant[]>(() => {
     if (!participantId) return []
-    const self: CaptureParticipant = {
+    const self: LedgerDraftParticipant = {
       id: participantId,
       displayName: authUser?.displayName ?? authUser?.email ?? t('common.me'),
       kind: 'account',
     }
     return [
       self,
-      ...friends.map(({ participant }) => ({ ...participant, kind: 'account' as const })),
-      ...manualParticipants.map((participant) => ({ ...participant, kind: 'manual' as const })),
+      ...people
+        .filter(isPersonDirectEligible)
+        .flatMap((person) => {
+          const participant = resolvePersonFinancialParticipant(person)
+          return participant ? [participant] : []
+        }),
     ]
-  }, [authUser, friends, manualParticipants, participantId, t])
+  }, [authUser, participantId, people, t])
 
   const pendingExpenses = useMemo(() => ledger.expenses.filter((expense) => (
     expense.scope === 'direct'
@@ -124,7 +149,7 @@ export default function FriendsPage() {
     setAction('manual')
     setError('')
     try {
-      await friendRepository.createManualParticipant(manualName.trim())
+      await personRepository.createManualPerson(manualName.trim())
       setManualName('')
       await refresh()
     } catch (cause) {
@@ -135,8 +160,45 @@ export default function FriendsPage() {
   }
 
   const openCapture = (selected: string[]) => {
-    setInitialSelectedIds(selected)
-    setCaptureStartedAt(Date.now())
+    if (!participantId) return
+    const target = captureParticipants.find(
+      (participant) =>
+        participant.id !== participantId
+        && selected.includes(participant.id),
+    )
+    if (!target) {
+      quickAdd.open({ entryPoint: 'person' })
+      return
+    }
+    const targetPerson = people.find(
+      (person) =>
+        resolvePersonFinancialParticipant(person)?.id === target.id,
+    )
+    if (!targetPerson) return
+    quickAdd.open({
+      entryPoint: 'person',
+      context: {
+        ref: {
+          kind: 'person',
+          personId: targetPerson.id,
+          participantId: target.id,
+          participantIds: [
+            target.id,
+            ...targetPerson.manualParticipantIds.filter(
+              (id) => id !== target.id,
+            ),
+          ],
+          participantKind: target.kind,
+          displayName: target.displayName,
+        },
+        currentParticipantId: participantId,
+        availableParticipants: captureParticipants,
+        defaultCurrency: authUser?.defaultCurrency ?? 'MYR',
+      },
+      initialValues: {
+        selectedParticipantIds: selected,
+      },
+    })
   }
 
   const respond = async (expenseId: string, response: 'accepted' | 'declined') => {
@@ -159,7 +221,12 @@ export default function FriendsPage() {
     setAction(`link:${manualParticipantId}`)
     setError('')
     try {
-      await friendRepository.requestManualLink(manualParticipantId, targetParticipantId)
+      const person = people.find(
+        (candidate) =>
+          candidate.manualParticipantIds.includes(manualParticipantId),
+      )
+      if (!person) throw new Error('person_relationship_not_found')
+      await personRepository.requestLink(person.id, targetParticipantId)
       await refresh()
     } catch (cause) {
       setError(friendlyErrorKey(cause))
@@ -429,20 +496,6 @@ export default function FriendsPage() {
         ) : null}
       </section>
 
-      {captureStartedAt != null ? (
-        <ExpenseCaptureSheet
-          scope="direct"
-          spaceId={null}
-          contextLabel={t('scope.direct')}
-          currentParticipantId={participantId}
-          participants={captureParticipants}
-          initialSelectedIds={initialSelectedIds}
-          defaultCurrency={authUser.defaultCurrency ?? 'MYR'}
-          startedAtMs={captureStartedAt}
-          onClose={() => setCaptureStartedAt(null)}
-          onSave={ledger.saveDraft}
-        />
-      ) : null}
     </main>
   )
 }

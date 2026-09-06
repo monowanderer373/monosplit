@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import QuickAddSheet from '../components/QuickAddSheet'
-import CaptureLibrary, { type CapturePreset } from '../components/CaptureLibrary'
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import CaptureLibrary from '../components/CaptureLibrary'
 import { useAuth } from '../hooks/useAuth'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
+import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import { formatMinorAmount } from '../lib/money'
-import { recordProductEvent } from '../lib/productEvents'
 import { categoryKey, scopeKey, useT } from '../lib/i18n'
 import { formatDate } from '../lib/locale'
 import { useStore } from '../store/useStore'
@@ -14,13 +13,9 @@ export default function PersonalLedgerPage() {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const navigate = useNavigate()
-  const location = useLocation()
   const { authUser, loading } = useAuth()
   const ledger = usePersonalLedger()
-  const [quickAddStartedAt, setQuickAddStartedAt] = useState<number | null>(
-    () => location.pathname === '/quick-add' ? Date.now() : null,
-  )
-  const [capturePreset, setCapturePreset] = useState<CapturePreset | null>(null)
+  const quickAdd = useUniversalQuickAdd()
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
   const [category, setCategory] = useState('All')
 
@@ -35,26 +30,6 @@ export default function PersonalLedgerPage() {
     ),
     [category, ledger.rows, month],
   )
-
-  useEffect(() => {
-    if (quickAddStartedAt == null || !ledger.participantId) return
-    void recordProductEvent({
-      participantId: ledger.participantId,
-      eventName: 'quick_add_started',
-      source: 'manual',
-      metadata: {
-        entry: location.pathname === '/quick-add'
-          ? new URLSearchParams(location.search).get('source') ?? 'deep-link'
-          : 'ledger',
-      },
-    })
-  }, [ledger.participantId, location.pathname, location.search, quickAddStartedAt])
-
-  const closeQuickAdd = () => {
-    setQuickAddStartedAt(null)
-    setCapturePreset(null)
-    if (location.pathname === '/quick-add') navigate('/', { replace: true })
-  }
 
   if (loading) {
     return (
@@ -169,8 +144,26 @@ export default function PersonalLedgerPage() {
         timezone={authUser.timezone ?? 'Asia/Kuala_Lumpur'}
         expenses={ledger.expenses}
         onOpen={(preset) => {
-          setCapturePreset(preset)
-          setQuickAddStartedAt(Date.now())
+          quickAdd.open({
+            entryPoint: preset.source === 'recurring'
+              ? 'recurring-draft'
+              : 'recent-preset',
+            contextPolicy: preset.source === 'recurring' ? 'locked' : 'switchable',
+            context: {
+              ref: { kind: 'personal' },
+              currentParticipantId: ledger.participantId!,
+              availableParticipants: [{
+                id: ledger.participantId!,
+                displayName: authUser.displayName ?? authUser.email ?? t('common.me'),
+                kind: 'account',
+              }],
+              defaultCurrency: authUser.defaultCurrency ?? 'MYR',
+            },
+            captureSource: preset.source,
+            initialValues: preset.values,
+            clientRequestId: preset.clientRequestId,
+            onSaved: preset.onSaved,
+          })
         }}
       />
 
@@ -249,39 +242,6 @@ export default function PersonalLedgerPage() {
         </div>
       </section>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--ms-border)] bg-[var(--ms-surface)]/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-        <div className="mx-auto flex max-w-xl items-center justify-between">
-          <button className="px-3 py-2 text-sm font-extrabold text-[var(--ms-accent)]">{t('common.ledger')}</button>
-          <button className="px-3 py-2 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate('/spaces')}>{t('common.spaces')}</button>
-          <button
-            className="flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full bg-[var(--ms-accent)] text-3xl font-light text-white shadow-[var(--ms-elev-accent)]"
-            onClick={() => {
-              setCapturePreset(null)
-              setQuickAddStartedAt(Date.now())
-            }}
-            aria-label={t('ledger.quickAddLabel')}
-          >
-            +
-          </button>
-          <button className="px-3 py-2 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate('/friends')}>{t('common.friends')}</button>
-          <button className="px-3 py-2 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate('/profile')}>{t('common.me')}</button>
-        </div>
-      </nav>
-
-      {quickAddStartedAt != null ? (
-        <QuickAddSheet
-          participantId={ledger.participantId}
-          participantName={authUser.displayName ?? authUser.email ?? t('common.me')}
-          defaultCurrency={authUser.defaultCurrency ?? 'MYR'}
-          startedAtMs={quickAddStartedAt}
-          source={capturePreset?.source}
-          initialValues={capturePreset?.values}
-          clientRequestId={capturePreset?.clientRequestId}
-          onSaved={capturePreset?.onSaved}
-          onClose={closeQuickAdd}
-          onSave={ledger.saveDraft}
-        />
-      ) : null}
     </main>
   )
 }

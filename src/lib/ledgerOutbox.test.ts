@@ -91,4 +91,27 @@ describe('ledger outbox', () => {
     expect(await repository.listExpenses()).toHaveLength(2)
     expect(items).toEqual([])
   })
+
+  it('retains the Manual Participant captured before a later Person link', () => {
+    const preLinkDraft: LedgerExpenseDraft = {
+      ...draft,
+      scope: 'direct',
+      participants: [
+        { id: 'dav', displayName: 'Dav', kind: 'account' },
+        { id: 'manual-lan', displayName: 'Lan', kind: 'manual' },
+      ],
+    }
+    const compiled = compileLedgerExpense(preLinkDraft)
+    if (!compiled.ok) throw new Error(compiled.error)
+    const queued = createPendingLedgerCommand(preLinkDraft, compiled.command)
+
+    const personNowLinksTo = 'account-lan'
+    expect(personNowLinksTo).not.toBe('manual-lan')
+    expect(queued.command.participantIds).toEqual(['dav', 'manual-lan'])
+    expect(
+      queued.optimisticExpense.participations.map(
+        (participation) => participation.participantId,
+      ),
+    ).toEqual(['dav', 'manual-lan'])
+  })
 })

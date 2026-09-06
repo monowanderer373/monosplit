@@ -55,6 +55,23 @@ values (
   '11111111-1111-4111-8111-111111111111'
 );
 
+insert into public.person_relationships(
+  id, owner_participant_id, display_name
+)
+values (
+  '81888888-8888-4888-8888-888888888888',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'Manual traveller'
+);
+insert into public.person_manual_participants(
+  person_id, manual_participant_id, is_primary
+)
+values (
+  '81888888-8888-4888-8888-888888888888',
+  '88888888-8888-4888-8888-888888888888',
+  true
+);
+
 insert into public.spaces (
   id, type, name, owner_participant_id, default_currency
 )
@@ -200,11 +217,12 @@ select is(
         'payer_contributions', 'expense_shares', 'settlement_payments',
         'settlement_allocations', 'financial_events', 'product_events',
         'capture_templates', 'recurring_rules', 'recurring_drafts',
-        'participant_link_requests', 'capture_entitlements', 'capture_usage'
+        'participant_link_requests', 'capture_entitlements', 'capture_usage',
+        'person_relationships', 'person_manual_participants'
       )
       and relrowsecurity
   ),
-  21,
+  23,
   'RLS is enabled on every Tabby Tally client-facing table'
 );
 select is(
@@ -502,8 +520,8 @@ select results_eq(
       and participant_id = '88888888-8888-4888-8888-888888888888'
       and removed_at is null
   $$,
-  $$ values (0::bigint) $$,
-  'an accepted account link retires the duplicate manual Space membership'
+  $$ values (1::bigint) $$,
+  'an accepted Person link preserves the Manual Participant Space membership'
 );
 
 set local "request.jwt.claims" =
@@ -724,7 +742,16 @@ select throws_ok(
 
 reset role;
 select results_eq(
-  $$ select count(*)::bigint from public.settlement_payments $$,
+  $$
+    select count(*)::bigint
+    from public.settlement_payments
+    where client_request_id in (
+      '99999999-0000-4000-8000-000000000001',
+      '22222222-0000-4000-8000-000000000001',
+      '22222222-0000-4000-8000-000000000002',
+      '33333333-0000-4000-8000-000000000001'
+    )
+  $$,
   $$ values (0::bigint) $$,
   'all rejected settlement attempts leave the settlement ledger unchanged'
 );

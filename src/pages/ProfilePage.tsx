@@ -113,7 +113,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="ms-page pb-10">
+    <main className="ms-page pb-28">
       <header className="mb-6 flex items-center justify-between">
         <button className="ms-btn-ghost" onClick={() => navigate('/')}>
           {t('common.back')} · {t('common.ledger')}

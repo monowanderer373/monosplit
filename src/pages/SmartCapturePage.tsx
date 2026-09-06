@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import QuickAddSheet from '../components/QuickAddSheet'
 import { useAuth } from '../hooks/useAuth'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
+import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import { sanitizeReceiptImage, browserTesseractOcrProvider } from '../lib/browserOcrProvider'
 import { createBrowserVoiceRecognizer } from '../lib/browserVoiceRecognizer'
 import {
@@ -56,6 +56,7 @@ export default function SmartCapturePage() {
   const navigate = useNavigate()
   const { authUser, loading } = useAuth()
   const ledger = usePersonalLedger()
+  const quickAdd = useUniversalQuickAdd()
   const [text, setText] = useState('')
   const [review, setReview] = useState<ExpenseDraftReviewModel | null>(null)
   const [values, setValues] = useState<ReviewValues>({
@@ -67,7 +68,6 @@ export default function SmartCapturePage() {
   })
   const [processing, setProcessing] = useState<'voice' | 'ocr' | null>(null)
   const [messages, setMessages] = useState<TranslationKey[]>([])
-  const [captureStartedAt, setCaptureStartedAt] = useState<number | null>(null)
   const [entitlement, setEntitlement] = useState<CaptureEntitlement | null>(null)
   const [quota, setQuota] = useState<{ used: number; limit: number; source: 'text' | 'ocr' } | null>(null)
   const [fallbackSource, setFallbackSource] = useState<SmartCaptureSource | null>(null)
@@ -256,8 +256,23 @@ export default function SmartCapturePage() {
   }
 
   const continueToFinalReview = () => {
-    if (!review) return
-    setCaptureStartedAt(Date.now())
+    if (!review || !authUser?.participantId) return
+    quickAdd.open({
+      entryPoint: 'smart-capture',
+      context: {
+        ref: { kind: 'personal' },
+        currentParticipantId: authUser.participantId,
+        availableParticipants: [{
+          id: authUser.participantId,
+          displayName: authUser.displayName ?? authUser.email ?? t('common.me'),
+          kind: 'account',
+        }],
+        defaultCurrency: authUser.defaultCurrency ?? 'MYR',
+      },
+      captureSource: source,
+      initialValues: values,
+      onSave: saveReviewedDraft,
+    })
   }
 
   const saveReviewedDraft = async (
@@ -422,18 +437,6 @@ export default function SmartCapturePage() {
         </section>
       ) : null}
 
-      {captureStartedAt != null ? (
-        <QuickAddSheet
-          participantId={authUser.participantId}
-          participantName={authUser.displayName ?? authUser.email ?? t('common.me')}
-          defaultCurrency={authUser.defaultCurrency ?? 'MYR'}
-          startedAtMs={captureStartedAt}
-          source={source}
-          initialValues={values}
-          onClose={() => setCaptureStartedAt(null)}
-          onSave={saveReviewedDraft}
-        />
-      ) : null}
     </main>
   )
 }

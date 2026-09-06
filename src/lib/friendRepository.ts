@@ -29,6 +29,7 @@ export type NamedParticipant = {
 
 export type ParticipantLinkRequest = {
   id: string
+  personRelationshipId: string | null
   manualParticipantId: string
   targetParticipantId: string
   requestedBy: string
@@ -200,7 +201,10 @@ export const friendRepository: FriendRepository = {
     if (!supabase) throw new FriendRepositoryError('not_configured')
     const { data, error } = await supabase
       .from('participant_link_requests')
-      .select('id, manual_participant_id, target_participant_id, requested_by, status, created_at')
+      .select(`
+        id, person_relationship_id, manual_participant_id,
+        target_participant_id, requested_by, status, created_at
+      `)
       .order('created_at', { ascending: false })
     if (error) {
       if (error.code === '42P01') return []
@@ -208,6 +212,7 @@ export const friendRepository: FriendRepository = {
     }
     return (data ?? []).map((row) => ({
       id: row.id,
+      personRelationshipId: row.person_relationship_id,
       manualParticipantId: row.manual_participant_id,
       targetParticipantId: row.target_participant_id,
       requestedBy: row.requested_by,

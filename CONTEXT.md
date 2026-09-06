@@ -24,11 +24,19 @@ derives from that same record.
 
 ### Core records
 
+**Person Relationship**:
+An owner-scoped identity and money-relationship record. It may be Manual, Link
+Pending, or Linked. Linking changes who the relationship points to for new
+Direct actions; it never rewrites historical financial principals or grants
+visibility or Space membership.
+_Avoid_: using Person as an authorization principal
+
 **Participant**:
-An account-backed person or a manual person referenced by expenses. An anonymous
-guest is account-backed through Supabase Auth even though it is not yet a
-permanent account.
-_Avoid_: Traveller when referring to identity
+The immutable financial and security principal referenced by expenses, shares,
+contributions, settlements, and Space membership. A Participant is
+account-backed or manual. An anonymous guest is account-backed through Supabase
+Auth even though it is not yet a permanent account.
+_Avoid_: treating a Person relationship ID as a Participant ID
 
 **Space**:
 An explicit shared expense context with members and roles. A Space has type
