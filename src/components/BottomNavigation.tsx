@@ -42,14 +42,14 @@ export default function BottomNavigation({ onAdd }: Props) {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--ms-border)] bg-[var(--ms-surface)]/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:px-4"
+      className="fixed inset-x-0 bottom-0 z-40 isolate border-t border-[var(--ms-border)] bg-[var(--ms-surface)]/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:px-4"
       aria-label={t('navigation.primary')}
     >
       <div className="mx-auto grid max-w-xl grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3.5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-0">
         {destinationButton(personal)}
         {destinationButton(friends)}
         <button
-          className="flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full bg-[var(--ms-accent)] text-3xl font-light text-white shadow-[var(--ms-elev-accent)]"
+          className="relative z-10 flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full bg-[var(--ms-accent)] text-3xl font-light text-white shadow-[var(--ms-elev-accent)]"
           onClick={onAdd}
           aria-label={t('ledger.quickAddLabel')}
         >

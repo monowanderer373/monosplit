@@ -5,6 +5,7 @@ const localSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: '**/production-*.spec.ts',
   outputDir: 'test-results',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

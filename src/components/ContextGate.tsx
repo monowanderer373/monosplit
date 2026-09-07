@@ -13,6 +13,7 @@ import {
   loadMoneyContextCatalog,
   type MoneyContextCatalog,
 } from '../lib/moneyContextCatalog'
+import { dedupeContextPickerSections } from '../lib/contextPickerSections'
 
 type Props = {
   isAnonymous: boolean
@@ -112,10 +113,24 @@ export default function ContextGate({
     }),
     [allContexts, destination, expenses],
   )
-  const recentContexts = ranked
-    .filter((item) => item.lastUsedAt)
-    .slice(0, 3)
-    .map((item) => item.context)
+  const recentContexts = useMemo(
+    () => ranked
+      .filter((item) => item.lastUsedAt)
+      .slice(0, 3)
+      .map((item) => item.context),
+    [ranked],
+  )
+  const sectionContexts = useMemo(
+    () => dedupeContextPickerSections({
+      personal,
+      recent: recentContexts,
+      people: contexts.people,
+      groups: contexts.groups,
+      trips: contexts.trips,
+      includeRecent: query.trim() === '',
+    }),
+    [contexts, personal, query, recentContexts],
+  )
   const filterOptions = (options: readonly MoneyContextRef[]) =>
     options.filter((context) => matchesContextSearch(context, query, labels))
 
@@ -207,11 +222,11 @@ export default function ContextGate({
           </div>
         ) : null}
 
-        {query.trim() === '' ? renderOptions(t('contextPicker.recent'), recentContexts) : null}
-        {renderOptions(t('common.personal'), personal)}
-        {renderOptions(t('contextGate.people'), contexts.people)}
-        {renderOptions(t('contextGate.groups'), contexts.groups)}
-        {renderOptions(t('contextGate.trips'), contexts.trips)}
+        {renderOptions(t('common.personal'), sectionContexts.personal)}
+        {renderOptions(t('contextPicker.recent'), sectionContexts.recent)}
+        {renderOptions(t('contextGate.people'), sectionContexts.people)}
+        {renderOptions(t('contextGate.groups'), sectionContexts.groups)}
+        {renderOptions(t('contextGate.trips'), sectionContexts.trips)}
 
         {loading ? (
           <p className="mt-4 text-sm text-[var(--ms-text-muted)]">{t('contextGate.loading')}</p>

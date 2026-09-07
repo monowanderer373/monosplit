@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { createConfirmedAccount, signIn } from './fixtures/localSupabase'
+import {
+  closeBrowsers,
+  copyInviteUrl,
+  createConfirmedAccount,
+  openAuthenticatedBrowser,
+  signIn,
+} from './fixtures/localSupabase'
 
 test('keeps four destinations and a usable global money action at 320px', async ({ page }, testInfo) => {
   const runId = `${Date.now().toString(36)}-${testInfo.parallelIndex}`
@@ -57,4 +63,79 @@ test('direct Quick Add Back and Close both land safely on Personal', async ({ pa
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByText('TABBY TALLY')).toBeVisible()
+})
+
+test('keeps the global money action above mobile form controls', async ({
+  browser,
+}, testInfo) => {
+  const runId = `${Date.now().toString(36)}-${testInfo.parallelIndex}`
+  const [ownerAccount, targetAccount] = await Promise.all([
+    createConfirmedAccount('pointer-owner', 'Pointer Owner', runId),
+    createConfirmedAccount('pointer-target', 'Pointer Target', runId),
+  ])
+  const [ownerBrowser, targetBrowser] = await Promise.all([
+    openAuthenticatedBrowser(browser, ownerAccount),
+    openAuthenticatedBrowser(browser, targetAccount),
+  ])
+
+  try {
+    const owner = ownerBrowser.page
+    const target = targetBrowser.page
+    await owner.goto('/friends')
+    await owner.getByRole('button', { name: 'Copy friend invite' }).click()
+    await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
+    await target.goto(await copyInviteUrl(owner))
+    await target.getByRole('button', { name: 'Accept friend invite' }).click()
+
+    await owner.reload()
+    await owner.getByPlaceholder('Person’s name').fill('Pointer Manual')
+    await owner.getByRole('button', { name: 'Add person' }).click()
+
+    await owner.getByRole('button', { name: 'Split with Pointer Manual' }).click()
+    const capture = owner.getByRole('dialog', { name: 'Add Expense' })
+    await capture.getByRole('textbox', { name: /^Amount/ }).fill('1.01')
+    await capture.getByPlaceholder('What was this for?').fill('Pointer overlap')
+    await capture.getByRole('button', { name: 'Save expense' }).click()
+    await expect(owner.getByRole('status')).toContainText('Expense recorded')
+    await owner.getByRole('status').click()
+
+    const select = owner.getByLabel('Link Pointer Manual to friend')
+    await select.selectOption({ label: 'Pointer Target' })
+    await expect(select.locator('option:checked')).toHaveText('Pointer Target')
+
+    const add = owner
+      .getByRole('navigation', { name: 'Primary navigation' })
+      .getByRole('button', { name: 'Quick add expense' })
+    await select.scrollIntoViewIfNeeded()
+    const [selectBox, addBox] = await Promise.all([
+      select.boundingBox(),
+      add.boundingBox(),
+    ])
+    if (!selectBox || !addBox) throw new Error('Expected mobile control bounds.')
+    await owner.evaluate(
+      ({ selectCenter, addCenter }) =>
+        window.scrollBy(0, selectCenter - addCenter),
+      {
+        selectCenter: selectBox.y + selectBox.height / 2,
+        addCenter: addBox.y + addBox.height / 2,
+      },
+    )
+
+    await add.click()
+    const gate = owner.getByRole('dialog', { name: 'Where should this go?' })
+    await expect(gate).toBeVisible()
+    await expect(
+      gate.getByRole('button', { name: 'Pointer Manual', exact: true }),
+    ).toHaveCount(1)
+    await gate.getByRole('button', { name: 'Close' }).click()
+
+    await expect(select.locator('option:checked')).toHaveText('Pointer Target')
+    await owner
+      .getByRole('navigation', { name: 'Primary navigation' })
+      .getByRole('button', { name: 'Personal', exact: true })
+      .click()
+    await expect(owner).toHaveURL(/\/$/)
+  } finally {
+    await closeBrowsers([ownerBrowser, targetBrowser])
+  }
 })
