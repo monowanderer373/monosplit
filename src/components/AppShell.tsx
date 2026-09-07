@@ -10,6 +10,7 @@ import { useT } from '../lib/i18n'
 import { resolveRouteMoneyContext } from '../lib/moneyContext'
 import { saveFeedbackLabel } from '../lib/universalQuickAdd'
 import BottomNavigation from './BottomNavigation'
+import GlobalMoneyAction from './GlobalMoneyAction'
 import GlobalMoneyActionHost from './GlobalMoneyActionHost'
 
 function ShellContents() {
@@ -82,7 +83,12 @@ function ShellContents() {
   return (
     <>
       <Outlet />
-      {showNavigation ? <BottomNavigation onAdd={openGlobalAdd} /> : null}
+      {showNavigation ? (
+        <>
+          <BottomNavigation />
+          <GlobalMoneyAction onAdd={openGlobalAdd} />
+        </>
+      ) : null}
       <GlobalMoneyActionHost />
       {quickAdd.feedback ? (
         <div

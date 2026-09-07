@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test'
+import { writeFileSync } from 'node:fs'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
   closeBrowsers,
   copyInviteUrl,
@@ -21,7 +22,7 @@ test('keeps four destinations and a usable global money action at 320px', async 
   await expect(navigation.getByRole('button', { name: 'Groups / Trips', exact: true })).toBeVisible()
   await expect(navigation.getByRole('button', { name: 'Me', exact: true })).toBeVisible()
 
-  const addButton = navigation.getByRole('button', { name: 'Quick add expense' })
+  const addButton = page.getByRole('button', { name: 'Quick add expense' })
   const box = await addButton.boundingBox()
   expect(box?.width).toBeGreaterThanOrEqual(44)
   expect(box?.height).toBeGreaterThanOrEqual(44)
@@ -103,9 +104,7 @@ test('keeps the global money action above mobile form controls', async ({
     await select.selectOption({ label: 'Pointer Target' })
     await expect(select.locator('option:checked')).toHaveText('Pointer Target')
 
-    const add = owner
-      .getByRole('navigation', { name: 'Primary navigation' })
-      .getByRole('button', { name: 'Quick add expense' })
+    const add = owner.getByRole('button', { name: 'Quick add expense' })
     await select.scrollIntoViewIfNeeded()
     const [selectBox, addBox] = await Promise.all([
       select.boundingBox(),
@@ -120,6 +119,19 @@ test('keeps the global money action above mobile form controls', async ({
         addCenter: addBox.y + addBox.height / 2,
       },
     )
+    const hitTestEvidence = await collectHitTestEvidence(owner, add, select)
+    await testInfo.attach('global-money-action-hit-test.json', {
+      body: JSON.stringify(hitTestEvidence, null, 2),
+      contentType: 'application/json',
+    })
+    if (process.env.CAPTURE_HIT_TEST === '1') {
+      writeFileSync(
+        'test-results/global-money-action-hit-test.json',
+        `${JSON.stringify(hitTestEvidence, null, 2)}\n`,
+      )
+    }
+    expect(hitTestEvidence.geometry.centerOverlapsSelect).toBe(true)
+    expect(hitTestEvidence.hitTest.topIsGlobalAction).toBe(true)
 
     await add.click()
     const gate = owner.getByRole('dialog', { name: 'Where should this go?' })
@@ -127,6 +139,17 @@ test('keeps the global money action above mobile form controls', async ({
     await expect(
       gate.getByRole('button', { name: 'Pointer Manual', exact: true }),
     ).toHaveCount(1)
+    const modalHitTestEvidence = await collectHitTestEvidence(
+      owner,
+      owner.getByTestId('global-money-action-layer').locator('button'),
+      select,
+    )
+    expect(modalHitTestEvidence.hitTest.topIsGlobalAction).toBe(false)
+    expect(
+      modalHitTestEvidence.hitTest.elementsFromPoint.some(
+        (element) => element?.role === 'dialog',
+      ),
+    ).toBe(true)
     await gate.getByRole('button', { name: 'Close' }).click()
 
     await expect(select.locator('option:checked')).toHaveText('Pointer Target')
@@ -139,3 +162,162 @@ test('keeps the global money action above mobile form controls', async ({
     await closeBrowsers([ownerBrowser, targetBrowser])
   }
 })
+
+async function collectHitTestEvidence(
+  page: Page,
+  action: Locator,
+  select: Locator,
+) {
+  const actionHandle = await action.elementHandle()
+  const selectHandle = await select.elementHandle()
+  const navHandle = await page
+    .locator('nav[aria-label="Primary navigation"]')
+    .elementHandle()
+  const layerHandle = await page
+    .getByTestId('global-money-action-layer')
+    .elementHandle()
+  const mainHandle = await page.locator('main').elementHandle()
+  if (
+    !actionHandle
+    || !selectHandle
+    || !navHandle
+    || !layerHandle
+    || !mainHandle
+  ) {
+    throw new Error('Expected hit-testing DOM elements.')
+  }
+
+  return page.evaluate(
+    ({ action, select, nav, layer, main }) => {
+      const rect = (element: Element) => {
+        const value = element.getBoundingClientRect()
+        return {
+          x: value.x,
+          y: value.y,
+          top: value.top,
+          right: value.right,
+          bottom: value.bottom,
+          left: value.left,
+          width: value.width,
+          height: value.height,
+        }
+      }
+      const describe = (element: Element | null) => {
+        if (!element) return null
+        const html = element as HTMLElement
+        return {
+          tag: element.tagName.toLowerCase(),
+          id: html.id || null,
+          className: typeof html.className === 'string' ? html.className : null,
+          ariaLabel: element.getAttribute('aria-label'),
+          role: element.getAttribute('role'),
+        }
+      }
+      const computed = (element: Element) => {
+        const style = getComputedStyle(element)
+        return {
+          position: style.position,
+          zIndex: style.zIndex,
+          pointerEvents: style.pointerEvents,
+          transform: style.transform,
+          translate: style.translate,
+          isolation: style.isolation,
+          overflow: style.overflow,
+        }
+      }
+      const stackingAncestors = (element: Element) => {
+        const ancestors = []
+        let current: Element | null = element
+        while (current) {
+          const style = getComputedStyle(current)
+          const reasons = [
+            ['root', current === document.documentElement],
+            ['positioned-z-index', (
+              style.zIndex !== 'auto'
+              && style.position !== 'static'
+            )],
+            ['fixed-or-sticky', (
+              style.position === 'fixed'
+              || style.position === 'sticky'
+            )],
+            ['transform-or-translate', (
+              style.transform !== 'none'
+              || style.translate !== 'none'
+            )],
+            ['isolation', style.isolation === 'isolate'],
+            ['opacity', Number(style.opacity) < 1],
+            ['filter', style.filter !== 'none'],
+            ['backdrop-filter', style.backdropFilter !== 'none'],
+            ['contain', /(layout|paint|strict|content)/.test(style.contain)],
+          ].filter(([, active]) => active).map(([reason]) => reason)
+          if (reasons.length > 0) {
+            ancestors.push({
+              ...describe(current),
+              reasons,
+              position: style.position,
+              zIndex: style.zIndex,
+            })
+          }
+          current = current.parentElement
+        }
+        return ancestors
+      }
+
+      const actionRect = rect(action)
+      const selectRect = rect(select)
+      const center = {
+        x: actionRect.left + actionRect.width / 2,
+        y: actionRect.top + actionRect.height / 2,
+      }
+      const elements = document.elementsFromPoint(center.x, center.y)
+      return {
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          scrollX: window.scrollX,
+          scrollY: window.scrollY,
+        },
+        rects: {
+          action: actionRect,
+          select: selectRect,
+          nav: rect(nav),
+          layer: rect(layer),
+          main: rect(main),
+        },
+        center,
+        geometry: {
+          centerOverlapsSelect:
+            center.x >= selectRect.left
+            && center.x <= selectRect.right
+            && center.y >= selectRect.top
+            && center.y <= selectRect.bottom,
+        },
+        hitTest: {
+          elementFromPoint: describe(document.elementFromPoint(center.x, center.y)),
+          elementsFromPoint: elements.map(describe),
+          topIsGlobalAction:
+            elements[0] === action
+            || action.contains(elements[0] ?? null),
+        },
+        computed: {
+          action: computed(action),
+          nav: computed(nav),
+          layer: computed(layer),
+          select: computed(select),
+          main: computed(main),
+        },
+        stackingContexts: {
+          action: stackingAncestors(action),
+          select: stackingAncestors(select),
+        },
+      }
+    },
+    {
+      action: actionHandle,
+      select: selectHandle,
+      nav: navHandle,
+      layer: layerHandle,
+      main: mainHandle,
+    },
+  )
+}

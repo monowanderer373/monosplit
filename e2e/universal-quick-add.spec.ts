@@ -25,10 +25,7 @@ test('keeps entry and in-session picker history semantics distinct', async ({
   const spaceUrl = page.url()
 
   await page.goto('/friends')
-  await page
-    .getByRole('navigation', { name: 'Primary navigation' })
-    .getByRole('button', { name: 'Quick add expense' })
-    .click()
+  await page.getByRole('button', { name: 'Quick add expense' }).click()
   const entryPicker = page.getByRole('dialog', {
     name: 'Where should this go?',
   })
@@ -119,12 +116,7 @@ test('does not expose an unsaved session after the authenticated identity change
   await signIn(page, accountA)
 
   await page.goto('/')
-  const navigation = page.getByRole('navigation', {
-    name: 'Primary navigation',
-  })
-  await navigation
-    .getByRole('button', { name: 'Quick add expense' })
-    .click()
+  await page.getByRole('button', { name: 'Quick add expense' }).click()
   const captureA = page.getByRole('dialog', { name: 'Quick tally' })
   await captureA.getByRole('textbox', { name: /^Amount/ }).fill('88')
   await captureA.getByPlaceholder('What was this for?').fill('User A secret')
@@ -137,10 +129,7 @@ test('does not expose an unsaved session after the authenticated identity change
   await signIn(page, accountB)
 
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: 'Primary navigation' })
-    .getByRole('button', { name: 'Quick add expense' })
-    .click()
+  await page.getByRole('button', { name: 'Quick add expense' }).click()
   const captureB = page.getByRole('dialog', { name: 'Quick tally' })
   await expect(
     captureB.getByRole('textbox', { name: /^Amount/ }),
@@ -163,10 +152,7 @@ test('preserves only user-selected categories across context changes', async ({
   await signIn(page, account)
 
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: 'Primary navigation' })
-    .getByRole('button', { name: 'Quick add expense' })
-    .click()
+  await page.getByRole('button', { name: 'Quick add expense' }).click()
   const personalCapture = page.getByRole('dialog', { name: 'Quick tally' })
   const suggestionArea = personalCapture.getByText('Suggestions').locator('..')
   const firstSuggestion = suggestionArea.getByRole('button').first()

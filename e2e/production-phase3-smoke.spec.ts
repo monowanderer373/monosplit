@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
@@ -7,6 +9,7 @@ import {
   test,
   type Browser,
   type BrowserContext,
+  type Locator,
   type Page,
   type Request,
   type TestInfo,
@@ -20,6 +23,15 @@ const smoke = loadProductionSmokeEnvironment()
 const EXPECTED_SUPABASE_HOST = 'skiqsxvmxvmxfzhrzcxh.supabase.co'
 const PREFIX = '[PHASE3-SMOKE]'
 const evidenceRoot = resolve(process.cwd(), 'test-results', 'production-phase3')
+const EXISTING_RESUME_FIXTURE = Object.freeze({
+  runId: '20260907T103234533Z',
+  personalExpenseId: '3639fa0d-cf15-46bc-b53d-45f008d83739',
+  personId: '7c8f0f91-0908-4e05-bba0-681f8a5059d1',
+  manualParticipantId: '4af4acb1-0b7a-42fa-8217-ca4826358373',
+  manualExpenseId: 'c38e83e3-bb5c-4e91-8eae-f3a29963bcf4',
+  friendshipId: '5127375c-3c19-466c-8ab5-b4ad7bf8c6a4',
+  linkRequestId: 'aada3b37-5f10-46f3-b0d7-d73550ae3522',
+})
 
 type AccountLabel = 'A' | 'B' | 'C'
 
@@ -94,6 +106,9 @@ test('runs the final Phase 3 production smoke journey', async ({
   }
   const runId = requestedRunId
     ?? new Date().toISOString().replace(/[-:.]/g, '').replace('Z', 'Z')
+  const resumeFixture = runId === EXISTING_RESUME_FIXTURE.runId
+    ? EXISTING_RESUME_FIXTURE
+    : null
   const personalDescription = `${PREFIX} Personal ${runId}`
   const manualName = `${PREFIX} Manual Person ${runId}`
   const manualDirectDescription = `${PREFIX} Manual Direct ${runId}`
@@ -252,10 +267,11 @@ test('runs the final Phase 3 production smoke journey', async ({
         'Existing Personal expense lookup',
       )
       if (rows.length === 0) {
+        if (resumeFixture) {
+          throw new Error('Existing resume Personal expense is missing; refusing to replace it.')
+        }
         await pageA.goto('/')
-        await primaryNavigation(pageA)
-          .getByRole('button', { name: 'Quick add expense' })
-          .click()
+        await globalMoneyAction(pageA).click()
         const capture = pageA.getByRole('dialog', { name: 'Quick tally' })
         await capture.getByRole('textbox', { name: /^Amount/ }).fill('1.01')
         await capture.getByPlaceholder('What was this for?').fill(personalDescription)
@@ -287,6 +303,9 @@ test('runs the final Phase 3 production smoke journey', async ({
         status: 'active',
       })
       manifest.personalExpenseId = stringField(rows[0], 'id')
+      if (resumeFixture) {
+        expect(manifest.personalExpenseId).toBe(resumeFixture.personalExpenseId)
+      }
       const snapshot = await expenseSnapshot(A.client, manifest.personalExpenseId)
       expect(snapshot.participations).toHaveLength(1)
       expect(sumMinor(snapshot.payerContributions)).toBe(101)
@@ -305,6 +324,9 @@ test('runs the final Phase 3 production smoke journey', async ({
         'Existing Manual Person lookup',
       )
       if (people.length === 0) {
+        if (resumeFixture) {
+          throw new Error('Existing resume Person is missing; refusing to replace it.')
+        }
         await pageA.goto('/friends')
         await pageA.getByPlaceholder('Person’s name').fill(manualName)
         await pageA.getByRole('button', { name: 'Add person' }).click()
@@ -326,6 +348,9 @@ test('runs the final Phase 3 production smoke journey', async ({
         merged_into_person_id: null,
       })
       manifest.personId = stringField(people[0], 'id')
+      if (resumeFixture) {
+        expect(manifest.personId).toBe(resumeFixture.personId)
+      }
 
       const attachments = await queryRows(
         A.client
@@ -343,6 +368,10 @@ test('runs the final Phase 3 production smoke journey', async ({
         attachments[0],
         'manual_participant_id',
       )
+      if (resumeFixture) {
+        expect(manifest.manualParticipantId)
+          .toBe(resumeFixture.manualParticipantId)
+      }
 
       await pageA.goto('/friends')
       await expect(
@@ -362,11 +391,29 @@ test('runs the final Phase 3 production smoke journey', async ({
         created_by: A.userId,
       })
 
-      await clickGlobalAdd(pageA)
+      const linkSelect = pageA.getByLabel(`Link ${manualName} to friend`)
+      await linkSelect.selectOption({ label: B.displayName })
+      await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
+      const add = globalMoneyAction(pageA)
+      await alignScrollableControlWithFixedAction(pageA, linkSelect, add)
+      await add.click()
       const gate = pageA.getByRole('dialog', { name: 'Where should this go?' })
       await expect(gate.getByRole('button', { name: manualName, exact: true }))
         .toHaveCount(1)
+      await gate.getByRole('searchbox').fill(manualName)
+      await expect(gate.getByRole('button', { name: manualName, exact: true }))
+        .toHaveCount(1)
       await gate.getByRole('button', { name: 'Close' }).click()
+      await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
+
+      await primaryNavigation(pageA)
+        .getByRole('button', { name: 'Personal', exact: true })
+        .click()
+      await expect(pageA).toHaveURL(`${smoke.productionUrl}/`)
+      await primaryNavigation(pageA)
+        .getByRole('button', { name: 'Friends', exact: true })
+        .click()
+      await expect(pageA).toHaveURL(`${smoke.productionUrl}/friends`)
     })
 
     let historicalBeforeLink: ExpenseSnapshot
@@ -386,6 +433,11 @@ test('runs the final Phase 3 production smoke journey', async ({
         'Existing Manual Direct lookup',
       )
       if (expenses.length === 0) {
+        if (resumeFixture) {
+          throw new Error(
+            'Existing resume Manual Direct expense is missing; refusing to replace it.',
+          )
+        }
         await pageA.goto('/friends')
         await pageA
           .getByRole('button', { name: `Split with ${manualName}` })
@@ -402,6 +454,9 @@ test('runs the final Phase 3 production smoke journey', async ({
       }
       expect(expenses).toHaveLength(1)
       manifest.manualExpenseId = stringField(expenses[0], 'id')
+      if (resumeFixture) {
+        expect(manifest.manualExpenseId).toBe(resumeFixture.manualExpenseId)
+      }
       historicalBeforeLink = await expenseSnapshot(
         A.client,
         manifest.manualExpenseId,
@@ -449,6 +504,11 @@ test('runs the final Phase 3 production smoke journey', async ({
         )
       }
       if (!friendship || friendship.status === 'pending') {
+        if (resumeFixture) {
+          throw new Error(
+            'Existing resume Friendship is missing or pending; refusing to replace it.',
+          )
+        }
         const { data: token, error: inviteError } = await A.client.rpc(
           'create_friend_invite',
         )
@@ -466,6 +526,9 @@ test('runs the final Phase 3 production smoke journey', async ({
       }
       expect(friendship?.status).toBe('accepted')
       manifest.friendshipId = friendship!.id
+      if (resumeFixture) {
+        expect(manifest.friendshipId).toBe(resumeFixture.friendshipId)
+      }
 
       await pageA.goto('/friends')
       await pageB.goto('/friends')
@@ -491,6 +554,11 @@ test('runs the final Phase 3 production smoke journey', async ({
           `Duplicate pending Person link requests found: ${existingPending.length}.`,
         )
       }
+      if (resumeFixture && existingPending.length !== 1) {
+        throw new Error(
+          `Expected exactly one existing pending resume link request; found ${existingPending.length}.`,
+        )
+      }
       const existingAccepted = existingPending.length === 0
         ? await personLinkRequests(A, {
           personId,
@@ -506,6 +574,11 @@ test('runs the final Phase 3 production smoke journey', async ({
 
       let request = existingPending[0] ?? existingAccepted[0]
       if (!request) {
+        if (resumeFixture) {
+          throw new Error(
+            'Existing resume link request is missing; refusing to create another.',
+          )
+        }
         await pageA.goto('/friends')
         await pageB.goto('/friends')
         await pageA
@@ -526,6 +599,9 @@ test('runs the final Phase 3 production smoke journey', async ({
         requested_by: A.participantId,
       })
       manifest.linkRequestId = stringField(request, 'id')
+      if (resumeFixture) {
+        expect(manifest.linkRequestId).toBe(resumeFixture.linkRequestId)
+      }
 
       if (request.status === 'pending') {
         await pageB.goto('/friends')
@@ -700,9 +776,7 @@ test('runs the final Phase 3 production smoke journey', async ({
       await gate.getByRole('button', { name: 'Close' }).click()
 
       await pageA.goto('/')
-      await primaryNavigation(pageA)
-        .getByRole('button', { name: 'Quick add expense' })
-        .click()
+      await globalMoneyAction(pageA).click()
       const personalCapture = pageA.getByRole('dialog', { name: 'Quick tally' })
       await expect(
         personalCapture.getByRole('button', {
@@ -1268,10 +1342,35 @@ function primaryNavigation(page: Page) {
   return page.getByRole('navigation', { name: 'Primary navigation' })
 }
 
+async function alignScrollableControlWithFixedAction(
+  page: Page,
+  control: Locator,
+  action: Locator,
+): Promise<void> {
+  await control.scrollIntoViewIfNeeded()
+  const [controlBox, actionBox] = await Promise.all([
+    control.boundingBox(),
+    action.boundingBox(),
+  ])
+  if (!controlBox || !actionBox) {
+    throw new Error('Could not measure mobile form and Global Money Action bounds.')
+  }
+  await page.evaluate(
+    ({ controlCenter, actionCenter }) =>
+      window.scrollBy(0, controlCenter - actionCenter),
+    {
+      controlCenter: controlBox.y + controlBox.height / 2,
+      actionCenter: actionBox.y + actionBox.height / 2,
+    },
+  )
+}
+
 async function clickGlobalAdd(page: Page): Promise<void> {
-  await primaryNavigation(page)
-    .getByRole('button', { name: 'Quick add expense' })
-    .click()
+  await globalMoneyAction(page).click()
+}
+
+function globalMoneyAction(page: Page): Locator {
+  return page.getByRole('button', { name: 'Quick add expense' })
 }
 
 function categorySelect(dialog: ReturnType<Page['getByRole']>) {
