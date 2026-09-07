@@ -109,6 +109,13 @@ test('runs the final Phase 3 production smoke journey', async ({
   const resumeFixture = runId === EXISTING_RESUME_FIXTURE.runId
     ? EXISTING_RESUME_FIXTURE
     : null
+  const frontendGateOnly =
+    process.env.PROD_SMOKE_FRONTEND_GATE_ONLY === '1'
+  if (frontendGateOnly && !resumeFixture) {
+    throw new Error(
+      'Frontend gate-only mode requires the existing Phase 3 smoke Run ID.',
+    )
+  }
   const personalDescription = `${PREFIX} Personal ${runId}`
   const manualName = `${PREFIX} Manual Person ${runId}`
   const manualDirectDescription = `${PREFIX} Manual Direct ${runId}`
@@ -129,6 +136,7 @@ test('runs the final Phase 3 production smoke journey', async ({
   const accountSessions: Partial<Record<AccountLabel, AccountSession>> = {}
   const networkEvidence: Partial<Record<AccountLabel, NetworkEvidence>> = {}
   const traceStarted = new Set<AccountLabel>()
+  const frontendGateEvidence: Record<string, unknown> = {}
   let failed = false
 
   try {
@@ -395,26 +403,137 @@ test('runs the final Phase 3 production smoke journey', async ({
       await linkSelect.selectOption({ label: B.displayName })
       await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
       const add = globalMoneyAction(pageA)
-      await alignScrollableControlWithFixedAction(pageA, linkSelect, add)
-      await add.click()
+      await pageA.setViewportSize({ width: 412, height: 839 })
+      await linkSelect.scrollIntoViewIfNeeded()
+      const naturalEvidence = await collectGlobalActionHitTest(
+        pageA,
+        add,
+        linkSelect,
+      )
+      frontendGateEvidence.natural = naturalEvidence
+      await testInfo.attach('production-global-money-action-natural.json', {
+        body: JSON.stringify(naturalEvidence, null, 2),
+        contentType: 'application/json',
+      })
+
+      const originalSelectStyle = await linkSelect.getAttribute('style')
+      if (!naturalEvidence.geometry.centerOverlapsSelect) {
+        await positionSelectUnderGlobalAction(linkSelect, add)
+      }
+      const overlapEvidence = await collectGlobalActionHitTest(
+        pageA,
+        add,
+        linkSelect,
+      )
+      frontendGateEvidence.controlled = overlapEvidence
+      frontendGateEvidence.usedControlledOverlap =
+        !naturalEvidence.geometry.centerOverlapsSelect
+      await testInfo.attach('production-global-money-action-overlap.json', {
+        body: JSON.stringify(overlapEvidence, null, 2),
+        contentType: 'application/json',
+      })
+      expect(overlapEvidence.geometry.centerOverlapsSelect).toBe(true)
+      expect(overlapEvidence.hitTest.topIsGlobalAction).toBe(true)
+
+      await linkSelect.selectOption('')
+      await linkSelect.selectOption({ label: B.displayName })
+      await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
+      await pageA.mouse.click(
+        overlapEvidence.center.x,
+        overlapEvidence.center.y,
+      )
       const gate = pageA.getByRole('dialog', { name: 'Where should this go?' })
+      await expect(gate).toBeVisible()
       await expect(gate.getByRole('button', { name: manualName, exact: true }))
         .toHaveCount(1)
+      const personalOption = gate.getByRole('button', {
+        name: 'Personal',
+        exact: true,
+      })
+      await expect(personalOption).toHaveCount(1)
+      expect(
+        await personalOption.evaluate(
+          (personal, manualName) => {
+            const manual = Array.from(
+              personal.closest('[role="dialog"]')?.querySelectorAll('button')
+                ?? [],
+            ).find((button) => button.textContent?.trim().startsWith(manualName))
+            return Boolean(
+              manual
+              && (
+                personal.compareDocumentPosition(manual)
+                & Node.DOCUMENT_POSITION_FOLLOWING
+              ) !== 0,
+            )
+          },
+          manualName,
+        ),
+      ).toBe(true)
       await gate.getByRole('searchbox').fill(manualName)
       await expect(gate.getByRole('button', { name: manualName, exact: true }))
         .toHaveCount(1)
-      await gate.getByRole('button', { name: 'Close' }).click()
+      const modalHitTestEvidence = await collectGlobalActionHitTest(
+        pageA,
+        pageA.getByTestId('global-money-action-layer').locator('button'),
+        linkSelect,
+      )
+      await testInfo.attach('production-modal-over-action-hit-test.json', {
+        body: JSON.stringify(modalHitTestEvidence, null, 2),
+        contentType: 'application/json',
+      })
+      frontendGateEvidence.modal = modalHitTestEvidence
+      expect(modalHitTestEvidence.hitTest.topIsGlobalAction).toBe(false)
+      expect(
+        modalHitTestEvidence.hitTest.elementsFromPoint.some(
+          (element) => element?.role === 'dialog',
+        ),
+      ).toBe(true)
+      await clickLocatorCenterWithMouse(
+        pageA,
+        gate.getByRole('button', { name: 'Close' }),
+      )
+      await expect(gate).toHaveCount(0)
       await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
-
-      await primaryNavigation(pageA)
-        .getByRole('button', { name: 'Personal', exact: true })
-        .click()
-      await expect(pageA).toHaveURL(`${smoke.productionUrl}/`)
-      await primaryNavigation(pageA)
-        .getByRole('button', { name: 'Friends', exact: true })
-        .click()
-      await expect(pageA).toHaveURL(`${smoke.productionUrl}/friends`)
+      await linkSelect.selectOption('')
+      await linkSelect.selectOption({ label: B.displayName })
+      await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
+      await restoreInlineStyle(linkSelect, originalSelectStyle)
+      const restoredEvidence = await collectGlobalActionHitTest(
+        pageA,
+        add,
+        linkSelect,
+      )
+      frontendGateEvidence.restored = restoredEvidence
+      expect(restoredEvidence.rects.select).toEqual(naturalEvidence.rects.select)
     })
+
+    if (frontendGateOnly) {
+      await test.step('verify the existing pending request without accepting it', async () => {
+        const requests = await personLinkRequests(A, {
+          personId: requiredManifestId(manifest.personId, 'Person'),
+          targetParticipantId: B.participantId,
+          status: 'pending',
+        })
+        expect(requests).toHaveLength(1)
+        expect(requests[0]).toMatchObject({
+          id: EXISTING_RESUME_FIXTURE.linkRequestId,
+          person_relationship_id: EXISTING_RESUME_FIXTURE.personId,
+          manual_participant_id: EXISTING_RESUME_FIXTURE.manualParticipantId,
+          target_participant_id: B.participantId,
+          requested_by: A.participantId,
+          status: 'pending',
+        })
+        manifest.linkRequestId = stringField(requests[0], 'id')
+        frontendGateEvidence.pendingRequest = {
+          count: requests.length,
+          id: manifest.linkRequestId,
+        }
+      })
+      assertNoFatalBrowserErrors(networkEvidence.A!)
+      assertNoFatalBrowserErrors(networkEvidence.B!)
+      assertNoFatalBrowserErrors(networkEvidence.C!)
+      return
+    }
 
     let historicalBeforeLink: ExpenseSnapshot
     let settlementIdsBeforeLink: string[]
@@ -1068,6 +1187,11 @@ test('runs the final Phase 3 production smoke journey', async ({
       `${JSON.stringify(skipped, null, 2)}\n`,
       { encoding: 'utf8' },
     )
+    writeFileSync(
+      resolve(evidenceRoot, 'phase3-smoke-frontend-gate.json'),
+      `${JSON.stringify(frontendGateEvidence, null, 2)}\n`,
+      { encoding: 'utf8' },
+    )
 
     for (const label of traceStarted) {
       const context = browserSessions[label]?.context
@@ -1342,25 +1466,222 @@ function primaryNavigation(page: Page) {
   return page.getByRole('navigation', { name: 'Primary navigation' })
 }
 
-async function alignScrollableControlWithFixedAction(
-  page: Page,
-  control: Locator,
+async function positionSelectUnderGlobalAction(
+  select: Locator,
   action: Locator,
 ): Promise<void> {
-  await control.scrollIntoViewIfNeeded()
-  const [controlBox, actionBox] = await Promise.all([
-    control.boundingBox(),
+  const [selectBox, actionBox] = await Promise.all([
+    select.boundingBox(),
     action.boundingBox(),
   ])
-  if (!controlBox || !actionBox) {
+  if (!selectBox || !actionBox) {
     throw new Error('Could not measure mobile form and Global Money Action bounds.')
   }
-  await page.evaluate(
-    ({ controlCenter, actionCenter }) =>
-      window.scrollBy(0, controlCenter - actionCenter),
+  await select.evaluate(
+    (element, geometry) => {
+      element.style.setProperty('position', 'fixed', 'important')
+      element.style.setProperty('left', `${geometry.left}px`, 'important')
+      element.style.setProperty('top', `${geometry.top}px`, 'important')
+      element.style.setProperty('right', 'auto', 'important')
+      element.style.setProperty('bottom', 'auto', 'important')
+      element.style.setProperty('width', `${geometry.width}px`, 'important')
+      element.style.setProperty('height', `${geometry.height}px`, 'important')
+      element.style.setProperty('margin', '0', 'important')
+      element.style.setProperty('z-index', '44', 'important')
+      element.style.setProperty('transform', 'none', 'important')
+      element.style.setProperty('visibility', 'visible', 'important')
+      element.style.setProperty('opacity', '1', 'important')
+      element.style.setProperty('pointer-events', 'auto', 'important')
+    },
     {
-      controlCenter: controlBox.y + controlBox.height / 2,
-      actionCenter: actionBox.y + actionBox.height / 2,
+      left: selectBox.x,
+      top:
+        actionBox.y
+        + actionBox.height / 2
+        - selectBox.height / 2,
+      width: selectBox.width,
+      height: selectBox.height,
+    },
+  )
+}
+
+async function restoreInlineStyle(
+  locator: Locator,
+  originalStyle: string | null,
+): Promise<void> {
+  await locator.evaluate((element, style) => {
+    if (style === null) element.removeAttribute('style')
+    else element.setAttribute('style', style)
+  }, originalStyle)
+}
+
+async function clickLocatorCenterWithMouse(
+  page: Page,
+  locator: Locator,
+): Promise<void> {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('Could not measure pointer target.')
+  await page.mouse.click(
+    box.x + box.width / 2,
+    box.y + box.height / 2,
+  )
+}
+
+async function collectGlobalActionHitTest(
+  page: Page,
+  action: Locator,
+  select: Locator,
+) {
+  const [actionHandle, selectHandle, navHandle, layerHandle, mainHandle] =
+    await Promise.all([
+      action.elementHandle(),
+      select.elementHandle(),
+      page.locator('nav[aria-label="Primary navigation"]').elementHandle(),
+      page.getByTestId('global-money-action-layer').elementHandle(),
+      page.locator('main').elementHandle(),
+    ])
+  if (
+    !actionHandle
+    || !selectHandle
+    || !navHandle
+    || !layerHandle
+    || !mainHandle
+  ) {
+    throw new Error('Expected Production hit-testing DOM elements.')
+  }
+
+  return page.evaluate(
+    ({ action, select, nav, layer, main }) => {
+      const rect = (element: Element) => {
+        const value = element.getBoundingClientRect()
+        return {
+          x: value.x,
+          y: value.y,
+          top: value.top,
+          right: value.right,
+          bottom: value.bottom,
+          left: value.left,
+          width: value.width,
+          height: value.height,
+        }
+      }
+      const describe = (element: Element | null) => {
+        if (!element) return null
+        const html = element as HTMLElement
+        return {
+          tag: element.tagName.toLowerCase(),
+          id: html.id || null,
+          className: typeof html.className === 'string' ? html.className : null,
+          ariaLabel: element.getAttribute('aria-label'),
+          role: element.getAttribute('role'),
+        }
+      }
+      const computed = (element: Element) => {
+        const style = getComputedStyle(element)
+        return {
+          position: style.position,
+          zIndex: style.zIndex,
+          pointerEvents: style.pointerEvents,
+          transform: style.transform,
+          translate: style.translate,
+          isolation: style.isolation,
+          overflow: style.overflow,
+          backdropFilter: style.backdropFilter,
+        }
+      }
+      const stackingAncestors = (element: Element) => {
+        const ancestors = []
+        let current: Element | null = element
+        while (current) {
+          const style = getComputedStyle(current)
+          const reasons = [
+            ['root', current === document.documentElement],
+            ['positioned-z-index', (
+              style.zIndex !== 'auto'
+              && style.position !== 'static'
+            )],
+            ['fixed-or-sticky', (
+              style.position === 'fixed'
+              || style.position === 'sticky'
+            )],
+            ['transform-or-translate', (
+              style.transform !== 'none'
+              || style.translate !== 'none'
+            )],
+            ['isolation', style.isolation === 'isolate'],
+            ['backdrop-filter', style.backdropFilter !== 'none'],
+          ].filter(([, active]) => active).map(([reason]) => reason)
+          if (reasons.length > 0) {
+            ancestors.push({
+              ...describe(current),
+              reasons,
+              position: style.position,
+              zIndex: style.zIndex,
+            })
+          }
+          current = current.parentElement
+        }
+        return ancestors
+      }
+
+      const actionRect = rect(action)
+      const selectRect = rect(select)
+      const center = {
+        x: actionRect.left + actionRect.width / 2,
+        y: actionRect.top + actionRect.height / 2,
+      }
+      const elements = document.elementsFromPoint(center.x, center.y)
+      return {
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          scrollX: window.scrollX,
+          scrollY: window.scrollY,
+        },
+        rects: {
+          action: actionRect,
+          select: selectRect,
+          nav: rect(nav),
+          layer: rect(layer),
+          main: rect(main),
+        },
+        center,
+        geometry: {
+          centerOverlapsSelect:
+            center.x >= selectRect.left
+            && center.x <= selectRect.right
+            && center.y >= selectRect.top
+            && center.y <= selectRect.bottom,
+        },
+        hitTest: {
+          elementFromPoint: describe(document.elementFromPoint(
+            center.x,
+            center.y,
+          )),
+          elementsFromPoint: elements.map(describe),
+          topIsGlobalAction:
+            elements[0] === action
+            || action.contains(elements[0] ?? null),
+        },
+        computed: {
+          action: computed(action),
+          nav: computed(nav),
+          layer: computed(layer),
+          select: computed(select),
+          main: computed(main),
+        },
+        stackingContexts: {
+          action: stackingAncestors(action),
+          select: stackingAncestors(select),
+        },
+      }
+    },
+    {
+      action: actionHandle,
+      select: selectHandle,
+      nav: navHandle,
+      layer: layerHandle,
+      main: mainHandle,
     },
   )
 }
