@@ -15,6 +15,7 @@ const SpacesPage = lazy(() => import('./pages/SpacesPage'))
 const SpacePage = lazy(() => import('./pages/SpacePage'))
 const SpaceInvitePage = lazy(() => import('./pages/SpaceInvitePage'))
 const FriendsPage = lazy(() => import('./pages/FriendsPage'))
+const PersonDetailPage = lazy(() => import('./pages/PersonDetailPage'))
 const FriendInvitePage = lazy(() => import('./pages/FriendInvitePage'))
 const SmartCapturePage = lazy(() => import('./pages/SmartCapturePage'))
 const AppShell = lazy(() => import('./components/AppShell'))
@@ -70,6 +71,7 @@ function AppRoutes() {
             <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/space/:spaceId" element={<SpacePage />} />
             <Route path="/friends" element={<FriendsPage />} />
+            <Route path="/person/:personId" element={<PersonDetailPage />} />
             <Route path="/capture" element={<SmartCapturePage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>

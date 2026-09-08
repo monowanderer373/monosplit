@@ -519,7 +519,7 @@ const translations = {
   'common.signIn': { en: 'Sign in', zh: '登录' },
   'common.personal': { en: 'Personal', zh: '个人' },
   'common.ledger': { en: 'Ledger', zh: '账本' },
-  'common.spaces': { en: 'Spaces', zh: '共享空间' },
+  'common.spaces': { en: 'Groups / Trips', zh: '群组 / 旅程' },
   'common.groupsTrips': { en: 'Groups / Trips', zh: '群组 / 旅程' },
   'common.friends': { en: 'Friends', zh: '朋友' },
   'common.profile': { en: 'Profile', zh: '个人资料' },
@@ -550,31 +550,31 @@ const translations = {
   'common.count.rule.one': { en: '{{count}} active recurring rule', zh: '{{count}} 条启用中的定期规则' },
   'common.count.rule.many': { en: '{{count}} active recurring rules', zh: '{{count}} 条启用中的定期规则' },
 
-  'spaces.opening': { en: 'Opening spaces…', zh: '正在打开共享空间…' },
+  'spaces.opening': { en: 'Opening groups and trips…', zh: '正在打开群组与旅程…' },
   'spaces.sharedExpenses': { en: 'Shared expenses', zh: '共享支出' },
   'spaces.signInTitle': { en: 'Sign in or open an invite.', zh: '请登录或打开邀请链接。' },
   'spaces.signInHelp': {
-    en: 'Account holders can create spaces. Invited guests can join with a secure invite link.',
-    zh: '正式账号可以创建共享空间；受邀访客可通过安全邀请链接加入。',
+    en: 'Account holders can create groups and trips. Invited guests can join with a secure invite link.',
+    zh: '正式账号可以创建群组与旅程；受邀访客可通过安全邀请链接加入。',
   },
   'spaces.backLedger': { en: 'Back to ledger', zh: '返回账本' },
-  'spaces.title': { en: 'Spaces', zh: '共享空间' },
-  'spaces.subtitle': { en: 'Trips and groups share one reliable ledger.', zh: '旅程与群组共用一个可靠账本。' },
+  'spaces.title': { en: 'Groups / Trips', zh: '群组 / 旅程' },
+  'spaces.subtitle': { en: 'Groups and trips share one reliable ledger.', zh: '群组与旅程共用一个可靠账本。' },
   'spaces.name': { en: 'Name', zh: '名称' },
   'spaces.tripPlaceholder': { en: 'Penang weekend', zh: '槟城周末游' },
   'spaces.groupPlaceholder': { en: 'Household', zh: '家庭账本' },
   'spaces.type': { en: 'Type', zh: '类型' },
   'spaces.currency': { en: 'Currency', zh: '币种' },
-  'spaces.create': { en: 'Create space', zh: '创建共享空间' },
+  'spaces.create': { en: 'Create', zh: '创建' },
   'spaces.guestSession': { en: 'Guest session', zh: '访客会话' },
   'spaces.guestHelp': {
-    en: 'You can use invited spaces. Upgrade this session from your profile before creating a space or personal ledger.',
-    zh: '你可以使用受邀空间。创建共享空间或个人账本前，请先在个人资料中升级此会话。',
+    en: 'You can use invited groups and trips. Upgrade this session from your profile before creating a group, trip, or personal ledger.',
+    zh: '你可以使用受邀的群组与旅程。创建群组、旅程或个人账本前，请先在个人资料中升级此会话。',
   },
   'spaces.yourAccess': { en: 'Your access', zh: '你的权限' },
-  'spaces.active': { en: 'Active spaces', zh: '可用共享空间' },
-  'spaces.loading': { en: 'Loading spaces…', zh: '正在加载共享空间…' },
-  'spaces.emptyTitle': { en: 'No spaces yet', zh: '还没有共享空间' },
+  'spaces.active': { en: 'Active', zh: '进行中' },
+  'spaces.loading': { en: 'Loading…', zh: '正在加载…' },
+  'spaces.emptyTitle': { en: 'No groups or trips yet', zh: '还没有群组或旅程' },
   'spaces.emptyHelp': {
     en: 'Create one above or join from a secure invite.',
     zh: '请在上方创建，或通过安全邀请加入。',
@@ -598,7 +598,7 @@ const translations = {
     en: 'Sign in to keep personal expenses private and synchronized. Guest access is reserved for invited spaces.',
     zh: '登录后可私密保存并同步个人支出。访客账号仅用于受邀的共享空间。',
   },
-  'ledger.openSpaces': { en: 'Open shared spaces', zh: '打开共享空间' },
+  'ledger.openSpaces': { en: 'Open groups and trips', zh: '打开群组与旅程' },
   'ledger.schemaLabel': { en: 'Database update required', zh: '需要更新数据库' },
   'ledger.schemaTitle': {
     en: 'Your account is signed in, but the new ledger schema is not active.',
@@ -608,7 +608,7 @@ const translations = {
     en: 'Apply the Tabby Tally Supabase migrations, then sign in again. No local expense will be presented as synchronized before that.',
     zh: '请应用 Tabby Tally 的 Supabase 迁移后重新登录。在此之前，本地支出不会显示为已同步。',
   },
-  'ledger.openSpacesAnyway': { en: 'Open shared spaces', zh: '打开共享空间' },
+  'ledger.openSpacesAnyway': { en: 'Open groups and trips', zh: '打开群组与旅程' },
   'ledger.personal': { en: 'Personal ledger', zh: '个人账本' },
   'ledger.hello': { en: 'Hello, {{name}}.', zh: '你好，{{name}}。' },
   'ledger.there': { en: 'there', zh: '朋友' },
@@ -795,12 +795,12 @@ const translations = {
   'library.amountBlank': { en: '{{label}} · amount left blank', zh: '{{label}} · 金额留空' },
   'library.saveTemplate': { en: 'Save template', zh: '保存为模板' },
 
-  'space.opening': { en: 'Opening space…', zh: '正在打开共享空间…' },
-  'space.shared': { en: 'Shared space', zh: '共享空间' },
-  'space.unavailable': { en: 'This space is unavailable.', zh: '此共享空间不可用。' },
+  'space.opening': { en: 'Opening…', zh: '正在打开…' },
+  'space.shared': { en: 'Shared money', zh: '共享账本' },
+  'space.unavailable': { en: 'This group or trip is unavailable.', zh: '此群组或旅程不可用。' },
   'space.unavailableHelp': { en: 'Open a valid invite or sign in with the correct account.', zh: '请打开有效邀请，或使用正确账号登录。' },
-  'space.notFound': { en: 'Space not found or access was removed.', zh: '找不到共享空间，或你的访问权限已被移除。' },
-  'space.back': { en: 'Back to spaces', zh: '返回共享空间' },
+  'space.notFound': { en: 'Group or trip not found, or access was removed.', zh: '找不到群组或旅程，或你的访问权限已被移除。' },
+  'space.back': { en: 'Back to Groups / Trips', zh: '返回群组 / 旅程' },
   'space.addExpense': { en: '+ Add expense', zh: '+ 添加支出' },
   'space.people': { en: 'People', zh: '成员' },
   'space.untracked': { en: 'untracked', zh: '未追踪' },
@@ -814,14 +814,24 @@ const translations = {
   'space.inviteCopied': { en: 'Invite copied · expires in 7 days', zh: '邀请已复制 · 7 天后到期' },
   'space.expenses': { en: 'Expenses', zh: '支出' },
   'space.emptyTitle': { en: 'Nothing tallied yet', zh: '还没有记录' },
-  'space.emptyHelp': { en: 'The first expense will appear for everyone in this space.', zh: '第一笔支出会显示给此空间中的所有成员。' },
+  'space.emptyHelp': { en: 'The first expense will appear for everyone here.', zh: '第一笔支出会显示给这里的所有成员。' },
   'space.paidBy': { en: '{{date}} · paid by {{names}}', zh: '{{date}} · 付款人：{{names}}' },
   'space.yourShare': { en: 'Your share {{amount}}', zh: '你的份额 {{amount}}' },
   'space.void': { en: 'Void', zh: '作废' },
-  'space.tripRecap': { en: 'Trip recap', zh: '旅程回顾' },
-  'space.insights': { en: 'Space insights', zh: '空间分析' },
+  'space.tripRecap': { en: 'Trip spending', zh: '旅程花费' },
+  'space.insights': { en: 'Group recap', zh: '群组回顾' },
   'space.totalsCurrency': { en: 'Totals by currency', zh: '按币种统计' },
   'space.insightsEmpty': { en: 'Insights appear after the first expense.', zh: '添加第一笔支出后会显示分析。' },
+  'space.myPosition': { en: 'My position', zh: '我的位置' },
+  'space.youAreOwed': { en: 'You are owed {{amount}}', zh: '别人欠你 {{amount}}' },
+  'space.youOweAmount': { en: 'You owe {{amount}}', zh: '你欠 {{amount}}' },
+  'space.settled': { en: 'Settled up', zh: '已结清' },
+  'space.manage': { en: 'Manage', zh: '管理' },
+  'space.dates': { en: 'Dates', zh: '日期' },
+  'space.status': { en: 'Status', zh: '状态' },
+  'space.status.active': { en: 'Open', zh: '进行中' },
+  'space.status.archived': { en: 'Archived', zh: '已归档' },
+  'space.status.voided': { en: 'Voided', zh: '已作废' },
 
   'spaceInvite.label': { en: 'Secure space invite', zh: '安全空间邀请' },
   'spaceInvite.checking': { en: 'Checking invite…', zh: '正在检查邀请…' },
@@ -835,11 +845,11 @@ const translations = {
 
   'friends.opening': { en: 'Opening friends…', zh: '正在打开朋友列表…' },
   'friends.accountRequired': { en: 'A permanent account is required.', zh: '需要正式账号。' },
-  'friends.accountHelp': { en: 'Friend relationships and Direct Splits are private account features. Invited guests can still use their Spaces.', zh: '朋友关系和直接分摊是正式账号的私密功能。受邀访客仍可使用共享空间。' },
+  'friends.accountHelp': { en: 'Friend relationships are a private account feature. Invited guests can still use invited groups and trips.', zh: '朋友关系是正式账号的私密功能。受邀访客仍可使用受邀的群组与旅程。' },
   'friends.linkAccount': { en: 'Link an account', zh: '绑定正式账号' },
-  'friends.directLabel': { en: 'Direct splits', zh: '直接分摊' },
+  'friends.directLabel': { en: 'People', zh: '成员' },
   'friends.title': { en: 'Friends', zh: '朋友' },
-  'friends.subtitle': { en: 'Share an expense directly with friends.', zh: '直接与朋友分摊支出。' },
+  'friends.subtitle': { en: 'People you split with, plus invites and requests.', zh: '你一起分摊的人、邀请和请求。' },
   'friends.needsAnswer': { en: 'Needs your answer', zh: '需要你回应' },
   'friends.share': { en: 'Your share {{amount}} · {{date}}', zh: '你的份额 {{amount}} · {{date}}' },
   'friends.total': { en: 'Total {{amount}} · {{people}}', zh: '总额 {{amount}} · {{people}}' },
@@ -856,10 +866,10 @@ const translations = {
   'friends.copyInvite': { en: 'Copy friend invite', zh: '复制朋友邀请' },
   'friends.inviteCopied': { en: 'Invite copied', zh: '邀请已复制' },
   'friends.accepted': { en: 'Accepted', zh: '已接受' },
-  'friends.yours': { en: 'Your friends', zh: '你的朋友' },
+  'friends.yours': { en: 'People', zh: '成员' },
   'friends.directSplit': { en: '+ Direct Split', zh: '+ 直接分摊' },
   'friends.loading': { en: 'Loading…', zh: '加载中…' },
-  'friends.empty': { en: 'No accepted friends yet. Share a secure invite above.', zh: '还没有已接受的朋友，请分享上方的安全邀请。' },
+  'friends.empty': { en: 'No people yet. Invite a friend or add someone without an account.', zh: '还没有成员。请邀请朋友，或添加没有账号的人。' },
   'friends.acceptedFriend': { en: 'Accepted friend', zh: '已接受的朋友' },
   'friends.balance': { en: 'Balance', zh: '余额' },
   'friends.split': { en: 'Split', zh: '分摊' },
@@ -876,6 +886,28 @@ const translations = {
   'friends.linkAria': { en: 'Link {{name}} to friend', zh: '把 {{name}} 绑定到朋友' },
   'friends.linkPlaceholder': { en: 'Link historical entries to…', zh: '把历史记录绑定到…' },
   'friends.requestLink': { en: 'Request link', zh: '请求绑定' },
+
+  'person.opening': { en: 'Opening person…', zh: '正在打开成员…' },
+  'person.notFound': { en: 'This person is unavailable.', zh: '找不到这位成员。' },
+  'person.back': { en: 'Back to Friends', zh: '返回朋友' },
+  'person.state.manual': { en: 'Manual', zh: '未绑定' },
+  'person.state.link-pending': { en: 'Link pending', zh: '绑定待处理' },
+  'person.state.linked': { en: 'Linked', zh: '已绑定' },
+  'person.currentBalance': { en: 'Current balance', zh: '当前余额' },
+  'person.noConfirmedBalance': { en: 'No confirmed balance', zh: '没有已确认余额' },
+  'person.settledUp': { en: 'Settled up', zh: '已结清' },
+  'person.theyOweYou': { en: '{{name}} owes you {{amount}}', zh: '{{name}} 欠你 {{amount}}' },
+  'person.onYourRecords': { en: 'On your records', zh: '仅你这边的记录' },
+  'person.untrackedAmount': { en: '{{amount}} from earlier manual expenses', zh: '较早的未绑定支出 {{amount}}' },
+  'person.addExpense': { en: 'Add Expense', zh: '添加支出' },
+  'person.settleUp': { en: 'Settle Up', zh: '结算' },
+  'person.settleUpAfterLink': { en: 'Available after linking', zh: '绑定后可用' },
+  'person.recent': { en: 'Recent activity', zh: '最近动态' },
+  'person.earlier': { en: 'Earlier / untracked records', zh: '较早 / 未追踪记录' },
+  'person.untrackedBadge': { en: 'On your records', zh: '仅你这边' },
+  'person.manage': { en: 'Manage', zh: '管理' },
+  'person.relationship': { en: 'Relationship', zh: '关系' },
+  'person.emptyActivity': { en: 'No money activity with this person yet.', zh: '还没有与这位成员的钱记录。' },
 
   'friendInvite.label': { en: 'Secure friend invite', zh: '安全朋友邀请' },
   'friendInvite.title': { en: 'Connect for Direct Splits', zh: '建立直接分摊联系' },
@@ -1006,6 +1038,18 @@ export function scopeKey(scope: string): TranslationKey {
 
 export function spaceTypeKey(type: string): TranslationKey {
   return type === 'trip' ? 'spaceType.trip' : 'spaceType.group'
+}
+
+export function personStateKey(state: string): TranslationKey {
+  if (state === 'linked') return 'person.state.linked'
+  if (state === 'link-pending') return 'person.state.link-pending'
+  return 'person.state.manual'
+}
+
+export function spaceStatusKey(status: string): TranslationKey {
+  if (status === 'archived') return 'space.status.archived'
+  if (status === 'voided') return 'space.status.voided'
+  return 'space.status.active'
 }
 
 export function captureSourceKey(source: string): TranslationKey {

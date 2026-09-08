@@ -9,12 +9,16 @@ import { personToMoneyContext } from './moneyContextCatalog'
 import type { PersonRelationship } from '../types'
 
 describe('money context routing', () => {
-  it('inherits only Personal and a concrete Space route', () => {
+  it('inherits Personal, a concrete Space route, and a concrete Person route', () => {
     expect(resolveRouteMoneyContext('/')).toEqual({ kind: 'personal' })
     expect(resolveRouteMoneyContext('/quick-add')).toEqual({ kind: 'personal' })
     expect(resolveRouteMoneyContext('/space/space-1')).toEqual({
       kind: 'space-candidate',
       spaceId: 'space-1',
+    })
+    expect(resolveRouteMoneyContext('/person/person-1')).toEqual({
+      kind: 'person-candidate',
+      personId: 'person-1',
     })
   })
 
@@ -28,6 +32,7 @@ describe('money context routing', () => {
     expect(globalDestinationForPath('/')).toBe('personal')
     expect(globalDestinationForPath('/capture')).toBe('personal')
     expect(globalDestinationForPath('/friends')).toBe('friends')
+    expect(globalDestinationForPath('/person/person-1')).toBe('friends')
     expect(globalDestinationForPath('/spaces')).toBe('groups-trips')
     expect(globalDestinationForPath('/space/space-1')).toBe('groups-trips')
     expect(globalDestinationForPath('/profile')).toBe('me')

@@ -20,6 +20,7 @@ export type MoneyContextRef =
 export type RouteMoneyContext =
   | Readonly<{ kind: 'personal' }>
   | Readonly<{ kind: 'space-candidate'; spaceId: string }>
+  | Readonly<{ kind: 'person-candidate'; personId: string }>
   | Readonly<{ kind: 'ambiguous' }>
 
 export type GlobalDestination = 'personal' | 'friends' | 'groups-trips' | 'me'
@@ -32,11 +33,16 @@ export function resolveRouteMoneyContext(pathname: string): RouteMoneyContext {
     return { kind: 'space-candidate', spaceId: decodeURIComponent(spaceMatch[1]) }
   }
 
+  const personMatch = /^\/person\/([^/]+)$/.exec(pathname)
+  if (personMatch?.[1]) {
+    return { kind: 'person-candidate', personId: decodeURIComponent(personMatch[1]) }
+  }
+
   return { kind: 'ambiguous' }
 }
 
 export function globalDestinationForPath(pathname: string): GlobalDestination {
-  if (pathname === '/friends') return 'friends'
+  if (pathname === '/friends' || pathname.startsWith('/person/')) return 'friends'
   if (pathname === '/spaces' || pathname.startsWith('/space/')) return 'groups-trips'
   if (pathname === '/profile') return 'me'
   return 'personal'

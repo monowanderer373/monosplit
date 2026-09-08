@@ -5,6 +5,7 @@ import {
   copyInviteUrl,
   createConfirmedAccount,
   openAuthenticatedBrowser,
+  openPersonDetail,
   signIn,
 } from './fixtures/localSupabase'
 
@@ -39,6 +40,7 @@ test('keeps four destinations and a usable global money action at 320px', async 
 
   await page.goto('/spaces')
   await expect(navigation.getByRole('button', { name: 'Groups / Trips', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('heading', { name: 'Groups / Trips' })).toBeVisible()
   await page.goto('/profile')
   await expect(navigation.getByRole('button', { name: 'Me', exact: true })).toHaveAttribute('aria-current', 'page')
 })
@@ -92,7 +94,10 @@ test('keeps the global money action above mobile form controls', async ({
     await owner.getByPlaceholder('Person’s name').fill('Pointer Manual')
     await owner.getByRole('button', { name: 'Add person' }).click()
 
-    await owner.getByRole('button', { name: 'Split with Pointer Manual' }).click()
+    await openPersonDetail(owner, 'Pointer Manual')
+    const personNavigation = owner.getByRole('navigation', { name: 'Primary navigation' })
+    await expect(personNavigation.getByRole('button', { name: 'Friends', exact: true })).toHaveAttribute('aria-current', 'page')
+    await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     const capture = owner.getByRole('dialog', { name: 'Add Expense' })
     await capture.getByRole('textbox', { name: /^Amount/ }).fill('1.01')
     await capture.getByPlaceholder('What was this for?').fill('Pointer overlap')
@@ -134,11 +139,14 @@ test('keeps the global money action above mobile form controls', async ({
     expect(hitTestEvidence.hitTest.topIsGlobalAction).toBe(true)
 
     await add.click()
-    const gate = owner.getByRole('dialog', { name: 'Where should this go?' })
-    await expect(gate).toBeVisible()
+    const captureDialog = owner.getByRole('dialog', { name: 'Add Expense' })
+    await expect(captureDialog).toBeVisible()
+    await expect(owner.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
     await expect(
-      gate.getByRole('button', { name: 'Pointer Manual', exact: true }),
-    ).toHaveCount(1)
+      captureDialog.getByRole('button', {
+        name: 'Current context: Pointer Manual. Change context',
+      }),
+    ).toBeVisible()
     const modalHitTestEvidence = await collectHitTestEvidence(
       owner,
       owner.getByTestId('global-money-action-layer').locator('button'),
@@ -150,9 +158,18 @@ test('keeps the global money action above mobile form controls', async ({
         (element) => element?.role === 'dialog',
       ),
     ).toBe(true)
-    await gate.getByRole('button', { name: 'Close' }).click()
+    await captureDialog.getByRole('button', { name: 'Close' }).click()
 
     await expect(select.locator('option:checked')).toHaveText('Pointer Target')
+    await owner.getByRole('button', { name: 'Back to Friends' }).click()
+    await expect(owner).toHaveURL(/\/friends$/)
+    await owner.getByRole('button', { name: 'Quick add expense' }).click()
+    const friendsGate = owner.getByRole('dialog', { name: 'Where should this go?' })
+    await expect(friendsGate).toBeVisible()
+    await expect(
+      friendsGate.getByRole('button', { name: 'Pointer Manual', exact: true }),
+    ).toHaveCount(1)
+    await friendsGate.getByRole('button', { name: 'Close' }).click()
     await owner
       .getByRole('navigation', { name: 'Primary navigation' })
       .getByRole('button', { name: 'Personal', exact: true })

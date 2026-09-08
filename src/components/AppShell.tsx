@@ -70,6 +70,13 @@ function ShellContents() {
       })
       return
     }
+    if (resolved.kind === 'person-candidate') {
+      quickAdd.open({
+        entryPoint: 'global',
+        personCandidateId: resolved.personId,
+      })
+      return
+    }
     quickAdd.open({ entryPoint: 'global' })
   }, [
     authUser?.isAnonymous,

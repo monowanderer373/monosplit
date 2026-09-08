@@ -1,26 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import SettlementPanel from '../components/SettlementPanel'
 import { useAuth } from '../hooks/useAuth'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
-import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
-import type { LedgerDraftParticipant } from '../lib/compileExpense'
+import { ledgerRepository } from '../lib/ledgerRepository'
 import {
   friendRepository,
-  type FriendProfile,
   type ParticipantLinkRequest,
 } from '../lib/friendRepository'
 import { personRepository } from '../lib/personRepository'
-import {
-  isPersonDirectEligible,
-  resolvePersonFinancialParticipant,
-} from '../lib/personState'
 import { formatMinorAmount } from '../lib/money'
-import { ledgerRepository } from '../lib/ledgerRepository'
 import {
-  categoryKey,
   countKey,
   friendlyErrorKey,
+  personStateKey,
   useT,
   type TranslationKey,
 } from '../lib/i18n'
@@ -35,10 +27,7 @@ export default function FriendsPage() {
   const { authUser, loading: authLoading } = useAuth()
   const participantId = authUser?.participantId ?? null
   const ledger = usePersonalLedger()
-  const quickAdd = useUniversalQuickAdd()
   const refreshLedger = ledger.refresh
-  const [friends, setFriends] = useState<FriendProfile[]>([])
-  const [archivedFriends, setArchivedFriends] = useState<FriendProfile[]>([])
   const [people, setPeople] = useState<PersonRelationship[]>([])
   const [linkRequests, setLinkRequests] = useState<ParticipantLinkRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,8 +35,6 @@ export default function FriendsPage() {
   const [manualName, setManualName] = useState('')
   const [action, setAction] = useState('')
   const [inviteUrl, setInviteUrl] = useState('')
-  const [balanceFriendId, setBalanceFriendId] = useState<string | null>(null)
-  const [linkTargets, setLinkTargets] = useState<Record<string, string>>({})
 
   const refresh = useCallback(async () => {
     if (!authUser?.participantId || authUser.isAnonymous) {
@@ -55,20 +42,11 @@ export default function FriendsPage() {
       return
     }
     try {
-      const [
-        nextFriends,
-        nextArchivedFriends,
-        nextPeople,
-        nextLinkRequests,
-      ] = await Promise.all([
-        friendRepository.listAcceptedFriends(),
-        friendRepository.listArchivedFriends(),
+      const [nextPeople, nextLinkRequests] = await Promise.all([
         personRepository.listPeople(),
         friendRepository.listLinkRequests(),
         refreshLedger(),
       ])
-      setFriends(nextFriends)
-      setArchivedFriends(nextArchivedFriends)
       setPeople(nextPeople)
       setLinkRequests(nextLinkRequests)
       setError('')
@@ -88,30 +66,6 @@ export default function FriendsPage() {
     [refresh],
   )
 
-  const manualParticipants = useMemo(() => people.flatMap((person) => {
-    const participant = resolvePersonFinancialParticipant(person)
-    return participant?.kind === 'manual'
-      ? [{ id: participant.id, displayName: person.displayName }]
-      : []
-  }), [people])
-  const captureParticipants = useMemo<LedgerDraftParticipant[]>(() => {
-    if (!participantId) return []
-    const self: LedgerDraftParticipant = {
-      id: participantId,
-      displayName: authUser?.displayName ?? authUser?.email ?? t('common.me'),
-      kind: 'account',
-    }
-    return [
-      self,
-      ...people
-        .filter(isPersonDirectEligible)
-        .flatMap((person) => {
-          const participant = resolvePersonFinancialParticipant(person)
-          return participant ? [participant] : []
-        }),
-    ]
-  }, [authUser, participantId, people, t])
-
   const pendingExpenses = useMemo(() => ledger.expenses.filter((expense) => (
     expense.scope === 'direct'
     && expense.status === 'active'
@@ -119,11 +73,6 @@ export default function FriendsPage() {
       participation.participantId === participantId && participation.state === 'pending'
     ))
   )), [ledger.expenses, participantId])
-  const participantNames = useMemo<ReadonlyMap<string, string>>(() => new Map([
-    ...(participantId ? [[participantId, authUser?.displayName ?? authUser?.email ?? t('common.you')] as const] : []),
-    ...friends.map(({ participant }) => [participant.id, participant.displayName] as const),
-    ...archivedFriends.map(({ participant }) => [participant.id, participant.displayName] as const),
-  ]), [archivedFriends, authUser?.displayName, authUser?.email, friends, participantId, t])
   const incomingLinkRequests = linkRequests.filter((request) => (
     request.targetParticipantId === participantId && request.status === 'pending'
   ))
@@ -159,48 +108,6 @@ export default function FriendsPage() {
     }
   }
 
-  const openCapture = (selected: string[]) => {
-    if (!participantId) return
-    const target = captureParticipants.find(
-      (participant) =>
-        participant.id !== participantId
-        && selected.includes(participant.id),
-    )
-    if (!target) {
-      quickAdd.open({ entryPoint: 'person' })
-      return
-    }
-    const targetPerson = people.find(
-      (person) =>
-        resolvePersonFinancialParticipant(person)?.id === target.id,
-    )
-    if (!targetPerson) return
-    quickAdd.open({
-      entryPoint: 'person',
-      context: {
-        ref: {
-          kind: 'person',
-          personId: targetPerson.id,
-          participantId: target.id,
-          participantIds: [
-            target.id,
-            ...targetPerson.manualParticipantIds.filter(
-              (id) => id !== target.id,
-            ),
-          ],
-          participantKind: target.kind,
-          displayName: target.displayName,
-        },
-        currentParticipantId: participantId,
-        availableParticipants: captureParticipants,
-        defaultCurrency: authUser?.defaultCurrency ?? 'MYR',
-      },
-      initialValues: {
-        selectedParticipantIds: selected,
-      },
-    })
-  }
-
   const respond = async (expenseId: string, response: 'accepted' | 'declined') => {
     if (action) return
     setAction(expenseId)
@@ -215,50 +122,12 @@ export default function FriendsPage() {
     }
   }
 
-  const requestManualLink = async (manualParticipantId: string) => {
-    const targetParticipantId = linkTargets[manualParticipantId]
-    if (!targetParticipantId || action) return
-    setAction(`link:${manualParticipantId}`)
-    setError('')
-    try {
-      const person = people.find(
-        (candidate) =>
-          candidate.manualParticipantIds.includes(manualParticipantId),
-      )
-      if (!person) throw new Error('person_relationship_not_found')
-      await personRepository.requestLink(person.id, targetParticipantId)
-      await refresh()
-    } catch (cause) {
-      setError(friendlyErrorKey(cause))
-    } finally {
-      setAction('')
-    }
-  }
-
   const respondManualLink = async (requestId: string, response: 'accepted' | 'declined') => {
     if (action) return
     setAction(`link:${requestId}`)
     setError('')
     try {
       await friendRepository.respondManualLink(requestId, response)
-      await refresh()
-    } catch (cause) {
-      setError(friendlyErrorKey(cause))
-    } finally {
-      setAction('')
-    }
-  }
-
-  const changeFriendship = async (friendshipId: string, next: 'archived' | 'blocked') => {
-    if (action) return
-    setAction(friendshipId)
-    setError('')
-    try {
-      if (next === 'blocked') await friendRepository.blockFriendship(friendshipId)
-      else await friendRepository.archiveFriendship(friendshipId)
-      if (balanceFriendId && friends.some(({ friendship, participant }) => (
-        friendship.id === friendshipId && participant.id === balanceFriendId
-      ))) setBalanceFriendId(null)
       await refresh()
     } catch (cause) {
       setError(friendlyErrorKey(cause))
@@ -319,7 +188,7 @@ export default function FriendsPage() {
                 <article key={expense.id} className="ms-card-hero">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="font-extrabold">{expense.description ?? t(categoryKey(expense.category))}</p>
+                      <p className="font-extrabold">{expense.description ?? expense.category}</p>
                       <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">
                         {t('friends.share', { amount: formatMinorAmount(myShare, expense.currency), date: formatDate(expense.occurredOn, lang) })}
                       </p>
@@ -382,68 +251,28 @@ export default function FriendsPage() {
       </section>
 
       <section className="mx-auto mt-8 max-w-4xl">
-        <div className="mb-3 flex items-end justify-between gap-4">
-          <div>
-            <p className="ms-label">{t('friends.accepted')}</p>
-            <h2 className="mt-1 text-xl font-extrabold">{t('friends.yours')}</h2>
-          </div>
-          <button className="ms-btn-primary" onClick={() => openCapture([participantId])}>{t('friends.directSplit')}</button>
-        </div>
-        {loading ? <div className="ms-card">{t('friends.loading')}</div> : friends.length === 0 ? (
-          <div className="ms-card text-sm text-[var(--ms-text-muted)]">{t('friends.empty')}</div>
+        <p className="ms-label">{t('friends.accepted')}</p>
+        <h2 className="mt-1 text-xl font-extrabold">{t('friends.yours')}</h2>
+        {loading ? <div className="ms-card mt-3">{t('friends.loading')}</div> : people.length === 0 ? (
+          <div className="ms-card mt-3 text-sm text-[var(--ms-text-muted)]">{t('friends.empty')}</div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {friends.map(({ friendship, participant }) => (
-              <article key={friendship.id} className="ms-card">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-extrabold">{participant.displayName}</p>
-                    <p className="mt-1 text-xs text-[var(--ms-text-muted)]">{t('friends.acceptedFriend')}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="ms-btn-ghost py-2 text-sm" onClick={() => setBalanceFriendId((current) => current === participant.id ? null : participant.id)}>{t('friends.balance')}</button>
-                    <button className="ms-btn-ghost py-2 text-sm" onClick={() => openCapture([participantId, participant.id])}>{t('friends.split')}</button>
-                  </div>
-                </div>
-                <div className="mt-3 flex gap-3 border-t border-[var(--ms-border)] pt-3">
-                  <button className="text-xs font-bold text-[var(--ms-text-muted)]" disabled={action === friendship.id} onClick={() => void changeFriendship(friendship.id, 'archived')}>{t('friends.unfriend')}</button>
-                  <button className="text-xs font-bold text-[var(--ms-danger)]" disabled={action === friendship.id} onClick={() => void changeFriendship(friendship.id, 'blocked')}>{t('friends.block')}</button>
-                </div>
-              </article>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {people.map((item) => (
+              <button
+                key={item.id}
+                className="ms-card text-left"
+                data-testid="person-card"
+                onClick={() => navigate(`/person/${item.id}`)}
+              >
+                <article>
+                  <p className="truncate font-extrabold">{item.displayName}</p>
+                  <p className="mt-1 text-xs text-[var(--ms-text-muted)]">{t(personStateKey(item.state))}</p>
+                </article>
+              </button>
             ))}
           </div>
         )}
       </section>
-
-      {balanceFriendId ? (
-        <section className="mx-auto mt-8 max-w-4xl">
-          <SettlementPanel
-            context={{ scope: 'direct', participantIds: [participantId, balanceFriendId] }}
-            currentParticipantId={participantId}
-            participantNames={participantNames}
-            expenses={ledger.expenses}
-            canPropose
-            showActivity
-          />
-        </section>
-      ) : null}
-
-      {archivedFriends.length > 0 ? (
-        <section className="mx-auto mt-8 max-w-4xl">
-          <p className="ms-label">{t('friends.past')}</p>
-          <h2 className="mt-1 text-xl font-extrabold">{t('friends.history')}</h2>
-          <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">
-            {t('friends.historyHelp')}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {archivedFriends.map(({ friendship, participant }) => (
-              <button key={friendship.id} className="ms-btn-ghost py-2" onClick={() => setBalanceFriendId(participant.id)}>
-                {participant.displayName}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <section className="mx-auto mt-8 max-w-4xl">
         <p className="ms-label">{t('friends.noAccount')}</p>
@@ -463,39 +292,7 @@ export default function FriendsPage() {
             {action === 'manual' ? t('common.adding') : t('friends.addPerson')}
           </button>
         </div>
-        {manualParticipants.length > 0 ? (
-          <div className="mt-3 grid gap-2">
-            {manualParticipants.map((participant) => (
-              <div key={participant.id} className="ms-card flex flex-col gap-2 sm:flex-row sm:items-center">
-                <button className="ms-btn-ghost py-2" onClick={() => openCapture([participantId, participant.id])}>
-                  {t('friends.splitWith', { name: participant.displayName })}
-                </button>
-                {friends.length > 0 ? (
-                  <>
-                    <select
-                      className="ms-input h-10 min-w-0 flex-1"
-                      value={linkTargets[participant.id] ?? ''}
-                      onChange={(event) => setLinkTargets((current) => ({ ...current, [participant.id]: event.target.value }))}
-                      aria-label={t('friends.linkAria', { name: participant.displayName })}
-                    >
-                      <option value="">{t('friends.linkPlaceholder')}</option>
-                      {friends.map(({ participant: friend }) => <option key={friend.id} value={friend.id}>{friend.displayName}</option>)}
-                    </select>
-                    <button
-                      className="ms-btn-ghost py-2 text-xs"
-                      disabled={!linkTargets[participant.id] || action === `link:${participant.id}`}
-                      onClick={() => void requestManualLink(participant.id)}
-                    >
-                      {t('friends.requestLink')}
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
       </section>
-
     </main>
   )
 }

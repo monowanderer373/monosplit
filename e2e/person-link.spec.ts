@@ -4,6 +4,8 @@ import {
   copyInviteUrl,
   createConfirmedAccount,
   openAuthenticatedBrowser,
+  openPersonDetail,
+  personCard,
 } from './fixtures/localSupabase'
 
 test('links a Person without rewriting old Manual money', async ({
@@ -35,13 +37,27 @@ test('links a Person without rewriting old Manual money', async ({
     await owner.reload()
     await owner.getByPlaceholder('Person’s name').fill('Target cash')
     await owner.getByRole('button', { name: 'Add person' }).click()
-    await owner.getByRole('button', { name: 'Split with Target cash' }).click()
+    await openPersonDetail(owner, 'Target cash')
+    await expect(owner).toHaveURL(/\/person\/[0-9a-f-]+$/i)
+    const personUrl = owner.url()
+    await expect(owner.getByText('Manual', { exact: true }).first()).toBeVisible()
+    await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()
+    await expect(owner.getByText('Available after linking')).toBeVisible()
+    await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Manual before link', '8.00')
+    await expect(owner.getByTestId('person-untracked')).toBeVisible()
+    await expect(owner.getByTestId('person-recent')).toBeVisible()
+    const recentBox = await owner.getByTestId('person-recent').boundingBox()
+    const manageBox = await owner.getByTestId('person-manage').boundingBox()
+    expect(recentBox?.y ?? 0).toBeLessThan(manageBox?.y ?? 0)
 
     await owner
       .getByLabel('Link Target cash to friend')
       .selectOption({ label: 'Person Target' })
     await owner.getByRole('button', { name: 'Request link' }).click()
+    await expect(owner.getByText('Link pending').first()).toBeVisible()
+    await expect(owner).toHaveURL(personUrl)
+    await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()
 
     await target.reload()
     const linkRequest = target.getByRole('article').filter({
@@ -50,25 +66,33 @@ test('links a Person without rewriting old Manual money', async ({
     await linkRequest.getByRole('button', { name: 'Accept link' }).click()
 
     await owner.reload()
+    await expect(owner).toHaveURL(personUrl)
+    await expect(owner.getByRole('heading', { name: 'Target cash' })).toBeVisible()
+    await expect(owner.getByText('Linked', { exact: true }).first()).toBeVisible()
+    await expect(owner.getByTestId('person-untracked')).toBeVisible()
+    await expect(owner.getByText('Manual before link')).toBeVisible()
+    await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeEnabled()
+
+    await owner.goto('/friends')
+    await expect(personCard(owner, 'Target cash')).toHaveCount(1)
+    await expect(personCard(owner, 'Person Target')).toHaveCount(0)
     await expect(
       owner.getByRole('button', { name: 'Split with Target cash' }),
     ).toHaveCount(0)
-    await expect(
-      owner.getByRole('article').filter({ hasText: 'Person Target' }),
-    ).toHaveCount(1)
 
     await owner.goto('/')
     await expect(summaryValue(owner, 'Untracked')).toHaveText('RM 4.00')
 
     await owner.goto('/friends')
-    const targetCard = owner.getByRole('article').filter({
-      hasText: 'Person Target',
-    })
-    await targetCard.getByRole('button', { name: 'Split', exact: true }).click()
+    await openPersonDetail(owner, 'Target cash')
+    await expect(owner).toHaveURL(personUrl)
+    await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Linked after acceptance', '10.00')
     await expect(owner.getByRole('status')).toHaveText(
       'Recorded · waiting for confirmation',
     )
+    await expect(owner.getByText('Linked after acceptance')).toBeVisible()
+    await expect(owner.getByTestId('person-untracked')).toContainText('Manual before link')
 
     await target.reload()
     const pending = target.getByRole('article').filter({

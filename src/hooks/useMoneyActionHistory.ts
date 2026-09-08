@@ -4,6 +4,7 @@ import type { MoneyContextRef } from '../lib/moneyContext'
 
 export type MoneyActionState =
   | Readonly<{ step: 'resolve-space'; spaceId: string; startedAtMs: number }>
+  | Readonly<{ step: 'resolve-person'; personId: string; startedAtMs: number }>
   | Readonly<{
     step: 'resolve-context'
     context: MoneyContextRef

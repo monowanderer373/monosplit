@@ -391,18 +391,10 @@ test('runs the final Phase 3 production smoke journey', async ({
       }
 
       await pageA.goto('/friends')
-      if (resumedWithLinkedPerson) {
-        await expect(
-          pageA.getByRole('article').filter({ hasText: B.displayName }),
-        ).toHaveCount(1)
-        await expect(
-          pageA.getByRole('button', { name: `Split with ${manualName}` }),
-        ).toHaveCount(0)
-      } else {
-        await expect(
-          pageA.getByRole('button', { name: `Split with ${manualName}` }),
-        ).toHaveCount(1)
-      }
+      await expect(personCard(pageA, manualName)).toHaveCount(1)
+      await expect(
+        pageA.getByRole('button', { name: `Split with ${manualName}` }),
+      ).toHaveCount(0)
 
       const principals = await queryRows(
         A.client
@@ -419,6 +411,7 @@ test('runs the final Phase 3 production smoke journey', async ({
 
       if (resumedWithLinkedPerson) return
 
+      await openPersonDetail(pageA, manualName)
       const linkSelect = pageA.getByLabel(`Link ${manualName} to friend`)
       await linkSelect.selectOption({ label: B.displayName })
       await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
@@ -462,6 +455,50 @@ test('runs the final Phase 3 production smoke journey', async ({
         overlapEvidence.center.x,
         overlapEvidence.center.y,
       )
+      const inheritedCapture = pageA.getByRole('dialog', { name: 'Add Expense' })
+      await expect(inheritedCapture).toBeVisible()
+      await expect(pageA.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
+      await expect(
+        inheritedCapture.getByRole('button', {
+          name: `Current context: ${manualName}. Change context`,
+        }),
+      ).toBeVisible()
+      const modalHitTestEvidence = await collectGlobalActionHitTest(
+        pageA,
+        pageA.getByTestId('global-money-action-layer').locator('button'),
+        linkSelect,
+      )
+      await testInfo.attach('production-modal-over-action-hit-test.json', {
+        body: JSON.stringify(modalHitTestEvidence, null, 2),
+        contentType: 'application/json',
+      })
+      frontendGateEvidence.modal = modalHitTestEvidence
+      expect(modalHitTestEvidence.hitTest.topIsGlobalAction).toBe(false)
+      expect(
+        modalHitTestEvidence.hitTest.elementsFromPoint.some(
+          (element) => element?.role === 'dialog',
+        ),
+      ).toBe(true)
+      await clickLocatorCenterWithMouse(
+        pageA,
+        inheritedCapture.getByRole('button', { name: 'Close' }),
+      )
+      await expect(inheritedCapture).toHaveCount(0)
+      await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
+      await linkSelect.selectOption('')
+      await linkSelect.selectOption({ label: B.displayName })
+      await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
+      await restoreInlineStyle(linkSelect, originalSelectStyle)
+      const restoredEvidence = await collectGlobalActionHitTest(
+        pageA,
+        add,
+        linkSelect,
+      )
+      frontendGateEvidence.restored = restoredEvidence
+      expect(restoredEvidence.rects.select).toEqual(naturalEvidence.rects.select)
+
+      await pageA.goto('/friends')
+      await clickGlobalAdd(pageA)
       const gate = pageA.getByRole('dialog', { name: 'Where should this go?' })
       await expect(gate).toBeVisible()
       await expect(gate.getByRole('button', { name: manualName, exact: true }))
@@ -492,39 +529,11 @@ test('runs the final Phase 3 production smoke journey', async ({
       await gate.getByRole('searchbox').fill(manualName)
       await expect(gate.getByRole('button', { name: manualName, exact: true }))
         .toHaveCount(1)
-      const modalHitTestEvidence = await collectGlobalActionHitTest(
-        pageA,
-        pageA.getByTestId('global-money-action-layer').locator('button'),
-        linkSelect,
-      )
-      await testInfo.attach('production-modal-over-action-hit-test.json', {
-        body: JSON.stringify(modalHitTestEvidence, null, 2),
-        contentType: 'application/json',
-      })
-      frontendGateEvidence.modal = modalHitTestEvidence
-      expect(modalHitTestEvidence.hitTest.topIsGlobalAction).toBe(false)
-      expect(
-        modalHitTestEvidence.hitTest.elementsFromPoint.some(
-          (element) => element?.role === 'dialog',
-        ),
-      ).toBe(true)
       await clickLocatorCenterWithMouse(
         pageA,
         gate.getByRole('button', { name: 'Close' }),
       )
       await expect(gate).toHaveCount(0)
-      await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
-      await linkSelect.selectOption('')
-      await linkSelect.selectOption({ label: B.displayName })
-      await expect(linkSelect.locator('option:checked')).toHaveText(B.displayName)
-      await restoreInlineStyle(linkSelect, originalSelectStyle)
-      const restoredEvidence = await collectGlobalActionHitTest(
-        pageA,
-        add,
-        linkSelect,
-      )
-      frontendGateEvidence.restored = restoredEvidence
-      expect(restoredEvidence.rects.select).toEqual(naturalEvidence.rects.select)
     })
 
     if (frontendGateOnly) {
@@ -578,9 +587,8 @@ test('runs the final Phase 3 production smoke journey', async ({
           )
         }
         await pageA.goto('/friends')
-        await pageA
-          .getByRole('button', { name: `Split with ${manualName}` })
-          .click()
+        await openPersonDetail(pageA, manualName)
+        await pageA.getByRole('button', { name: 'Add Expense', exact: true }).click()
         await saveCapture(pageA, manualDirectDescription, '2.02')
         await expect(pageA.getByRole('status')).toHaveText('Expense recorded')
         expenses = await queryRows(
@@ -718,6 +726,7 @@ test('runs the final Phase 3 production smoke journey', async ({
         }
         await pageA.goto('/friends')
         await pageB.goto('/friends')
+        await openPersonDetail(pageA, manualName)
         await pageA
           .getByLabel(`Link ${manualName} to friend`)
           .selectOption({ label: B.displayName })
@@ -787,10 +796,9 @@ test('runs the final Phase 3 production smoke journey', async ({
         linked_participant_id: B.participantId,
       })
 
-      await pageA.reload()
-      await expect(
-        pageA.getByRole('article').filter({ hasText: B.displayName }),
-      ).toHaveCount(1)
+      await pageA.goto('/friends')
+      await expect(personCard(pageA, manualName)).toHaveCount(1)
+      await expect(personCard(pageA, B.displayName)).toHaveCount(0)
       await expect(
         pageA.getByRole('button', { name: `Split with ${manualName}` }),
       ).toHaveCount(0)
@@ -842,12 +850,10 @@ test('runs the final Phase 3 production smoke journey', async ({
       }
       if (expenses.length === 0) {
         await pageA.goto('/friends')
-        const friendCard = pageA
-          .getByRole('article')
-          .filter({ hasText: B.displayName })
+        await openPersonDetail(pageA, manualName)
         await clickLocatorCenterWithMouse(
           pageA,
-          friendCard.getByRole('button', { name: 'Split', exact: true }),
+          pageA.getByRole('button', { name: 'Add Expense', exact: true }),
         )
         const capture = pageA.getByRole('dialog', { name: 'Add Expense' })
         await capture.getByRole('textbox', { name: /^Amount/ }).fill('3.03')
@@ -988,12 +994,10 @@ test('runs the final Phase 3 production smoke journey', async ({
       }
 
       await pageA.goto('/friends')
+      await openPersonDetail(pageA, manualName)
       await clickLocatorCenterWithMouse(
         pageA,
-        pageA
-          .getByRole('article')
-          .filter({ hasText: B.displayName })
-          .getByRole('button', { name: 'Split', exact: true }),
+        pageA.getByRole('button', { name: 'Add Expense', exact: true }),
       )
       const personCapture = pageA.getByRole('dialog', { name: 'Add Expense' })
       await clickLocatorCenterWithMouse(
@@ -1708,6 +1712,16 @@ async function collectGlobalActionHitTest(
 
 async function clickGlobalAdd(page: Page): Promise<void> {
   await clickLocatorCenterWithMouse(page, globalMoneyAction(page))
+}
+
+function personCard(page: Page, personName: string) {
+  return page.getByTestId('person-card').filter({ hasText: personName })
+}
+
+async function openPersonDetail(page: Page, personName: string): Promise<void> {
+  await personCard(page, personName).click()
+  await expect(page).toHaveURL(/\/person\//)
+  await expect(page.getByRole('heading', { name: personName })).toBeVisible()
 }
 
 function globalMoneyAction(page: Page): Locator {

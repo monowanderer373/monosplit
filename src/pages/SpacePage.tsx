@@ -4,17 +4,24 @@ import SettlementPanel from '../components/SettlementPanel'
 import ActivityFeed from '../components/ActivityFeed'
 import { useAuth } from '../hooks/useAuth'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
+import { useSettlements } from '../hooks/useSettlements'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import type { LedgerDraftParticipant } from '../lib/compileExpense'
 import { formatMinorAmount } from '../lib/money'
 import { spaceRepository, type SpaceWithRole } from '../lib/spaceRepository'
 import { buildTripRecap } from '../lib/insights'
+import {
+  deriveRelationalDebtLines,
+  summarizeRelationalBalances,
+  type ConfirmedSettlement,
+} from '../lib/relationalBalance'
 import type { Participant, SpaceMember } from '../types'
 import {
   categoryKey,
   countKey,
   friendlyErrorKey,
   roleKey,
+  spaceStatusKey,
   spaceTypeKey,
   useT,
   type TranslationKey,
@@ -34,6 +41,7 @@ export default function SpacePage() {
   const navigate = useNavigate()
   const { authUser } = useAuth()
   const ledger = usePersonalLedger()
+  const settlementState = useSettlements(true)
   const quickAdd = useUniversalQuickAdd()
   const refreshLedger = ledger.refresh
   const [entry, setEntry] = useState<SpaceWithRole | null>(null)
@@ -88,6 +96,19 @@ export default function SpacePage() {
     () => new Map(members.map(({ participant }) => [participant.id, participant.displayName])),
     [members],
   )
+  const myPosition = useMemo(() => {
+    if (!authUser?.participantId) return []
+    const contextSettlements = settlementState.settlements.filter((settlement) => (
+      settlement.scope === 'space' && settlement.spaceId === spaceId
+    ))
+    return summarizeRelationalBalances(
+      deriveRelationalDebtLines(
+        expenses,
+        contextSettlements as ConfirmedSettlement[],
+        { scope: 'space', spaceId },
+      ),
+    ).filter((item) => item.participantId === authUser.participantId)
+  }, [authUser?.participantId, expenses, settlementState.settlements, spaceId])
 
   const copyInvite = async () => {
     if (!entry || creatingInvite) return
@@ -156,7 +177,8 @@ export default function SpacePage() {
     return <main className="ms-page flex min-h-dvh items-center justify-center">{t('space.opening')}</main>
   }
 
-  if (!entry || !authUser?.participantId) {
+  const participantId = authUser?.participantId
+  if (!entry || !participantId) {
     return (
       <main className="ms-page flex min-h-dvh items-center justify-center">
         <section className="ms-card-hero w-full max-w-md text-center">
@@ -170,41 +192,35 @@ export default function SpacePage() {
   }
 
   const canWrite = entry.role === 'owner' || entry.role === 'full_access'
+  const openCapture = () => quickAdd.open({
+    entryPoint: 'space',
+    context: {
+      ref: {
+        kind: 'space',
+        spaceId: entry.space.id,
+        spaceType: entry.space.type,
+        displayName: entry.space.name,
+      },
+      currentParticipantId: participantId,
+      availableParticipants: captureParticipants,
+      defaultCurrency: entry.space.defaultCurrency,
+    },
+  })
+  const dateLine = [
+    entry.space.startDate ? formatDate(entry.space.startDate, lang) : t('spaces.noDates'),
+    entry.space.endDate ? formatDate(entry.space.endDate, lang) : null,
+  ].filter(Boolean).join(' – ')
 
   return (
     <main className="ms-page pb-28">
       <header className="mx-auto max-w-4xl">
-        <button className="mb-4 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate('/spaces')}>← {t('common.spaces')}</button>
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div>
-            <p className="ms-label">{t(spaceTypeKey(entry.space.type))} · {t(roleKey(entry.role))}</p>
-            <h1 className="mt-1 text-3xl font-extrabold">{entry.space.name}</h1>
-            <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
-              {entry.space.defaultCurrency} · {t(countKey('common.count.member.one', 'common.count.member.many', members.length), { count: members.length })}
-            </p>
-          </div>
-          {canWrite ? (
-            <button
-              className="ms-btn-primary h-11"
-              onClick={() => quickAdd.open({
-                entryPoint: 'space',
-                context: {
-                  ref: {
-                    kind: 'space',
-                    spaceId: entry.space.id,
-                    spaceType: entry.space.type,
-                    displayName: entry.space.name,
-                  },
-                  currentParticipantId: authUser.participantId!,
-                  availableParticipants: captureParticipants,
-                  defaultCurrency: entry.space.defaultCurrency,
-                },
-              })}
-            >
-              {t('space.addExpense')}
-            </button>
-          ) : null}
-        </div>
+        <button className="mb-4 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate('/spaces')}>← {t('space.back')}</button>
+        <p className="ms-label">{t(spaceTypeKey(entry.space.type))} · {t(roleKey(entry.role))} · {t(spaceStatusKey(entry.space.status))}</p>
+        <h1 className="mt-1 text-3xl font-extrabold">{entry.space.name}</h1>
+        <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
+          {entry.space.defaultCurrency} · {t(countKey('common.count.member.one', 'common.count.member.many', members.length), { count: members.length })}
+          {entry.space.type === 'trip' ? ` · ${dateLine}` : ''}
+        </p>
       </header>
 
       {error ? (
@@ -213,89 +229,31 @@ export default function SpacePage() {
         </p>
       ) : null}
 
-      <section className="mx-auto mt-6 max-w-4xl">
-        <div className="ms-card">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="ms-label">{t('space.people')}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {members.map(({ member, participant }) => (
-                  <div key={participant.id} className="flex min-h-11 items-center gap-2 rounded-2xl bg-[var(--ms-bg-warm)] px-3 py-1.5 text-sm">
-                    <span className="font-bold">
-                      {participant.id === authUser.participantId ? t('common.you') : participant.displayName}
-                      {member.role === 'owner' ? ` · ${t('role.owner')}` : ''}
-                      {participant.kind === 'manual' ? ` · ${t('space.untracked')}` : ''}
-                    </span>
-                    {entry.role === 'owner' && member.role !== 'owner' && participant.kind === 'account' ? (
-                      <select
-                        className="rounded-lg border border-[var(--ms-border)] bg-[var(--ms-surface)] px-2 py-1 text-xs"
-                        value={member.role}
-                        disabled={memberAction === participant.id}
-                        aria-label={t('space.accessFor', { name: participant.displayName })}
-                        onChange={(event) => void updateMemberRole(participant.id, event.target.value as 'full_access' | 'view')}
-                      >
-                        <option value="full_access">{t('role.full_access')}</option>
-                        <option value="view">{t('role.view')}</option>
-                      </select>
-                    ) : null}
-                    {member.role !== 'owner' && (
-                      entry.role === 'owner' || participant.id === authUser.participantId
-                    ) ? (
-                      <button
-                        className="min-h-9 px-1 text-xs font-bold text-[var(--ms-danger)]"
-                        disabled={memberAction === participant.id}
-                        aria-label={participant.id === authUser.participantId
-                          ? t('common.leave')
-                          : t('space.removeMember', { name: participant.displayName })}
-                        onClick={() => void removeMember(participant.id)}
-                      >
-                        {participant.id === authUser.participantId ? t('common.leave') : t('common.remove')}
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          {canWrite ? (
-            <div className="mt-4 flex flex-col gap-2 border-t border-[var(--ms-border)] pt-4 sm:flex-row">
-              <input
-                className="ms-input min-w-0 flex-1"
-                aria-label={t('space.addPersonPlaceholder')}
-                placeholder={t('space.addPersonPlaceholder')}
-                value={manualName}
-                onChange={(event) => setManualName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void addManualMember()
-                }}
-              />
-              <button className="ms-btn-ghost h-11" disabled={!manualName.trim() || memberAction === 'add'} onClick={() => void addManualMember()}>
-                {memberAction === 'add' ? t('common.adding') : t('space.addUntracked')}
-              </button>
-            </div>
-          ) : null}
+      <section className="mx-auto mt-6 max-w-4xl" data-testid="space-position">
+        <p className="ms-label">{t('space.myPosition')}</p>
+        <h2 className="mt-1 text-xl font-extrabold">{t('space.myPosition')}</h2>
+        <div className="ms-card mt-3">
+          {myPosition.length === 0 || myPosition.every((item) => item.netMinor === 0) ? (
+            <p className="font-extrabold">{t('space.settled')}</p>
+          ) : myPosition.map((item) => (
+            <p key={item.currency} className="text-lg font-extrabold">
+              {item.netMinor > 0
+                ? t('space.youAreOwed', { amount: formatMinorAmount(item.netMinor, item.currency) })
+                : t('space.youOweAmount', { amount: formatMinorAmount(-item.netMinor, item.currency) })}
+            </p>
+          ))}
         </div>
       </section>
 
-      {entry.role === 'owner' ? (
-        <section className="mx-auto mt-4 max-w-4xl">
-          <div className="ms-card flex flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
-              {t('space.inviteAccess')}
-              <select className="ms-input mt-1 w-full sm:w-44" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as 'full_access' | 'view')}>
-                <option value="full_access">{t('space.inviteWrite')}</option>
-                <option value="view">{t('role.view')}</option>
-              </select>
-            </label>
-            <button className="ms-btn-ghost h-11" disabled={creatingInvite} onClick={() => void copyInvite()}>
-              {creatingInvite ? t('common.creating') : t('space.copyInvite')}
-            </button>
-            {inviteUrl ? <p className="min-w-0 flex-1 truncate text-xs text-[var(--ms-success)]">{t('space.inviteCopied')}</p> : null}
-          </div>
+      {canWrite ? (
+        <section className="mx-auto mt-6 max-w-4xl">
+          <button className="ms-btn-primary w-full sm:w-auto" onClick={openCapture}>
+            {t('space.addExpense')}
+          </button>
         </section>
       ) : null}
 
-      <section className="mx-auto mt-8 max-w-4xl">
+      <section className="mx-auto mt-8 max-w-4xl" data-testid="space-recent">
         <div className="mb-3 flex items-end justify-between gap-4">
           <div>
             <p className="ms-label">{t('common.ledger')}</p>
@@ -315,9 +273,9 @@ export default function SpacePage() {
             const payerIds = new Set(expense.payerContributions.map((item) => (
               expense.participations.find((participation) => participation.id === item.expenseParticipationId)?.participantId
             )))
-            const myParticipation = expense.participations.find((participation) => participation.participantId === authUser.participantId)
+            const myParticipation = expense.participations.find((participation) => participation.participantId === participantId)
             const myShare = expense.shares.find((share) => share.expenseParticipationId === myParticipation?.id)?.amountMinor ?? 0
-            const canVoid = entry.role === 'owner' || expense.createdBy === authUser.participantId
+            const canVoid = entry.role === 'owner' || expense.createdBy === participantId
             const pending = ledger.outbox.find(
               (item) => item.command.requestId === expense.clientRequestId,
             )
@@ -346,7 +304,7 @@ export default function SpacePage() {
                       {t('space.paidBy', {
                         date: formatDate(expense.occurredOn, lang),
                         names: [...payerIds].filter(Boolean).map((id) => (
-                          id === authUser.participantId ? t('common.you') : memberNames.get(id as string) ?? t('common.member')
+                          id === participantId ? t('common.you') : memberNames.get(id as string) ?? t('common.member')
                         )).join(', '),
                       })}
                     </p>
@@ -369,7 +327,21 @@ export default function SpacePage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-8 max-w-4xl">
+      <section className="mx-auto mt-8 max-w-4xl" data-testid="space-activity">
+        <ActivityFeed spaceId={entry.space.id} expenseIds={expenses.map((expense) => expense.id)} />
+      </section>
+
+      <section className="mx-auto mt-8 max-w-4xl" data-testid="space-balances">
+        <SettlementPanel
+          context={{ scope: 'space', spaceId: entry.space.id }}
+          currentParticipantId={participantId}
+          participantNames={memberNames}
+          expenses={expenses}
+          canPropose={canWrite}
+        />
+      </section>
+
+      <section className="mx-auto mt-8 max-w-4xl" data-testid="space-recap">
         <p className="ms-label">{entry.space.type === 'trip' ? t('space.tripRecap') : t('space.insights')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('space.totalsCurrency')}</h2>
         {recap.currencies.length === 0 ? (
@@ -397,18 +369,93 @@ export default function SpacePage() {
         )}
       </section>
 
-      <section className="mx-auto mt-8 max-w-4xl">
-        <SettlementPanel
-          context={{ scope: 'space', spaceId: entry.space.id }}
-          currentParticipantId={authUser.participantId}
-          participantNames={memberNames}
-          expenses={expenses}
-          canPropose={canWrite}
-        />
-      </section>
-
-      <section className="mx-auto mt-8 max-w-4xl">
-        <ActivityFeed spaceId={entry.space.id} expenseIds={expenses.map((expense) => expense.id)} />
+      <section className="mx-auto mt-8 max-w-4xl" data-testid="space-manage">
+        <p className="ms-label">{t('space.manage')}</p>
+        <h2 className="mt-1 text-xl font-extrabold">{t('space.manage')}</h2>
+        {entry.space.type === 'trip' ? (
+          <div className="ms-card mt-3">
+            <p className="text-sm text-[var(--ms-text-secondary)]">{t('space.dates')}</p>
+            <p className="mt-1 font-extrabold">{dateLine}</p>
+            <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">{t('space.status')}</p>
+            <p className="mt-1 font-extrabold">{t(spaceStatusKey(entry.space.status))}</p>
+          </div>
+        ) : null}
+        <div className="ms-card mt-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="ms-label">{t('space.people')}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {members.map(({ member, participant }) => (
+                  <div key={participant.id} className="flex min-h-11 items-center gap-2 rounded-2xl bg-[var(--ms-bg-warm)] px-3 py-1.5 text-sm">
+                    <span className="font-bold">
+                      {participant.id === participantId ? t('common.you') : participant.displayName}
+                      {member.role === 'owner' ? ` · ${t('role.owner')}` : ''}
+                      {participant.kind === 'manual' ? ` · ${t('space.untracked')}` : ''}
+                    </span>
+                    {entry.role === 'owner' && member.role !== 'owner' && participant.kind === 'account' ? (
+                      <select
+                        className="rounded-lg border border-[var(--ms-border)] bg-[var(--ms-surface)] px-2 py-1 text-xs"
+                        value={member.role}
+                        disabled={memberAction === participant.id}
+                        aria-label={t('space.accessFor', { name: participant.displayName })}
+                        onChange={(event) => void updateMemberRole(participant.id, event.target.value as 'full_access' | 'view')}
+                      >
+                        <option value="full_access">{t('role.full_access')}</option>
+                        <option value="view">{t('role.view')}</option>
+                      </select>
+                    ) : null}
+                    {member.role !== 'owner' && (
+                      entry.role === 'owner' || participant.id === participantId
+                    ) ? (
+                      <button
+                        className="min-h-9 px-1 text-xs font-bold text-[var(--ms-danger)]"
+                        disabled={memberAction === participant.id}
+                        aria-label={participant.id === participantId
+                          ? t('common.leave')
+                          : t('space.removeMember', { name: participant.displayName })}
+                        onClick={() => void removeMember(participant.id)}
+                      >
+                        {participant.id === participantId ? t('common.leave') : t('common.remove')}
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {canWrite ? (
+            <div className="mt-4 flex flex-col gap-2 border-t border-[var(--ms-border)] pt-4 sm:flex-row">
+              <input
+                className="ms-input min-w-0 flex-1"
+                aria-label={t('space.addPersonPlaceholder')}
+                placeholder={t('space.addPersonPlaceholder')}
+                value={manualName}
+                onChange={(event) => setManualName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void addManualMember()
+                }}
+              />
+              <button className="ms-btn-ghost h-11" disabled={!manualName.trim() || memberAction === 'add'} onClick={() => void addManualMember()}>
+                {memberAction === 'add' ? t('common.adding') : t('space.addUntracked')}
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {entry.role === 'owner' ? (
+          <div className="ms-card mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
+              {t('space.inviteAccess')}
+              <select className="ms-input mt-1 w-full sm:w-44" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as 'full_access' | 'view')}>
+                <option value="full_access">{t('space.inviteWrite')}</option>
+                <option value="view">{t('role.view')}</option>
+              </select>
+            </label>
+            <button className="ms-btn-ghost h-11" disabled={creatingInvite} onClick={() => void copyInvite()}>
+              {creatingInvite ? t('common.creating') : t('space.copyInvite')}
+            </button>
+            {inviteUrl ? <p className="min-w-0 flex-1 truncate text-xs text-[var(--ms-success)]">{t('space.inviteCopied')}</p> : null}
+          </div>
+        ) : null}
       </section>
 
     </main>

@@ -18,7 +18,7 @@ test('keeps entry and in-session picker history semantics distinct', async ({
   await page.goto('/spaces')
   await page.getByLabel('Name').fill('History Trip')
   await page.getByLabel('Type').selectOption('trip')
-  await page.getByRole('button', { name: 'Create space' }).click()
+  await page.getByRole('button', { name: 'Create', exact: true }).click()
   await expect(
     page.getByRole('heading', { name: 'History Trip' }),
   ).toBeVisible()
@@ -166,11 +166,12 @@ test('preserves only user-selected categories across context changes', async ({
     .toHaveValue('Food')
   await personalCapture.getByRole('textbox', { name: /^Amount/ }).fill('1.00')
   await personalCapture.getByRole('button', { name: 'Save expense' }).click()
+  await expect(personalCapture).toHaveCount(0)
 
   await page.goto('/spaces')
   await page.getByLabel('Name').fill('Category Trip')
   await page.getByLabel('Type').selectOption('trip')
-  await page.getByRole('button', { name: 'Create space' }).click()
+  await page.getByRole('button', { name: 'Create', exact: true }).click()
   await expect(
     page.getByRole('heading', { name: 'Category Trip' }),
   ).toBeVisible()

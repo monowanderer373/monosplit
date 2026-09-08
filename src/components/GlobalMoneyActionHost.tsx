@@ -94,7 +94,7 @@ export default function GlobalMoneyActionHost() {
     )
   }
 
-  if (action.step === 'resolve-space') {
+  if (action.step === 'resolve-space' || action.step === 'resolve-person') {
     return <LoadingAction onClose={quickAdd.close} />
   }
 

@@ -22,6 +22,7 @@ const ACTIVE_PREFIXES = [
   'ledger.',
   'capture.',
   'friends.',
+  'person.',
   'friendInvite.',
   'settlement.',
   'activity.',

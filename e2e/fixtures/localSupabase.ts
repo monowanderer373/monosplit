@@ -211,6 +211,16 @@ export async function createSpaceInvite(
   return copyInviteUrl(ownerPage)
 }
 
+export function personCard(page: Page, personName: string) {
+  return page.getByTestId('person-card').filter({ hasText: personName })
+}
+
+export async function openPersonDetail(page: Page, personName: string): Promise<void> {
+  await personCard(page, personName).click()
+  await expect(page).toHaveURL(/\/person\/[0-9a-f-]+$/i)
+  await expect(page.getByRole('heading', { name: personName })).toBeVisible()
+}
+
 export async function closeBrowsers(
   browsers: Array<AuthenticatedBrowser | undefined>,
 ): Promise<void> {

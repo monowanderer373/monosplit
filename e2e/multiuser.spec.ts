@@ -7,6 +7,7 @@ import {
   createSpaceInvite,
   MOBILE_CONTEXT_OPTIONS,
   openAuthenticatedBrowser,
+  openPersonDetail,
   waitForSpaceRole,
   type AuthenticatedBrowser,
   type FixtureAccount,
@@ -52,11 +53,20 @@ test.describe('local relational multi-user journey', () => {
     await owner.goto('/spaces')
     await owner.getByLabel('Name').fill('Sabah E2E Trip')
     await owner.getByLabel('Type').selectOption('trip')
-    await owner.getByRole('button', { name: 'Create space' }).click()
+    await owner.getByRole('button', { name: 'Create', exact: true }).click()
     await expect(owner.getByRole('heading', { name: 'Sabah E2E Trip' })).toBeVisible()
     spaceUrl = owner.url()
     const ownerNavigation = owner.getByRole('navigation', { name: 'Primary navigation' })
     await expect(ownerNavigation.getByRole('button', { name: 'Groups / Trips' })).toHaveAttribute('aria-current', 'page')
+    await expect(owner.getByText('Close Trip')).toHaveCount(0)
+    await expect(owner.getByText('Final Statement')).toHaveCount(0)
+    await expectSectionOrder(owner, [
+      'space-position',
+      'space-recent',
+      'space-balances',
+      'space-recap',
+      'space-manage',
+    ])
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
     const inheritedCapture = owner.getByRole('dialog', { name: 'Add Expense' })
     await expect(inheritedCapture).toBeVisible()
@@ -149,7 +159,7 @@ test.describe('local relational multi-user journey', () => {
     await owner.getByRole('button', { name: 'Remove Viewer' }).click()
     await expect(owner.getByText('3 members')).toBeVisible()
     await viewerBrowser.page.reload()
-    await expect(viewerBrowser.page.getByRole('heading', { name: 'This space is unavailable.' })).toBeVisible()
+    await expect(viewerBrowser.page.getByRole('heading', { name: 'This group or trip is unavailable.' })).toBeVisible()
 
     await viewerBrowser.page.goto('/')
     await expect(viewerBrowser.page.getByText('Remainder dinner')).toBeVisible()
@@ -180,22 +190,31 @@ test.describe('local relational multi-user journey', () => {
 
     await owner.reload()
     const betaCard = owner.getByRole('article').filter({ hasText: 'Beta' })
-    await betaCard.getByRole('button', { name: 'Split', exact: true }).click()
+    await expect(betaCard.getByRole('button', { name: 'Split', exact: true })).toHaveCount(0)
+    await expect(betaCard.getByRole('button', { name: 'Balance' })).toHaveCount(0)
+    await openPersonDetail(owner, 'Beta')
+    await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Direct lunch', '9.99')
     await expect(owner.getByRole('status')).toHaveText('Recorded · waiting for confirmation')
 
     await friend.reload()
     const pending = friend.getByRole('article').filter({ hasText: 'Direct lunch' })
     await expect(pending.getByText('Your share RM 4.99')).toBeVisible()
-    await openFriendBalance(friend, 'Alpha')
+    await openPersonDetail(friend, 'Alpha')
+    await friend.getByRole('button', { name: 'Settle Up' }).click()
     await expect(friend.getByText('No confirmed amount is outstanding.')).toBeVisible()
+    await friend.getByRole('button', { name: 'Back to Friends' }).click()
+    await expect(friend).toHaveURL(/\/friends$/)
     await pending.getByRole('button', { name: 'Accept share' }).click()
+    await openFriendBalance(friend, 'Alpha')
     await expectDebt(friend, 'You owe Alpha', 'RM 4.99')
 
-    await owner.reload()
+    await owner.goto('/friends')
     await owner.getByPlaceholder('Person’s name').fill('Cash Guest')
     await owner.getByRole('button', { name: 'Add person' }).click()
-    await owner.getByRole('button', { name: 'Split with Cash Guest' }).click()
+    await openPersonDetail(owner, 'Cash Guest')
+    await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()
+    await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Cash taxi', '8.00')
 
     await owner.goto('/')
@@ -343,9 +362,26 @@ async function expectDebt(page: Page, label: string, amount: string): Promise<vo
 }
 
 async function openFriendBalance(page: Page, friendName: string): Promise<void> {
-  const card = page.getByRole('article').filter({ hasText: friendName })
-  await card.getByRole('button', { name: 'Balance' }).click()
+  if (!/\/friends/.test(page.url())) await page.goto('/friends')
+  await openPersonDetail(page, friendName)
+  await page.getByRole('button', { name: 'Settle Up' }).click()
   await expect(page.getByRole('heading', { name: 'Settle up' })).toBeVisible()
+}
+
+async function expectSectionOrder(page: Page, testIds: string[]): Promise<void> {
+  const boxes = await Promise.all(
+    testIds.map(async (testId) => {
+      const box = await page.getByTestId(testId).boundingBox()
+      if (!box) throw new Error(`Expected ${testId} to be visible.`)
+      return { testId, y: box.y }
+    }),
+  )
+  for (let index = 1; index < boxes.length; index += 1) {
+    expect(
+      boxes[index].y,
+      `${boxes[index].testId} should follow ${boxes[index - 1].testId}`,
+    ).toBeGreaterThan(boxes[index - 1].y)
+  }
 }
 
 function summaryValue(page: Page, label: string) {

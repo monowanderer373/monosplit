@@ -31,7 +31,7 @@ export function useSettlements(enabled: boolean) {
     void refresh()
     const channel = enabled && supabase
       ? supabase
-        .channel('relational-settlements')
+        .channel(`relational-settlements:${Date.now()}:${Math.random()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'settlement_payments' }, () => void refresh())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'settlement_allocations' }, () => void refresh())
         .subscribe()

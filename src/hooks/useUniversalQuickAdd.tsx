@@ -41,6 +41,7 @@ type OpenRequest = Readonly<{
   entryPoint: QuickAddEntryPoint
   context?: ResolvedMoneyContext | MoneyContextRef | null
   spaceCandidateId?: string
+  personCandidateId?: string
   contextPolicy?: ContextSwitchPolicy
   captureSource?: UniversalQuickAddSession['captureSource']
   initialValues?: Partial<UniversalQuickAddValues>
@@ -294,6 +295,44 @@ export function UniversalQuickAddProvider({
           history.replace({
             step: 'gate',
             excludedSpaceId: request.spaceCandidateId,
+            startedAtMs,
+          })
+        }
+      })()
+      return
+    }
+    if (request.personCandidateId) {
+      const candidateGeneration = resolutionGenerationRef.current
+      history.push({
+        step: 'resolve-person',
+        personId: request.personCandidateId,
+        startedAtMs,
+      })
+      void (async () => {
+        try {
+          const { personRepository } = await import('../lib/personRepository')
+          const { personToMoneyContext } = await import('../lib/moneyContextCatalog')
+          const person = await personRepository.getPerson(request.personCandidateId!)
+          if (
+            candidateGeneration !== resolutionGenerationRef.current
+            || sessionRef.current?.sessionId !== next.sessionId
+          ) return
+          const personRef = person ? personToMoneyContext(person) : null
+          if (!personRef) {
+            history.replace({
+              step: 'gate',
+              startedAtMs,
+            })
+            return
+          }
+          await resolveEntryContext(personRef)
+        } catch {
+          if (
+            candidateGeneration !== resolutionGenerationRef.current
+            || sessionRef.current?.sessionId !== next.sessionId
+          ) return
+          history.replace({
+            step: 'gate',
             startedAtMs,
           })
         }
