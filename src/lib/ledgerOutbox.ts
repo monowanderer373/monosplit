@@ -60,6 +60,8 @@ export function buildOptimisticExpense(
     occurredOn: command.occurredOn,
     status: 'active',
     version: 1,
+    correctsExpenseId: null,
+    terminationKind: null,
     voidedAt: null,
     createdAt,
     updatedAt: createdAt,
@@ -91,6 +93,7 @@ export function createPendingLedgerCommand(
     command,
     optimisticExpense: buildOptimisticExpense(draft, command, createdAt),
     status: 'pending',
+    commitState: 'not_started',
     attempts: 0,
     error: null,
     createdAt,
@@ -99,10 +102,47 @@ export function createPendingLedgerCommand(
   }
 }
 
+export function expenseMatchesCreateCommand(
+  expense: CanonicalExpense,
+  command: CreateExpenseCommand,
+): boolean {
+  const participations = [...expense.participations].sort((a, b) => a.order - b.order)
+  if (
+    expense.clientRequestId !== command.requestId
+    || expense.scope !== command.scope
+    || expense.spaceId !== command.spaceId
+    || expense.totalMinor !== command.totalMinor
+    || expense.currency !== command.currency
+    || expense.description !== command.description
+    || expense.category !== command.category
+    || expense.occurredOn !== command.occurredOn
+    || participations.length !== command.participantIds.length
+  ) return false
+
+  return participations.every((participation, index) => {
+    const contribution = expense.payerContributions.find((item) => (
+      item.expenseParticipationId === participation.id
+    ))?.amountMinor ?? 0
+    const share = expense.shares.find((item) => (
+      item.expenseParticipationId === participation.id
+    ))?.amountMinor ?? 0
+    return (
+      participation.participantId === command.participantIds[index]
+      && contribution === command.contributionAmounts[index]
+      && share === command.shareAmounts[index]
+    )
+  })
+}
+
 export type FlushOutboxCallbacks = {
-  markRetrying: (requestId: string) => void
+  claimForDispatch: (requestId: string) => PendingLedgerCommand | null
   acknowledge: (requestId: string, expenseId: string) => void
-  reject: (requestId: string, error: string) => void
+  adopt: (requestId: string, expense: CanonicalExpense) => void
+  reject: (
+    requestId: string,
+    error: string,
+    commitState: 'unknown' | 'not_committed',
+  ) => void
 }
 
 export async function flushLedgerOutbox(
@@ -111,16 +151,39 @@ export async function flushLedgerOutbox(
   callbacks: FlushOutboxCallbacks,
 ): Promise<void> {
   for (const item of items) {
-    if (item.status === 'rejected') continue
-    callbacks.markRetrying(item.command.requestId)
+    if (item.status !== 'pending') continue
+    const claimed = callbacks.claimForDispatch(item.command.requestId)
+    if (!claimed) continue
     try {
-      const expenseId = await repository.createExpense(item.command)
-      callbacks.acknowledge(item.command.requestId, expenseId)
+      const expenseId = await repository.createExpense(claimed.command)
+      callbacks.acknowledge(claimed.command.requestId, expenseId)
     } catch (error) {
       if (error instanceof LedgerRepositoryError && error.code === 'not_configured') return
+      try {
+        const committed = await repository.findExpenseByRequestId(
+          claimed.command.requestId,
+        )
+        if (committed) {
+          if (expenseMatchesCreateCommand(committed, claimed.command)) {
+            callbacks.adopt(claimed.command.requestId, committed)
+          } else {
+            callbacks.reject(
+              claimed.command.requestId,
+              'request_id_reconciliation_conflict',
+              'unknown',
+            )
+          }
+          continue
+        }
+      } catch {
+        // A failed reconciliation query cannot prove whether the create committed.
+      }
       callbacks.reject(
-        item.command.requestId,
+        claimed.command.requestId,
         error instanceof Error ? error.message : 'server_rejected',
+        error instanceof LedgerRepositoryError && error.outcome === 'definitive'
+          ? 'not_committed'
+          : 'unknown',
       )
     }
   }
@@ -134,11 +197,54 @@ export async function drainLedgerOutbox(
   const processedRequestIds = new Set<string>()
   while (true) {
     const items = getItems().filter((item) => (
-      item.status !== 'rejected'
+      item.status === 'pending'
       && !processedRequestIds.has(item.command.requestId)
     ))
     if (items.length === 0) return
     items.forEach((item) => processedRequestIds.add(item.command.requestId))
     await flushLedgerOutbox(repository, items, callbacks)
+  }
+}
+
+export async function reconcileUncertainLedgerCommands(
+  repository: LedgerRepository,
+  items: readonly PendingLedgerCommand[],
+  callbacks: Pick<FlushOutboxCallbacks, 'adopt' | 'reject'>,
+): Promise<void> {
+  for (const item of items) {
+    if (
+      item.status !== 'retrying'
+      && item.commitState !== 'unknown'
+    ) continue
+    try {
+      const committed = await repository.findExpenseByRequestId(
+        item.command.requestId,
+      )
+      if (committed) {
+        if (expenseMatchesCreateCommand(committed, item.command)) {
+          callbacks.adopt(item.command.requestId, committed)
+        } else {
+          callbacks.reject(
+            item.command.requestId,
+            'request_id_reconciliation_conflict',
+            'unknown',
+          )
+        }
+      } else if (item.status === 'retrying') {
+        callbacks.reject(
+          item.command.requestId,
+          'server_outcome_unknown',
+          'unknown',
+        )
+      }
+    } catch {
+      if (item.status === 'retrying') {
+        callbacks.reject(
+          item.command.requestId,
+          'server_outcome_unknown',
+          'unknown',
+        )
+      }
+    }
   }
 }

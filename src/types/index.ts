@@ -28,7 +28,8 @@ export type PersonFriendshipStatus =
   | null
 export type SpaceType = 'group' | 'trip'
 export type ExpenseScope = 'personal' | 'direct' | 'space'
-export type FinancialRecordStatus = 'active' | 'voided'
+export type FinancialRecordStatus = 'active' | 'correction_pending' | 'voided'
+export type ExpenseTerminationKind = 'cancelled' | 'corrected' | null
 export type DirectParticipationState = 'pending' | 'accepted' | 'declined' | 'untracked'
 export type TrackingMode = 'tracked' | 'untracked'
 export type SettlementConfirmationState =
@@ -37,6 +38,8 @@ export type SettlementConfirmationState =
   | 'confirmed'
   | 'declined'
   | 'reversed'
+  | 'cancelled'
+  | 'mixed_closed'
 
 export interface Participant {
   id: string
@@ -116,6 +119,8 @@ export interface CanonicalExpense {
   occurredOn: string
   status: FinancialRecordStatus
   version: number
+  correctsExpenseId: string | null
+  terminationKind: ExpenseTerminationKind
   voidedAt: string | null
   createdAt: string
   updatedAt: string

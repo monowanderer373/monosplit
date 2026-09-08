@@ -29,6 +29,8 @@ function expense(
     occurredOn,
     status,
     version: 1,
+    correctsExpenseId: null,
+    terminationKind: status === 'voided' ? 'cancelled' : null,
     voidedAt: status === 'voided' ? `${occurredOn}T00:00:00.000Z` : null,
     createdAt: `${occurredOn}T00:00:00.000Z`,
     updatedAt: `${occurredOn}T00:00:00.000Z`,

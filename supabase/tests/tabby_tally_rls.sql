@@ -218,11 +218,13 @@ select is(
         'settlement_allocations', 'financial_events', 'product_events',
         'capture_templates', 'recurring_rules', 'recurring_drafts',
         'participant_link_requests', 'capture_entitlements', 'capture_usage',
-        'person_relationships', 'person_manual_participants'
+        'person_relationships', 'person_manual_participants',
+        'direct_expense_change_requests', 'direct_expense_change_approvals',
+        'settlement_allocation_reversals'
       )
       and relrowsecurity
   ),
-  23,
+  26,
   'RLS is enabled on every Tabby Tally client-facing table'
 );
 select is(

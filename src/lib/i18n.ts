@@ -528,6 +528,7 @@ const translations = {
   'common.member': { en: 'Member', zh: '成员' },
   'common.someone': { en: 'Someone', zh: '某位成员' },
   'common.retry': { en: 'Retry', zh: '重试' },
+  'common.undo': { en: 'Undo', zh: '撤销' },
   'common.refresh': { en: 'Refresh', zh: '刷新' },
   'common.remove': { en: 'Remove', zh: '移除' },
   'common.leave': { en: 'Leave', zh: '退出' },
@@ -625,7 +626,23 @@ const translations = {
   'ledger.activity': { en: 'Your activity', zh: '你的活动' },
   'ledger.noEntries': { en: 'No entries match this view.', zh: '当前筛选条件下没有记录。' },
   'ledger.needsAttention': { en: 'Needs attention', zh: '需要处理' },
-  'ledger.pendingSync': { en: 'Pending sync', zh: '等待同步' },
+  'ledger.pendingSync': { en: 'Pending locally · Not yet synced', zh: '仅本机待处理 · 尚未同步' },
+  'ledger.syncedPendingRequest': { en: 'Synced · Awaiting confirmation', zh: '已同步 · 等待确认' },
+  'ledger.undoAdd': { en: 'Undo add', zh: '撤销添加' },
+  'ledger.syncInProgress': { en: 'Syncing · Undo unavailable', zh: '正在同步 · 无法撤销' },
+  'ledger.discardFailed': { en: 'Discard failed draft', zh: '舍弃失败草稿' },
+  'ledger.outcomeUnknown': { en: 'Server outcome unknown', zh: '服务器结果未知' },
+  'ledger.discardedBeforeSync': {
+    en: 'Expense removed before sync.',
+    zh: '支出已在同步前移除。',
+  },
+  'ledger.ownerLocalCancelled': {
+    en: '{{name}} was cancelled locally.',
+    zh: '{{name}} 已在本地权限范围内取消。',
+  },
+  'ledger.undoCancellation': { en: 'Undo cancellation', zh: '撤销取消' },
+  'ledger.restoring': { en: 'Restoring…', zh: '正在恢复…' },
+  'ledger.expense': { en: 'Expense', zh: '支出' },
   'ledger.paidAmount': { en: 'paid {{amount}}', zh: '已付 {{amount}}' },
   'ledger.quickAddLabel': { en: 'Quick add expense', zh: '快速添加支出' },
 
@@ -909,6 +926,79 @@ const translations = {
   'person.relationship': { en: 'Relationship', zh: '关系' },
   'person.emptyActivity': { en: 'No money activity with this person yet.', zh: '还没有与这位成员的钱记录。' },
 
+  'expenseAction.actions': { en: 'Expense actions', zh: '支出操作' },
+  'expenseAction.open': { en: 'Actions for {{name}}', zh: '{{name}} 的操作' },
+  'expenseAction.editDetails': { en: 'Edit details', zh: '编辑资料' },
+  'expenseAction.editExpense': { en: 'Edit expense', zh: '编辑支出' },
+  'expenseAction.correctExpense': { en: 'Correct expense', zh: '更正支出' },
+  'expenseAction.cancelExpense': { en: 'Cancel expense', zh: '取消支出' },
+  'expenseAction.requestCancellation': { en: 'Request cancellation', zh: '请求取消' },
+  'expenseAction.viewRequest': { en: 'View request', zh: '查看请求' },
+  'expenseAction.description': { en: 'Description', zh: '描述' },
+  'expenseAction.category': { en: 'Category', zh: '类别' },
+  'expenseAction.date': { en: 'Date', zh: '日期' },
+  'expenseAction.amount': { en: 'Total amount', zh: '总金额' },
+  'expenseAction.currency': { en: 'Currency', zh: '货币' },
+  'expenseAction.participantAmounts': { en: 'Who paid and who owes', zh: '付款及应付金额' },
+  'expenseAction.paidBy': { en: 'Paid by {{name}}', zh: '{{name}} 支付' },
+  'expenseAction.shareFor': { en: 'Share for {{name}}', zh: '{{name}} 的分摊' },
+  'expenseAction.saveDetails': { en: 'Save details', zh: '保存资料' },
+  'expenseAction.saveExpense': { en: 'Save expense', zh: '保存支出' },
+  'expenseAction.reviewCorrection': { en: 'Review correction', zh: '检查更正' },
+  'expenseAction.submitCorrection': { en: 'Propose correction', zh: '提出更正' },
+  'expenseAction.submitSpaceCorrection': { en: 'Apply correction', zh: '应用更正' },
+  'expenseAction.current': { en: 'Current', zh: '当前' },
+  'expenseAction.proposed': { en: 'Proposed correction', zh: '拟议更正' },
+  'expenseAction.corrected': { en: 'Corrected', zh: '更正后' },
+  'expenseAction.unchangedPrincipals': { en: 'Participants, their order, and currency remain unchanged.', zh: '参与者、顺序和货币保持不变。' },
+  'expenseAction.noEffectUntilApproved': { en: 'This correction will not affect the balance until everyone required has approved it.', zh: '此更正在所有必需参与者批准前不会影响余额。' },
+  'expenseAction.reconfirmWarning': { en: 'This changes who owes what. Participants will need to confirm again.', zh: '这会改变欠款关系，参与者需要重新确认。' },
+  'expenseAction.currencyLocked': { en: 'Currency cannot change in this correction.', zh: '此次更正不能更改货币。' },
+  'expenseAction.cancelAndNew': { en: 'To change currency, participants, or their order, cancel this expense and create a new expense.', zh: '如需更改货币、参与者或顺序，请取消此支出并新建一笔支出。' },
+  'expenseAction.cancelHelp': { en: 'This immediately removes the expense from current financial totals while preserving its history.', zh: '这会立即从当前财务总额中移除此支出，同时保留历史记录。' },
+  'expenseAction.cancellationRequestHelp': { en: 'This expense remains active until all required participants approve the cancellation.', zh: '在所有必需参与者批准取消前，此支出仍然有效。' },
+  'expenseAction.confirmCancel': { en: 'Confirm cancellation', zh: '确认取消' },
+  'expenseAction.sendCancellationRequest': { en: 'Send cancellation request', zh: '发送取消请求' },
+  'expenseAction.requestFrozen': { en: 'This expense is frozen while its change request is pending.', zh: '变更请求待处理期间，此支出暂时冻结。' },
+  'expenseAction.amountsMustReconcile': { en: 'Paid amounts and shares must each equal the total.', zh: '付款金额和分摊金额必须分别等于总额。' },
+  'expenseAction.saving': { en: 'Saving…', zh: '正在保存…' },
+
+  'changeRequest.label': { en: 'Financial change request', zh: '财务变更请求' },
+  'changeRequest.correctionProposed': { en: 'Correction proposed', zh: '已提出更正' },
+  'changeRequest.correctionApproved': { en: 'Correction approved', zh: '更正已批准' },
+  'changeRequest.correctionDeclined': { en: 'Correction declined', zh: '更正已拒绝' },
+  'changeRequest.correctionWithdrawn': { en: 'Correction withdrawn', zh: '更正已撤回' },
+  'changeRequest.cancellationRequested': { en: 'Cancellation requested', zh: '已请求取消' },
+  'changeRequest.expenseCancelled': { en: 'Expense cancelled', zh: '支出已取消' },
+  'changeRequest.cancellationDeclined': { en: 'Cancellation declined', zh: '取消已拒绝' },
+  'changeRequest.cancellationWithdrawn': { en: 'Cancellation request withdrawn', zh: '取消请求已撤回' },
+  'changeRequest.statusPending': { en: 'Waiting for approval', zh: '等待批准' },
+  'changeRequest.statusCorrected': { en: 'Corrected', zh: '已更正' },
+  'changeRequest.statusCancelled': { en: 'Cancelled', zh: '已取消' },
+  'changeRequest.statusDeclined': { en: 'Declined', zh: '已拒绝' },
+  'changeRequest.statusWithdrawn': { en: 'Withdrawn', zh: '已撤回' },
+  'changeRequest.currentExpense': { en: 'Current expense', zh: '当前支出' },
+  'changeRequest.currentStillApplies': { en: 'Current balance still uses {{amount}}.', zh: '当前余额仍使用 {{amount}}。' },
+  'changeRequest.approvalProgress': { en: '{{approved}} of {{total}} approved', zh: '已批准 {{approved}} / {{total}}' },
+  'changeRequest.waitingAll': { en: 'Waiting for all required participants', zh: '等待所有必需参与者' },
+  'changeRequest.acceptCorrection': { en: 'Accept correction', zh: '接受更正' },
+  'changeRequest.declineCorrection': { en: 'Decline correction', zh: '拒绝更正' },
+  'changeRequest.approveCancellation': { en: 'Approve cancellation', zh: '批准取消' },
+  'changeRequest.declineCancellation': { en: 'Decline cancellation', zh: '拒绝取消' },
+  'changeRequest.withdrawCorrection': { en: 'Withdraw correction', zh: '撤回更正' },
+  'changeRequest.withdrawCancellation': { en: 'Withdraw cancellation request', zh: '撤回取消请求' },
+  'changeRequest.declined': { en: 'Request declined — the original expense remains current.', zh: '请求已被拒绝，原支出仍为当前记录。' },
+  'changeRequest.withdrawn': { en: 'Request withdrawn — the original expense remains current. Create a new request to try again.', zh: '请求已撤回，原支出仍为当前记录。如需重试，请创建新请求。' },
+  'changeRequest.correctionDeclinedHelp': { en: 'Original expense remained unchanged.', zh: '原支出保持不变。' },
+  'changeRequest.correctionWithdrawnHelp': { en: 'Original expense remained unchanged. Create a new request to try again.', zh: '原支出保持不变。如需重试，请创建新请求。' },
+  'changeRequest.cancellationDeclinedHelp': { en: 'Expense remained active.', zh: '支出仍然有效。' },
+  'changeRequest.cancellationWithdrawnHelp': { en: 'Expense remained active. Create a new request to try again.', zh: '支出仍然有效。如需重试，请创建新请求。' },
+  'changeRequest.corrected': { en: 'Correction approved', zh: '更正已批准' },
+  'changeRequest.superseded': { en: 'Original expense · superseded', zh: '原支出 · 已被取代' },
+  'changeRequest.currentReplacement': { en: 'Current corrected expense', zh: '当前更正后支出' },
+  'changeRequest.cancelled': { en: 'Cancellation approved — this expense is no longer active.', zh: '取消已批准，此支出不再有效。' },
+  'changeRequest.changedRefresh': { en: 'This request changed. The latest authoritative state is now shown.', zh: '此请求已发生变化，现已显示最新权威状态。' },
+
   'friendInvite.label': { en: 'Secure friend invite', zh: '安全朋友邀请' },
   'friendInvite.title': { en: 'Connect for Direct Splits', zh: '建立直接分摊联系' },
   'friendInvite.help': { en: 'Accepting creates an account-level friendship. It does not create a group or expose your personal ledger.', zh: '接受后会建立账号层级的朋友关系，不会创建群组，也不会公开你的个人账本。' },
@@ -929,31 +1019,85 @@ const translations = {
   'settlement.empty': { en: 'No confirmed amount is outstanding.', zh: '没有待付的已确认金额。' },
   'settlement.youOwe': { en: 'You owe {{name}}', zh: '你欠 {{name}}' },
   'settlement.personOwes': { en: '{{debtor}} owes {{creditor}}', zh: '{{debtor}} 欠 {{creditor}}' },
-  'settlement.fullAmount': { en: 'Full amount', zh: '全部金额' },
+  'settlement.chooseAmount': { en: 'Choose payment amount', zh: '选择付款金额' },
+  'settlement.full': { en: 'Full', zh: '全部' },
+  'settlement.partial': { en: 'Partial', zh: '部分' },
+  'settlement.enterPartialAmount': { en: 'Enter amount', zh: '输入金额' },
   'settlement.amountFor': { en: 'Payment amount for {{name}}', zh: '支付给 {{name}} 的金额' },
   'settlement.proposePaid': { en: 'Propose paid', zh: '提议已付款' },
+  'settlement.proposeExplicitAmount': { en: 'Propose {{amount}} paid', zh: '提议已支付 {{amount}}' },
+  'settlement.awaitingConfirmation': { en: 'Awaiting confirmation', zh: '等待确认' },
+  'settlement.youProposed': { en: 'You proposed {{amount}} paid to {{name}}.', zh: '你提议已向 {{name}} 支付 {{amount}}。' },
+  'settlement.cancelProposal': { en: 'Cancel proposal', zh: '取消提议' },
+  'settlement.cancelCreatesNewHelp': {
+    en: 'Cancelling is final. To recover, create a new proposal.',
+    zh: '取消后即为终止状态；如需恢复，请创建新的提议。',
+  },
   'settlement.receipts': { en: 'Your confirmed receipts', zh: '你已确认的收款' },
   'settlement.reverse': { en: 'Reverse {{amount}}', zh: '撤销 {{amount}}' },
+
+  'history.expenseLabel': { en: 'Expense history', zh: '支出历史' },
+  'history.expenseTitle': { en: 'Corrections and cancellations', zh: '更正与取消' },
+  'history.expenseHelp': { en: 'Historical versions are shown for reference and do not count again.', zh: '历史版本仅供查阅，不会重复计入。' },
+  'history.originalExpense': { en: 'Original expense', zh: '原支出' },
+  'history.correctedExpense': { en: 'Corrected expense', zh: '更正后支出' },
+  'history.currentVersion': { en: 'Current version', zh: '当前版本' },
+  'history.cancelled': { en: 'Cancelled', zh: '已取消' },
+  'history.legacyVoided': { en: 'Voided (legacy)', zh: '已作废（旧记录）' },
+  'history.correctedBy': { en: 'Corrected by {{name}}', zh: '已由 {{name}} 更正' },
+  'history.correctionOf': { en: 'Correction of {{name}}', zh: '{{name}} 的更正版本' },
+  'history.earlierPrivate': { en: 'An earlier version is unavailable with your current access.', zh: '根据你目前的访问权限，较早版本无法显示。' },
+  'history.replacementPrivate': { en: 'The corrected version is unavailable with your current access.', zh: '根据你目前的访问权限，更正版本无法显示。' },
+  'history.cancelledHelp': { en: 'This expense was cancelled and no longer contributes.', zh: '此支出已取消，不再计入。' },
+  'history.correctedHelp': { en: 'This expense was replaced by a corrected version.', zh: '此支出已由更正版本取代。' },
+  'history.legacyHelp': { en: 'The older record does not contain enough detail to classify its lifecycle safely.', zh: '此旧记录没有足够资料可安全判断其生命周期。' },
+  'history.settlementLabel': { en: 'Settlement history', zh: '结算历史' },
+  'history.settlementTitle': { en: 'Payment facts', zh: '付款事实' },
+  'history.settlementHelp': { en: 'Accepted amounts remain historical facts. Current application is shown separately.', zh: '已接受金额会保留为历史事实；当前应用情况会另行显示。' },
+  'history.settlementDirection': { en: '{{debtor}} paid {{creditor}}', zh: '{{debtor}} 支付给 {{creditor}}' },
+  'history.privateParticipant': { en: 'Participant', zh: '参与者' },
+  'history.settlementProposed': { en: 'Settlement proposed', zh: '已提出结算' },
+  'history.settlementAccepted': { en: 'Settlement accepted', zh: '结算已接受' },
+  'history.settlementDeclined': { en: 'Settlement declined', zh: '结算已拒绝' },
+  'history.settlementProposalCancelled': { en: 'Proposal cancelled before acceptance', zh: '提议已在接受前取消' },
+  'history.settlementReversed': { en: 'Later reversed', zh: '之后已冲销' },
+  'history.settlementLegacyReversed': { en: 'Later reversed (legacy record)', zh: '之后已冲销（旧记录）' },
+  'history.currentDerived': { en: 'Current explanation · Derived', zh: '当前说明 · 推导值' },
+  'history.currentlyApplied': { en: 'Currently applied: {{amount}}', zh: '当前应用：{{amount}}' },
+  'history.currentCredit': { en: 'Current credit: {{amount}}', zh: '当前抵扣余额：{{amount}}' },
+  'history.unavailable': { en: 'Financial history is unavailable because its records are inconsistent.', zh: '财务记录不一致，因此无法显示历史。' },
 
   'activity.label': { en: 'Activity', zh: '活动' },
   'activity.title': { en: 'Audit trail', zh: '审计记录' },
   'activity.empty': { en: 'No visible activity yet.', zh: '还没有可见活动。' },
-  'activity.event.space.created': { en: 'Space created', zh: '已创建共享空间' },
-  'activity.event.space.updated': { en: 'Space updated', zh: '已更新共享空间' },
+  'activity.event.space.created': { en: 'Group or trip created', zh: '已创建群组或旅程' },
+  'activity.event.space.updated': { en: 'Group or trip updated', zh: '已更新群组或旅程' },
   'activity.event.space.manual_member_added': { en: 'Untracked person added', zh: '已添加未追踪成员' },
   'activity.event.space.member_role_updated': { en: 'Member access updated', zh: '已更新成员权限' },
   'activity.event.space.member_removed': { en: 'Member removed', zh: '已移除成员' },
   'activity.event.space.invite_revoked': { en: 'Invite revoked', zh: '已撤销邀请' },
   'activity.event.expense.created': { en: 'Expense created', zh: '已创建支出' },
   'activity.event.expense.metadata_updated': { en: 'Expense details updated', zh: '已更新支出资料' },
-  'activity.event.expense.financials_replaced': { en: 'Expense amounts updated', zh: '已更新支出金额' },
+  'activity.event.expense.financials_replaced': { en: 'Expense financial details edited', zh: '已编辑支出财务资料' },
   'activity.event.expense.manual_participant_linked': { en: 'Historical participant linked', zh: '已绑定历史成员' },
-  'activity.event.expense.voided': { en: 'Expense voided', zh: '已作废支出' },
+  'activity.event.expense.voided': { en: 'Expense voided (legacy)', zh: '支出已作废（旧记录）' },
+  'activity.event.expense.correction_proposed': { en: 'Correction proposed', zh: '已提出更正' },
+  'activity.event.expense.correction_approval_accepted': { en: 'Correction approval accepted', zh: '更正批准已接受' },
+  'activity.event.expense.correction_declined': { en: 'Correction declined', zh: '更正已拒绝' },
+  'activity.event.expense.correction_proposal_cancelled': { en: 'Correction withdrawn', zh: '更正已撤回' },
+  'activity.event.expense.corrected': { en: 'Correction approved', zh: '更正已批准' },
+  'activity.event.expense.cancellation_requested': { en: 'Cancellation requested', zh: '已请求取消' },
+  'activity.event.expense.cancellation_approval_accepted': { en: 'Cancellation approval accepted', zh: '取消批准已接受' },
+  'activity.event.expense.cancellation_declined': { en: 'Cancellation declined', zh: '取消已拒绝' },
+  'activity.event.expense.cancellation_request_cancelled': { en: 'Cancellation request withdrawn', zh: '取消请求已撤回' },
+  'activity.event.expense.cancelled': { en: 'Expense cancelled', zh: '支出已取消' },
+  'activity.event.expense.restored': { en: 'Expense restored', zh: '支出已恢复' },
   'activity.event.direct.accepted': { en: 'Direct Split accepted', zh: '已接受直接分摊' },
   'activity.event.direct.declined': { en: 'Direct Split declined', zh: '已拒绝直接分摊' },
   'activity.event.settlement.proposed': { en: 'Settlement proposed', zh: '已提出结算' },
-  'activity.event.settlement.allocation_accepted': { en: 'Settlement received', zh: '已确认收到结算款' },
+  'activity.event.settlement.allocation_accepted': { en: 'Settlement accepted', zh: '结算已接受' },
   'activity.event.settlement.allocation_declined': { en: 'Settlement declined', zh: '已拒绝结算' },
+  'activity.event.settlement.allocation_cancelled': { en: 'Settlement proposal cancelled', zh: '结算提议已取消' },
   'activity.event.settlement.allocation_reversed': { en: 'Settlement reversed', zh: '已撤销结算' },
   'activity.event.updated': { en: 'Financial activity updated', zh: '财务活动已更新' },
 
@@ -967,6 +1111,12 @@ const translations = {
   'friendlyError.versionConflict': { en: 'This item changed on another device. Refresh and try again.', zh: '此项目已在其他设备更新。请刷新后重试。' },
   'friendlyError.inviteUnavailable': { en: 'This invite is invalid, expired, revoked, or already used.', zh: '此邀请无效、已过期、已撤销或已使用。' },
   'friendlyError.balanceExceeded': { en: 'The payment cannot exceed the outstanding balance.', zh: '付款金额不能超过待付余额。' },
+  'friendlyError.settlementIntentRequired': { en: 'Choose Full or Partial before continuing.', zh: '继续前请选择全部或部分付款。' },
+  'friendlyError.partialAmountRequired': { en: 'Enter a partial payment amount.', zh: '请输入部分付款金额。' },
+  'friendlyError.requestChanged': { en: 'This request changed. Refresh and review its current state.', zh: '此请求已变化，请刷新并检查当前状态。' },
+  'friendlyError.undoUnavailable': { en: 'Undo is no longer safe because syncing started or the expense changed.', zh: '同步已开始或支出已变化，无法安全撤销。' },
+  'friendlyError.correctionRestriction': { en: 'Keep the same currency, participants, and participant order, or cancel and create a new expense.', zh: '请保持相同货币、参与者及顺序，否则请取消并新建支出。' },
+  'friendlyError.financialStateUnavailable': { en: 'This financial state is inconsistent. Actions are disabled until it is safely refreshed.', zh: '此财务状态不一致，在安全刷新前已禁用操作。' },
   'friendlyError.saveExpense': { en: 'Could not save this expense. Please try again.', zh: '无法保存此支出，请重试。' },
   'friendlyError.load': { en: 'Could not load this information. Please try again.', zh: '无法加载资料，请重试。' },
 } as const
@@ -1062,7 +1212,7 @@ export function activityEventKey(eventType: string): TranslationKey {
   return translations[key] ? key : 'activity.event.updated'
 }
 
-function machineCode(value: unknown): string {
+export function machineCode(value: unknown): string {
   const message = value instanceof Error ? value.message : String(value ?? '')
   const knownCode = message.match(/[a-z][a-z0-9_]+/g)?.find((part) => part.includes('_'))
   return knownCode ?? message.trim().toLowerCase()
@@ -1110,6 +1260,28 @@ export function friendlyErrorKey(value: unknown): TranslationKey {
     return 'friendlyError.inviteUnavailable'
   }
   if (code === 'amount_exceeds_outstanding_balance') return 'friendlyError.balanceExceeded'
+  if (code === 'settlement_intent_required') return 'friendlyError.settlementIntentRequired'
+  if (code === 'partial_amount_required') return 'friendlyError.partialAmountRequired'
+  if (code === 'financial_invariant_violation') return 'friendlyError.financialStateUnavailable'
+  if (
+    code === 'command_already_dispatching'
+    || code === 'expense_not_restorable'
+  ) return 'friendlyError.undoUnavailable'
+  if (
+    code === 'change_request_exists'
+    || code === 'request_not_pending'
+    || code === 'change_request_not_pending'
+    || code === 'change_request_not_found'
+    || code === 'change_request_terminal_conflict'
+    || code === 'target_changed'
+    || code === 'replacement_changed'
+  ) return 'friendlyError.requestChanged'
+  if (
+    code === 'currency_change_requires_cancel_and_new'
+    || code === 'participant_set_mismatch'
+    || code === 'participant_order_mismatch'
+    || code === 'historical_manual_participant_required'
+  ) return 'friendlyError.correctionRestriction'
   if (
     code.includes('denied')
     || code.endsWith('_required')

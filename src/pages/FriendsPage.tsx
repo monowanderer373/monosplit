@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
+import { useExpenseChanges } from '../hooks/useExpenseChanges'
+import ExpenseChangeRequestList from '../components/ExpenseChangeRequestList'
 import { ledgerRepository } from '../lib/ledgerRepository'
 import {
   friendRepository,
@@ -12,6 +14,7 @@ import { formatMinorAmount } from '../lib/money'
 import {
   countKey,
   friendlyErrorKey,
+  machineCode,
   personStateKey,
   useT,
   type TranslationKey,
@@ -27,6 +30,7 @@ export default function FriendsPage() {
   const { authUser, loading: authLoading } = useAuth()
   const participantId = authUser?.participantId ?? null
   const ledger = usePersonalLedger()
+  const changeState = useExpenseChanges(Boolean(participantId), ledger.refresh)
   const refreshLedger = ledger.refresh
   const [people, setPeople] = useState<PersonRelationship[]>([])
   const [linkRequests, setLinkRequests] = useState<ParticipantLinkRequest[]>([])
@@ -108,14 +112,19 @@ export default function FriendsPage() {
     }
   }
 
-  const respond = async (expenseId: string, response: 'accepted' | 'declined') => {
+  const respond = async (
+    expenseId: string,
+    response: 'accepted' | 'declined',
+    expectedVersion: number,
+  ) => {
     if (action) return
     setAction(expenseId)
     setError('')
     try {
-      await ledgerRepository.respondToDirectExpense(expenseId, response)
+      await ledgerRepository.respondToDirectExpense(expenseId, response, expectedVersion)
       await ledger.refresh()
     } catch (cause) {
+      if (machineCode(cause) === 'version_conflict') await ledger.refresh()
       setError(friendlyErrorKey(cause))
     } finally {
       setAction('')
@@ -206,12 +215,26 @@ export default function FriendsPage() {
                     <span className="rounded-full bg-[var(--ms-info-bg)] px-2 py-1 text-xs font-bold text-[var(--ms-info)]">{t('common.pending')}</span>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3">
-                    <button className="ms-btn-ghost" disabled={action === expense.id} onClick={() => void respond(expense.id, 'declined')}>{t('common.decline')}</button>
-                    <button className="ms-btn-primary" disabled={action === expense.id} onClick={() => void respond(expense.id, 'accepted')}>{t('friends.acceptShare')}</button>
+                    <button className="ms-btn-ghost" disabled={action === expense.id} onClick={() => void respond(expense.id, 'declined', expense.version)}>{t('common.decline')}</button>
+                    <button className="ms-btn-primary" disabled={action === expense.id} onClick={() => void respond(expense.id, 'accepted', expense.version)}>{t('friends.acceptShare')}</button>
                   </div>
                 </article>
               )
             })}
+          </div>
+        </section>
+      ) : null}
+
+      {changeState.requests.length > 0 ? (
+        <section className="mx-auto mt-6 max-w-4xl" data-testid="direct-change-requests">
+          <p className="ms-label">{t('changeRequest.label')}</p>
+          <div className="mt-2">
+            <ExpenseChangeRequestList
+              requests={changeState.requests}
+              expenses={ledger.expenses}
+              currentParticipantId={participantId}
+              onRefresh={changeState.refreshAuthoritative}
+            />
           </div>
         </section>
       ) : null}

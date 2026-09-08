@@ -229,7 +229,33 @@ requires a recent encrypted pre-migration backup and matching successful
 isolated restore, verifies the archive hash, and runs
 `supabase db push --linked --dry-run`. It never applies a migration.
 
-## 7. Remaining beta risks
+## 7. Phase 5 production rollout
+
+Phase 5 development and local verification are closed. Migration
+`202609080001_phase5_financial_trust.sql` has not been deployed to the linked
+project. Its future production rollout must follow this order:
+
+1. Take a fresh production backup.
+2. Verify backup and isolated-restore readiness.
+3. Deploy the Phase 5 database migration.
+4. Verify the new guarded financial RPCs.
+5. Verify obsolete unsafe overloads are unavailable.
+6. Verify or refresh the PostgREST schema cache.
+7. Verify the required Realtime publication.
+8. Deploy the compatible client.
+9. Run production financial smoke tests.
+10. Check Sentry and production error telemetry.
+
+The representative financial canary is an RM100 expense, an accepted RM100
+settlement, then an authoritative correction to RM80. The expected current
+relational position is RM20 reverse-direction credit while the accepted RM100
+settlement remains immutable history.
+
+Once this migration is applied to any shared environment, do not edit its
+deployed semantics. Use a new guarded forward migration for later corrections;
+never destructively roll back valid financial facts.
+
+## 8. Remaining beta risks
 
 - Supabase currently lists no provider physical backup and PITR is disabled.
 - Daily logical counts can diverge from the dump if writes occur between the

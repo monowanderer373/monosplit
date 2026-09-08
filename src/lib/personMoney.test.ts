@@ -47,6 +47,8 @@ function expense(input: {
     occurredOn: '2026-09-01',
     status: 'active',
     version: 1,
+    correctsExpenseId: null,
+    terminationKind: null,
     voidedAt: null,
     createdAt: '2026-09-01T10:00:00.000Z',
     updatedAt: '2026-09-01T10:00:00.000Z',

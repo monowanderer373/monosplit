@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import ActivityFeed from '../components/ActivityFeed'
 import SettlementPanel from '../components/SettlementPanel'
+import ExpenseActionSheet from '../components/ExpenseActionSheet'
+import ExpenseChangeRequestList from '../components/ExpenseChangeRequestList'
+import ExpenseHistoryList from '../components/ExpenseHistoryList'
+import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
+import PendingExpenseRecoveryActions from '../components/PendingExpenseRecoveryActions'
 import { useAuth } from '../hooks/useAuth'
+import { useExpenseChanges } from '../hooks/useExpenseChanges'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
 import { useSettlements } from '../hooks/useSettlements'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
@@ -44,6 +51,7 @@ export default function PersonDetailPage() {
   const { authUser, loading: authLoading } = useAuth()
   const participantId = authUser?.participantId ?? null
   const ledger = usePersonalLedger()
+  const changeState = useExpenseChanges(Boolean(participantId), ledger.refresh)
   const quickAdd = useUniversalQuickAdd()
   const refreshLedger = ledger.refresh
   const settlementState = useSettlements(Boolean(participantId))
@@ -134,6 +142,18 @@ export default function PersonDetailPage() {
       : [],
     [ledger.expenses, participantId, person],
   )
+  const personHistoryExpenses = useMemo(() => {
+    if (!person || !participantId) return []
+    const relatedParticipantIds = new Set([
+      ...person.manualParticipantIds,
+      ...(person.linkedParticipantId ? [person.linkedParticipantId] : []),
+    ])
+    return ledger.expenses.filter((expense) => (
+      expense.scope === 'direct'
+      && expense.participations.some((item) => item.participantId === participantId)
+      && expense.participations.some((item) => relatedParticipantIds.has(item.participantId))
+    ))
+  }, [ledger.expenses, participantId, person])
   const untrackedTotals = useMemo(
     () => person ? untrackedRecordTotals(untrackedExpenses, person) : [],
     [person, untrackedExpenses],
@@ -270,6 +290,8 @@ export default function PersonDetailPage() {
         <h1 className="mt-1 text-3xl font-extrabold">{person.displayName}</h1>
       </header>
 
+      <ExpenseRecoveryNotices />
+
       {error ? (
         <p className="mx-auto mt-4 max-w-4xl rounded-xl bg-[var(--ms-danger-bg)] px-4 py-3 text-sm text-[var(--ms-danger)]">
           {t(error)}
@@ -321,10 +343,22 @@ export default function PersonDetailPage() {
             participantNames={participantNames}
             expenses={ledger.expenses}
             canPropose
-            showActivity
           />
         </section>
       ) : null}
+
+      <section className="mx-auto mt-8 max-w-4xl" data-testid="person-expense-changes">
+        <ExpenseChangeRequestList
+          requests={changeState.requests}
+          expenses={ledger.expenses}
+          currentParticipantId={participantId}
+          onRefresh={changeState.refreshAuthoritative}
+          include={(request) => (
+            trackedExpenses.some((expense) => expense.id === request.targetExpenseId)
+            || untrackedExpenses.some((expense) => expense.id === request.targetExpenseId)
+          )}
+        />
+      </section>
 
       <section className="mx-auto mt-8 max-w-4xl" data-testid="person-recent">
         <p className="ms-label">{t('person.recent')}</p>
@@ -332,18 +366,56 @@ export default function PersonDetailPage() {
         <div className="ms-list mt-3">
           {trackedExpenses.length === 0 ? (
             <p className="p-5 text-center text-sm text-[var(--ms-text-muted)]">{t('person.emptyActivity')}</p>
-          ) : trackedExpenses.map((item, index) => (
+          ) : trackedExpenses.map((item, index) => {
+            const pending = ledger.outbox.find(
+              (entry) => entry.command.requestId === item.clientRequestId,
+            )
+            const syncedPendingRequest = !pending && item.participations.some(
+              (participation) => (
+                participation.trackingMode === 'tracked'
+                && participation.state === 'pending'
+              ),
+            )
+            return (
             <div key={item.id}>
               {index > 0 ? <hr className="ms-divider" /> : null}
               <article className="ms-row">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-extrabold">{item.description ?? t(categoryKey(item.category))}</p>
+                  {syncedPendingRequest ? (
+                    <p className="mt-1 text-[10px] font-bold text-[var(--ms-accent)]">
+                      {t('ledger.syncedPendingRequest')}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-xs text-[var(--ms-text-muted)]">{formatDate(item.occurredOn, lang)}</p>
                 </div>
-                <p className="font-extrabold">{formatMinorAmount(item.totalMinor, item.currency)}</p>
+                <div className="text-right">
+                  <p className="font-extrabold">{formatMinorAmount(item.totalMinor, item.currency)}</p>
+                  {pending ? (
+                    <PendingExpenseRecoveryActions
+                      item={pending}
+                      onUndoAdd={ledger.discardLocalCreate}
+                      onRetry={ledger.retryCommand}
+                      onDiscardFailed={ledger.discardFailedCreate}
+                    />
+                  ) : !changeState.loading && !changeState.error ? (
+                    <div className="mt-2 flex justify-end">
+                      <ExpenseActionSheet
+                        expense={item}
+                        currentParticipantId={participantId}
+                        pendingRequest={changeState.requests.find((request) => (
+                          request.targetExpenseId === item.id && request.state === 'pending'
+                        ))}
+                        onCancelExpense={ledger.voidExpense}
+                        onRefresh={changeState.refreshAuthoritative}
+                      />
+                    </div>
+                  ) : null}
+                </div>
               </article>
             </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
@@ -352,23 +424,79 @@ export default function PersonDetailPage() {
           <p className="ms-label">{t('person.onYourRecords')}</p>
           <h2 className="mt-1 text-xl font-extrabold">{t('person.earlier')}</h2>
           <div className="ms-list mt-3">
-            {untrackedExpenses.map((item, index) => (
+            {untrackedExpenses.map((item, index) => {
+              const pending = ledger.outbox.find(
+                (entry) => entry.command.requestId === item.clientRequestId,
+              )
+              const syncedPendingRequest = !pending && item.participations.some(
+                (participation) => (
+                  participation.trackingMode === 'tracked'
+                  && participation.state === 'pending'
+                ),
+              )
+              return (
               <div key={item.id}>
                 {index > 0 ? <hr className="ms-divider" /> : null}
                 <article className="ms-row">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-extrabold">{item.description ?? t(categoryKey(item.category))}</p>
+                    {syncedPendingRequest ? (
+                      <p className="mt-1 text-[10px] font-bold text-[var(--ms-accent)]">
+                        {t('ledger.syncedPendingRequest')}
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-xs text-[var(--ms-text-muted)]">
                       {formatDate(item.occurredOn, lang)} · {t('person.untrackedBadge')}
                     </p>
                   </div>
-                  <p className="font-extrabold">{formatMinorAmount(item.totalMinor, item.currency)}</p>
+                  <div className="text-right">
+                    <p className="font-extrabold">{formatMinorAmount(item.totalMinor, item.currency)}</p>
+                    {pending ? (
+                      <PendingExpenseRecoveryActions
+                        item={pending}
+                        onUndoAdd={ledger.discardLocalCreate}
+                        onRetry={ledger.retryCommand}
+                        onDiscardFailed={ledger.discardFailedCreate}
+                      />
+                    ) : !changeState.loading && !changeState.error ? (
+                      <div className="mt-2 flex justify-end">
+                        <ExpenseActionSheet
+                          expense={item}
+                          currentParticipantId={participantId}
+                          pendingRequest={changeState.requests.find((request) => (
+                            request.targetExpenseId === item.id && request.state === 'pending'
+                          ))}
+                          onCancelExpense={ledger.voidExpense}
+                          onRefresh={changeState.refreshAuthoritative}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                 </article>
               </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       ) : null}
+
+      <div className="mx-auto mt-8 max-w-4xl">
+        <ExpenseHistoryList
+          expenses={personHistoryExpenses}
+          directRequests={changeState.requests}
+        />
+      </div>
+
+      <div className="mx-auto mt-8 max-w-4xl">
+        <ActivityFeed
+          expenseIds={personHistoryExpenses.map((expense) => expense.id)}
+          settlementIds={contextSettlements.map((settlement) => settlement.id)}
+          refreshKey={[
+            ...personHistoryExpenses.map((expense) => expense.updatedAt),
+            ...contextSettlements.map((settlement) => settlement.updatedAt),
+          ].join('|')}
+        />
+      </div>
 
       <section className="mx-auto mt-8 max-w-4xl" data-testid="person-manage">
         <p className="ms-label">{t('person.manage')}</p>

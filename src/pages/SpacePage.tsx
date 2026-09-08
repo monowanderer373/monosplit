@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import SettlementPanel from '../components/SettlementPanel'
 import ActivityFeed from '../components/ActivityFeed'
+import ExpenseActionSheet from '../components/ExpenseActionSheet'
+import ExpenseHistoryList from '../components/ExpenseHistoryList'
+import PendingExpenseRecoveryActions from '../components/PendingExpenseRecoveryActions'
 import { useAuth } from '../hooks/useAuth'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
 import { useSettlements } from '../hooks/useSettlements'
@@ -76,11 +79,21 @@ export default function SpacePage() {
     void refresh()
   }, [refresh])
 
-  const expenses = useMemo(
+  const spaceExpenses = useMemo(
     () => ledger.expenses
-      .filter((expense) => expense.spaceId === spaceId && expense.status === 'active')
+      .filter((expense) => expense.spaceId === spaceId)
       .sort((a, b) => b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt)),
     [ledger.expenses, spaceId],
+  )
+  const expenses = useMemo(
+    () => spaceExpenses.filter((expense) => expense.status === 'active'),
+    [spaceExpenses],
+  )
+  const spaceSettlements = useMemo(
+    () => settlementState.settlements.filter((settlement) => (
+      settlement.scope === 'space' && settlement.spaceId === spaceId
+    )),
+    [settlementState.settlements, spaceId],
   )
   const recap = useMemo(() => buildTripRecap(expenses), [expenses])
 
@@ -98,17 +111,14 @@ export default function SpacePage() {
   )
   const myPosition = useMemo(() => {
     if (!authUser?.participantId) return []
-    const contextSettlements = settlementState.settlements.filter((settlement) => (
-      settlement.scope === 'space' && settlement.spaceId === spaceId
-    ))
     return summarizeRelationalBalances(
       deriveRelationalDebtLines(
         expenses,
-        contextSettlements as ConfirmedSettlement[],
+        spaceSettlements as ConfirmedSettlement[],
         { scope: 'space', spaceId },
       ),
     ).filter((item) => item.participantId === authUser.participantId)
-  }, [authUser?.participantId, expenses, settlementState.settlements, spaceId])
+  }, [authUser?.participantId, expenses, spaceId, spaceSettlements])
 
   const copyInvite = async () => {
     if (!entry || creatingInvite) return
@@ -275,7 +285,6 @@ export default function SpacePage() {
             )))
             const myParticipation = expense.participations.find((participation) => participation.participantId === participantId)
             const myShare = expense.shares.find((share) => share.expenseParticipationId === myParticipation?.id)?.amountMinor ?? 0
-            const canVoid = entry.role === 'owner' || expense.createdBy === participantId
             const pending = ledger.outbox.find(
               (item) => item.command.requestId === expense.clientRequestId,
             )
@@ -291,13 +300,13 @@ export default function SpacePage() {
                           {pending.status === 'rejected' ? t('ledger.needsAttention') : t('ledger.pendingSync')}
                         </span>
                       ) : null}
-                      {pending?.status === 'rejected' ? (
-                        <button
-                          className="min-h-9 px-2 text-xs font-extrabold text-[var(--ms-accent)]"
-                          onClick={() => void ledger.retryCommand(pending.command.requestId)}
-                        >
-                          {t('common.retry')}
-                        </button>
+                      {pending ? (
+                        <PendingExpenseRecoveryActions
+                          item={pending}
+                          onUndoAdd={ledger.discardLocalCreate}
+                          onRetry={ledger.retryCommand}
+                          onDiscardFailed={ledger.discardFailedCreate}
+                        />
                       ) : null}
                     </div>
                     <p className="mt-1 text-xs text-[var(--ms-text-muted)]">
@@ -314,10 +323,15 @@ export default function SpacePage() {
                   </div>
                   <div className="text-right">
                     <p className="font-extrabold">{formatMinorAmount(expense.totalMinor, expense.currency)}</p>
-                    {canVoid ? (
-                      <button className="mt-2 text-xs font-bold text-[var(--ms-danger)]" onClick={() => void ledger.voidExpense(expense.id)}>
-                        {t('space.void')}
-                      </button>
+                    {!pending ? (
+                      <div className="mt-2 flex justify-end">
+                        <ExpenseActionSheet
+                          expense={expense}
+                          currentParticipantId={participantId}
+                          spaceRole={entry.role}
+                          onRefresh={refresh}
+                        />
+                      </div>
                     ) : null}
                   </div>
                 </article>
@@ -327,8 +341,21 @@ export default function SpacePage() {
         </div>
       </section>
 
+      <div className="mx-auto mt-8 max-w-4xl">
+        <ExpenseHistoryList expenses={spaceExpenses} directRequests={[]} />
+      </div>
+
       <section className="mx-auto mt-8 max-w-4xl" data-testid="space-activity">
-        <ActivityFeed spaceId={entry.space.id} expenseIds={expenses.map((expense) => expense.id)} />
+        <ActivityFeed
+          spaceId={entry.space.id}
+          expenseIds={spaceExpenses.map((expense) => expense.id)}
+          settlementIds={spaceSettlements.map((settlement) => settlement.id)}
+          refreshKey={spaceSettlements.map((settlement) => (
+            `${settlement.updatedAt}:${settlement.allocations.map((allocation) => (
+              `${allocation.state}:${allocation.reversalMinor}`
+            )).join(',')}`
+          )).join('|')}
+        />
       </section>
 
       <section className="mx-auto mt-8 max-w-4xl" data-testid="space-balances">

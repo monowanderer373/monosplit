@@ -1,13 +1,20 @@
 import { supabase } from './supabase'
 
 export type SettlementScope = 'direct' | 'space'
-export type SettlementAllocationState = 'pending' | 'accepted' | 'declined' | 'reversed'
+export type SettlementAllocationState =
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'reversed'
+  | 'cancelled'
 export type SettlementStatus =
   | 'pending'
   | 'partially_confirmed'
   | 'confirmed'
   | 'declined'
   | 'reversed'
+  | 'cancelled'
+  | 'mixed_closed'
 
 export type SettlementAllocation = {
   id: string
@@ -15,6 +22,7 @@ export type SettlementAllocation = {
   creditorParticipantId: string
   amountMinor: number
   state: SettlementAllocationState
+  reversalMinor: number
   respondedAt: string | null
   createdAt: string
 }
@@ -29,6 +37,7 @@ export type SettlementPayment = {
   amountMinor: number
   paymentDate: string
   status: SettlementStatus
+  version: number
   note: string | null
   reversedAt: string | null
   reversedBy: string | null
@@ -72,8 +81,25 @@ export interface SettlementRepository {
   respondToAllocation(
     allocationId: string,
     response: Extract<SettlementAllocationState, 'accepted' | 'declined'>,
-  ): Promise<SettlementStatus>
-  reverseAllocation(allocationId: string): Promise<SettlementStatus>
+    expectedPaymentVersion: number,
+  ): Promise<SettlementMutationResult>
+  cancelPendingAllocation(
+    allocationId: string,
+    expectedPaymentVersion: number,
+  ): Promise<SettlementMutationResult>
+  reverseAllocation(
+    requestId: string,
+    allocationId: string,
+    expectedPaymentVersion: number,
+    reason?: string | null,
+  ): Promise<SettlementMutationResult>
+}
+
+export type SettlementMutationResult = {
+  paymentStatus: SettlementStatus
+  paymentVersion: number
+  allocationState?: SettlementAllocationState
+  reversalId?: string
 }
 
 type SettlementAllocationRow = {
@@ -84,6 +110,12 @@ type SettlementAllocationRow = {
   state: SettlementAllocationState
   responded_at: string | null
   created_at: string
+  reversals?: SettlementReversalRow | SettlementReversalRow[]
+}
+
+type SettlementReversalRow = {
+  id: string
+  amount_minor: number | string
 }
 
 type SettlementPaymentRow = {
@@ -96,6 +128,7 @@ type SettlementPaymentRow = {
   amount_minor: number | string
   payment_date: string
   status: SettlementStatus
+  version: number
   note: string | null
   reversed_at: string | null
   reversed_by: string | null
@@ -112,6 +145,16 @@ function toSafeMinor(value: number | string): number {
   return amount
 }
 
+export function sumSettlementReversalMinor(
+  reversals: SettlementReversalRow | SettlementReversalRow[] | null | undefined,
+): number {
+  const rows = Array.isArray(reversals) ? reversals : reversals ? [reversals] : []
+  return rows.reduce(
+    (total, reversal) => total + toSafeMinor(reversal.amount_minor),
+    0,
+  )
+}
+
 function mapSettlement(row: SettlementPaymentRow): SettlementPayment {
   return {
     id: row.id,
@@ -123,6 +166,7 @@ function mapSettlement(row: SettlementPaymentRow): SettlementPayment {
     amountMinor: toSafeMinor(row.amount_minor),
     paymentDate: row.payment_date,
     status: row.status,
+    version: row.version,
     note: row.note,
     reversedAt: row.reversed_at,
     reversedBy: row.reversed_by,
@@ -134,6 +178,7 @@ function mapSettlement(row: SettlementPaymentRow): SettlementPayment {
       creditorParticipantId: allocation.creditor_participant_id,
       amountMinor: toSafeMinor(allocation.amount_minor),
       state: allocation.state,
+      reversalMinor: sumSettlementReversalMinor(allocation.reversals),
       respondedAt: allocation.responded_at,
       createdAt: allocation.created_at,
     })),
@@ -146,11 +191,12 @@ function serverRejected(message?: string): SettlementRepositoryError {
 
 const settlementSelect = `
   id, client_request_id, scope, space_id, debtor_participant_id, currency,
-  amount_minor, payment_date, status, note, reversed_at, reversed_by,
+  amount_minor, payment_date, status, version, note, reversed_at, reversed_by,
   created_at, updated_at,
   allocations:settlement_allocations(
     id, settlement_payment_id, creditor_participant_id, amount_minor,
-    state, responded_at, created_at
+    state, responded_at, created_at,
+    reversals:settlement_allocation_reversals(id, amount_minor)
   )
 `
 
@@ -160,6 +206,29 @@ function isSettlementStatus(value: unknown): value is SettlementStatus {
     || value === 'confirmed'
     || value === 'declined'
     || value === 'reversed'
+    || value === 'cancelled'
+    || value === 'mixed_closed'
+}
+
+function parseMutationResult(value: unknown): SettlementMutationResult | null {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  if (!isSettlementStatus(record.payment_status)
+      || typeof record.payment_version !== 'number') return null
+  const allocationState = record.allocation_state
+  if (allocationState !== undefined
+      && allocationState !== 'pending'
+      && allocationState !== 'accepted'
+      && allocationState !== 'declined'
+      && allocationState !== 'reversed'
+      && allocationState !== 'cancelled') return null
+  if (record.reversal_id !== undefined && typeof record.reversal_id !== 'string') return null
+  return {
+    paymentStatus: record.payment_status,
+    paymentVersion: record.payment_version,
+    allocationState,
+    reversalId: record.reversal_id as string | undefined,
+  }
 }
 
 export const settlementRepository: SettlementRepository = {
@@ -193,27 +262,46 @@ export const settlementRepository: SettlementRepository = {
     return ((data ?? []) as unknown as SettlementPaymentRow[]).map(mapSettlement)
   },
 
-  async respondToAllocation(allocationId, response) {
+  async respondToAllocation(allocationId, response, expectedPaymentVersion) {
     if (!supabase) throw new SettlementRepositoryError('not_configured')
     const { data, error } = await supabase.rpc('respond_to_settlement', {
       target_allocation_id: allocationId,
       response,
+      expected_payment_version: expectedPaymentVersion,
     })
-    if (error || !isSettlementStatus(data)) {
+    const result = parseMutationResult(data)
+    if (error || !result) {
       throw serverRejected(error?.message ?? 'settlement_response_failed')
     }
-    return data
+    return result
   },
 
-  async reverseAllocation(allocationId) {
+  async cancelPendingAllocation(allocationId, expectedPaymentVersion) {
+    if (!supabase) throw new SettlementRepositoryError('not_configured')
+    const { data, error } = await supabase.rpc('cancel_pending_settlement_allocation', {
+      target_allocation_id: allocationId,
+      expected_payment_version: expectedPaymentVersion,
+    })
+    const result = parseMutationResult(data)
+    if (error || !result) {
+      throw serverRejected(error?.message ?? 'settlement_cancellation_failed')
+    }
+    return result
+  },
+
+  async reverseAllocation(requestId, allocationId, expectedPaymentVersion, reason = null) {
     if (!supabase) throw new SettlementRepositoryError('not_configured')
     const { data, error } = await supabase.rpc('reverse_settlement_allocation', {
+      reversal_request_id: requestId,
       target_allocation_id: allocationId,
+      expected_payment_version: expectedPaymentVersion,
+      reversal_reason: reason,
     })
-    if (error || !isSettlementStatus(data)) {
+    const result = parseMutationResult(data)
+    if (error || !result) {
       throw serverRejected(error?.message ?? 'settlement_reversal_failed')
     }
-    return data
+    return result
   },
 }
 
@@ -232,7 +320,28 @@ export class InMemorySettlementRepository implements SettlementRepository {
 
   async proposeSettlement(input: ProposeSettlementInput): Promise<string> {
     const existing = this.paymentsByRequest.get(input.requestId)
-    if (existing) return existing.id
+    const normalizedNote = input.note?.trim() || null
+    if (existing) {
+      const sameAllocations = existing.allocations.length === input.allocations.length
+        && input.allocations.every((allocation) => existing.allocations.some(
+          (current) => (
+            current.creditorParticipantId === allocation.creditorParticipantId
+            && current.amountMinor === allocation.amountMinor
+          ),
+        ))
+      if (
+        existing.scope !== input.scope
+        || existing.spaceId !== input.spaceId
+        || existing.currency !== input.currency.toUpperCase()
+        || existing.amountMinor !== input.amountMinor
+        || existing.paymentDate !== input.paymentDate
+        || existing.note !== normalizedNote
+        || !sameAllocations
+      ) {
+        throw new SettlementRepositoryError('server_rejected', 'idempotency_conflict')
+      }
+      return existing.id
+    }
 
     const allocationTotal = input.allocations.reduce(
       (total, allocation) => total + allocation.amountMinor,
@@ -256,6 +365,7 @@ export class InMemorySettlementRepository implements SettlementRepository {
         creditorParticipantId: allocation.creditorParticipantId,
         amountMinor: allocation.amountMinor,
         state: manual ? 'accepted' : 'pending',
+        reversalMinor: 0,
         respondedAt: manual ? now : null,
         createdAt: now,
       }
@@ -270,7 +380,8 @@ export class InMemorySettlementRepository implements SettlementRepository {
       amountMinor: input.amountMinor,
       paymentDate: input.paymentDate,
       status: recomputeStatus(allocations),
-      note: input.note,
+      version: 1,
+      note: normalizedNote,
       reversedAt: null,
       reversedBy: null,
       createdAt: now,
@@ -291,30 +402,89 @@ export class InMemorySettlementRepository implements SettlementRepository {
   async respondToAllocation(
     allocationId: string,
     response: Extract<SettlementAllocationState, 'accepted' | 'declined'>,
-  ): Promise<SettlementStatus> {
+    expectedPaymentVersion: number,
+  ): Promise<SettlementMutationResult> {
     const match = this.findAllocation(allocationId)
+    if (match.allocation.state === response) {
+      return {
+        allocationState: response,
+        paymentStatus: match.payment.status,
+        paymentVersion: match.payment.version,
+      }
+    }
     if (match.allocation.state !== 'pending') {
-      throw new SettlementRepositoryError('server_rejected', 'allocation_not_pending')
+      throw new SettlementRepositoryError('server_rejected', 'settlement_response_conflict')
+    }
+    if (match.payment.version !== expectedPaymentVersion) {
+      throw new SettlementRepositoryError('server_rejected', 'version_conflict')
     }
     match.allocation.state = response
     match.allocation.respondedAt = '2026-08-30T00:00:00.000Z'
     match.payment.status = recomputeStatus(match.payment.allocations)
-    return match.payment.status
+    match.payment.version += 1
+    return {
+      allocationState: response,
+      paymentStatus: match.payment.status,
+      paymentVersion: match.payment.version,
+    }
   }
 
-  async reverseAllocation(allocationId: string): Promise<SettlementStatus> {
+  async cancelPendingAllocation(
+    allocationId: string,
+    expectedPaymentVersion: number,
+  ): Promise<SettlementMutationResult> {
+    const match = this.findAllocation(allocationId)
+    if (match.allocation.state === 'cancelled') {
+      return {
+        allocationState: 'cancelled',
+        paymentStatus: match.payment.status,
+        paymentVersion: match.payment.version,
+      }
+    }
+    if (match.allocation.state !== 'pending') {
+      throw new SettlementRepositoryError('server_rejected', 'allocation_not_pending')
+    }
+    if (match.payment.version !== expectedPaymentVersion) {
+      throw new SettlementRepositoryError('server_rejected', 'version_conflict')
+    }
+    match.allocation.state = 'cancelled'
+    match.allocation.respondedAt = '2026-08-30T00:00:00.000Z'
+    match.payment.status = recomputeStatus(match.payment.allocations)
+    match.payment.version += 1
+    return {
+      allocationState: 'cancelled',
+      paymentStatus: match.payment.status,
+      paymentVersion: match.payment.version,
+    }
+  }
+
+  async reverseAllocation(
+    _requestId: string,
+    allocationId: string,
+    expectedPaymentVersion: number,
+  ): Promise<SettlementMutationResult> {
     const match = this.findAllocation(allocationId)
     if (match.allocation.state !== 'accepted') {
       throw new SettlementRepositoryError('server_rejected', 'allocation_not_accepted')
     }
-    match.allocation.state = 'reversed'
-    match.allocation.respondedAt = '2026-08-30T00:00:00.000Z'
+    if (match.allocation.reversalMinor > 0) {
+      throw new SettlementRepositoryError('server_rejected', 'allocation_already_reversed')
+    }
+    if (match.payment.version !== expectedPaymentVersion) {
+      throw new SettlementRepositoryError('server_rejected', 'version_conflict')
+    }
+    match.allocation.reversalMinor = match.allocation.amountMinor
     match.payment.status = recomputeStatus(match.payment.allocations)
+    match.payment.version += 1
     if (match.payment.status === 'reversed') {
-      match.payment.reversedAt = match.allocation.respondedAt
+      match.payment.reversedAt = '2026-08-30T00:00:00.000Z'
       match.payment.reversedBy = match.allocation.creditorParticipantId
     }
-    return match.payment.status
+    return {
+      paymentStatus: match.payment.status,
+      paymentVersion: match.payment.version,
+      reversalId: `reversal:${allocationId}`,
+    }
   }
 
   private findAllocation(allocationId: string): {
@@ -330,15 +500,26 @@ export class InMemorySettlementRepository implements SettlementRepository {
 }
 
 function recomputeStatus(allocations: SettlementAllocation[]): SettlementStatus {
-  const accepted = allocations.filter((allocation) => allocation.state === 'accepted').length
+  const accepted = allocations.filter(
+    (allocation) => allocation.state === 'accepted' && allocation.reversalMinor === 0,
+  ).length
   const pending = allocations.filter((allocation) => allocation.state === 'pending').length
   const declined = allocations.filter((allocation) => allocation.state === 'declined').length
-  const reversed = allocations.filter((allocation) => allocation.state === 'reversed').length
+  const cancelled = allocations.filter((allocation) => allocation.state === 'cancelled').length
+  const historicallyAccepted = allocations.filter(
+    (allocation) => allocation.state === 'accepted' || allocation.state === 'reversed',
+  ).length
+  const reversed = allocations.filter(
+    (allocation) => allocation.state === 'reversed' || allocation.reversalMinor > 0,
+  ).length
 
+  if (pending > 0 && accepted === 0) return 'pending'
+  if (pending > 0 && accepted > 0) return 'partially_confirmed'
   if (accepted === allocations.length) return 'confirmed'
-  if (accepted > 0) return 'partially_confirmed'
-  if (pending > 0) return 'pending'
-  if (declined > 0) return 'declined'
-  if (reversed === allocations.length) return 'reversed'
-  throw new SettlementRepositoryError('server_rejected', 'invalid_allocation_state')
+  if (cancelled === allocations.length) return 'cancelled'
+  if (declined === allocations.length) return 'declined'
+  if (historicallyAccepted === allocations.length && reversed === allocations.length) {
+    return 'reversed'
+  }
+  return 'mixed_closed'
 }

@@ -14,19 +14,31 @@ export type LedgerRepositoryErrorCode =
 
 export class LedgerRepositoryError extends Error {
   readonly code: LedgerRepositoryErrorCode
+  readonly outcome: 'definitive' | 'ambiguous'
 
-  constructor(code: LedgerRepositoryErrorCode, message: string = code) {
+  constructor(
+    code: LedgerRepositoryErrorCode,
+    message: string = code,
+    outcome: 'definitive' | 'ambiguous' = 'definitive',
+  ) {
     super(message)
     this.name = 'LedgerRepositoryError'
     this.code = code
+    this.outcome = outcome
   }
 }
 
 export interface LedgerRepository {
   createExpense(command: CreateExpenseCommand): Promise<string>
   listExpenses(): Promise<CanonicalExpense[]>
-  voidExpense(expenseId: string): Promise<void>
-  respondToDirectExpense(expenseId: string, response: 'accepted' | 'declined'): Promise<void>
+  findExpenseByRequestId(requestId: string): Promise<CanonicalExpense | null>
+  voidExpense(expenseId: string, expectedVersion: number): Promise<number>
+  restoreOwnerLocalExpense(expenseId: string, expectedVersion: number): Promise<number>
+  respondToDirectExpense(
+    expenseId: string,
+    response: 'accepted' | 'declined',
+    expectedVersion: number,
+  ): Promise<number>
   updateExpenseMetadata(input: {
     expenseId: string
     expectedVersion: number
@@ -59,6 +71,8 @@ type ExpenseRow = {
   occurred_on: string
   status: CanonicalExpense['status']
   version: number
+  corrects_expense_id: string | null
+  termination_kind: CanonicalExpense['terminationKind']
   voided_at: string | null
   created_at: string
   updated_at: string
@@ -122,6 +136,8 @@ function mapExpenseRow(row: ExpenseRow): CanonicalExpense {
     occurredOn: row.occurred_on,
     status: row.status,
     version: row.version,
+    correctsExpenseId: row.corrects_expense_id,
+    terminationKind: row.termination_kind,
     voidedAt: row.voided_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -131,9 +147,14 @@ function mapExpenseRow(row: ExpenseRow): CanonicalExpense {
   }
 }
 
+function createFailureOutcome(error: { code?: string } | null): 'definitive' | 'ambiguous' {
+  return error?.code ? 'definitive' : 'ambiguous'
+}
+
 const expenseSelect = `
   id, client_request_id, scope, space_id, created_by, total_minor, participant_count, currency,
-  description, category, occurred_on, status, version, voided_at, created_at, updated_at,
+  description, category, occurred_on, status, version, corrects_expense_id, termination_kind,
+  voided_at, created_at, updated_at,
   participations:expense_participations(*),
   payer_contributions(*),
   expense_shares(*)
@@ -156,7 +177,11 @@ export const ledgerRepository: LedgerRepository = {
       share_amounts: command.shareAmounts,
     })
     if (error || typeof data !== 'string') {
-      throw new LedgerRepositoryError('server_rejected', error?.message)
+      throw new LedgerRepositoryError(
+        'server_rejected',
+        error?.message,
+        createFailureOutcome(error),
+      )
     }
     return data
   },
@@ -172,19 +197,58 @@ export const ledgerRepository: LedgerRepository = {
     return ((data ?? []) as unknown as ExpenseRow[]).map(mapExpenseRow)
   },
 
-  async voidExpense(expenseId) {
+  async findExpenseByRequestId(requestId) {
     if (!supabase) throw new LedgerRepositoryError('not_configured')
-    const { error } = await supabase.rpc('void_expense', { target_expense_id: expenseId })
+    const { data, error } = await supabase
+      .from('expenses')
+      .select(expenseSelect)
+      .eq('client_request_id', requestId)
+      .maybeSingle()
     if (error) throw new LedgerRepositoryError('server_rejected', error.message)
+    return data ? mapExpenseRow(data as unknown as ExpenseRow) : null
   },
 
-  async respondToDirectExpense(expenseId, response) {
+  async voidExpense(expenseId, expectedVersion) {
     if (!supabase) throw new LedgerRepositoryError('not_configured')
-    const { error } = await supabase.rpc('respond_to_direct_expense', {
+    const { data, error } = await supabase.rpc('cancel_expense', {
+      target_expense_id: expenseId,
+      expected_version: expectedVersion,
+      cancellation_reason: null,
+    })
+    if (error || typeof data !== 'number') {
+      throw new LedgerRepositoryError('server_rejected', error?.message)
+    }
+    return data
+  },
+
+  async restoreOwnerLocalExpense(expenseId, expectedVersion) {
+    if (!supabase) throw new LedgerRepositoryError('not_configured')
+    const { data, error } = await supabase.rpc('restore_owner_local_expense', {
+      target_expense_id: expenseId,
+      expected_version: expectedVersion,
+    })
+    if (error || typeof data !== 'number') {
+      throw new LedgerRepositoryError('server_rejected', error?.message)
+    }
+    return data
+  },
+
+  async respondToDirectExpense(expenseId, response, expectedVersion) {
+    if (!supabase) throw new LedgerRepositoryError('not_configured')
+    const { data, error } = await supabase.rpc('respond_to_direct_expense', {
       target_expense_id: expenseId,
       response,
+      expected_expense_version: expectedVersion,
     })
-    if (error) throw new LedgerRepositoryError('server_rejected', error.message)
+    const version = (
+      data && typeof data === 'object' && 'expense_version' in data
+        ? data.expense_version
+        : null
+    )
+    if (error || typeof version !== 'number') {
+      throw new LedgerRepositoryError('server_rejected', error?.message)
+    }
+    return version
   },
 
   async updateExpenseMetadata(input) {
@@ -252,6 +316,8 @@ export class InMemoryLedgerRepository implements LedgerRepository {
       occurredOn: command.occurredOn,
       status: 'active',
       version: 1,
+      correctsExpenseId: null,
+      terminationKind: null,
       voidedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -279,18 +345,66 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     return [...this.expensesByRequest.values()]
   }
 
-  async voidExpense(expenseId: string): Promise<void> {
-    const entry = [...this.expensesByRequest.entries()].find(([, expense]) => expense.id === expenseId)
-    if (!entry) throw new LedgerRepositoryError('not_found')
-    entry[1].status = 'voided'
-    entry[1].voidedAt = '2026-08-30T00:00:00.000Z'
+  async findExpenseByRequestId(requestId: string): Promise<CanonicalExpense | null> {
+    return this.expensesByRequest.get(requestId) ?? null
   }
 
-  async respondToDirectExpense(expenseId: string, response: 'accepted' | 'declined'): Promise<void> {
+  async voidExpense(expenseId: string, expectedVersion: number): Promise<number> {
+    const entry = [...this.expensesByRequest.entries()].find(([, expense]) => expense.id === expenseId)
+    if (!entry) throw new LedgerRepositoryError('not_found')
+    if (entry[1].version !== expectedVersion) {
+      throw new LedgerRepositoryError('server_rejected', 'version_conflict')
+    }
+    entry[1].status = 'voided'
+    entry[1].terminationKind = 'cancelled'
+    entry[1].voidedAt = '2026-08-30T00:00:00.000Z'
+    entry[1].version += 1
+    return entry[1].version
+  }
+
+  async restoreOwnerLocalExpense(expenseId: string, expectedVersion: number): Promise<number> {
+    const entry = [...this.expensesByRequest.entries()].find(([, expense]) => expense.id === expenseId)
+    if (!entry) throw new LedgerRepositoryError('not_found')
+    const expense = entry[1]
+    if (expense.version !== expectedVersion) {
+      throw new LedgerRepositoryError('server_rejected', 'version_conflict')
+    }
+    const ownerLocal = expense.scope === 'personal' || (
+      expense.scope === 'direct'
+      && expense.participations.every((participation) => (
+        participation.participantId === expense.createdBy
+        || participation.trackingMode === 'untracked'
+      ))
+    )
+    if (
+      !ownerLocal
+      || expense.status !== 'voided'
+      || expense.terminationKind !== 'cancelled'
+    ) {
+      throw new LedgerRepositoryError('server_rejected', 'expense_not_restorable')
+    }
+    expense.status = 'active'
+    expense.terminationKind = null
+    expense.voidedAt = null
+    expense.version += 1
+    return expense.version
+  }
+
+  async respondToDirectExpense(
+    expenseId: string,
+    response: 'accepted' | 'declined',
+    expectedVersion: number,
+  ): Promise<number> {
     const expense = [...this.expensesByRequest.values()].find((candidate) => candidate.id === expenseId)
-    const pending = expense?.participations.find((participation) => participation.state === 'pending')
+    if (!expense) throw new LedgerRepositoryError('not_found')
+    const pending = expense.participations.find((participation) => participation.state === 'pending')
     if (!pending) throw new LedgerRepositoryError('not_found')
+    if (expense.version !== expectedVersion) {
+      throw new LedgerRepositoryError('server_rejected', 'version_conflict')
+    }
     pending.state = response
+    expense.version += 1
+    return expense.version
   }
 
   async updateExpenseMetadata(input: {

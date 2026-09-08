@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:phase5": "playwright test --project=mobile-chromium --workers=1",
     "test:e2e:production:phase3": "playwright test --config=playwright.production.config.ts"
   },
   "dependencies": {

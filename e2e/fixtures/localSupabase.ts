@@ -98,6 +98,28 @@ export async function createConfirmedAccount(
   return { email, password, displayName, userId: data.user.id }
 }
 
+export async function serverExpenseCount(
+  account: Pick<FixtureAccount, 'userId'>,
+  description: string,
+): Promise<number> {
+  const admin = localAdminClient()
+  const { data: participant, error: participantError } = await admin
+    .from('participants')
+    .select('id')
+    .eq('auth_user_id', account.userId)
+    .single()
+  if (participantError || !participant) {
+    throw new Error(`Could not resolve fixture participant: ${participantError?.message ?? 'missing participant'}`)
+  }
+  const { count, error } = await admin
+    .from('expenses')
+    .select('id', { count: 'exact', head: true })
+    .eq('created_by', participant.id)
+    .eq('description', description)
+  if (error) throw new Error(`Could not count fixture expenses: ${error.message}`)
+  return count ?? 0
+}
+
 export async function signIn(
   page: Page,
   account: Pick<FixtureAccount, 'email' | 'password' | 'displayName'>,

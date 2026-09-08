@@ -30,9 +30,14 @@ describe('InMemoryLedgerRepository contract', () => {
   it('voids instead of deleting financial records', async () => {
     const repository = new InMemoryLedgerRepository()
     const expenseId = await repository.createExpense(command)
-    await repository.voidExpense(expenseId)
+    await repository.voidExpense(expenseId, 1)
     expect(await repository.listExpenses()).toEqual([
-      expect.objectContaining({ id: expenseId, status: 'voided' }),
+      expect.objectContaining({
+        id: expenseId,
+        status: 'voided',
+        terminationKind: 'cancelled',
+        version: 2,
+      }),
     ])
   })
 })

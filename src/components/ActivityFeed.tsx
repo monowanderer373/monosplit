@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   listFinancialActivity,
   type FinancialActivity,
@@ -26,25 +26,18 @@ export default function ActivityFeed({
   const [error, setError] = useState<TranslationKey | ''>('')
   const expenseIdKey = expenseIds.join(':')
   const settlementIdKey = settlementIds.join(':')
-  const expenseIdSet = useMemo(
-    () => new Set(expenseIdKey ? expenseIdKey.split(':') : []),
-    [expenseIdKey],
-  )
-  const settlementIdSet = useMemo(
-    () => new Set(settlementIdKey ? settlementIdKey.split(':') : []),
-    [settlementIdKey],
-  )
 
   useEffect(() => {
     let active = true
-    void listFinancialActivity(80)
+    void listFinancialActivity({
+      spaceId,
+      expenseIds: expenseIdKey ? expenseIdKey.split(':') : [],
+      settlementIds: settlementIdKey ? settlementIdKey.split(':') : [],
+      limit: 80,
+    })
       .then((events) => {
         if (!active) return
-        setActivity(events.filter((event) => (
-          (spaceId != null && event.spaceId === spaceId)
-          || (event.expenseId != null && expenseIdSet.has(event.expenseId))
-          || (event.settlementPaymentId != null && settlementIdSet.has(event.settlementPaymentId))
-        )).slice(0, 12))
+        setActivity(events.slice(0, 12))
         setError('')
       })
       .catch((cause) => {
@@ -54,10 +47,10 @@ export default function ActivityFeed({
     return () => {
       active = false
     }
-  }, [expenseIdSet, refreshKey, settlementIdSet, spaceId])
+  }, [expenseIdKey, refreshKey, settlementIdKey, spaceId])
 
   return (
-    <section>
+    <section data-testid="financial-activity">
       <p className="ms-label">{t('activity.label')}</p>
       <h2 className="mt-1 text-xl font-extrabold">{t('activity.title')}</h2>
       {error ? <p className="mt-2 text-xs text-[var(--ms-danger)]">{t(error)}</p> : null}

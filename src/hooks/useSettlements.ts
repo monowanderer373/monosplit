@@ -4,6 +4,7 @@ import {
   type ProposeSettlementInput,
   type SettlementPayment,
 } from '../lib/settlementRepository'
+import { generateId } from '../lib/id'
 import { supabase } from '../lib/supabase'
 
 export function useSettlements(enabled: boolean) {
@@ -29,14 +30,20 @@ export function useSettlements(enabled: boolean) {
 
   useEffect(() => {
     void refresh()
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
+    const scheduleAuthoritativeRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => void refresh(), 80)
+    }
     const channel = enabled && supabase
       ? supabase
         .channel(`relational-settlements:${Date.now()}:${Math.random()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'settlement_payments' }, () => void refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'settlement_allocations' }, () => void refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'settlement_payments' }, scheduleAuthoritativeRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'settlement_allocations' }, scheduleAuthoritativeRefresh)
         .subscribe()
       : null
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
       if (channel && supabase) void supabase.removeChannel(channel)
     }
   }, [enabled, refresh])
@@ -51,14 +58,39 @@ export function useSettlements(enabled: boolean) {
     allocationId: string,
     response: 'accepted' | 'declined',
   ) => {
-    await settlementRepository.respondToAllocation(allocationId, response)
+    const payment = settlements.find((candidate) => (
+      candidate.allocations.some((allocation) => allocation.id === allocationId)
+    ))
+    if (!payment) throw new Error('settlement_not_found')
+    await settlementRepository.respondToAllocation(
+      allocationId,
+      response,
+      payment.version,
+    )
     await refresh()
-  }, [refresh])
+  }, [refresh, settlements])
 
   const reverse = useCallback(async (allocationId: string) => {
-    await settlementRepository.reverseAllocation(allocationId)
+    const payment = settlements.find((candidate) => (
+      candidate.allocations.some((allocation) => allocation.id === allocationId)
+    ))
+    if (!payment) throw new Error('settlement_not_found')
+    await settlementRepository.reverseAllocation(
+      generateId(),
+      allocationId,
+      payment.version,
+    )
     await refresh()
-  }, [refresh])
+  }, [refresh, settlements])
+
+  const cancelPending = useCallback(async (allocationId: string) => {
+    const payment = settlements.find((candidate) => (
+      candidate.allocations.some((allocation) => allocation.id === allocationId)
+    ))
+    if (!payment) throw new Error('settlement_not_found')
+    await settlementRepository.cancelPendingAllocation(allocationId, payment.version)
+    await refresh()
+  }, [refresh, settlements])
 
   return {
     settlements,
@@ -68,5 +100,6 @@ export function useSettlements(enabled: boolean) {
     propose,
     respond,
     reverse,
+    cancelPending,
   }
 }

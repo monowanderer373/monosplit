@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   InMemorySettlementRepository,
   SettlementRepositoryError,
+  sumSettlementReversalMinor,
   type ProposeSettlementInput,
 } from './settlementRepository'
 
@@ -32,6 +33,24 @@ describe('InMemorySettlementRepository contract', () => {
 
     expect(first).toBe(retry)
     expect(await repository.listSettlements()).toHaveLength(1)
+  })
+
+  it('rejects request ID reuse with different settlement money', async () => {
+    const repository = new InMemorySettlementRepository({
+      manualCreditorIds: ['manual-creditor'],
+    })
+    await repository.proposeSettlement(proposal)
+
+    await expect(repository.proposeSettlement({
+      ...proposal,
+      amountMinor: 1600,
+      allocations: [
+        { creditorParticipantId: 'account-creditor', amountMinor: 1100 },
+        { creditorParticipantId: 'manual-creditor', amountMinor: 500 },
+      ],
+    })).rejects.toEqual(expect.objectContaining({
+      message: 'idempotency_conflict',
+    }))
   })
 
   it('accepts manual allocations and leaves account allocations pending', async () => {
@@ -73,11 +92,25 @@ describe('InMemorySettlementRepository contract', () => {
     if (!accountAllocation || !manualAllocation) throw new Error('test_setup_failed')
 
     await expect(
-      repository.respondToAllocation(accountAllocation.id, 'accepted'),
-    ).resolves.toBe('confirmed')
+      repository.respondToAllocation(accountAllocation.id, 'accepted', 1),
+    ).resolves.toEqual(expect.objectContaining({
+      paymentStatus: 'confirmed',
+      paymentVersion: 2,
+    }))
     await expect(
-      repository.reverseAllocation(manualAllocation.id),
-    ).resolves.toBe('partially_confirmed')
+      repository.reverseAllocation('reversal-request', manualAllocation.id, 2),
+    ).resolves.toEqual(expect.objectContaining({
+      paymentStatus: 'mixed_closed',
+      paymentVersion: 3,
+    }))
+
+    const [updated] = await repository.listSettlements()
+    expect(updated.allocations.find(
+      (allocation) => allocation.id === manualAllocation.id,
+    )).toEqual(expect.objectContaining({
+      state: 'accepted',
+      reversalMinor: manualAllocation.amountMinor,
+    }))
   })
 
   it('rejects duplicate creditors and non-reconciling allocations', async () => {
@@ -104,5 +137,42 @@ describe('InMemorySettlementRepository contract', () => {
         message: 'settlement_does_not_reconcile',
       }),
     )
+  })
+
+  it('version-guards debtor cancellation of a pending allocation', async () => {
+    const repository = new InMemorySettlementRepository()
+    await repository.proposeSettlement({
+      ...proposal,
+      allocations: [{ creditorParticipantId: 'account-creditor', amountMinor: 1500 }],
+    })
+    const [payment] = await repository.listSettlements()
+    const [allocation] = payment.allocations
+
+    await expect(
+      repository.cancelPendingAllocation(allocation.id, 99),
+    ).rejects.toEqual(expect.objectContaining({ message: 'version_conflict' }))
+    await expect(
+      repository.cancelPendingAllocation(allocation.id, 1),
+    ).resolves.toEqual(expect.objectContaining({
+      allocationState: 'cancelled',
+      paymentStatus: 'cancelled',
+      paymentVersion: 2,
+    }))
+  })
+})
+
+describe('Supabase settlement reversal row mapping', () => {
+  it('accepts the one-to-one object shape returned by PostgREST', () => {
+    expect(sumSettlementReversalMinor({
+      id: 'reversal',
+      amount_minor: 200,
+    })).toBe(200)
+  })
+
+  it('also tolerates array-shaped relationship payloads', () => {
+    expect(sumSettlementReversalMinor([
+      { id: 'one', amount_minor: '125' },
+      { id: 'two', amount_minor: 75 },
+    ])).toBe(200)
   })
 })

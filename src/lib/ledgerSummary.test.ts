@@ -28,6 +28,8 @@ function buildFivePersonExpense(): CanonicalExpense {
     occurredOn: '2026-08-30',
     status: 'active',
     version: 1,
+    correctsExpenseId: null,
+    terminationKind: null,
     voidedAt: null,
     createdAt: '2026-08-30T00:00:00.000Z',
     updatedAt: '2026-08-30T00:00:00.000Z',

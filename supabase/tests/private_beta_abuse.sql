@@ -227,10 +227,16 @@ set local "request.jwt.claims" =
   '{"role":"authenticated","sub":"40000000-0000-4000-8000-000000000004","is_anonymous":false}';
 
 select throws_ok(
-  $$ select public.void_expense('91000000-0000-4000-8000-000000000001') $$,
+  $$
+    select public.cancel_expense(
+      '91000000-0000-4000-8000-000000000001',
+      1,
+      null
+    )
+  $$,
   'P0001',
   'expense_write_denied',
-  'an unrelated authenticated session cannot void a guessed expense'
+  'an unrelated authenticated session cannot cancel a guessed expense'
 );
 
 set local "request.jwt.claims" =

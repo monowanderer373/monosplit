@@ -148,8 +148,8 @@ test.describe('local relational multi-user journey', () => {
 
     const betaOwn = betaBrowser.page.getByRole('article').filter({ hasText: 'Exact ferry' })
     const alphaExpense = betaBrowser.page.getByRole('article').filter({ hasText: 'Remainder dinner' })
-    await expect(betaOwn.getByRole('button', { name: 'Void' })).toBeVisible()
-    await expect(alphaExpense.getByRole('button', { name: 'Void' })).toHaveCount(0)
+    await expect(betaOwn.getByRole('button', { name: 'Actions for Exact ferry' })).toBeVisible()
+    await expect(alphaExpense.getByRole('button', { name: 'Actions for Remainder dinner' })).toHaveCount(0)
 
     await expectDebt(owner, 'Beta owes You', 'RM 2.50')
     await expectDebt(betaBrowser.page, 'You owe Alpha', 'RM 2.50')
@@ -232,8 +232,11 @@ test.describe('local relational multi-user journey', () => {
     await debtor.goto('/friends')
     await openFriendBalance(debtor, 'Alpha')
     await expectDebt(debtor, 'You owe Alpha', 'RM 4.99')
-    await debtor.getByPlaceholder('Full amount').fill('2.00')
-    await debtor.getByRole('button', { name: 'Propose paid' }).click()
+    await expect(debtor.getByLabel('Payment amount for Alpha')).toHaveCount(0)
+    await expect(debtor.getByRole('button', { name: 'Propose paid' })).toBeDisabled()
+    await debtor.getByRole('button', { name: 'Partial', exact: true }).click()
+    await debtor.getByLabel('Payment amount for Alpha').fill('2.00')
+    await debtor.getByRole('button', { name: 'Propose RM 2.00 paid' }).click()
     await expectDebt(debtor, 'You owe Alpha', 'RM 4.99')
 
     await recipient.goto('/friends')
@@ -261,10 +264,15 @@ test.describe('local relational multi-user journey', () => {
     await quickAdd.getByPlaceholder('What was this for?').fill('Offline once')
     await quickAdd.getByRole('button', { name: 'Save expense' }).click()
     await expect(owner.getByRole('status')).toHaveText('Saved on this device · pending sync')
-    await expect(owner.getByText('Pending sync', { exact: true })).toBeVisible()
+    const offlineExpense = owner.getByRole('article').filter({ hasText: 'Offline once' })
+    await expect(
+      offlineExpense.getByText('Pending locally · Not yet synced', { exact: true }),
+    ).toBeVisible()
 
     await alphaBrowser.context.setOffline(false)
-    await expect(owner.getByText('Pending sync', { exact: true })).toHaveCount(0)
+    await expect(
+      offlineExpense.getByText('Pending locally · Not yet synced', { exact: true }),
+    ).toHaveCount(0)
     await owner.reload()
     await expect(owner.getByRole('article').filter({ hasText: 'Offline once' })).toHaveCount(1)
 

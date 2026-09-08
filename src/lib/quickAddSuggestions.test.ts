@@ -26,6 +26,8 @@ function expense(
     payerContributions: [],
     shares: [],
     ...overrides,
+    correctsExpenseId: overrides.correctsExpenseId ?? null,
+    terminationKind: overrides.terminationKind ?? null,
   }
 }
 

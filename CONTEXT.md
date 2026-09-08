@@ -110,3 +110,60 @@ idempotent database command can turn it into a Canonical Expense.
 **Recurring Draft**:
 A due Expense Draft generated once for a scheduled occurrence. It never creates
 a Canonical Expense without review and confirmation.
+
+## Development status
+
+- Phase 1 — Navigation Foundation: complete
+- Phase 2 — Universal Quick Add + Context Picker: complete
+- Phase 2.1 — Category provenance: complete
+- Phase 3 — Person Identity / Manual to Linked: complete
+- Phase 4 — Person / Group / Trip money-first hierarchy: complete
+- Phase 5 — Settlement + Correction / Edit / Void / Undo: **closed**
+- Next: Phase 6 — Personal Home + UI Redesign
+
+Phase 5 development and local verification are complete. Production rollout is
+pending; `202609080001_phase5_financial_trust.sql` has not been deployed to the
+linked project.
+
+## Locked Phase 5 financial trust
+
+- Balance is derived. The current relational position is `F = E - T + R`,
+  where `E` is effective expense obligations, `T` is accepted settlement
+  transfers, and `R` is immutable settlement reversal facts.
+- Settlement residual remains directional credit or debt. Accepted settlements
+  are immutable; reversal is a separate fact.
+- For a confirmed Direct correction, A remains effective while B is pending.
+  Final participant authority atomically supersedes A and activates B.
+- Confirmed Direct cancellation requires participant authority. Space
+  correction uses existing authorized Space creator/owner authority.
+- Correction lineage is durable and machine-readable. Pending, declined, or
+  withdrawn candidates never enter authoritative lineage.
+- Historical Manual transactions keep their original Manual Participant UUIDs;
+  new linked Direct transactions use the Account Participant.
+- Person is a relationship/display identity, never a financial or security
+  principal.
+- Safe Undo is limited to genuinely reversible unflushed or owner-local states.
+  Accepted settlement, reversal, correction, and shared confirmed history are
+  never fake-Undone.
+- Historical facts remain distinct from current derived financial
+  interpretation.
+- Realtime events only invalidate and refetch authoritative state; event arrival
+  order never becomes financial truth.
+
+Phase 6 must preserve the money-first hierarchy and must not redesign Phase 5
+correction, cancellation, settlement, identity, or security semantics.
+
+## Phase 5 verification baseline
+
+- Unit: 233 / 233
+- pgTAP: 279 / 279
+- Separate-session concurrency: 17 / 17
+- Playwright: 23 / 23
+- Database reset: 13 migrations
+- Database lint: zero errors or warnings
+- ESLint, production build, and `git diff --check`: passed
+- Deterministic local E2E: `npm run test:e2e:phase5`
+
+The first shared deployment makes the Phase 5 migration immutable migration
+history. Any later database correction must use a new guarded forward
+migration.

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { LedgerExpenseDraft } from './compileExpense'
+import type { CreateExpenseCommand, LedgerExpenseDraft } from './compileExpense'
 import { compileLedgerExpense } from './compileExpense'
-import { InMemoryLedgerRepository } from './ledgerRepository'
+import {
+  InMemoryLedgerRepository,
+  LedgerRepositoryError,
+} from './ledgerRepository'
 import {
   createPendingLedgerCommand,
   drainLedgerOutbox,
@@ -33,15 +36,23 @@ describe('ledger outbox', () => {
     expect(pending.optimisticExpense.id).toContain('pending:')
 
     const repository = new InMemoryLedgerRepository()
+    let live = pending
     const callbacks = {
-      markRetrying: vi.fn(),
-      acknowledge: vi.fn(),
+      claimForDispatch: vi.fn(() => {
+        if (live.status !== 'pending') return null
+        live = { ...live, status: 'retrying', commitState: 'dispatching', attempts: 1 }
+        return live
+      }),
+      acknowledge: vi.fn(() => {
+        live = { ...live, status: 'rejected' }
+      }),
+      adopt: vi.fn(),
       reject: vi.fn(),
     }
     await flushLedgerOutbox(repository, [pending, pending], callbacks)
 
     expect(await repository.listExpenses()).toHaveLength(1)
-    expect(callbacks.acknowledge).toHaveBeenCalledTimes(2)
+    expect(callbacks.acknowledge).toHaveBeenCalledTimes(1)
     expect(callbacks.reject).not.toHaveBeenCalled()
   })
 
@@ -76,20 +87,154 @@ describe('ledger outbox', () => {
     const repository = new InMemoryLedgerRepository()
 
     await drainLedgerOutbox(repository, () => items, {
-      markRetrying: (requestId) => {
+      claimForDispatch: (requestId) => {
+        const current = items.find((item) => item.command.requestId === requestId)
+        if (!current || current.status !== 'pending') return null
+        const claimed = {
+          ...current,
+          status: 'retrying' as const,
+          commitState: 'dispatching' as const,
+          attempts: current.attempts + 1,
+        }
+        items = items.map((item) => (
+          item.command.requestId === requestId ? claimed : item
+        ))
         if (requestId === first.command.requestId && !queuedSecond) {
           queuedSecond = true
           items = [...items, second]
         }
+        return claimed
       },
       acknowledge: (requestId) => {
         items = items.filter((item) => item.command.requestId !== requestId)
       },
+      adopt: vi.fn(),
       reject: vi.fn(),
     })
 
     expect(await repository.listExpenses()).toHaveLength(2)
     expect(items).toEqual([])
+  })
+
+  it('does not dispatch a command removed before its dispatch claim', async () => {
+    const compiled = compileLedgerExpense(draft)
+    if (!compiled.ok) throw new Error(compiled.error)
+    const pending = createPendingLedgerCommand(draft, compiled.command)
+    const repository = new InMemoryLedgerRepository()
+    const create = vi.spyOn(repository, 'createExpense')
+
+    await flushLedgerOutbox(repository, [pending], {
+      claimForDispatch: () => null,
+      acknowledge: vi.fn(),
+      adopt: vi.fn(),
+      reject: vi.fn(),
+    })
+
+    expect(create).not.toHaveBeenCalled()
+    expect(await repository.listExpenses()).toEqual([])
+  })
+
+  it('adopts an authoritative expense after an ambiguous create response', async () => {
+    const compiled = compileLedgerExpense(draft)
+    if (!compiled.ok) throw new Error(compiled.error)
+    const pending = createPendingLedgerCommand(draft, compiled.command)
+    class CommittedWithoutResponseRepository extends InMemoryLedgerRepository {
+      override async createExpense(command: CreateExpenseCommand): Promise<string> {
+        await super.createExpense(command)
+        throw new LedgerRepositoryError('server_rejected', 'failed to fetch', 'ambiguous')
+      }
+    }
+    const repository = new CommittedWithoutResponseRepository()
+    const adopt = vi.fn()
+
+    await flushLedgerOutbox(repository, [pending], {
+      claimForDispatch: () => ({
+        ...pending,
+        status: 'retrying',
+        commitState: 'dispatching',
+        attempts: 1,
+      }),
+      acknowledge: vi.fn(),
+      adopt,
+      reject: vi.fn(),
+    })
+
+    expect(adopt).toHaveBeenCalledWith(
+      pending.command.requestId,
+      expect.objectContaining({ clientRequestId: pending.command.requestId }),
+    )
+    expect(await repository.listExpenses()).toHaveLength(1)
+  })
+
+  it('keeps an unproven ambiguous failure for idempotent recovery', async () => {
+    const compiled = compileLedgerExpense(draft)
+    if (!compiled.ok) throw new Error(compiled.error)
+    const pending = createPendingLedgerCommand(draft, compiled.command)
+    class UnknownOutcomeRepository extends InMemoryLedgerRepository {
+      override async createExpense(): Promise<string> {
+        throw new LedgerRepositoryError('server_rejected', 'failed to fetch', 'ambiguous')
+      }
+    }
+    const reject = vi.fn()
+
+    await flushLedgerOutbox(new UnknownOutcomeRepository(), [pending], {
+      claimForDispatch: () => ({
+        ...pending,
+        status: 'retrying',
+        commitState: 'dispatching',
+        attempts: 1,
+      }),
+      acknowledge: vi.fn(),
+      adopt: vi.fn(),
+      reject,
+    })
+
+    expect(reject).toHaveBeenCalledWith(
+      pending.command.requestId,
+      'failed to fetch',
+      'unknown',
+    )
+    expect(pending.command.requestId).toBe(draft.clientRequestId)
+  })
+
+  it('does not adopt a conflicting server expense with the same request ID', async () => {
+    const compiled = compileLedgerExpense(draft)
+    if (!compiled.ok) throw new Error(compiled.error)
+    const pending = createPendingLedgerCommand(draft, compiled.command)
+    class ConflictingRequestRepository extends InMemoryLedgerRepository {
+      override async createExpense(): Promise<string> {
+        throw new LedgerRepositoryError(
+          'server_rejected',
+          'request_id_idempotency_conflict',
+        )
+      }
+    }
+    const repository = new ConflictingRequestRepository()
+    await InMemoryLedgerRepository.prototype.createExpense.call(repository, {
+      ...pending.command,
+      totalMinor: pending.command.totalMinor + 1,
+    })
+    const reject = vi.fn()
+    const adopt = vi.fn()
+
+    await flushLedgerOutbox(repository, [pending], {
+      claimForDispatch: () => ({
+        ...pending,
+        status: 'retrying',
+        commitState: 'dispatching',
+        attempts: 1,
+      }),
+      acknowledge: vi.fn(),
+      adopt,
+      reject,
+    })
+
+    expect(adopt).not.toHaveBeenCalled()
+    expect(reject).toHaveBeenCalledWith(
+      pending.command.requestId,
+      'request_id_reconciliation_conflict',
+      'unknown',
+    )
   })
 
   it('retains the Manual Participant captured before a later Person link', () => {

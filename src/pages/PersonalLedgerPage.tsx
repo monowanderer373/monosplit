@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ActivityFeed from '../components/ActivityFeed'
 import CaptureLibrary from '../components/CaptureLibrary'
+import ExpenseActionSheet from '../components/ExpenseActionSheet'
+import ExpenseChangeRequestList from '../components/ExpenseChangeRequestList'
+import ExpenseHistoryList from '../components/ExpenseHistoryList'
+import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
+import PendingExpenseRecoveryActions from '../components/PendingExpenseRecoveryActions'
 import { useAuth } from '../hooks/useAuth'
+import { useExpenseChanges } from '../hooks/useExpenseChanges'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import { formatMinorAmount } from '../lib/money'
@@ -15,6 +22,7 @@ export default function PersonalLedgerPage() {
   const navigate = useNavigate()
   const { authUser, loading } = useAuth()
   const ledger = usePersonalLedger()
+  const changeState = useExpenseChanges(Boolean(ledger.participantId), ledger.refresh)
   const quickAdd = useUniversalQuickAdd()
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
   const [category, setCategory] = useState('All')
@@ -92,6 +100,8 @@ export default function PersonalLedgerPage() {
         </div>
       </header>
 
+      <ExpenseRecoveryNotices />
+
       <section className="mx-auto mt-6 max-w-3xl">
         {ledger.totals.length === 0 ? (
           <div className="ms-card-hero">
@@ -167,6 +177,18 @@ export default function PersonalLedgerPage() {
         }}
       />
 
+      {ledger.participantId ? (
+        <section className="mx-auto mt-8 max-w-3xl" data-testid="expense-change-requests">
+          <ExpenseChangeRequestList
+            requests={changeState.requests}
+            expenses={ledger.expenses}
+            currentParticipantId={ledger.participantId}
+            onRefresh={changeState.refreshAuthoritative}
+            include={(request) => request.proposedBy === ledger.participantId}
+          />
+        </section>
+      ) : null}
+
       <section className="mx-auto mt-8 max-w-3xl">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -200,6 +222,12 @@ export default function PersonalLedgerPage() {
             const pending = ledger.outbox.find(
               (item) => item.command.requestId === row.expense.clientRequestId,
             )
+            const syncedPendingRequest = !pending
+              && row.expense.scope === 'direct'
+              && row.expense.participations.some((participation) => (
+                participation.trackingMode === 'tracked'
+                && participation.state === 'pending'
+              ))
             return (
               <div key={row.expense.id}>
                 {index > 0 ? <hr className="ms-divider" /> : null}
@@ -212,13 +240,18 @@ export default function PersonalLedgerPage() {
                           {pending.status === 'rejected' ? t('ledger.needsAttention') : t('ledger.pendingSync')}
                         </span>
                       ) : null}
-                      {pending?.status === 'rejected' ? (
-                        <button
-                          className="min-h-9 px-2 text-xs font-extrabold text-[var(--ms-accent)]"
-                          onClick={() => void ledger.retryCommand(pending.command.requestId)}
-                        >
-                          {t('common.retry')}
-                        </button>
+                      {syncedPendingRequest ? (
+                        <span className="rounded-full bg-[var(--ms-accent-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--ms-accent)]">
+                          {t('ledger.syncedPendingRequest')}
+                        </span>
+                      ) : null}
+                      {pending ? (
+                        <PendingExpenseRecoveryActions
+                          item={pending}
+                          onUndoAdd={ledger.discardLocalCreate}
+                          onRetry={ledger.retryCommand}
+                          onDiscardFailed={ledger.discardFailedCreate}
+                        />
                       ) : null}
                     </div>
                     <p className="mt-1 text-xs text-[var(--ms-text-muted)]">
@@ -234,6 +267,20 @@ export default function PersonalLedgerPage() {
                         {t('ledger.paidAmount', { amount: formatMinorAmount(row.paidMinor, row.expense.currency) })}
                       </p>
                     ) : null}
+                    {!pending && !changeState.loading && !changeState.error ? (
+                      <div className="mt-2 flex justify-end">
+                        <ExpenseActionSheet
+                          expense={row.expense}
+                          currentParticipantId={ledger.participantId!}
+                          pendingRequest={changeState.requests.find((request) => (
+                            request.targetExpenseId === row.expense.id
+                            && request.state === 'pending'
+                          ))}
+                          onCancelExpense={ledger.voidExpense}
+                          onRefresh={changeState.refreshAuthoritative}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 </article>
               </div>
@@ -241,6 +288,20 @@ export default function PersonalLedgerPage() {
           })}
         </div>
       </section>
+
+      <div className="mx-auto mt-8 max-w-3xl">
+        <ExpenseHistoryList
+          expenses={ledger.expenses}
+          directRequests={changeState.requests}
+        />
+      </div>
+
+      <div className="mx-auto mt-8 max-w-3xl">
+        <ActivityFeed
+          expenseIds={ledger.expenses.map((expense) => expense.id)}
+          refreshKey={ledger.expenses.map((expense) => expense.updatedAt).join('|')}
+        />
+      </div>
 
     </main>
   )
