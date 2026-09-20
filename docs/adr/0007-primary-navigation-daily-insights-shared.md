@@ -4,7 +4,7 @@ Product IA is Daily, Insights, +, Shared, and Me. Travel is a mode inside Daily,
 
 ## Status
 
-Proposed — 2026-09-21. Implementation must not start until review accepts this ADR together with `docs/PROTOTYPE_IMPLEMENTATION_PLAN.md` and ADRs 0008–0009. Do not mark Accepted in this round.
+Accepted — 2026-09-21. Approved together with `docs/PROTOTYPE_IMPLEMENTATION_PLAN.md` and ADRs 0008–0009.
 
 ## Destinations and routes
 

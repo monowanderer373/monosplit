@@ -1,6 +1,6 @@
 # Tabby Tally prototype implementation plan
 
-**Status:** planning only — 2026-09-21. Do not implement until this document and ADRs 0007–0009 are explicitly approved. ADR statuses remain **Proposed**.
+**Status:** **Accepted for implementation** — 2026-09-21. ADRs 0007–0009 are **Accepted**. Implementation must follow §11 and preserve the locked Phase 5 invariants.
 
 **Authoritative code:** `HEAD dcbdb30055caa673b137a6e0d3d29763314cae5a` on `phase5-financial-trust`. GitHub `main` and Production Vercel are behind this SHA. Remote Supabase does **not** yet have `202609080001_phase5_financial_trust.sql`. Production is not HEAD.
 

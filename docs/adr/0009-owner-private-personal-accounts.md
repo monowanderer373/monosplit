@@ -8,7 +8,7 @@ Person is not an account owner principal. The owner is `participants.kind = 'acc
 
 ## Status
 
-Proposed — 2026-09-21. Do not mark Accepted in this round.
+Accepted — 2026-09-21. Approved together with `docs/PROTOTYPE_IMPLEMENTATION_PLAN.md` and ADRs 0007–0008.
 
 ## Account
 

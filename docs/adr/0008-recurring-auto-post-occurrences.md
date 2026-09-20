@@ -10,7 +10,7 @@ Existing helper `public.next_recurring_local_date(scheduled_for date, cadence te
 
 ## Status
 
-Proposed — 2026-09-21. Do not mark Accepted in this round.
+Accepted — 2026-09-21. Approved together with `docs/PROTOTYPE_IMPLEMENTATION_PLAN.md` and ADRs 0007 and 0009.
 
 ## Cadence fields (locked)
 
