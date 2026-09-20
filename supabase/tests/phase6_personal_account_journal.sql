@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(52);
+select plan(57);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -201,6 +201,68 @@ select results_eq(
   $$,
   $$ values (50000::bigint) $$,
   'a known opening is represented by exactly one signed entry'
+);
+
+select lives_ok(
+  $$
+    select public.create_personal_account(
+      '72500000-0000-4000-8000-000000000002',
+      'Shopee PayLater', 'paylater', 'MYR', null, null, false
+    )
+  $$,
+  'a liability account may start with an unknown opening balance'
+);
+
+select lives_ok(
+  $$
+    select public.complete_account_opening(
+      '72600000-0000-4000-8000-000000000002',
+      (select id from public.personal_accounts where name = 'Shopee PayLater'),
+      30000,
+      current_date,
+      1
+    )
+  $$,
+  'an unknown opening can be completed later through its guarded RPC'
+);
+
+select results_eq(
+  $$
+    select account.opening_status, account.opening_balance_as_of, entry.amount_minor
+    from public.personal_accounts as account
+    join public.personal_account_entries as entry on entry.account_id = account.id
+    join public.personal_account_transactions as journal on journal.id = entry.transaction_id
+    where account.name = 'Shopee PayLater' and journal.kind = 'opening'
+  $$,
+  $$ values ('posted'::text, current_date, 30000::bigint) $$,
+  'later opening completion keeps cached state and journal entry consistent'
+);
+
+select lives_ok(
+  $$
+    select public.complete_account_opening(
+      '72600000-0000-4000-8000-000000000002',
+      (select id from public.personal_accounts where name = 'Shopee PayLater'),
+      30000,
+      current_date,
+      1
+    )
+  $$,
+  'an identical opening-completion retry returns the original transaction'
+);
+
+select throws_ok(
+  $$
+    select public.complete_account_opening(
+      '72700000-0000-4000-8000-000000000002',
+      (select id from public.personal_accounts where name = 'Shopee PayLater'),
+      31000,
+      current_date,
+      2
+    )
+  $$,
+  'P0001', 'opening_already_posted',
+  'a posted opening cannot be silently replaced by another amount'
 );
 
 select throws_ok(
