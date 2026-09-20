@@ -82,6 +82,8 @@ Archive: replacement default required if another eligible asset exists; last eli
 
 **Reversal:** original rows stay in the sum; new opposite `kind = 'reversal'`; `reversed_at` / `reversal_transaction_id` metadata only; one active reversal; reversal-of-reversal forbidden.
 
+**Confirmed zero opening:** one zero-valued entry is allowed only for `kind = 'opening'`. This represents a real confirmed balance of zero and is not `opening_status = 'unknown'`. All other journal entry kinds remain non-zero.
+
 Home available = asset `cash|bank|ewallet` sums per currency, with unknown-opening aggregate rules. Never invent movements for historical expenses.
 
 ---

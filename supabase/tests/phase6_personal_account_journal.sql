@@ -218,12 +218,12 @@ select lives_ok(
     select public.complete_account_opening(
       '72600000-0000-4000-8000-000000000002',
       (select id from public.personal_accounts where name = 'Shopee PayLater'),
-      30000,
+      0,
       current_date,
       1
     )
   $$,
-  'an unknown opening can be completed later through its guarded RPC'
+  'an unknown opening can later be confirmed as a real zero balance'
 );
 
 select results_eq(
@@ -234,8 +234,8 @@ select results_eq(
     join public.personal_account_transactions as journal on journal.id = entry.transaction_id
     where account.name = 'Shopee PayLater' and journal.kind = 'opening'
   $$,
-  $$ values ('posted'::text, current_date, 30000::bigint) $$,
-  'later opening completion keeps cached state and journal entry consistent'
+  $$ values ('posted'::text, current_date, 0::bigint) $$,
+  'a confirmed zero opening stays distinct from an unknown opening'
 );
 
 select lives_ok(
@@ -243,7 +243,7 @@ select lives_ok(
     select public.complete_account_opening(
       '72600000-0000-4000-8000-000000000002',
       (select id from public.personal_accounts where name = 'Shopee PayLater'),
-      30000,
+      0,
       current_date,
       1
     )

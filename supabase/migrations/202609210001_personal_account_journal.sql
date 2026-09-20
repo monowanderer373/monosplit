@@ -100,7 +100,7 @@ create table public.personal_account_entries (
     references public.personal_account_transactions(id) on delete restrict,
   account_id uuid not null references public.personal_accounts(id) on delete restrict,
   amount_minor bigint not null
-    check (amount_minor <> 0 and abs(amount_minor) <= 9007199254740991),
+    check (amount_minor between -9007199254740991 and 9007199254740991),
   currency text not null check (currency ~ '^[A-Z]{3}$'),
   created_at timestamptz not null default now(),
   unique (transaction_id, account_id)
@@ -200,11 +200,12 @@ set search_path = ''
 as $$
 declare
   transaction_owner uuid;
+  transaction_kind text;
   account_owner uuid;
   account_currency text;
 begin
-  select owner_participant_id
-    into transaction_owner
+  select owner_participant_id, kind
+    into transaction_owner, transaction_kind
   from public.personal_account_transactions
   where id = new.transaction_id;
 
@@ -221,6 +222,9 @@ begin
   end if;
   if new.currency <> account_currency then
     raise exception using message = 'account_currency_mismatch', errcode = 'P0001';
+  end if;
+  if new.amount_minor = 0 and transaction_kind <> 'opening' then
+    raise exception using message = 'zero_entry_forbidden', errcode = 'P0001';
   end if;
   return new;
 end;
@@ -536,8 +540,7 @@ begin
   if (opening_balance_minor is null) <> (balance_as_of is null) then
     raise exception using message = 'invalid_opening_balance', errcode = 'P0001';
   end if;
-  if opening_balance_minor = 0
-     or opening_balance_minor < -9007199254740991
+  if opening_balance_minor < -9007199254740991
      or opening_balance_minor > 9007199254740991 then
     raise exception using message = 'invalid_opening_balance', errcode = 'P0001';
   end if;
@@ -897,7 +900,7 @@ declare
   account_row public.personal_accounts%rowtype;
   transaction_id uuid;
 begin
-  if request_id is null or opening_balance_minor is null or opening_balance_minor = 0
+  if request_id is null or opening_balance_minor is null
      or opening_balance_minor < -9007199254740991
      or opening_balance_minor > 9007199254740991 or balance_as_of is null then
     raise exception using message = 'invalid_opening_balance', errcode = 'P0001';

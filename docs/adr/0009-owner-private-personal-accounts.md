@@ -53,7 +53,7 @@ There is **no** `status` that drops original entries from the balance sum.
 
 `kind` check: `opening` | `reconciliation` | `income` | `refund` | `expense_funding` | `transfer` | `liability_purchase` | `liability_repayment` | `interest_fee` | `settlement_out` | `settlement_in` | `gift_out` | `gift_in` | `reversal`.
 
-`personal_account_entries`: `transaction_id`, `account_id`, `amount_minor` bigint ≠ 0, `currency` = account currency.
+`personal_account_entries`: `transaction_id`, `account_id`, `amount_minor` bigint, `currency` = account currency. A zero entry is permitted **only** for `kind = 'opening'`, so a confirmed real balance of zero remains distinct from `opening_status = 'unknown'`; every other journal kind requires a non-zero entry.
 
 **Sign:** positive `amount_minor` increases that account’s displayed book balance; negative decreases it.
 
