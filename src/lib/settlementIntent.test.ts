@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveSettlementAmount } from './settlementIntent'
+import { resolveSettlementAmount, resolveSettlementProposal } from './settlementIntent'
 
 const base = {
   outstandingMinor: 10_000,
@@ -56,5 +56,40 @@ describe('settlement intent', () => {
       intent: 'partial',
       partialAmount: '40.00',
     })).toBe(4_000)
+  })
+
+  it('keeps a round-up gift outside shared T', () => {
+    expect(resolveSettlementProposal({
+      ...base,
+      intent: 'partial',
+      partialAmount: '100.50',
+      overpayDisposition: 'gift',
+    })).toEqual({
+      sharedAmountMinor: 10_000,
+      cashAmountMinor: 10_050,
+      overpayDisposition: 'gift',
+    })
+  })
+
+  it('puts a carry-forward overpayment fully into shared T', () => {
+    expect(resolveSettlementProposal({
+      ...base,
+      intent: 'partial',
+      partialAmount: '100.50',
+      overpayDisposition: 'carry',
+    })).toEqual({
+      sharedAmountMinor: 10_050,
+      cashAmountMinor: 10_050,
+      overpayDisposition: 'carry',
+    })
+  })
+
+  it('rejects an overpay disposition when there is no overpayment', () => {
+    expect(() => resolveSettlementProposal({
+      ...base,
+      intent: 'partial',
+      partialAmount: '40.00',
+      overpayDisposition: 'gift',
+    })).toThrow('overpay_disposition_requires_overpayment')
   })
 })
