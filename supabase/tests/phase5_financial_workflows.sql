@@ -761,6 +761,7 @@ select lives_ok(
   $$,
   'a required Participant can decline a correction'
 );
+reset role;
 select results_eq(
   $$
     select original.status, replacement.status, request.state,
@@ -776,6 +777,7 @@ select results_eq(
   'decline terminates B without changing A or creating lineage'
 );
 
+set local role authenticated;
 set local "request.jwt.claims" =
   '{"role":"authenticated","sub":"71000000-0000-4000-8000-000000000001","is_anonymous":false}';
 select lives_ok(
@@ -1905,9 +1907,9 @@ select is(
   'old Direct response overload is removed'
 );
 select is(
-  pg_catalog.to_regprocedure('public.respond_to_settlement(uuid,text)'),
-  null::regprocedure,
-  'old settlement response overload is removed'
+  pg_catalog.to_regprocedure('public.respond_to_settlement(uuid,text)') is not null,
+  true,
+  'deployed two-argument settlement response remains callable through the compatibility overload'
 );
 select is(
   pg_catalog.to_regprocedure('public.reverse_settlement_allocation(uuid)'),

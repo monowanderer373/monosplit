@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(64);
+select plan(68);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -121,6 +121,26 @@ select lives_ok($$
     array[0::bigint,10000::bigint],array[5000::bigint,5000::bigint]
   )
 $$,'a Direct bill establishes owner owing Lan SGD 50');
+
+select pg_catalog.set_config(
+  'cash.expense_id',
+  (select id::text from public.expenses
+   where client_request_id = '86000000-0000-4000-8000-000000000003'),
+  true
+);
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"role":"authenticated","sub":"6b000000-0000-4000-8000-000000000002","is_anonymous":false}';
+select lives_ok($$
+  select public.respond_to_direct_expense(
+    pg_catalog.current_setting('cash.expense_id')::uuid, 'accepted', 1
+  )
+$$,'Lan accepts the Direct bill before it becomes outstanding debt');
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"role":"authenticated","sub":"6a000000-0000-4000-8000-000000000001","is_anonymous":false}';
 
 select results_eq($$
   select (public.get_direct_outstanding(
@@ -405,6 +425,26 @@ select lives_ok($$
   )
 $$,'gift example establishes USD 89.50 debt');
 
+select pg_catalog.set_config(
+  'cash.expense_id',
+  (select id::text from public.expenses
+   where client_request_id = '86000000-0000-4000-8000-000000000011'),
+  true
+);
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"role":"authenticated","sub":"6b000000-0000-4000-8000-000000000002","is_anonymous":false}';
+select lives_ok($$
+  select public.respond_to_direct_expense(
+    pg_catalog.current_setting('cash.expense_id')::uuid, 'accepted', 1
+  )
+$$,'Lan accepts the USD bill before the gift settlement');
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"role":"authenticated","sub":"6a000000-0000-4000-8000-000000000001","is_anonymous":false}';
+
 select lives_ok($$
   select public.propose_settlement(
     '86000000-0000-4000-8000-000000000012','direct',null,'USD',8950,'2026-09-22',
@@ -514,6 +554,26 @@ select lives_ok($$
   )
 $$,'carry example establishes EUR 89.50 debt');
 
+select pg_catalog.set_config(
+  'cash.expense_id',
+  (select id::text from public.expenses
+   where client_request_id = '86000000-0000-4000-8000-000000000017'),
+  true
+);
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"role":"authenticated","sub":"6b000000-0000-4000-8000-000000000002","is_anonymous":false}';
+select lives_ok($$
+  select public.respond_to_direct_expense(
+    pg_catalog.current_setting('cash.expense_id')::uuid, 'accepted', 1
+  )
+$$,'Lan accepts the EUR bill before the carry settlement');
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"role":"authenticated","sub":"6a000000-0000-4000-8000-000000000001","is_anonymous":false}';
+
 select lives_ok($$
   select public.propose_settlement(
     '86000000-0000-4000-8000-000000000018','direct',null,'EUR',9000,'2026-09-22',
@@ -577,6 +637,26 @@ select lives_ok($$
     array[0::bigint,20000::bigint],array[10000::bigint,10000::bigint]
   )
 $$,'partial example establishes MYR 100 debt');
+
+select pg_catalog.set_config(
+  'cash.expense_id',
+  (select id::text from public.expenses
+   where client_request_id = '86000000-0000-4000-8000-000000000021'),
+  true
+);
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"role":"authenticated","sub":"6b000000-0000-4000-8000-000000000002","is_anonymous":false}';
+select lives_ok($$
+  select public.respond_to_direct_expense(
+    pg_catalog.current_setting('cash.expense_id')::uuid, 'accepted', 1
+  )
+$$,'Lan accepts the MYR bill before the partial settlement');
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"role":"authenticated","sub":"6a000000-0000-4000-8000-000000000001","is_anonymous":false}';
 
 select lives_ok($$
   select public.propose_settlement(

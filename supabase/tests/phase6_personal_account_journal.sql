@@ -387,7 +387,11 @@ select results_eq(
     group by account.name
     order by account.name
   $$,
-  $$ values ('CIMB'::text, 40000::bigint), ('Touch n Go'::text, 35000::bigint) $$,
+  $$ values
+    ('CIMB'::text, 40000::bigint),
+    ('Shopee PayLater'::text, 0::bigint),
+    ('Touch n Go'::text, 35000::bigint)
+  $$,
   'a transfer changes both account balances without creating income or expense'
 );
 
@@ -575,6 +579,7 @@ select results_eq(
   $$
     values
       ('CIMB'::text, true, false),
+      ('Shopee PayLater'::text, false, false),
       ('TNG eWallet'::text, false, true)
   $$,
   'archiving moves the global default without deleting financial history'

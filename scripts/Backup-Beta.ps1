@@ -11,7 +11,11 @@ param(
     [switch] $Force,
 
     [Parameter()]
-    [string] $SettingsPath
+    [string] $SettingsPath,
+
+    [Parameter()]
+    [ValidatePattern('^[a-z0-9]{20}$')]
+    [string] $ExpectedProjectRef
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,6 +59,25 @@ $settings = Get-Content -LiteralPath $SettingsPath -Raw | ConvertFrom-Json
 if ($settings.formatVersion -ne 1) {
     throw 'The production backup settings version is unsupported.'
 }
+if ($settings.projectRef -notmatch '^[a-z0-9]{20}$') {
+    throw 'The backup settings project ref is not a Supabase project ref.'
+}
+if (-not [string]::IsNullOrWhiteSpace($ExpectedProjectRef) -and
+    $settings.projectRef -cne $ExpectedProjectRef) {
+    throw 'The backup settings project ref does not match the authorized target.'
+}
+$boundDirectHost = 'db.{0}.supabase.co' -f $settings.projectRef
+$boundPoolerUser = 'postgres.{0}' -f $settings.projectRef
+$targetIsBound = (
+    [string]$settings.databaseHost -ceq $boundDirectHost
+) -or (
+    [string]$settings.databaseHost -like '*.pooler.supabase.com' -and
+    [string]$settings.databaseUser -ceq $boundPoolerUser
+)
+if (-not $targetIsBound) {
+    throw 'The backup database host is not bound to the configured project ref.'
+}
+Write-Output ("Backup target project ref: {0}" -f $settings.projectRef)
 if ($Mode -ceq 'PreMigration' -and -not $WritesFrozen.IsPresent) {
     throw 'PreMigration backups require WritesFrozen after application writes have drained.'
 }

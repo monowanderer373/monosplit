@@ -177,7 +177,7 @@ values
     '10000000-0000-4000-8000-000000000003',
     'ffffffff-ffff-4fff-8fff-ffffffffffff',
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-    'Viewer', 1, 'pending', 'tracked'
+    'Viewer', 1, 'accepted', 'tracked'
   ),
   (
     '10000000-0000-4000-8000-000000000004',
@@ -546,8 +546,8 @@ select results_eq(
 );
 select results_eq(
   $$ select count(*)::bigint from public.expense_shares where expense_id = 'ffffffff-ffff-4fff-8fff-ffffffffffff' $$,
-  $$ values (1::bigint) $$,
-  'a tagged account sees only its own Direct share'
+  $$ values (2::bigint) $$,
+  'an accepted tagged account can read the Direct shares'
 );
 select results_eq(
   $$ select count(*)::bigint from public.spaces $$,
