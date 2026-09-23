@@ -16,6 +16,7 @@ powershell -NoProfile -File .\scripts\Test-Phase6ReleasePreflight.ps1 -Action Va
 | --- | --- |
 | 候选 SHA | `fee78a2d468355414826da89c1dc17462402cff5` |
 | 源分支 | `release/phase6-final-runbook` |
+| 最终发布 SHA | Gate 0 从 `origin/release/phase6-final-runbook` 读取一次，写入清单的 `finalReviewedReleaseSha`，之后只按该 SHA 操作 |
 | 已复核的 `origin/main` | `400b89b902d13f0c92d3b3a6750c4663566c29d4` |
 | 生产 Supabase ref | `skiqsxvmxvmxfzhrzcxh` |
 | Staging Supabase ref | `czfgglzxiinsyagquhkh` |
@@ -76,7 +77,7 @@ CLI `2.117.0` 的已核对行为：`db push` 逐个文件调用 `legacyApplyMigr
 - 第九号未应用则停止
 - 两个重载都核对通过之前，不合并 `main`
 
-没有维护模式开关。安静窗口就是写保护。
+没有维护模式开关。安静窗口不是技术写保护；操作员必须先确认应用写入已排空、没有用户正在响应结算，再用 `-WritesFrozen` 明确作出该人工断言。
 
 ## 待应用迁移
 
@@ -125,12 +126,16 @@ CLI `2.117.0` 的已核对行为：`db push` 逐个文件调用 `legacyApplyMigr
 
 ```powershell
 git fetch origin main
+$null = git fetch origin release/phase6-final-runbook
 git rev-parse HEAD
 git rev-parse origin/main
 git status --short
 git merge-base --is-ancestor 400b89b902d13f0c92d3b3a6750c4663566c29d4 HEAD
 git merge-tree --write-tree origin/main HEAD
-powershell -NoProfile -File .\scripts\Test-Phase6ReleasePreflight.ps1 -Action Validate
+$releaseSha = (git rev-parse origin/release/phase6-final-runbook).Trim()
+powershell -NoProfile -File .\scripts\Test-Phase6ReleasePreflight.ps1 `
+  -Action Validate `
+  -ReleaseSha $releaseSha
 ```
 
 `merge-tree --write-tree` 必须退出码 0。祖先检查必须退出码 0。
@@ -138,14 +143,41 @@ powershell -NoProfile -File .\scripts\Test-Phase6ReleasePreflight.ps1 -Action Va
 在隔离的发布工作树里核对远程账本。日常仓库保持链接 staging，不要在日常仓库里对生产执行 `db push`。
 
 ```powershell
-git worktree add ..\tabby-tally-phase6-release fee78a2d468355414826da89c1dc17462402cff5
+git worktree add --detach ..\tabby-tally-phase6-release $releaseSha
+Set-Location ..\tabby-tally-phase6-release
 ```
 
 随后的 Supabase 命令都在该工作树中执行，并且每次都同时写出 `--linked` 与 `--project-ref`。无目标标志时 CLI 默认走 linked。不要依赖工作区里残留的链接文件。
 
+用只读快照脚本核对 staging。脚本拒绝不匹配的显式 ref，输出只含计数、签名和授权布尔值：
+
+```powershell
+$stagingSnapshot = Join-Path $env:TEMP "tabby-phase6-staging-$([Guid]::NewGuid().ToString('N'))"
+powershell -NoProfile -File .\scripts\Get-Phase6ReleaseSnapshot.ps1 `
+  -ProjectRef czfgglzxiinsyagquhkh `
+  -ExpectedProjectRef czfgglzxiinsyagquhkh `
+  -Stage PostMigration `
+  -ExpectedMigrationCount 21 `
+  -ExpectedLatestMigration 202609240001 `
+  -OutputDirectory $stagingSnapshot
+```
+
 Staging 必须仍是 21 / `202609240001`，并且两个结算重载都在：两参数返回 `text`，三参数返回 `jsonb`。
 
-生产必须仍是 12 / `202608300012`。把脱离账户参与者计数记为警告。其余不变量必须为 0：孤儿档案、身份关联缺失、费用参与计数、付款合计、份额合计、结算合计、旧邀请令牌暴露。任何账本或这些零计数的变化都停止发布。
+生产发布前快照：
+
+```powershell
+$productionSnapshot = Join-Path $env:TEMP "tabby-phase6-production-$([Guid]::NewGuid().ToString('N'))"
+powershell -NoProfile -File .\scripts\Get-Phase6ReleaseSnapshot.ps1 `
+  -ProjectRef skiqsxvmxvmxfzhrzcxh `
+  -ExpectedProjectRef skiqsxvmxvmxfzhrzcxh `
+  -Stage PreMigration `
+  -ExpectedMigrationCount 12 `
+  -ExpectedLatestMigration 202608300012 `
+  -OutputDirectory $productionSnapshot
+```
+
+生产必须仍是 12 / `202608300012`。脚本把脱离账户参与者的非零计数记录为警告，并要求其余不变量为 0：孤儿档案、身份关联缺失、费用参与计数、付款合计、份额合计、结算合计、旧邀请令牌暴露。任何账本或这些零计数的变化都停止发布。
 
 本地全量测试必须仍然通过：21 个迁移、pgTAP 658、应用测试 275。
 
@@ -153,11 +185,12 @@ Staging 必须仍是 21 / `202609240001`，并且两个结算重载都在：两�
 
 ## Gate 1 — 新的生产备份
 
-不要复用更早的演练归档。目标 ref 必须是 `skiqsxvmxvmxfzhrzcxh`。
+不要复用更早的演练归档。目标 ref 必须是 `skiqsxvmxvmxfzhrzcxh`。先由操作员确认应用写入已排空、没有用户正在响应结算、没有第二名操作员，再使用 `-WritesFrozen`。该开关是人工断言，不会自动阻止客户端写入。
 
 ```powershell
 powershell -NoProfile -File .\scripts\Backup-Beta.ps1 `
   -Mode PreMigration `
+  -WritesFrozen `
   -Force `
   -ExpectedProjectRef skiqsxvmxvmxfzhrzcxh
 ```
@@ -169,8 +202,8 @@ powershell -NoProfile -File .\scripts\Backup-Beta.ps1 `
 ```powershell
 powershell -NoProfile -File .\scripts\Test-ProductionBackupRestore.ps1 `
   -ArchivePath "<新归档的路径>" `
-  -SourceHealthCsv "<只含检查名和计数的源健康 CSV>" `
-  -SourceFunctionCsv "<只含签名、返回类型和授权布尔值的源函数 CSV>"
+  -SourceHealthCsv (Join-Path $productionSnapshot 'source-health.csv') `
+  -SourceFunctionCsv (Join-Path $productionSnapshot 'source-functions.csv')
 ```
 
 必须看到 `RESTORE_FIDELITY_PASS`。源与还原的表计数、Auth 行数、Storage 元数据计数、不变量计数、归档中的迁移账本、`respond_to_settlement` 签名和授权必须一致。`SOURCE_HEALTH_WARNING` 单独记录。若唯一警告是与源相同的脱离账户参与者，继续。若还原保真度失败，或出现新的非零不变量，停止。
@@ -184,7 +217,21 @@ powershell -NoProfile -File .\scripts\Test-ProductionBackupRestore.ps1 `
 在发布工作树中，每次命令前断言 ref。
 
 ```powershell
-npx --yes supabase@2.117.0 db push --dry-run --linked --project-ref skiqsxvmxvmxfzhrzcxh
+$dryRunJson = npx --yes supabase@2.117.0 db push `
+  --dry-run `
+  --linked `
+  --project-ref skiqsxvmxvmxfzhrzcxh `
+  --output-format json
+if ($LASTEXITCODE -ne 0) { throw 'Production migration dry-run failed.' }
+$dryRun = $dryRunJson | ConvertFrom-Json
+$manifest = Get-Content .\docs\releases\2026-09-phase6-release-manifest.json -Raw | ConvertFrom-Json
+$expectedMigrations = @($manifest.migrations | Sort-Object order | ForEach-Object filename)
+$actualMigrations = @($dryRun.migrations)
+if (-not $dryRun.dryRun -or
+    $actualMigrations.Count -ne 9 -or
+    (($actualMigrations -join "`n") -cne ($expectedMigrations -join "`n"))) {
+  throw 'Production dry-run did not return the exact nine reviewed migrations.'
+}
 ```
 
 干跑必须列出恰好九个文件，顺序与上表一致，并且输出 `dryRun: true`。它不得打印 `Applying migration`。把列出的文件校验和与清单比较：
@@ -207,6 +254,7 @@ Get-FileHash .\supabase\migrations\202609080001_phase5_financial_trust.sql -Algo
 powershell -NoProfile -File .\scripts\Test-Phase6ReleasePreflight.ps1 `
   -Action HoldDatabase `
   -ProjectRef skiqsxvmxvmxfzhrzcxh `
+  -ReleaseSha $releaseSha `
   -ApprovalPhrase "APPROVE PHASE 6 PRODUCTION DATABASE MIGRATION"
 ```
 
@@ -224,7 +272,20 @@ npx --yes supabase@2.117.0 db push --linked --project-ref skiqsxvmxvmxfzhrzcxh -
 notify pgrst, 'reload schema';
 ```
 
-用只读聚合确认账本为 21，最新为 `202609240001`。然后确认下列对象存在，且这些表都启用了 RLS：
+用目标绑定的只读脚本确认账本、源健康、对象、RLS、索引和受保护 RPC 授权：
+
+```powershell
+$postMigrationSnapshot = Join-Path $env:TEMP "tabby-phase6-post-$([Guid]::NewGuid().ToString('N'))"
+powershell -NoProfile -File .\scripts\Get-Phase6ReleaseSnapshot.ps1 `
+  -ProjectRef skiqsxvmxvmxfzhrzcxh `
+  -ExpectedProjectRef skiqsxvmxvmxfzhrzcxh `
+  -Stage PostMigration `
+  -ExpectedMigrationCount 21 `
+  -ExpectedLatestMigration 202609240001 `
+  -OutputDirectory $postMigrationSnapshot
+```
+
+脚本必须输出 `PHASE6_READ_ONLY_SNAPSHOT_PASS`。它确认账本为 21，最新为 `202609240001`，并确认下列对象存在，且这些表都启用了 RLS：
 
 - `expenses.corrects_expense_id`
 - `direct_expense_change_requests`
@@ -252,7 +313,7 @@ notify pgrst, 'reload schema';
 - `(uuid, text)` 返回 `text`
 - `(uuid, text, integer)` 返回 `jsonb`
 
-`authenticated` 可以执行受保护 RPC。`anon` 不能执行其中任何一个。`public` 没有额外的执行授权。不要写入持久测试数据。
+脚本还核对所有 Phase 5/6 受保护 RPC 名称：`authenticated` 可以执行，`anon` 不能执行，`public` 没有额外执行授权。不要写入持久测试数据。
 
 ## Gate 4 — 旧前端兼容
 
@@ -273,6 +334,7 @@ notify pgrst, 'reload schema';
 powershell -NoProfile -File .\scripts\Test-Phase6ReleasePreflight.ps1 `
   -Action HoldFrontend `
   -ProjectRef skiqsxvmxvmxfzhrzcxh `
+  -ReleaseSha $releaseSha `
   -ApprovalPhrase "APPROVE PHASE 6 MAIN MERGE AND PRODUCTION FRONTEND DEPLOYMENT"
 ```
 
@@ -282,7 +344,7 @@ powershell -NoProfile -File .\scripts\Test-Phase6ReleasePreflight.ps1 `
 git fetch origin main
 git rev-parse origin/main
 git checkout main
-git merge --no-ff release/phase6-final-runbook
+git merge --no-ff $releaseSha
 git push origin main
 ```
 
@@ -301,6 +363,17 @@ git push origin main
 ## Gate 7 — 二十四小时监测
 
 每个时点只记计数和签名，不记财务正文。时点：部署后立即、+15 分钟、+1 小时、+6 小时、+24 小时。
+
+每个时点运行同一目标绑定快照；账本必须保持 21 / `202609240001`，结构与授权计数必须保持 0：
+
+```powershell
+powershell -NoProfile -File .\scripts\Get-Phase6ReleaseSnapshot.ps1 `
+  -ProjectRef skiqsxvmxvmxfzhrzcxh `
+  -ExpectedProjectRef skiqsxvmxvmxfzhrzcxh `
+  -Stage Monitoring `
+  -ExpectedMigrationCount 21 `
+  -ExpectedLatestMigration 202609240001
+```
 
 核对：
 

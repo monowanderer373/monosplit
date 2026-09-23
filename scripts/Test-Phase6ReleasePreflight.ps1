@@ -9,14 +9,19 @@ param(
 
     [Parameter()]
     [ValidatePattern('^[a-z0-9]{20}$')]
-    [string] $ProjectRef
+    [string] $ProjectRef,
+
+    [Parameter()]
+    [ValidatePattern('^[a-f0-9]{40}$')]
+    [string] $ReleaseSha
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $manifestPath = Join-Path $repoRoot 'docs\releases\2026-09-phase6-release-manifest.json'
 $runbookPath = Join-Path $repoRoot 'docs\releases\2026-09-phase6-production-runbook.md'
-$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+$manifestJson = Get-Content -LiteralPath $manifestPath -Raw
+$manifest = $manifestJson | ConvertFrom-Json
 
 if ($manifest.candidateSha -notmatch '^[a-f0-9]{40}$') {
     throw 'The release manifest candidate SHA is invalid.'
@@ -70,12 +75,14 @@ foreach ($phrase in @(
     }
 }
 foreach ($migration in $expected) {
-    if ($runbook -notlike "*$($migration.sha256)*") {
-        throw "The runbook is missing the checksum for $($migration.filename)."
+    $expectedRow = "| $($migration.order) | ``$($migration.filename)`` | ``$($migration.sha256)`` |"
+    if ($runbook.IndexOf($expectedRow, [System.StringComparison]::Ordinal) -lt 0) {
+        throw "The runbook does not bind $($migration.filename) to its order and checksum."
     }
 }
-if ($runbook -match '(?i)(eyJ[A-Za-z0-9_-]{20,}|sb_secret_|service_role|postgres://)') {
-    throw 'The runbook contains a secret-shaped value.'
+$secretPattern = '(?i)(eyJ[A-Za-z0-9_-]{20,}|sb_secret_|service_role|postgres(?:ql)?://)'
+if ($runbook -match $secretPattern -or $manifestJson -match $secretPattern) {
+    throw 'The runbook or manifest contains a secret-shaped value.'
 }
 
 $localMain = (& git -C $repoRoot rev-parse origin/main).Trim()
@@ -85,6 +92,30 @@ if ($localMain -cne [string]$manifest.expectedOriginMainSha) {
 & git -C $repoRoot merge-base --is-ancestor $localMain $manifest.candidateSha
 if ($LASTEXITCODE -ne 0) {
     throw 'The reviewed main SHA is no longer an ancestor of the candidate.'
+}
+$currentHead = (& git -C $repoRoot rev-parse HEAD).Trim()
+$currentBranch = (& git -C $repoRoot branch --show-current).Trim()
+if (-not [string]::IsNullOrWhiteSpace($currentBranch) -and
+    $currentBranch -cne [string]$manifest.sourceBranch) {
+    throw "Current branch is $currentBranch, not $($manifest.sourceBranch)."
+}
+if (-not [string]::IsNullOrWhiteSpace($ReleaseSha) -and $ReleaseSha -cne $currentHead) {
+    throw 'ReleaseSha does not match the checked-out immutable release commit.'
+}
+$headParent = (& git -C $repoRoot rev-parse "$currentHead^").Trim()
+if ($headParent -cne [string]$manifest.reviewedRunbookBaseSha) {
+    throw 'The release branch contains commits beyond the single reviewed Gate D correction.'
+}
+$allowedReleaseFiles = @(
+    'docs/releases/2026-09-phase6-production-runbook.md',
+    'docs/releases/2026-09-phase6-release-manifest.json',
+    'scripts/Get-Phase6ReleaseSnapshot.ps1',
+    'scripts/Test-Phase6ReleasePreflight.ps1'
+)
+$releaseFiles = @(& git -C $repoRoot diff --name-only $manifest.reviewedRunbookBaseSha $currentHead)
+$unexpectedReleaseFiles = @($releaseFiles | Where-Object { $allowedReleaseFiles -cnotcontains $_ })
+if ($unexpectedReleaseFiles.Count -gt 0) {
+    throw "The reviewed Gate D correction changed unexpected files: $($unexpectedReleaseFiles -join ', ')."
 }
 
 function Stop-ReleaseExecution {
@@ -109,8 +140,15 @@ if ($Action -eq 'HoldDatabase' -or $Action -eq 'HoldFrontend') {
     if ([string]::IsNullOrWhiteSpace($ProjectRef)) {
         Stop-ReleaseExecution -Reason 'project ref was not explicit'
     }
-    if ($Action -eq 'HoldDatabase' -and $ProjectRef -cne [string]$manifest.productionSupabaseRef) {
-        Stop-ReleaseExecution -Reason 'database approval is bound to the production ref only'
+    if ($ProjectRef -cne [string]$manifest.productionSupabaseRef) {
+        Stop-ReleaseExecution -Reason 'release approval is bound to the production ref only'
+    }
+    if ([string]::IsNullOrWhiteSpace($ReleaseSha) -or $ReleaseSha -cne $currentHead) {
+        Stop-ReleaseExecution -Reason 'release SHA was not explicit or does not match HEAD'
+    }
+    $remoteRelease = (& git -C $repoRoot rev-parse "origin/$($manifest.sourceBranch)").Trim()
+    if ($remoteRelease -cne $ReleaseSha) {
+        Stop-ReleaseExecution -Reason 'origin release branch does not match the frozen release SHA'
     }
     Write-Output 'RELEASE_HOLD_ACCEPTED_NOT_EXECUTED'
     Write-Output 'This preflight does not apply migrations, merge main, or deploy.'
@@ -119,6 +157,7 @@ if ($Action -eq 'HoldDatabase' -or $Action -eq 'HoldFrontend') {
 
 Write-Output 'PHASE6_PREFLIGHT_PASS'
 Write-Output ("CANDIDATE_SHA=" + $manifest.candidateSha)
+Write-Output ("RELEASE_SHA=" + $currentHead)
 Write-Output ("MIGRATION_FILES=" + $migrationFiles.Count)
 Write-Output ("PENDING_MIGRATIONS=" + $expected.Count)
 Write-Output 'REMOTE_MUTATION=false'
