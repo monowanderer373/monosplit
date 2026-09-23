@@ -1,0 +1,102 @@
+{
+  "formatVersion": 1,
+  "releaseName": "Phase 6 Production",
+  "candidateSha": "fee78a2d468355414826da89c1dc17462402cff5",
+  "sourceBranch": "release/phase6-final-runbook",
+  "expectedOriginMainSha": "400b89b902d13f0c92d3b3a6750c4663566c29d4",
+  "supabaseCliVersion": "2.117.0",
+  "vercelProject": "monowanderer373s-projects/tabby-tally",
+  "productionDomain": "https://tabby-tally-monowanderer373s-projects.vercel.app",
+  "knownProductionDeploymentUrl": "https://tabby-tally-2io41nqvp-monowanderer373s-projects.vercel.app",
+  "knownGithubProductionDeploymentId": "6188382164",
+  "knownProductionDeploymentCreatedAt": "2026-08-31T19:49:12Z",
+  "productionSupabaseRef": "skiqsxvmxvmxfzhrzcxh",
+  "stagingSupabaseRef": "czfgglzxiinsyagquhkh",
+  "productionLedgerBefore": {
+    "migrationCount": 12,
+    "latestMigration": "202608300012"
+  },
+  "productionLedgerAfter": {
+    "migrationCount": 21,
+    "latestMigration": "202609240001"
+  },
+  "stagingLedger": {
+    "migrationCount": 21,
+    "latestMigration": "202609240001"
+  },
+  "detachedAccountParticipant": "DETACHED_ACCOUNT_PARTICIPANT_WARNING",
+  "migrations": [
+    {
+      "order": 1,
+      "filename": "202609080001_phase5_financial_trust.sql",
+      "sha256": "24f81e41b63c86472b2bea96d4a358b0c8090da7d4f79d6ed0d62c4d7f2ba0b9"
+    },
+    {
+      "order": 2,
+      "filename": "202609210001_personal_account_journal.sql",
+      "sha256": "a30d2fd097bb9e040654bd4d81e6c0e1ac8a56bd3ceac285b3cf35c8653cbf97"
+    },
+    {
+      "order": 3,
+      "filename": "202609210002_expense_funding.sql",
+      "sha256": "770865a4bc5408ed58e0ec3c0c639584bd3bd187c5587291cbe86b8fd8dfd99b"
+    },
+    {
+      "order": 4,
+      "filename": "202609210003_personal_recurring_auto_post.sql",
+      "sha256": "b6922c748ef9220376444da23b2e8a128e6ee882bf0224bc4c01a04f732537a2"
+    },
+    {
+      "order": 5,
+      "filename": "202609210004_personal_installment_plans.sql",
+      "sha256": "440bed68c7fb3a64e2bf5566c93970d9fa7aefbcf1cedf79a1931c061aa2ca7d"
+    },
+    {
+      "order": 6,
+      "filename": "202609210005_private_settlement_cash.sql",
+      "sha256": "a897b976ac1e1a1a158ee81ec037baae08d8d855c822f8b7816ecbb09abfcf32"
+    },
+    {
+      "order": 7,
+      "filename": "202609210006_space_membership_history.sql",
+      "sha256": "e455cbe26e551351ca86ab1f32ad845f5f0fcb94c479d3825489967ff5394ab4"
+    },
+    {
+      "order": 8,
+      "filename": "202609210007_personal_expense_affiliations.sql",
+      "sha256": "74146f66d04e61ff0c2f9d2a8bd18c19452a9d40460f2dece518f5a1b3c7df4d"
+    },
+    {
+      "order": 9,
+      "filename": "202609240001_legacy_respond_to_settlement_compat.sql",
+      "sha256": "28835759bf91f77cfe2fd273f562574d3ab2582e52580557aa46b3af7ecad003"
+    }
+  ],
+  "approvalPhrases": {
+    "databaseMigration": "APPROVE PHASE 6 PRODUCTION DATABASE MIGRATION",
+    "frontendDeployment": "APPROVE PHASE 6 MAIN MERGE AND PRODUCTION FRONTEND DEPLOYMENT"
+  },
+  "placeholders": {
+    "backupArchiveName": "",
+    "backupSha256": "",
+    "backupBytes": "",
+    "backupCompletedAtUtc": "",
+    "restoreFidelity": "",
+    "sourceHealth": "",
+    "databaseApprovalRecordedAtUtc": "",
+    "databaseApprovalOperator": "",
+    "migrationStartedAtUtc": "",
+    "migrationFinishedAtUtc": "",
+    "frontendApprovalRecordedAtUtc": "",
+    "frontendApprovalOperator": "",
+    "mainPushSha": "",
+    "finalVercelDeploymentId": "",
+    "oldFrontendSmoke": "",
+    "newFrontendSmoke": "",
+    "monitorImmediateAtUtc": "",
+    "monitorPlus15mAtUtc": "",
+    "monitorPlus1hAtUtc": "",
+    "monitorPlus6hAtUtc": "",
+    "monitorPlus24hAtUtc": ""
+  }
+}
