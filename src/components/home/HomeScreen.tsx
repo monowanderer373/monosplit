@@ -252,6 +252,8 @@ export default function HomeScreen(props: HomeScreenProps) {
         ) : null}
         {props.mode === 'travel' && props.travelStatus === 'error' ? (
           <p className="home-status" role="alert">{t('home.unavailable')}</p>
+        ) : props.mode === 'travel' && props.travelStatus === 'loading' ? (
+          <p className="home-status">{t('home.loading')}</p>
         ) : props.recordsStatus === 'loading' && props.recordGroups.length === 0 ? (
           <p className="home-status">{t('home.loading')}</p>
         ) : props.recordsStatus === 'error' && props.recordGroups.length === 0 ? null
