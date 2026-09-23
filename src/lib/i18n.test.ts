@@ -20,6 +20,7 @@ const ACTIVE_PREFIXES = [
   'space.',
   'spaceInvite.',
   'ledger.',
+  'home.',
   'capture.',
   'friends.',
   'person.',

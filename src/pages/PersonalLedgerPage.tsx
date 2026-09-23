@@ -1,43 +1,67 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import ActivityFeed from '../components/ActivityFeed'
 import CaptureLibrary from '../components/CaptureLibrary'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseChangeRequestList from '../components/ExpenseChangeRequestList'
 import ExpenseHistoryList from '../components/ExpenseHistoryList'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
-import PendingExpenseRecoveryActions from '../components/PendingExpenseRecoveryActions'
+import HomeScreen from '../components/home/HomeScreen'
+import '../components/home/home.css'
 import { useAuth } from '../hooks/useAuth'
 import { useExpenseChanges } from '../hooks/useExpenseChanges'
+import { useHomeData } from '../hooks/useHomeData'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
-import { formatMinorAmount } from '../lib/money'
-import { categoryKey, scopeKey, useT } from '../lib/i18n'
-import { formatDate } from '../lib/locale'
+import {
+  HOME_RECENT_LIMIT,
+  accountAttentionSources,
+  addMinor,
+  availableMoney,
+  buildHomeRecords,
+  deriveOutstandingSharedContexts,
+  groupHomeRecords,
+  homeRecordAccountFilter,
+  isAvailableMoneyAccount,
+  isBookedHomeExpense,
+  listActionableAccountTasks,
+  localCalendarDate,
+  monthlyPersonalSpending,
+  presentHomeRecords,
+  receivableTotals,
+  selectHomeTrip,
+  summaryTileLayout,
+  travelReadableExpenseIds,
+  tripsFromAffiliations,
+  type HomeSpaceRef,
+} from '../lib/homeView'
+import { useT } from '../lib/i18n'
+import { personPrincipalIds } from '../lib/personMoney'
+import type { ConfirmedSettlement } from '../lib/relationalBalance'
 import { useStore } from '../store/useStore'
 
 export default function PersonalLedgerPage() {
   const t = useT()
-  const lang = useStore((state) => state.lang)
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
   const { authUser, loading } = useAuth()
   const ledger = usePersonalLedger()
   const changeState = useExpenseChanges(Boolean(ledger.participantId), ledger.refresh)
   const quickAdd = useUniversalQuickAdd()
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
-  const [category, setCategory] = useState('All')
-
-  const categories = useMemo(
-    () => ['All', ...new Set(ledger.rows.map((row) => row.expense.category))],
-    [ledger.rows],
-  )
-  const visibleRows = useMemo(
-    () => ledger.rows.filter((row) =>
-      row.expense.occurredOn.startsWith(month)
-      && (category === 'All' || row.expense.category === category),
-    ),
-    [category, ledger.rows, month],
-  )
+  const homeUi = useStore((state) => state.homeUi)
+  const setHomeUi = useStore((state) => state.setHomeUi)
+  const showAllRecords = params.get('records') === 'all'
+  const homeRefreshKey = ledger.expenses.map((expense) => `${expense.id}:${expense.updatedAt}`).join('|')
+  const home = useHomeData(ledger.participantId, homeRefreshKey, showAllRecords)
+  const model = useHomeModel({
+    participantId: ledger.participantId,
+    timezone: authUser?.timezone ?? 'Asia/Kuala_Lumpur',
+    expenses: ledger.expenses,
+    rows: ledger.rows,
+    home,
+    homeUi,
+    showAllRecords,
+  })
 
   if (loading) {
     return (
@@ -84,101 +108,113 @@ export default function PersonalLedgerPage() {
     )
   }
 
+  const recordActions = Object.fromEntries(
+    model.flatRecords.flatMap((record) => {
+      if (!record.expenseId || !ledger.participantId) return []
+      const expense = ledger.expenses.find((item) => item.id === record.expenseId)
+      if (!expense || changeState.loading || changeState.error) return []
+      const pending = ledger.outbox.find((item) => item.command.requestId === expense.clientRequestId)
+      if (pending) return []
+      return [[record.id, (
+        <ExpenseActionSheet
+          key={expense.id}
+          expense={expense}
+          currentParticipantId={ledger.participantId}
+          pendingRequest={changeState.requests.find((request) => (
+            request.targetExpenseId === expense.id && request.state === 'pending'
+          ))}
+          onCancelExpense={ledger.voidExpense}
+          onRefresh={changeState.refreshAuthoritative}
+        />
+      )]]
+    }),
+  )
+  const recordStatuses = Object.fromEntries(
+    model.flatRecords.flatMap((record) => {
+      if (!record.expenseId) return []
+      const expense = ledger.expenses.find((item) => item.id === record.expenseId)
+      const pending = expense
+        ? ledger.outbox.find((item) => item.command.requestId === expense.clientRequestId)
+        : undefined
+      if (!pending) return []
+      return [[record.id, pending.status === 'rejected' ? t('ledger.needsAttention') : t('ledger.pendingSync')]]
+    }),
+  )
+
   return (
-    <main className="ms-page pb-32">
-      <header className="mx-auto flex max-w-3xl items-start justify-between gap-4">
-        <div>
-          <p className="ms-label">{t('ledger.personal')}</p>
-          <h1 className="ms-brand mt-1 text-2xl font-bold">{t('ledger.brand')}</h1>
-          <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">
-            {t('ledger.hello', { name: authUser.displayName ?? authUser.email ?? t('ledger.there') })}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button className="ms-btn-ghost text-sm" onClick={() => navigate('/capture')}>{t('ledger.smartCapture')}</button>
-          <button className="ms-btn-ghost text-sm" onClick={() => navigate('/profile')}>{t('common.profile')}</button>
-        </div>
-      </header>
+    <main className="ms-page home-shell">
+      <HomeScreen
+        mode={homeUi.mode}
+        onModeChange={(mode) => setHomeUi({ mode })}
+        density={homeUi.density}
+        onDensityChange={(density) => setHomeUi({ density })}
+        balanceHidden={homeUi.balanceHidden}
+        onToggleBalanceHidden={() => setHomeUi({ balanceHidden: !homeUi.balanceHidden })}
+        selectedAccountId={model.selectedAccountId}
+        onSelectAccount={(selectedAccountId) => setHomeUi({ selectedAccountId })}
+        accounts={model.accounts}
+        accountsStatus={home.accounts.status}
+        balances={model.balances}
+        monthlySpending={model.monthlySpending}
+        receivables={model.receivables}
+        tileLayout={model.tileLayout}
+        accountTasks={model.accountTasks}
+        sharedContexts={model.sharedContexts}
+        sharedStatus={model.sharedStatus}
+        recordGroups={model.recordGroups}
+        recordActions={recordActions}
+        recordStatuses={recordStatuses}
+        onShowAllRecords={() => {
+          const next = new URLSearchParams(params)
+          next.set('records', 'all')
+          setParams(next)
+        }}
+        showingAllRecords={showAllRecords}
+        trip={model.trip}
+        trips={model.trips}
+        travelStatus={model.travelStatus}
+        tripSpending={model.tripSpending}
+        onSelectTrip={(selectedTripId) => setHomeUi({ selectedTripId })}
+        onCreateTrip={() => navigate('/spaces')}
+        onOpenSharedContext={(context) => {
+          if (context.personId) navigate(`/person/${context.personId}`)
+          else if (context.spaceId) navigate(`/space/${context.spaceId}`)
+        }}
+        emptyRecordsLabel={model.emptyRecordsLabel}
+      />
 
       <ExpenseRecoveryNotices />
 
-      <section className="mx-auto mt-6 max-w-3xl">
-        {ledger.totals.length === 0 ? (
-          <div className="ms-card-hero">
-            <p className="ms-label">{t('ledger.thisMonth')}</p>
-            <p className="mt-4 text-4xl font-extrabold">{t('ledger.emptyTitle')}</p>
-            <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
-              {t('ledger.emptyHelp')}
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {ledger.totals.map((total) => (
-              <article key={total.currency} className="ms-card-hero">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="ms-label">{total.currency}</p>
-                  <span className="text-xs text-[var(--ms-text-muted)]">{t('ledger.allActive')}</span>
-                </div>
-                <p className="mt-3 text-3xl font-extrabold">
-                  {formatMinorAmount(total.personalSpendingMinor, total.currency)}
-                </p>
-                <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">{t('ledger.yourSpending')}</p>
-                <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-[var(--ms-text-muted)]">{t('common.paid')}</p>
-                    <p className="font-bold">{formatMinorAmount(total.paidMinor, total.currency)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[var(--ms-text-muted)]">{t('ledger.trackedReceivable')}</p>
-                    <p className="font-bold text-[var(--ms-success)]">
-                      {formatMinorAmount(total.trackedReceivableMinor, total.currency)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[var(--ms-text-muted)]">{t('ledger.pendingAdvance')}</p>
-                    <p className="font-bold">{formatMinorAmount(total.pendingAdvanceMinor, total.currency)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[var(--ms-text-muted)]">{t('ledger.untrackedAdvance')}</p>
-                    <p className="font-bold">{formatMinorAmount(total.untrackedAdvanceMinor, total.currency)}</p>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+      <div className="home-frame">
+        <CaptureLibrary
+          participantId={ledger.participantId}
+          timezone={authUser.timezone ?? 'Asia/Kuala_Lumpur'}
+          expenses={ledger.expenses}
+          onOpen={(preset) => {
+            quickAdd.open({
+              entryPoint: preset.source === 'recurring'
+                ? 'recurring-draft'
+                : 'recent-preset',
+              contextPolicy: preset.source === 'recurring' ? 'locked' : 'switchable',
+              context: {
+                ref: { kind: 'personal' },
+                currentParticipantId: ledger.participantId!,
+                availableParticipants: [{
+                  id: ledger.participantId!,
+                  displayName: authUser.displayName ?? authUser.email ?? t('common.me'),
+                  kind: 'account',
+                }],
+                defaultCurrency: authUser.defaultCurrency ?? 'MYR',
+              },
+              captureSource: preset.source,
+              initialValues: preset.values,
+              clientRequestId: preset.clientRequestId,
+              onSaved: preset.onSaved,
+            })
+          }}
+        />
 
-      <CaptureLibrary
-        participantId={ledger.participantId}
-        timezone={authUser.timezone ?? 'Asia/Kuala_Lumpur'}
-        expenses={ledger.expenses}
-        onOpen={(preset) => {
-          quickAdd.open({
-            entryPoint: preset.source === 'recurring'
-              ? 'recurring-draft'
-              : 'recent-preset',
-            contextPolicy: preset.source === 'recurring' ? 'locked' : 'switchable',
-            context: {
-              ref: { kind: 'personal' },
-              currentParticipantId: ledger.participantId!,
-              availableParticipants: [{
-                id: ledger.participantId!,
-                displayName: authUser.displayName ?? authUser.email ?? t('common.me'),
-                kind: 'account',
-              }],
-              defaultCurrency: authUser.defaultCurrency ?? 'MYR',
-            },
-            captureSource: preset.source,
-            initialValues: preset.values,
-            clientRequestId: preset.clientRequestId,
-            onSaved: preset.onSaved,
-          })
-        }}
-      />
-
-      {ledger.participantId ? (
-        <section className="mx-auto mt-8 max-w-3xl" data-testid="expense-change-requests">
+        <section className="home-section" data-testid="expense-change-requests">
           <ExpenseChangeRequestList
             requests={changeState.requests}
             expenses={ledger.expenses}
@@ -187,122 +223,198 @@ export default function PersonalLedgerPage() {
             include={(request) => request.proposedBy === ledger.participantId}
           />
         </section>
-      ) : null}
 
-      <section className="mx-auto mt-8 max-w-3xl">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="ms-label">{t('ledger.entries')}</p>
-            <h2 className="mt-1 text-xl font-extrabold">{t('ledger.activity')}</h2>
-          </div>
-          <input
-            className="ms-input h-10 w-40"
-            type="month"
-            value={month}
-            onChange={(event) => setMonth(event.target.value)}
-            aria-label={t('ledger.thisMonth')}
+        <div className="home-section">
+          <ExpenseHistoryList
+            expenses={ledger.expenses}
+            directRequests={changeState.requests}
           />
         </div>
-        <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-          {categories.map((item) => (
-            <button
-              key={item}
-              className={item === category ? 'ms-btn-primary shrink-0 py-2' : 'ms-btn-ghost shrink-0 py-2'}
-              onClick={() => setCategory(item)}
-            >
-              {item === 'All' ? t('common.all') : t(categoryKey(item))}
-            </button>
-          ))}
+
+        <div className="home-section">
+          <ActivityFeed
+            expenseIds={ledger.expenses.map((expense) => expense.id)}
+            refreshKey={ledger.expenses.map((expense) => expense.updatedAt).join('|')}
+          />
         </div>
-
-        <div className="ms-list">
-          {visibleRows.length === 0 ? (
-            <p className="p-6 text-center text-sm text-[var(--ms-text-muted)]">{t('ledger.noEntries')}</p>
-          ) : visibleRows.map((row, index) => {
-            const pending = ledger.outbox.find(
-              (item) => item.command.requestId === row.expense.clientRequestId,
-            )
-            const syncedPendingRequest = !pending
-              && row.expense.scope === 'direct'
-              && row.expense.participations.some((participation) => (
-                participation.trackingMode === 'tracked'
-                && participation.state === 'pending'
-              ))
-            return (
-              <div key={row.expense.id}>
-                {index > 0 ? <hr className="ms-divider" /> : null}
-                <article className="ms-row">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-bold">{row.expense.description ?? t(categoryKey(row.expense.category))}</p>
-                      {pending ? (
-                        <span className="rounded-full bg-[var(--ms-info-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--ms-info)]">
-                          {pending.status === 'rejected' ? t('ledger.needsAttention') : t('ledger.pendingSync')}
-                        </span>
-                      ) : null}
-                      {syncedPendingRequest ? (
-                        <span className="rounded-full bg-[var(--ms-accent-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--ms-accent)]">
-                          {t('ledger.syncedPendingRequest')}
-                        </span>
-                      ) : null}
-                      {pending ? (
-                        <PendingExpenseRecoveryActions
-                          item={pending}
-                          onUndoAdd={ledger.discardLocalCreate}
-                          onRetry={ledger.retryCommand}
-                          onDiscardFailed={ledger.discardFailedCreate}
-                        />
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs text-[var(--ms-text-muted)]">
-                      {formatDate(row.expense.occurredOn, lang)} · {t(scopeKey(row.expense.scope))}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-extrabold">
-                      {formatMinorAmount(row.personalSpendingMinor, row.expense.currency)}
-                    </p>
-                    {row.paidMinor !== row.personalSpendingMinor ? (
-                      <p className="text-xs text-[var(--ms-text-muted)]">
-                        {t('ledger.paidAmount', { amount: formatMinorAmount(row.paidMinor, row.expense.currency) })}
-                      </p>
-                    ) : null}
-                    {!pending && !changeState.loading && !changeState.error ? (
-                      <div className="mt-2 flex justify-end">
-                        <ExpenseActionSheet
-                          expense={row.expense}
-                          currentParticipantId={ledger.participantId!}
-                          pendingRequest={changeState.requests.find((request) => (
-                            request.targetExpenseId === row.expense.id
-                            && request.state === 'pending'
-                          ))}
-                          onCancelExpense={ledger.voidExpense}
-                          onRefresh={changeState.refreshAuthoritative}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                </article>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      <div className="mx-auto mt-8 max-w-3xl">
-        <ExpenseHistoryList
-          expenses={ledger.expenses}
-          directRequests={changeState.requests}
-        />
       </div>
-
-      <div className="mx-auto mt-8 max-w-3xl">
-        <ActivityFeed
-          expenseIds={ledger.expenses.map((expense) => expense.id)}
-          refreshKey={ledger.expenses.map((expense) => expense.updatedAt).join('|')}
-        />
-      </div>
-
     </main>
   )
+}
+
+function useHomeModel(input: {
+  participantId: string | null
+  timezone: string
+  expenses: ReturnType<typeof usePersonalLedger>['expenses']
+  rows: ReturnType<typeof usePersonalLedger>['rows']
+  home: ReturnType<typeof useHomeData>
+  homeUi: ReturnType<typeof useStore.getState>['homeUi']
+  showAllRecords: boolean
+}) {
+  return useMemo(() => {
+    const accounts = input.home.accounts.data?.accounts ?? []
+    const chosen = accounts.find((account) => account.id === input.homeUi.selectedAccountId)
+    const selectedAccountId = input.home.accounts.status === 'ready'
+      && chosen
+      && isAvailableMoneyAccount(chosen)
+      ? chosen.id
+      : 'all'
+    const balances = input.home.accounts.status === 'ready'
+      ? availableMoney(accounts, selectedAccountId)
+      : []
+    const spaces: HomeSpaceRef[] = (input.home.spaces.data ?? []).map(({ space }) => ({
+      id: space.id,
+      type: space.type,
+      name: space.name,
+      status: space.status,
+      startDate: space.startDate,
+      endDate: space.endDate,
+      updatedAt: space.updatedAt,
+    }))
+    const knownSpaceIds = new Set(spaces.map((space) => space.id))
+    for (const expense of input.expenses) {
+      if (expense.scope !== 'space' || !expense.spaceId || knownSpaceIds.has(expense.spaceId)) continue
+      knownSpaceIds.add(expense.spaceId)
+      spaces.push({
+        id: expense.spaceId,
+        type: 'group',
+        name: '',
+        status: 'active',
+        startDate: null,
+        endDate: null,
+        updatedAt: expense.updatedAt,
+      })
+    }
+    const people = (input.home.people.data ?? []).map((person) => ({
+      id: person.id,
+      displayName: person.displayName,
+      participantIds: personPrincipalIds(person),
+    }))
+    const settlements: ConfirmedSettlement[] = (input.home.settlements.data ?? []).map((payment) => ({
+      id: payment.id,
+      scope: payment.scope,
+      spaceId: payment.spaceId,
+      debtorParticipantId: payment.debtorParticipantId,
+      currency: payment.currency,
+      status: payment.status,
+      paymentDate: payment.paymentDate,
+      createdAt: payment.createdAt,
+      allocations: payment.allocations.map((allocation) => ({
+        id: allocation.id,
+        creditorParticipantId: allocation.creditorParticipantId,
+        amountMinor: allocation.amountMinor,
+        state: allocation.state,
+        reversalMinor: allocation.reversalMinor,
+      })),
+    }))
+    const affiliations = (input.home.affiliations.data ?? []).map((affiliation) => ({
+      expenseId: affiliation.expenseId,
+      label: affiliation.label,
+      archived: affiliation.archivedAt != null,
+    }))
+    const sharedStatus = combineStatus(
+      input.home.people.status,
+      input.home.settlements.status,
+      input.home.spaces.status,
+    )
+    const travelStatus = combineStatus(input.home.spaces.status, input.home.affiliations.status)
+    const sharedContexts = sharedStatus === 'ready' && input.participantId
+      ? deriveOutstandingSharedContexts({
+        ownerParticipantId: input.participantId,
+        expenses: input.expenses,
+        settlements,
+        people,
+        spaces,
+      })
+      : []
+    const accountTasks = input.home.accounts.status === 'ready' && input.home.accounts.data
+      ? listActionableAccountTasks(accountAttentionSources({
+        pendingFundingIds: input.home.accounts.data.pendingFundingIds,
+        recurring: input.home.accounts.data.recurring,
+        installments: input.home.accounts.data.installments,
+        pendingPrincipalPlanIds: input.home.accounts.data.pendingPrincipalPlanIds,
+      }), accounts)
+      : []
+    const accountCount = input.home.accounts.status === 'ready' ? accountTasks.length : 0
+    const sharedCount = sharedStatus === 'ready' ? sharedContexts.length : 0
+    const today = localCalendarDate(new Date(), input.timezone)
+    const trips = [
+      ...spaces.filter((space) => space.type === 'trip' && space.status !== 'voided'),
+      ...tripsFromAffiliations(affiliations, spaces),
+    ]
+    const trip = travelStatus === 'ready'
+      ? selectHomeTrip(trips, today, input.homeUi.selectedTripId)
+      : null
+    const travelIds = trip
+      ? new Set(travelReadableExpenseIds({
+        readableExpenseIds: input.expenses.map((expense) => expense.id),
+        affiliations,
+        trip: trip.trip,
+        expenses: input.expenses,
+      }))
+      : new Set<string>()
+    const records = input.participantId
+      ? buildHomeRecords({
+        ownerParticipantId: input.participantId,
+        expenses: input.expenses,
+        funding: input.home.accounts.data?.funding ?? [],
+        accounts,
+        people,
+        spaces,
+        affiliations,
+        journals: input.home.accounts.data?.journals ?? [],
+        selectedAccountId: homeRecordAccountFilter(input.homeUi.mode, selectedAccountId),
+        limit: null,
+        fundingKnown: input.home.accounts.status === 'ready',
+      })
+      : []
+    const filtered = input.homeUi.mode === 'travel'
+      ? records.filter((record) => record.expenseId != null && travelIds.has(record.expenseId))
+      : records
+    const limited = input.showAllRecords ? filtered : filtered.slice(0, HOME_RECENT_LIMIT)
+    const bookedRows = input.participantId
+      ? input.rows.filter((row) => isBookedHomeExpense(row.expense, input.participantId!))
+      : []
+    const tripRows = bookedRows.filter((row) => travelIds.has(row.expense.id))
+    const tripSpending = sumSpending(tripRows)
+    return {
+      accounts,
+      selectedAccountId,
+      balances,
+      monthlySpending: monthlyPersonalSpending(bookedRows, today.slice(0, 7)),
+      receivables: sharedStatus === 'ready' ? receivableTotals(sharedContexts) : [],
+      tileLayout: summaryTileLayout(accountCount, sharedCount),
+      accountTasks,
+      sharedContexts,
+      sharedStatus,
+      recordGroups: groupHomeRecords(presentHomeRecords(limited, input.homeUi.density), today),
+      flatRecords: limited,
+      trip,
+      trips,
+      travelStatus,
+      tripSpending,
+      emptyRecordsLabel: selectedAccountId === 'all'
+        ? undefined
+        : 'home.emptyRecordsFiltered' as const,
+    }
+  }, [input])
+}
+
+function combineStatus(
+  ...statuses: Array<'loading' | 'error' | 'ready'>
+): 'loading' | 'error' | 'ready' {
+  if (statuses.some((status) => status === 'error')) return 'error'
+  if (statuses.some((status) => status === 'loading')) return 'loading'
+  return 'ready'
+}
+
+function sumSpending(rows: ReturnType<typeof usePersonalLedger>['rows']) {
+  const totals = new Map<string, number>()
+  for (const row of rows) {
+    const currency = row.expense.currency.toUpperCase()
+    totals.set(currency, addMinor(totals.get(currency) ?? 0, row.personalSpendingMinor))
+  }
+  return [...totals.entries()]
+    .map(([currency, amountMinor]) => ({ currency, amountMinor }))
+    .sort((left, right) => left.currency.localeCompare(right.currency))
 }

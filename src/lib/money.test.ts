@@ -13,6 +13,8 @@ describe('money', () => {
     expect(parseMajorAmount('100.25', 'MYR')).toBe(10_025)
     expect(parseMajorAmount('1,200', 'JPY')).toBe(1_200)
     expect(currencyExponent('KRW')).toBe(0)
+    expect(currencyExponent('VND')).toBe(0)
+    expect(formatMinorAmount(1_250_000, 'VND', 'en-MY')).toContain('1,250,000')
   })
 
   it('rejects unknown currencies, excess precision, zero, and unsafe values', () => {

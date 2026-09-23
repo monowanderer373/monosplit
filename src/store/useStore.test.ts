@@ -69,6 +69,22 @@ describe('migratePersistedState', () => {
     expect(migrated).not.toHaveProperty('hiddenDeletedGroupIds')
     expect(migrated).not.toHaveProperty('myPersonIdByGroupId')
     expect(migrated).not.toHaveProperty('fontId')
+    expect(migrated.homeUi).toMatchObject({
+      mode: 'daily',
+      balanceHidden: false,
+      density: 'detailed',
+    })
+  })
+
+  it('keeps a hidden balance choice when preferences are migrated', () => {
+    expect(migratePersistedState({
+      homeUi: { mode: 'travel', balanceHidden: true, density: 'compact', selectedAccountId: 'cimb' },
+    }).homeUi).toMatchObject({
+      mode: 'travel',
+      balanceHidden: true,
+      density: 'compact',
+      selectedAccountId: 'cimb',
+    })
   })
 
   it('initializes an empty relational ledger cache for malformed persisted state', () => {

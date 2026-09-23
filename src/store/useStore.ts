@@ -22,12 +22,30 @@ type LedgerPartition = {
   outbox: PendingLedgerCommand[]
 }
 
+export type HomeUiPrefs = {
+  mode: 'daily' | 'travel'
+  balanceHidden: boolean
+  density: 'detailed' | 'compact'
+  selectedAccountId: string
+  selectedTripId: string | null
+}
+
+export const defaultHomeUi: HomeUiPrefs = {
+  mode: 'daily',
+  balanceHidden: false,
+  density: 'detailed',
+  selectedAccountId: 'all',
+  selectedTripId: null,
+}
+
 type AppState = {
   lang: 'en' | 'zh'
   setLang: (lang: 'en' | 'zh') => void
   themeId: string
   setThemeId: (id: string) => void
   ledgerByIdentity: Record<string, LedgerPartition>
+  homeUi: HomeUiPrefs
+  setHomeUi: (patch: Partial<HomeUiPrefs>) => void
   setLedgerExpenses: (identityId: string, expenses: CanonicalExpense[]) => void
   queueLedgerCommand: (identityId: string, item: PendingLedgerCommand) => void
   claimLedgerCommand: (identityId: string, requestId: string) => PendingLedgerCommand | null
@@ -65,6 +83,18 @@ export function migratePersistedState(persisted: unknown): Record<string, unknow
   delete state.groups
   delete state.hiddenDeletedGroupIds
   delete state.myPersonIdByGroupId
+  const homeUi = state.homeUi && typeof state.homeUi === 'object'
+    ? state.homeUi as Partial<HomeUiPrefs>
+    : {}
+  state.homeUi = {
+    mode: homeUi.mode === 'travel' ? 'travel' : 'daily',
+    balanceHidden: homeUi.balanceHidden === true,
+    density: homeUi.density === 'compact' ? 'compact' : 'detailed',
+    selectedAccountId: typeof homeUi.selectedAccountId === 'string' && homeUi.selectedAccountId
+      ? homeUi.selectedAccountId
+      : 'all',
+    selectedTripId: typeof homeUi.selectedTripId === 'string' ? homeUi.selectedTripId : null,
+  }
   return state
 }
 
@@ -93,6 +123,8 @@ export const useStore = create<AppState>()(
       setLang: (lang: 'en' | 'zh') => set({ lang }),
       themeId: DEFAULT_THEME_ID,
       setThemeId: (id: string) => set({ themeId: resolveThemeId(id) }),
+      homeUi: defaultHomeUi,
+      setHomeUi: (patch) => set((state) => ({ homeUi: { ...state.homeUi, ...patch } })),
       ledgerByIdentity: {},
       setLedgerExpenses: (identityId, expenses) => {
         set((state) => {
@@ -353,6 +385,7 @@ export const useStore = create<AppState>()(
       partialize: (state) => ({
         lang: state.lang,
         themeId: state.themeId,
+        homeUi: state.homeUi,
         ledgerByIdentity: state.ledgerByIdentity,
       }),
     },

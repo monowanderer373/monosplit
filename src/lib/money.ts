@@ -11,6 +11,7 @@ const CURRENCY_EXPONENTS: Readonly<Record<string, number>> = {
   THB: 2,
   TWD: 2,
   USD: 2,
+  VND: 0,
 }
 
 export type Money = Readonly<{

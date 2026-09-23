@@ -1,0 +1,489 @@
+.home-shell {
+  --home-bg: #faf7f2;
+  --home-surface: #f1eae0;
+  --home-card: #fffdf9;
+  --home-text: #2c2926;
+  --home-muted: #6f675f;
+  --home-line: #e4d9cc;
+  --home-accent: #c86542;
+  --home-in: #4d7465;
+  --home-out: #c65b52;
+  --home-warn: #f8f1e4;
+  --home-shared: #e7f0ec;
+  background: var(--home-bg) !important;
+  color: var(--home-text) !important;
+  padding-top: max(12px, env(safe-area-inset-top)) !important;
+  padding-right: max(16px, env(safe-area-inset-right)) !important;
+  padding-bottom: calc(7.5rem + env(safe-area-inset-bottom)) !important;
+  padding-left: max(16px, env(safe-area-inset-left)) !important;
+}
+
+.home-frame {
+  width: min(100%, 40rem);
+  margin-inline: auto;
+}
+
+.home-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: 12px;
+}
+
+.home-mode {
+  justify-self: end;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--home-surface);
+  border: 1px solid var(--home-line);
+}
+
+.home-mode button,
+.home-icon-button,
+.home-text-button,
+.home-tile,
+.home-sheet button,
+.home-density button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.home-mode button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--home-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.home-mode button[aria-pressed="true"] {
+  background: var(--home-card);
+  color: var(--home-text);
+  box-shadow: 0 1px 2px rgb(44 41 38 / 8%);
+}
+
+.home-card,
+.home-trip-card {
+  background: var(--home-surface);
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.home-card-top,
+.home-record,
+.home-section-head,
+.home-stat-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-account-button,
+.home-icon-button,
+.home-text-button,
+.home-tile,
+.home-sheet button,
+.home-density button,
+.home-link-row {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.home-account-button,
+.home-text-button,
+.home-link-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0 4px;
+  text-align: left;
+}
+
+.home-account-button span,
+.home-record-title,
+.home-trip-name {
+  overflow-wrap: anywhere;
+}
+
+.home-account-button span {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.home-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0;
+}
+
+.home-balance-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+
+.home-balance-figure {
+  margin: 0;
+  font-size: clamp(1.5rem, 7vw, 2rem);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.home-note,
+.home-wallet,
+.home-chip,
+.home-meta {
+  color: var(--home-muted);
+  font-size: 0.75rem;
+}
+
+.home-stat-row {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--home-line);
+}
+
+.home-stat {
+  min-width: 0;
+}
+
+.home-stat p {
+  margin: 4px 0 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.home-tiles {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.home-tiles[data-layout="both"] {
+  grid-template-columns: 1fr 1fr;
+}
+
+.home-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.home-tile-account {
+  background: var(--home-warn);
+}
+
+.home-tile-shared {
+  background: var(--home-shared);
+}
+
+.home-tile-icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(255 253 249 / 72%);
+}
+
+.home-tile strong {
+  font-size: 0.95rem;
+}
+
+.home-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--home-card);
+  color: var(--home-text);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.home-section {
+  margin-top: 20px;
+}
+
+.home-section-head {
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.home-section-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.home-section-actions,
+.home-density {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-density {
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--home-surface);
+}
+
+.home-density button,
+.home-text-button {
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.home-density button {
+  min-width: 44px;
+  padding: 0 10px;
+  color: var(--home-muted);
+}
+
+.home-density button[aria-pressed="true"] {
+  background: var(--home-card);
+  color: var(--home-text);
+}
+
+.home-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.home-date:first-child {
+  margin-top: 4px;
+}
+
+.home-date strong {
+  font-size: 0.8125rem;
+}
+
+.home-date i {
+  flex: 1;
+  height: 1px;
+  background: var(--home-line);
+}
+
+.home-record {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--home-line);
+}
+
+.home-record.is-compact {
+  padding-block: 8px;
+}
+
+.home-record-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.home-record.is-compact .home-record-main {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.home-record-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--home-surface);
+}
+
+.home-record-copy,
+.home-record-money {
+  min-width: 0;
+}
+
+.home-record-title {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.home-chip {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--home-surface);
+  overflow-wrap: anywhere;
+}
+
+.home-record-money {
+  text-align: right;
+}
+
+.home-amount {
+  margin: 0;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.home-amount.incoming {
+  color: var(--home-in);
+}
+
+.home-amount.outgoing {
+  color: var(--home-out);
+}
+
+.home-wallet {
+  margin: 2px 0 0;
+}
+
+.home-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(44 41 38 / 28%);
+}
+
+.home-sheet {
+  width: min(100%, 40rem);
+  max-height: min(85dvh, 640px);
+  overflow: auto;
+  margin: 0;
+  padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 20px 20px 0 0;
+  background: var(--home-card);
+  color: var(--home-text);
+}
+
+.home-sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.home-sheet h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.home-sheet-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--home-line);
+  background: transparent;
+  padding: 10px 0;
+  text-align: left;
+  font: inherit;
+}
+
+.home-sheet-option[aria-current="true"] {
+  font-weight: 750;
+}
+
+.home-status {
+  min-height: 44px;
+  margin: 0;
+  color: var(--home-muted);
+}
+
+.home-trip-status {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--home-card);
+  color: var(--home-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.home-side-title {
+  margin: 16px 0 4px;
+  font-size: 0.875rem;
+}
+
+.home-side-title.receivable {
+  color: var(--home-in);
+}
+
+.home-side-title.payable {
+  color: var(--home-out);
+}
+
+.home-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.home-shell button:focus-visible {
+  outline: 2px solid var(--home-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-shell *,
+  .home-sheet-backdrop {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media (max-width: 359px) {
+  .home-tiles[data-layout="both"] {
+    grid-template-columns: 1fr;
+  }
+}

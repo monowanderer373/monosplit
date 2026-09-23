@@ -13,4 +13,5 @@ export const CURRENCIES: Currency[] = [
   { code: 'HKD', label: 'Hong Kong Dollar', symbol: 'HK$' },
   { code: 'CNY', label: 'Chinese Yuan', symbol: 'CN¥' },
   { code: 'TWD', label: 'Taiwan Dollar', symbol: 'NT$' },
+  { code: 'VND', label: 'Vietnamese Dong', symbol: '₫' },
 ]
