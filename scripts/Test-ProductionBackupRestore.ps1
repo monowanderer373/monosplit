@@ -5,11 +5,28 @@ param(
     [string] $ArchivePath,
 
     [Parameter()]
-    [string] $SettingsPath
+    [string] $SettingsPath,
+
+    [Parameter()]
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
+    [string] $SourceHealthCsv,
+
+    [Parameter()]
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
+    [string] $SourceFunctionCsv
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ProductionBackup.Common.ps1')
+
+function ConvertTo-GrantFlag {
+    param([string] $Value)
+    switch -Regex ($Value.Trim().ToLowerInvariant()) {
+        '^(t|true|1)$' { return 'true' }
+        '^(f|false|0)$' { return 'false' }
+        default { return $Value.Trim().ToLowerInvariant() }
+    }
+}
 
 function Invoke-CheckedDocker {
     param(
@@ -235,7 +252,7 @@ drop schema if exists storage cascade;
         ) `
         -FailureMessage 'The logical dump could not be restored into the isolated database.'
 
-    $failureStage = 'row-count comparison'
+    $failureStage = 'verification queries'
     $verificationScript = Join-Path $artifactRoot '_restore-verification.psql'
     @'
 \set ON_ERROR_STOP on
@@ -272,6 +289,8 @@ end
 $$;
 \copy (select schema_name, relation_name, exact_rows from restored_exact_row_counts order by schema_name, relation_name) to '/backup/restored-row-counts.csv' with (format csv, header true)
 \copy (select check_name, violation_count from (values ('orphan_profile', (select count(*) from public.user_profiles p left join auth.users u on u.id = p.id where u.id is null)), ('orphan_account_participant', (select count(*) from public.participants p left join auth.users u on u.id = p.auth_user_id where p.kind = 'account' and u.id is null)), ('missing_identity_correlation', (select case when exists (select 1 from auth.users) and not exists (select 1 from auth.users u join public.user_profiles profile on profile.id = u.id join public.participants participant on participant.auth_user_id = u.id) then 1 else 0 end)), ('expense_participant_count_mismatch', (select count(*) from public.expenses e where e.participant_count <> (select count(*) from public.expense_participations ep where ep.expense_id = e.id))), ('payer_total_mismatch', (select count(*) from public.expenses e where e.total_minor <> coalesce((select sum(pc.amount_minor) from public.payer_contributions pc where pc.expense_id = e.id), 0))), ('share_total_mismatch', (select count(*) from public.expenses e where e.total_minor <> coalesce((select sum(es.amount_minor) from public.expense_shares es where es.expense_id = e.id), 0))), ('settlement_total_mismatch', (select count(*) from public.settlement_payments sp where sp.amount_minor <> coalesce((select sum(sa.amount_minor) from public.settlement_allocations sa where sa.settlement_payment_id = sp.id), 0))), ('legacy_invite_token_exposed', (select count(*) from private.legacy_beta_recovery recovery where recovery.row_data ? 'token'))) as checks(check_name, violation_count) order by check_name) to '/backup/restore-invariants.csv' with (format csv, header true)
+\copy (select nspname as schema_name from pg_catalog.pg_namespace where nspname in ('public', 'auth', 'storage', 'private') order by nspname) to '/backup/restored-schemas.csv' with (format csv, header true)
+\copy (select proc.oid::regprocedure::text as signature, pg_catalog.pg_get_function_result(proc.oid) as result_type, pg_catalog.has_function_privilege('authenticated', proc.oid, 'execute') as authenticated_execute, pg_catalog.has_function_privilege('anon', proc.oid, 'execute') as anon_execute, pg_catalog.has_function_privilege('public', proc.oid, 'execute') as public_execute from pg_catalog.pg_proc as proc join pg_catalog.pg_namespace as namespace on namespace.oid = proc.pronamespace where namespace.nspname = 'public' and proc.proname = 'respond_to_settlement' order by 1) to '/backup/restored-functions.csv' with (format csv, header true)
 '@ | Set-Content -LiteralPath $verificationScript -Encoding UTF8
 
     Invoke-CheckedDocker `
@@ -294,18 +313,85 @@ $$;
         ) `
         -FailureMessage 'The restored database verification queries failed.'
 
+    $failureStage = 'row-count comparison'
     & (Join-Path $PSScriptRoot 'Compare-RestoreCounts.ps1') `
         -ExpectedCountsPath (Join-Path $artifactRoot 'exact-row-counts.csv') `
         -ActualCountsPath (Join-Path $artifactRoot 'restored-row-counts.csv') `
         -ExcludedRelations @($manifest.logicalRestoreExclusions) *> $null
 
-    $failureStage = 'financial invariants'
+    $failureStage = 'restore fidelity'
+    $archiveLedger = @(Import-Csv -LiteralPath (Join-Path $artifactRoot 'migration-state.csv'))
+    if ($archiveLedger.Count -lt 1) {
+        throw 'The backup archive does not contain a migration ledger.'
+    }
+    $latestMigration = [string]($archiveLedger | Select-Object -Last 1).version
+    if ([string]::IsNullOrWhiteSpace($latestMigration)) {
+        throw 'The backup archive migration ledger has no latest version.'
+    }
+    $requiredSchemas = @('auth', 'private', 'public', 'storage')
+    $restoredSchemas = @(
+        Import-Csv -LiteralPath (Join-Path $artifactRoot 'restored-schemas.csv') |
+            ForEach-Object { $_.schema_name }
+    )
+    $missingSchemas = @($requiredSchemas | Where-Object { $restoredSchemas -cnotcontains $_ })
+    if ($missingSchemas.Count -gt 0) {
+        throw "Restored schemas are missing: $($missingSchemas -join ', ')."
+    }
+    $functions = @(Import-Csv -LiteralPath (Join-Path $artifactRoot 'restored-functions.csv'))
+    if ($functions.Count -lt 1) {
+        throw 'The restored database has no respond_to_settlement function.'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($SourceFunctionCsv)) {
+        $sourceFunctions = @(Import-Csv -LiteralPath $SourceFunctionCsv)
+        $restoredFunctionKeys = @($functions | ForEach-Object {
+            '{0}|{1}|{2}|{3}|{4}' -f ($_.signature -replace '\s', ''), ($_.result_type.Trim()), (ConvertTo-GrantFlag $_.authenticated_execute), (ConvertTo-GrantFlag $_.anon_execute), (ConvertTo-GrantFlag $_.public_execute)
+        } | Sort-Object)
+        $sourceFunctionKeys = @($sourceFunctions | ForEach-Object {
+            '{0}|{1}|{2}|{3}|{4}' -f ($_.signature -replace '\s', ''), ($_.result_type.Trim()), (ConvertTo-GrantFlag $_.authenticated_execute), (ConvertTo-GrantFlag $_.anon_execute), (ConvertTo-GrantFlag $_.public_execute)
+        } | Sort-Object)
+        if (($restoredFunctionKeys -join "`n") -cne ($sourceFunctionKeys -join "`n")) {
+            throw ("Restore fidelity failed: respond_to_settlement signatures, return types, or grants differ from the source. restored=[{0}] source=[{1}]" -f ($restoredFunctionKeys -join '; '), ($sourceFunctionKeys -join '; '))
+        }
+    }
     $invariants = @(Import-Csv -LiteralPath (Join-Path $artifactRoot 'restore-invariants.csv'))
-    $failedInvariants = @($invariants | Where-Object {
-        [long]$_.violation_count -ne 0
-    })
-    if ($failedInvariants.Count -gt 0) {
-        throw "Restored financial invariants failed: $($failedInvariants.check_name -join ', ')."
+    $sourceHealthWarnings = @()
+    if (-not [string]::IsNullOrWhiteSpace($SourceHealthCsv)) {
+        $sourceInvariants = @(Import-Csv -LiteralPath $SourceHealthCsv)
+        $sourceLookup = @{}
+        foreach ($sourceInvariant in $sourceInvariants) {
+            $sourceLookup[$sourceInvariant.check_name] = [long]$sourceInvariant.violation_count
+        }
+        foreach ($invariant in $invariants) {
+            $checkName = [string]$invariant.check_name
+            $restoredCount = [long]$invariant.violation_count
+            if (-not $sourceLookup.ContainsKey($checkName)) {
+                throw "Restore fidelity failed: source health check $checkName is missing."
+            }
+            if ($sourceLookup[$checkName] -ne $restoredCount) {
+                throw "Restore fidelity failed: $checkName source=$($sourceLookup[$checkName]) restored=$restoredCount."
+            }
+            if ($restoredCount -ne 0) {
+                $sourceHealthWarnings += [ordered]@{
+                    check_name = $checkName
+                    violation_count = $restoredCount
+                }
+            }
+        }
+    } else {
+        foreach ($invariant in $invariants) {
+            $restoredCount = [long]$invariant.violation_count
+            if ($restoredCount -ne 0) {
+                $sourceHealthWarnings += [ordered]@{
+                    check_name = [string]$invariant.check_name
+                    violation_count = $restoredCount
+                }
+            }
+        }
+    }
+    $sourceHealth = if ($sourceHealthWarnings.Count -gt 0) {
+        'SOURCE_HEALTH_WARNING'
+    } else {
+        'SOURCE_HEALTH_PASS'
     }
 
     $counts = @(Import-Csv -LiteralPath (Join-Path $artifactRoot 'restored-row-counts.csv'))
@@ -315,12 +401,28 @@ $$;
     }
     $report = [ordered]@{
         completedAtUtc = [DateTime]::UtcNow.ToString('o')
-        result = 'passed'
+        restoreFidelity = 'RESTORE_FIDELITY_PASS'
+        sourceHealth = $sourceHealth
+        sourceHealthWarnings = @($sourceHealthWarnings)
         sourceArchiveName = Split-Path -Leaf $ArchivePath
         sourceArchiveSha256 = (Get-FileHash -LiteralPath $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
         projectRef = $settings.projectRef
         gitCommitSha = $manifest.gitCommitSha
         isolatedContainerImage = $settings.postgresImage
+        restoredLedger = [ordered]@{
+            migrationCount = [long]$archiveLedger.Count
+            latestMigration = $latestMigration
+            source = 'archive-migration-state'
+        }
+        restoredFunctions = @($functions | ForEach-Object {
+            [ordered]@{
+                signature = $_.signature
+                resultType = $_.result_type
+                authenticatedExecute = $_.authenticated_execute
+                anonExecute = $_.anon_execute
+                publicExecute = $_.public_execute
+            }
+        })
         verifiedCounts = [ordered]@{
             authUsers = $countLookup['auth.users']
             userProfiles = $countLookup['public.user_profiles']
@@ -341,7 +443,19 @@ $$;
     Set-RestrictivePathPermissions -Path $reportPath -IsDirectory $false
     $completed = $true
 
-    Write-Output "Isolated restore and verification passed. Report: $reportPath"
+    Write-Output "RESTORE_FIDELITY_PASS"
+    Write-Output $sourceHealth
+    foreach ($warning in $sourceHealthWarnings) {
+        Write-Output ("SOURCE_HEALTH_WARNING {0}={1}" -f $warning.check_name, $warning.violation_count)
+    }
+    Write-Output ("ARCHIVE_LEDGER count={0} latest={1}" -f $archiveLedger.Count, $latestMigration)
+    Write-Output ("AUTH_USERS={0}" -f $countLookup['auth.users'])
+    Write-Output ("STORAGE_OBJECTS={0}" -f $countLookup['storage.objects'])
+    Write-Output ("STORAGE_BUCKETS={0}" -f $countLookup['storage.buckets'])
+    foreach ($function in $functions) {
+        Write-Output ("RESTORED_FUNCTION {0}=>{1} authenticated={2} anon={3} public={4}" -f $function.signature, $function.result_type, $function.authenticated_execute, $function.anon_execute, $function.public_execute)
+    }
+    Write-Output "Isolated restore verification finished. Report: $reportPath"
 } catch {
     $failureReport = [ordered]@{
         completedAtUtc = [DateTime]::UtcNow.ToString('o')
@@ -353,6 +467,8 @@ $$;
         } elseif ($failureStage -ceq 'logical restore' -and
             $_.Exception.Message -match '^The logical dump could not be restored') {
             $_.Exception.Message
+        } elseif ($failureStage -in @('verification queries', 'row-count comparison', 'restore fidelity')) {
+            $_.Exception.Message
         } else {
             $null
         }
@@ -362,7 +478,16 @@ $$;
     $failureReport | ConvertTo-Json |
         Set-Content -LiteralPath $failureReportPath -Encoding UTF8
     Set-RestrictivePathPermissions -Path $failureReportPath -IsDirectory $false
-    Write-Error "Isolated restore rehearsal failed during: $failureStage."
+    $visibleReason = if ($failureStage -in @('verification queries', 'row-count comparison', 'restore fidelity')) {
+        $_.Exception.Message
+    } else {
+        $null
+    }
+    if ([string]::IsNullOrWhiteSpace($visibleReason)) {
+        Write-Error "Isolated restore rehearsal failed during: $failureStage."
+    } else {
+        Write-Error "Isolated restore rehearsal failed during: $failureStage. $visibleReason"
+    }
     exit 1
 } finally {
     $archivePassword = $null
