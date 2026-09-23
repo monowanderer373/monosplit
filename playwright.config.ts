@@ -35,6 +35,7 @@ export default defineConfig({
       // Browser tests are intentionally pinned to the disposable local stack.
       VITE_SUPABASE_URL: localSupabaseUrl,
       VITE_SUPABASE_ANON_KEY: localSupabaseAnonKey,
+      VITE_HOME_VISUAL: '1',
     },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

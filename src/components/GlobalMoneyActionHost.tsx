@@ -5,7 +5,7 @@ import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import { useT } from '../lib/i18n'
-import { globalDestinationForPath } from '../lib/moneyContext'
+import { contextRankSurfaceForPath } from '../lib/moneyContext'
 import { recordProductEvent } from '../lib/productEvents'
 import ContextGate from './ContextGate'
 import UniversalQuickAddSheet from './UniversalQuickAddSheet'
@@ -66,7 +66,7 @@ export default function GlobalMoneyActionHost() {
       <ContextGate
         isAnonymous={Boolean(authUser.isAnonymous)}
         excludedSpaceId={action.excludedSpaceId}
-        destination={globalDestinationForPath(location.pathname)}
+        destination={contextRankSurfaceForPath(location.pathname)}
         expenses={ledger.expenses}
         resolving={quickAdd.resolving}
         contextError={quickAdd.contextError}
@@ -81,7 +81,7 @@ export default function GlobalMoneyActionHost() {
       <ContextGate
         isAnonymous={Boolean(authUser.isAnonymous)}
         mode="switch"
-        destination={globalDestinationForPath(location.pathname)}
+        destination={contextRankSurfaceForPath(location.pathname)}
         expenses={ledger.expenses}
         resolving={quickAdd.resolving}
         contextError={quickAdd.contextError}

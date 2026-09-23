@@ -18,10 +18,10 @@ test('keeps four destinations and a usable global money action at 320px', async 
   await page.goto('/friends')
   const navigation = page.getByRole('navigation', { name: 'Primary navigation' })
   await expect(navigation).toBeVisible()
-  await expect(navigation.getByRole('button', { name: 'Personal', exact: true })).toBeVisible()
-  await expect(navigation.getByRole('button', { name: 'Friends', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(navigation.getByRole('button', { name: 'Groups / Trips', exact: true })).toBeVisible()
-  await expect(navigation.getByRole('button', { name: 'Me', exact: true })).toBeVisible()
+  await expect(navigation.getByRole('button', { name: '日常', exact: true })).toBeVisible()
+  await expect(navigation.getByRole('button', { name: '共享', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(navigation.getByRole('button', { name: '分析', exact: true })).toBeVisible()
+  await expect(navigation.getByRole('button', { name: '我的', exact: true })).toBeVisible()
 
   const addButton = page.getByRole('button', { name: 'Quick add expense' })
   const box = await addButton.boundingBox()
@@ -39,10 +39,10 @@ test('keeps four destinations and a usable global money action at 320px', async 
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
   await page.goto('/spaces')
-  await expect(navigation.getByRole('button', { name: 'Groups / Trips', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(navigation.getByRole('button', { name: '共享', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('heading', { name: 'Groups / Trips' })).toBeVisible()
   await page.goto('/profile')
-  await expect(navigation.getByRole('button', { name: 'Me', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(navigation.getByRole('button', { name: '我的', exact: true })).toHaveAttribute('aria-current', 'page')
 })
 
 test('direct Quick Add Back and Close both land safely on Personal', async ({ page }, testInfo) => {
@@ -56,7 +56,7 @@ test('direct Quick Add Back and Close both land safely on Personal', async ({ pa
   await page.goBack()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByText('TABBY TALLY')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Daily', exact: true })).toBeVisible()
 
   await page.goto('about:blank')
   await page.goto('/quick-add?source=pwa-shortcut')
@@ -65,7 +65,7 @@ test('direct Quick Add Back and Close both land safely on Personal', async ({ pa
   await dialog.getByRole('button', { name: 'Close' }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByText('TABBY TALLY')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Daily', exact: true })).toBeVisible()
 })
 
 test('keeps the global money action above mobile form controls', async ({
@@ -96,7 +96,7 @@ test('keeps the global money action above mobile form controls', async ({
 
     await openPersonDetail(owner, 'Pointer Manual')
     const personNavigation = owner.getByRole('navigation', { name: 'Primary navigation' })
-    await expect(personNavigation.getByRole('button', { name: 'Friends', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(personNavigation.getByRole('button', { name: '共享', exact: true })).toHaveAttribute('aria-current', 'page')
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     const capture = owner.getByRole('dialog', { name: 'Add Expense' })
     await capture.getByRole('textbox', { name: /^Amount/ }).fill('1.01')
@@ -172,7 +172,7 @@ test('keeps the global money action above mobile form controls', async ({
     await friendsGate.getByRole('button', { name: 'Close' }).click()
     await owner
       .getByRole('navigation', { name: 'Primary navigation' })
-      .getByRole('button', { name: 'Personal', exact: true })
+      .getByRole('button', { name: '日常', exact: true })
       .click()
     await expect(owner).toHaveURL(/\/$/)
   } finally {

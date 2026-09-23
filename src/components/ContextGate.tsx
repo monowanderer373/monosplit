@@ -7,7 +7,7 @@ import {
   matchesContextSearch,
   rankMoneyContexts,
 } from '../lib/contextRanking'
-import type { GlobalDestination, MoneyContextRef } from '../lib/moneyContext'
+import type { ContextRankSurface, MoneyContextRef } from '../lib/moneyContext'
 import {
   EMPTY_MONEY_CONTEXT_CATALOG,
   loadMoneyContextCatalog,
@@ -19,7 +19,7 @@ type Props = {
   isAnonymous: boolean
   excludedSpaceId?: string
   mode?: 'entry' | 'switch'
-  destination?: GlobalDestination
+  destination?: ContextRankSurface
   expenses?: CanonicalExpense[]
   pendingSwitch?: MoneyContextRef | null
   contextError?: boolean
@@ -34,7 +34,7 @@ export default function ContextGate({
   isAnonymous,
   excludedSpaceId,
   mode = 'entry',
-  destination = 'personal',
+  destination = 'daily',
   expenses = [],
   pendingSwitch,
   contextError = false,

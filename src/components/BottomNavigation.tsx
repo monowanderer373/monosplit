@@ -10,10 +10,10 @@ const destinations: ReadonlyArray<{
   label: TranslationKey
   path: string
 }> = [
-  { id: 'personal', label: 'common.personal', path: '/' },
-  { id: 'friends', label: 'common.friends', path: '/friends' },
-  { id: 'groups-trips', label: 'common.groupsTrips', path: '/spaces' },
-  { id: 'me', label: 'common.me', path: '/profile' },
+  { id: 'daily', label: 'nav.daily', path: '/' },
+  { id: 'insights', label: 'nav.insights', path: '/insights' },
+  { id: 'shared', label: 'nav.shared', path: '/shared' },
+  { id: 'me', label: 'nav.me', path: '/profile' },
 ]
 
 export default function BottomNavigation() {

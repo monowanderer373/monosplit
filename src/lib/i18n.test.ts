@@ -7,6 +7,8 @@ const ACTIVE_PREFIXES = [
   'cat.',
   'common.',
   'navigation.',
+  'nav.',
+  'insights.',
   'contextGate.',
   'contextPicker.',
   'expense.',

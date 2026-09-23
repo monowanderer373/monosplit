@@ -13,7 +13,7 @@ import {
 import { formatDate } from '../lib/locale'
 import { useStore } from '../store/useStore'
 
-export default function SpacesPage() {
+export default function SpacesPage({ preferredType }: { preferredType?: SpaceType } = {}) {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const navigate = useNavigate()
@@ -22,7 +22,7 @@ export default function SpacesPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
-  const [type, setType] = useState<SpaceType>('trip')
+  const [type, setType] = useState<SpaceType>(preferredType ?? 'trip')
   const [currency, setCurrency] = useState(authUser?.defaultCurrency ?? 'MYR')
   const [error, setError] = useState<TranslationKey | ''>('')
 
@@ -153,7 +153,7 @@ export default function SpacesPage() {
 
         {loading ? (
           <div className="ms-card p-6 text-sm text-[var(--ms-text-secondary)]">{t('spaces.loading')}</div>
-        ) : spaces.length === 0 ? (
+        ) : (preferredType ? spaces.filter(({ space }) => space.type === preferredType) : spaces).length === 0 ? (
           <div className="ms-card-hero text-center">
             <p className="text-4xl">🐾</p>
             <h3 className="mt-3 text-xl font-extrabold">{t('spaces.emptyTitle')}</h3>
@@ -163,7 +163,7 @@ export default function SpacesPage() {
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {spaces.map(({ space, role }) => (
+            {(preferredType ? spaces.filter(({ space }) => space.type === preferredType) : spaces).map(({ space, role }) => (
               <button
                 key={space.id}
                 className="ms-card text-left transition-transform hover:-translate-y-0.5"

@@ -1,13 +1,13 @@
 .home-shell {
-  --home-bg: #faf7f2;
-  --home-surface: #f1eae0;
+  --home-bg: #fffcf8;
+  --home-surface: #f3ede4;
   --home-card: #fffdf9;
-  --home-text: #2c2926;
-  --home-muted: #6f675f;
-  --home-line: #e4d9cc;
+  --home-text: #292724;
+  --home-muted: #77736e;
+  --home-line: #eee9e2;
   --home-accent: #c86542;
-  --home-in: #4d7465;
-  --home-out: #c65b52;
+  --home-in: #087b75;
+  --home-out: #b74843;
   --home-warn: #f8f1e4;
   --home-shared: #e7f0ec;
   background: var(--home-bg) !important;
@@ -26,9 +26,23 @@
 .home-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   min-height: 44px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.home-title {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.home-today {
+  margin: 4px 0 0;
+  color: var(--home-muted);
+  font-size: 0.8125rem;
 }
 
 .home-mode {
@@ -73,6 +87,14 @@
   background: var(--home-surface);
   border-radius: 20px;
   padding: 16px;
+}
+
+.home-balance-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .home-card-top,
@@ -156,13 +178,19 @@
 }
 
 .home-stat-row {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--home-line);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+  padding: 4px 4px 0;
 }
 
 .home-stat {
   min-width: 0;
+  padding-inline: 8px;
+}
+
+.home-stat + .home-stat {
+  border-left: 1px solid var(--home-line);
 }
 
 .home-stat p {
@@ -280,24 +308,18 @@
 }
 
 .home-date {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
+  margin-top: 20px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #f3ede4;
 }
 
 .home-date:first-child {
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 .home-date strong {
   font-size: 0.8125rem;
-}
-
-.home-date i {
-  flex: 1;
-  height: 1px;
-  background: var(--home-line);
 }
 
 .home-record {

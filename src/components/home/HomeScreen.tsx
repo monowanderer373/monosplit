@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { useAccessibleDialog } from '../../hooks/useAccessibleDialog'
 import { getCategoryIcon } from '../../lib/categories'
 import type {
@@ -13,7 +13,7 @@ import type {
   SharedContext,
   SummaryTileLayout,
 } from '../../lib/homeView'
-import { isAvailableMoneyAccount } from '../../lib/homeView'
+import { isAvailableMoneyAccount, localCalendarDate } from '../../lib/homeView'
 import { useT, type TranslationKey } from '../../lib/i18n'
 import { formatDate, localeForLang } from '../../lib/locale'
 import { formatMinorAmount } from '../../lib/money'
@@ -65,11 +65,30 @@ export default function HomeScreen(props: HomeScreenProps) {
   const selected = props.selectedAccountId === 'all'
     ? null
     : assetAccounts.find((account) => account.id === props.selectedAccountId) ?? null
+  const today = localCalendarDate(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
+  const swipeIds = ['all', ...assetAccounts.map((account) => account.id)]
+  const swipeStart = useRef<number | null>(null)
+  const onSwipeDown = (event: PointerEvent<HTMLElement>) => {
+    if ((event.target as HTMLElement).closest('button')) return
+    swipeStart.current = event.clientX
+  }
+  const onSwipeUp = (event: PointerEvent<HTMLElement>) => {
+    if (swipeStart.current == null) return
+    const delta = event.clientX - swipeStart.current
+    swipeStart.current = null
+    if (Math.abs(delta) < 48) return
+    const index = Math.max(0, swipeIds.indexOf(props.selectedAccountId))
+    const next = swipeIds[delta < 0 ? index + 1 : index - 1]
+    if (next) props.onSelectAccount(next)
+  }
 
   return (
     <div className="home-frame">
       <header className="home-header" data-testid="home-header">
-        <div />
+        <div>
+          <h1 className="home-title">{props.mode === 'daily' ? t('home.modeDaily') : t('home.modeTravel')}</h1>
+          <p className="home-today">{formatDate(today, lang)}</p>
+        </div>
         <div className="home-mode" role="group" aria-label={t('home.modeLabel')} data-testid="home-mode-switch">
           <button
             type="button"
@@ -89,7 +108,13 @@ export default function HomeScreen(props: HomeScreenProps) {
       </header>
 
       {props.mode === 'daily' ? (
-        <section className="home-card" aria-labelledby="home-balance-title">
+        <>
+        <section
+          className="home-card"
+          aria-labelledby="home-balance-title"
+          onPointerDown={onSwipeDown}
+          onPointerUp={onSwipeUp}
+        >
           <div className="home-card-top">
             <button
               type="button"
@@ -102,6 +127,22 @@ export default function HomeScreen(props: HomeScreenProps) {
             </button>
             <button
               type="button"
+              className="home-text-button"
+              data-testid="home-manage"
+              onClick={() => setSheet('manage')}
+            >
+              {t('home.manage')}
+            </button>
+          </div>
+          <div className="home-balance-line">
+            <BalanceValues
+              status={props.accountsStatus}
+              balances={props.balances}
+              hidden={props.balanceHidden}
+              emptyLabel={t('home.noAccounts')}
+            />
+            <button
+              type="button"
               className="home-icon-button"
               data-testid="home-balance-eye"
               aria-pressed={props.balanceHidden}
@@ -111,27 +152,22 @@ export default function HomeScreen(props: HomeScreenProps) {
               {props.balanceHidden ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
-          <BalanceValues
-            status={props.accountsStatus}
-            balances={props.balances}
-            hidden={props.balanceHidden}
-            emptyLabel={t('home.noAccounts')}
-          />
-          <div className="home-stat-row">
-            <div className="home-stat">
-              <p className="home-meta">{t('home.monthSpending')}</p>
-              <p>{formatLines(props.monthlySpending, lang, t)}</p>
-            </div>
-            <div className="home-stat">
-              <p className="home-meta">{t('home.toCollect')}</p>
-              <p>
-                {props.sharedStatus === 'error'
-                  ? t('home.unavailable')
-                  : formatLines(props.receivables, lang, t)}
-              </p>
-            </div>
-          </div>
         </section>
+        <div className="home-stat-row">
+          <div className="home-stat">
+            <p className="home-meta">{t('home.monthSpending')}</p>
+            <p>{formatLines(props.monthlySpending, lang, t)}</p>
+          </div>
+          <div className="home-stat">
+            <p className="home-meta">{t('home.toCollect')}</p>
+            <p>
+              {props.sharedStatus === 'error'
+                ? t('home.unavailable')
+                : formatLines(props.receivables, lang, t)}
+            </p>
+          </div>
+        </div>
+        </>
       ) : (
         <TripCard
           trip={props.trip}
@@ -146,7 +182,6 @@ export default function HomeScreen(props: HomeScreenProps) {
         <div className="home-tiles" data-layout={props.tileLayout} data-testid="home-tiles">
           {props.tileLayout !== 'shared' ? (
             <button type="button" className="home-tile home-tile-account" onClick={() => setSheet('tasks')}>
-              <span className="home-tile-icon" aria-hidden="true"><WalletIcon /></span>
               <strong>{t('home.accountTasks')}</strong>
               {props.accountTasks.length > 0 ? (
                 <span className="home-badge" aria-label={t('home.taskCount', { count: props.accountTasks.length })}>
@@ -157,7 +192,6 @@ export default function HomeScreen(props: HomeScreenProps) {
           ) : null}
           {props.tileLayout !== 'account' ? (
             <button type="button" className="home-tile home-tile-shared" onClick={() => setSheet('shared')}>
-              <span className="home-tile-icon" aria-hidden="true"><PeopleIcon /></span>
               <strong>{t('home.sharedBalances')}</strong>
               {props.sharedContexts.length > 0 ? (
                 <span className="home-badge" aria-label={t('home.sharedCount', { count: props.sharedContexts.length })}>
@@ -215,7 +249,6 @@ export default function HomeScreen(props: HomeScreenProps) {
                     ? `${t('home.yesterday')} · ${formatDate(group.date, lang)}`
                     : formatDate(group.date, lang)}
               </strong>
-              <i />
             </div>
             {group.records.map((record) => (
               <RecordRow
@@ -540,7 +573,10 @@ function chipText(record: HomeRecordPresentation, t: ReturnType<typeof useT>): s
       ? t('home.chipWithPerson', { name: record.chip.personName })
       : t('home.chipDirect')
   }
-  return record.chip.spaceName || t('home.sharedSpace')
+  if (!record.chip.spaceName) return t('home.sharedSpace')
+  return t(record.chip.spaceType === 'group' ? 'home.chipGroup' : 'home.chipTrip', {
+    name: record.chip.spaceName,
+  })
 }
 
 function taskLabel(task: AccountAttentionSource, t: ReturnType<typeof useT>): string {
@@ -602,25 +638,6 @@ function EyeOffIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
       <path d="M3 3l14 14M8 8.5A3 3 0 0011.5 12M4 7.5C2.8 8.5 2 10 2 10s3 5 8 5c1.2 0 2.3-.3 3.2-.8M8.2 5.2C8.8 5.1 9.4 5 10 5c5 0 8 5 8 5s-.6 1-1.7 2.1" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  )
-}
-
-function WalletIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <rect x="2" y="4" width="12" height="9" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M2 7h12" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
-  )
-}
-
-function PeopleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <circle cx="6" cy="5" r="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="11" cy="6" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M2.5 12c.4-2 2-3 3.5-3s3.1 1 3.5 3M10 9.2c1.2.1 2.3.8 2.8 2.3" fill="none" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   )
 }

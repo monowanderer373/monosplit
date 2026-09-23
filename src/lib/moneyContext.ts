@@ -23,7 +23,9 @@ export type RouteMoneyContext =
   | Readonly<{ kind: 'person-candidate'; personId: string }>
   | Readonly<{ kind: 'ambiguous' }>
 
-export type GlobalDestination = 'personal' | 'friends' | 'groups-trips' | 'me'
+export type GlobalDestination = 'daily' | 'insights' | 'shared' | 'me'
+
+export type ContextRankSurface = 'daily' | 'friends' | 'groups' | 'other'
 
 export function resolveRouteMoneyContext(pathname: string): RouteMoneyContext {
   if (pathname === '/' || pathname === '/quick-add') return { kind: 'personal' }
@@ -42,10 +44,23 @@ export function resolveRouteMoneyContext(pathname: string): RouteMoneyContext {
 }
 
 export function globalDestinationForPath(pathname: string): GlobalDestination {
-  if (pathname === '/friends' || pathname.startsWith('/person/')) return 'friends'
-  if (pathname === '/spaces' || pathname.startsWith('/space/')) return 'groups-trips'
+  if (pathname === '/insights') return 'insights'
+  if (
+    pathname === '/shared'
+    || pathname === '/friends'
+    || pathname.startsWith('/person/')
+    || pathname === '/spaces'
+    || pathname.startsWith('/space/')
+  ) return 'shared'
   if (pathname === '/profile') return 'me'
-  return 'personal'
+  return 'daily'
+}
+
+export function contextRankSurfaceForPath(pathname: string): ContextRankSurface {
+  if (pathname === '/friends' || pathname.startsWith('/person/') || pathname === '/shared') return 'friends'
+  if (pathname === '/spaces' || pathname.startsWith('/space/')) return 'groups'
+  if (pathname === '/' || pathname === '/quick-add' || pathname === '/insights') return 'daily'
+  return 'other'
 }
 
 export function isSpaceExpenseEligible(

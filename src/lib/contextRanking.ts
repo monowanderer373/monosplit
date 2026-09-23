@@ -1,5 +1,5 @@
 import type { CanonicalExpense } from '../types'
-import type { GlobalDestination, MoneyContextRef } from './moneyContext'
+import type { ContextRankSurface, MoneyContextRef } from './moneyContext'
 
 export type ContextActivity = Readonly<{
   context: MoneyContextRef
@@ -34,21 +34,18 @@ function recencyScore(lastUsedAt: string | null, nowMs: number): number {
 
 function destinationBias(
   context: MoneyContextRef,
-  destination: GlobalDestination,
+  destination: ContextRankSurface,
 ): number {
   if (destination === 'friends' && context.kind === 'person') return 4
-  if (
-    destination === 'groups-trips'
-    && context.kind === 'space'
-  ) return 4
-  if (destination === 'personal' && context.kind === 'personal') return 4
+  if (destination === 'groups' && context.kind === 'space') return 4
+  if (destination === 'daily' && context.kind === 'personal') return 4
   return 0
 }
 
 export function rankMoneyContexts(input: {
   contexts: MoneyContextRef[]
   activity: ContextActivity[]
-  destination: GlobalDestination
+  destination: ContextRankSurface
   nowMs?: number
 }): RankedMoneyContext[] {
   const nowMs = input.nowMs ?? Date.now()

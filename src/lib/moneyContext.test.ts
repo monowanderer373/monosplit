@@ -28,13 +28,15 @@ describe('money context routing', () => {
     }
   })
 
-  it('maps nested routes to one of four global destinations', () => {
-    expect(globalDestinationForPath('/')).toBe('personal')
-    expect(globalDestinationForPath('/capture')).toBe('personal')
-    expect(globalDestinationForPath('/friends')).toBe('friends')
-    expect(globalDestinationForPath('/person/person-1')).toBe('friends')
-    expect(globalDestinationForPath('/spaces')).toBe('groups-trips')
-    expect(globalDestinationForPath('/space/space-1')).toBe('groups-trips')
+  it('maps nested routes to the accepted primary destinations', () => {
+    expect(globalDestinationForPath('/')).toBe('daily')
+    expect(globalDestinationForPath('/capture')).toBe('daily')
+    expect(globalDestinationForPath('/insights')).toBe('insights')
+    expect(globalDestinationForPath('/shared')).toBe('shared')
+    expect(globalDestinationForPath('/friends')).toBe('shared')
+    expect(globalDestinationForPath('/person/person-1')).toBe('shared')
+    expect(globalDestinationForPath('/spaces')).toBe('shared')
+    expect(globalDestinationForPath('/space/space-1')).toBe('shared')
     expect(globalDestinationForPath('/profile')).toBe('me')
   })
 })

@@ -1,10 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import ActivityFeed from '../components/ActivityFeed'
-import CaptureLibrary from '../components/CaptureLibrary'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
-import ExpenseChangeRequestList from '../components/ExpenseChangeRequestList'
-import ExpenseHistoryList from '../components/ExpenseHistoryList'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
 import HomeScreen from '../components/home/HomeScreen'
 import '../components/home/home.css'
@@ -12,7 +8,6 @@ import { useAuth } from '../hooks/useAuth'
 import { useExpenseChanges } from '../hooks/useExpenseChanges'
 import { useHomeData } from '../hooks/useHomeData'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
-import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import {
   HOME_RECENT_LIMIT,
   accountAttentionSources,
@@ -47,7 +42,6 @@ export default function PersonalLedgerPage() {
   const { authUser, loading } = useAuth()
   const ledger = usePersonalLedger()
   const changeState = useExpenseChanges(Boolean(ledger.participantId), ledger.refresh)
-  const quickAdd = useUniversalQuickAdd()
   const homeUi = useStore((state) => state.homeUi)
   const setHomeUi = useStore((state) => state.setHomeUi)
   const showAllRecords = params.get('records') === 'all'
@@ -184,60 +178,6 @@ export default function PersonalLedgerPage() {
       />
 
       <ExpenseRecoveryNotices />
-
-      <div className="home-frame">
-        <CaptureLibrary
-          participantId={ledger.participantId}
-          timezone={authUser.timezone ?? 'Asia/Kuala_Lumpur'}
-          expenses={ledger.expenses}
-          onOpen={(preset) => {
-            quickAdd.open({
-              entryPoint: preset.source === 'recurring'
-                ? 'recurring-draft'
-                : 'recent-preset',
-              contextPolicy: preset.source === 'recurring' ? 'locked' : 'switchable',
-              context: {
-                ref: { kind: 'personal' },
-                currentParticipantId: ledger.participantId!,
-                availableParticipants: [{
-                  id: ledger.participantId!,
-                  displayName: authUser.displayName ?? authUser.email ?? t('common.me'),
-                  kind: 'account',
-                }],
-                defaultCurrency: authUser.defaultCurrency ?? 'MYR',
-              },
-              captureSource: preset.source,
-              initialValues: preset.values,
-              clientRequestId: preset.clientRequestId,
-              onSaved: preset.onSaved,
-            })
-          }}
-        />
-
-        <section className="home-section" data-testid="expense-change-requests">
-          <ExpenseChangeRequestList
-            requests={changeState.requests}
-            expenses={ledger.expenses}
-            currentParticipantId={ledger.participantId}
-            onRefresh={changeState.refreshAuthoritative}
-            include={(request) => request.proposedBy === ledger.participantId}
-          />
-        </section>
-
-        <div className="home-section">
-          <ExpenseHistoryList
-            expenses={ledger.expenses}
-            directRequests={changeState.requests}
-          />
-        </div>
-
-        <div className="home-section">
-          <ActivityFeed
-            expenseIds={ledger.expenses.map((expense) => expense.id)}
-            refreshKey={ledger.expenses.map((expense) => expense.updatedAt).join('|')}
-          />
-        </div>
-      </div>
     </main>
   )
 }

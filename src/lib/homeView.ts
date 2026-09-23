@@ -149,7 +149,7 @@ export type HomeContextChip =
   | { kind: 'personal' }
   | { kind: 'personal-trip'; tripLabel: string }
   | { kind: 'direct'; personName: string | null }
-  | { kind: 'space'; spaceName: string }
+  | { kind: 'space'; spaceName: string; spaceType: 'group' | 'trip' }
 
 export type HomeRecord = {
   id: string
@@ -816,7 +816,12 @@ function contextChip(
       : { kind: 'personal' }
   }
   if (expense.scope === 'space') {
-    return { kind: 'space', spaceName: spaces.get(expense.spaceId ?? '')?.name ?? expense.description ?? expense.category }
+    const space = spaces.get(expense.spaceId ?? '')
+    return {
+      kind: 'space',
+      spaceName: space?.name ?? expense.description ?? expense.category,
+      spaceType: space?.type === 'group' ? 'group' : 'trip',
+    }
   }
   const other = expense.participations.find((participation) =>
     participation.participantId !== ownerParticipantId,

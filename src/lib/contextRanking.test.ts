@@ -34,7 +34,7 @@ describe('Context Picker ranking and search', () => {
       rankMoneyContexts({
         contexts: [personal, hanoi, lan],
         activity,
-        destination: 'personal',
+        destination: 'daily',
         nowMs: Date.parse('2026-09-06T10:00:00Z'),
       }).map((item) => item.context),
     ).toEqual([lan, hanoi, personal])
@@ -45,7 +45,7 @@ describe('Context Picker ranking and search', () => {
       rankMoneyContexts({
         contexts: [hanoi, lan],
         activity: [],
-        destination: 'me',
+        destination: 'other',
         nowMs: 0,
       }).map((item) => item.context),
     ).toEqual([lan, hanoi])

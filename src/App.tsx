@@ -11,6 +11,8 @@ const SignupPage = lazy(() => import('./pages/SignupPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 const PersonalLedgerPage = lazy(() => import('./pages/PersonalLedgerPage'))
+const InsightsPage = lazy(() => import('./pages/InsightsPage'))
+const SharedPage = lazy(() => import('./pages/SharedPage'))
 const SpacesPage = lazy(() => import('./pages/SpacesPage'))
 const SpacePage = lazy(() => import('./pages/SpacePage'))
 const SpaceInvitePage = lazy(() => import('./pages/SpaceInvitePage'))
@@ -19,6 +21,9 @@ const PersonDetailPage = lazy(() => import('./pages/PersonDetailPage'))
 const FriendInvitePage = lazy(() => import('./pages/FriendInvitePage'))
 const SmartCapturePage = lazy(() => import('./pages/SmartCapturePage'))
 const AppShell = lazy(() => import('./components/AppShell'))
+const HomeVisualHarness = import.meta.env.VITE_HOME_VISUAL === '1'
+  ? lazy(() => import('./pages/HomeVisualHarness'))
+  : null
 
 function AppErrorFallback({ resetError }: { resetError: () => void }) {
   const t = useT()
@@ -67,6 +72,8 @@ function AppRoutes() {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<PersonalLedgerRoute />} />
+            <Route path="/insights" element={<InsightsPage />} />
+            <Route path="/shared" element={<SharedPage />} />
             <Route path="/quick-add" element={<PersonalLedgerRoute />} />
             <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/space/:spaceId" element={<SpacePage />} />
@@ -80,6 +87,7 @@ function AppRoutes() {
           <Route path="/legacy-spaces" element={<Navigate to="/spaces" replace />} />
           <Route path="/group/:groupId" element={<Navigate to="/spaces" replace />} />
           <Route path="/embed/:groupId" element={<Navigate to="/" replace />} />
+          {HomeVisualHarness ? <Route path="/__home-visual" element={<HomeVisualHarness />} /> : null}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
