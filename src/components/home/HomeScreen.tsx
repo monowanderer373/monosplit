@@ -159,14 +159,14 @@ export default function HomeScreen(props: HomeScreenProps) {
         <div className="home-stat-row">
           <div className="home-stat">
             <p className="home-meta">{t('home.monthSpending')}</p>
-            <p>{formatLines(props.monthlySpending, lang, t)}</p>
+            <p><MoneyLines lines={props.monthlySpending} lang={lang} t={t} /></p>
           </div>
           <div className="home-stat">
             <p className="home-meta">{t('home.toCollect')}</p>
             <p>
               {props.sharedStatus === 'error'
                 ? t('home.unavailable')
-                : formatLines(props.receivables, lang, t)}
+                : <MoneyLines lines={props.receivables} lang={lang} t={t} />}
             </p>
           </div>
         </div>
@@ -466,10 +466,10 @@ function TripCard({
       <button type="button" className="home-account-button" data-testid="home-trip-selector" onClick={onOpen}>
         <span className="home-trip-name">{trip.trip.name}</span>
         <span className="home-trip-status">{trip.phase === 'active' ? t('home.tripActive') : t('home.tripEnded')}</span>
-        <Chevron />
+        <Chevron className="home-trip-chevron" />
       </button>
       <p className="home-meta">{t('home.mySpending')}</p>
-      <p className="home-balance-figure">{formatLines(spending, lang, t)}</p>
+      <p className="home-balance-figure"><MoneyLines lines={spending} lang={lang} t={t} /></p>
       {range ? <p className="home-note">{range}</p> : null}
     </section>
   )
@@ -493,22 +493,24 @@ function RecordRow({ record, accountsReady }: { record: DisplayRecord; accountsR
           {record.statusLabel ? <p className="home-note">{record.statusLabel}</p> : null}
         </div>
         <div className="home-record-money">
-          <p className={`home-amount ${record.amountKnown === false ? '' : cue.tone}`}>
-            {record.amountKnown === false ? t('home.amountUnavailable') : (
-              <>
-                <span className="home-sr">{cue.label}</span>
-                {cue.sign}{formatMoney(record.amountMinor, record.currency, lang, t)}
-              </>
-            )}
-          </p>
-          <p className="home-wallet">
-            {!accountsReady
-              ? t('home.unavailable')
-              : record.fundingPending
-                ? t('home.fundingPending')
-                : record.walletName ?? t('home.walletUnlinked')}
-          </p>
-          {record.action}
+          <div className="home-record-figures">
+            <p className={`home-amount ${record.amountKnown === false ? '' : cue.tone}`}>
+              {record.amountKnown === false ? t('home.amountUnavailable') : (
+                <>
+                  <span className="home-sr">{cue.label}</span>
+                  {cue.sign}{formatMoney(record.amountMinor, record.currency, lang, t)}
+                </>
+              )}
+            </p>
+            <p className="home-wallet">
+              {!accountsReady
+                ? t('home.unavailable')
+                : record.fundingPending
+                  ? t('home.fundingPending')
+                  : record.walletName ?? t('home.walletUnlinked')}
+            </p>
+          </div>
+          {record.action ? <div className="home-record-action">{record.action}</div> : null}
         </div>
       </div>
     </article>
@@ -541,7 +543,7 @@ function SharedSide({
         <button key={`${direction}:${context.id}`} type="button" className="home-sheet-option" onClick={() => onOpen(context)}>
           <span>{context.label || t('home.sharedSpace')}</span>
           <span className="home-meta">
-            {lines.map((line) => formatMoney(line.amountMinor, line.currency, lang, t)).join(' · ')}
+            <MoneyLines lines={lines.map((line) => ({ currency: line.currency, amountMinor: line.amountMinor }))} lang={lang} t={t} />
           </span>
         </button>
       ))}
@@ -612,16 +614,28 @@ function accountBalanceLabel(account: HomeAccount, lang: ReturnType<typeof useSt
   if (!isAvailableMoneyAccount(account) || account.openingStatus !== 'posted') {
     return `${account.currency} · ${t('home.balanceIncomplete')}`
   }
-  return `${account.currency} · ${formatMoney(account.entrySumMinor, account.currency, lang, t)}`
+  return formatMoney(account.entrySumMinor, account.currency, lang, t)
 }
 
-function formatLines(
-  lines: readonly CurrencyAmount[],
-  lang: ReturnType<typeof useStore.getState>['lang'],
-  t: ReturnType<typeof useT>,
-): string {
+function MoneyLines({
+  lines,
+  lang,
+  t,
+}: {
+  lines: readonly CurrencyAmount[]
+  lang: ReturnType<typeof useStore.getState>['lang']
+  t: ReturnType<typeof useT>
+}) {
   if (lines.length === 0) return '—'
-  return lines.map((line) => formatMoney(line.amountMinor, line.currency, lang, t)).join(' · ')
+  return (
+    <span className="home-money-lines" data-count={lines.length}>
+      {lines.map((line, index) => (
+        <span key={`${line.currency}:${line.amountMinor}:${index}`} className="home-money-line">
+          {formatMoney(line.amountMinor, line.currency, lang, t)}
+        </span>
+      ))}
+    </span>
+  )
 }
 
 function formatMoney(
@@ -637,9 +651,9 @@ function formatMoney(
   }
 }
 
-function Chevron() {
+function Chevron({ className }: { className?: string }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+    <svg className={className} width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
       <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   )

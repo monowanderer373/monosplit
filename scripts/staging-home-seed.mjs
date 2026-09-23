@@ -1,3 +1,6 @@
+// Idempotent staging fixture. Re-running looks up stable request ids and the
+// Hanoi Days trip, then leaves those rows unchanged. It never updates amounts
+// or dates on an existing fixture. Passwords stay in the ignored env file.
 const STAGING_REF = 'czfgglzxiinsyagquhkh'
 const PRODUCTION_REF = 'skiqsxvmxvmxfzhrzcxh'
 
@@ -122,6 +125,21 @@ async function main() {
   const lan = client(origin, anonKey, lanToken)
   const ownerId = await owner('current_participant_id', {})
   const lanId = await lan('current_participant_id', {})
+  const countFixture = async () => {
+    const [trips, expenses, accounts, payments] = await Promise.all([
+      rows(origin, anonKey, ownerToken, 'spaces?select=id&name=eq.Hanoi%20Days&type=eq.trip'),
+      rows(origin, anonKey, ownerToken, `expenses?select=id&client_request_id=in.(${IDS.coffee},${IDS.grab},${IDS.dinner},${IDS.train},${IDS.breakfast})`),
+      rows(origin, anonKey, ownerToken, 'personal_accounts?select=id&name=in.(TNG,CIMB)'),
+      rows(origin, anonKey, ownerToken, `settlement_payments?select=id&client_request_id=eq.${IDS.settlement}`),
+    ])
+    return {
+      hanoiDays: trips.length,
+      seededExpenses: expenses.length,
+      seededAccounts: accounts.length,
+      seededSettlements: payments.length,
+    }
+  }
+  const before = await countFixture()
 
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }).format(new Date())
   const yesterdayDate = new Date(`${today}T12:00:00+08:00`)
@@ -225,19 +243,34 @@ async function main() {
     funding_account_amount_minor: 8000,
   })
   const dinnerId = dinner.expense_id
-  const dinnerRows = await rows(
+  const participations = await rows(
     origin,
     anonKey,
-    lanToken,
-    `expenses?select=version&id=eq.${dinnerId}`,
+    ownerToken,
+    `expense_participations?select=participant_id,state&expense_id=eq.${dinnerId}`,
   )
-  await lan('respond_to_direct_expense', {
-    target_expense_id: dinnerId,
-    response: 'accepted',
-    expected_expense_version: dinnerRows[0]?.version ?? 1,
-  })
+  const lanParticipation = participations.find((row) => row.participant_id === lanId)
+  if (lanParticipation?.state !== 'accepted') {
+    const dinnerRows = await rows(
+      origin,
+      anonKey,
+      lanToken,
+      `expenses?select=version&id=eq.${dinnerId}`,
+    )
+    await lan('respond_to_direct_expense', {
+      target_expense_id: dinnerId,
+      response: 'accepted',
+      expected_expense_version: dinnerRows[0]?.version ?? 1,
+    })
+  }
 
-  const tripId = await owner('create_space', {
+  const existingTrips = await rows(
+    origin,
+    anonKey,
+    ownerToken,
+    'spaces?select=id,name,type&name=eq.Hanoi%20Days&type=eq.trip',
+  )
+  const tripId = existingTrips[0]?.id ?? await owner('create_space', {
     space_type: 'trip',
     space_name: 'Hanoi Days',
     start_date: tripDay,
@@ -277,6 +310,13 @@ async function main() {
     funding_account_amount_minor: 1500,
   })
 
+  const existingPayments = await rows(
+    origin,
+    anonKey,
+    ownerToken,
+    `settlement_payments?select=id&client_request_id=eq.${IDS.settlement}`,
+  )
+  if (existingPayments.length === 0) {
   const outstanding = await lan('get_direct_outstanding', {
     target_counterparty_id: ownerId,
     currency_code: 'MYR',
@@ -326,12 +366,15 @@ async function main() {
     response: 'accepted',
     expected_payment_version: 1,
   })
+  }
 
+  const after = await countFixture()
   console.log(JSON.stringify({
     ok: true,
     projectRef: STAGING_REF,
-    dates: { today, yesterday, tripDay },
-    records: ['coffee', 'grab', 'dinner', 'train', 'breakfast', 'partial-repayment'],
+    unchanged: JSON.stringify(before) === JSON.stringify(after),
+    before,
+    after,
   }))
 }
 

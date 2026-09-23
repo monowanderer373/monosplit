@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { readFileSync } from 'node:fs'
 import { useState } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -6,7 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { HomeAccount, HomeDateGroup } from '../../lib/homeView'
 import { formatMinorAmount } from '../../lib/money'
 import { useStore } from '../../store/useStore'
+import GlobalMoneyAction from '../GlobalMoneyAction'
 import HomeScreen, { type HomeScreenProps } from './HomeScreen'
+
+const homeCss = readFileSync('src/components/home/home.css', 'utf8')
 
 afterEach(() => {
   cleanup()
@@ -111,10 +115,30 @@ describe('HomeScreen', () => {
 
   it('opens the account sheet and offers manage accounts', async () => {
     const user = userEvent.setup()
-    render(<HomeScreen {...props()} />)
+    render(
+      <div>
+        <HomeScreen {...props()} />
+        <GlobalMoneyAction onAdd={() => undefined} />
+      </div>,
+    )
     await user.click(screen.getByTestId('home-account-selector'))
-    expect(screen.getByRole('dialog', { name: 'Choose an account' })).toBeTruthy()
+    const sheet = screen.getByTestId('home-account-sheet')
+    expect(sheet.getAttribute('role')).toBe('dialog')
     expect(screen.getByTestId('home-manage-accounts').textContent).toContain('Manage accounts')
+    expect(document.body.textContent).not.toContain('MYR · MYR')
+    const action = screen.getByTestId('global-money-action-layer')
+    expect(action.closest('[inert], [aria-hidden="true"]') ?? (action.inert ? action : null)).toBeTruthy()
+    expect(action.className).toContain('z-[45]')
+    const backdrop = sheet.parentElement as HTMLElement
+    expect(backdrop.className).toContain('home-sheet-backdrop')
+    expect(homeCss).toContain('.home-sheet-backdrop')
+    expect(homeCss).toContain('z-index: 70')
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    const selector = screen.getByTestId('home-account-selector')
+    selector.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByTestId('home-account-sheet')).toBeTruthy()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -179,6 +203,27 @@ describe('HomeScreen', () => {
     rerender(<HomeScreen {...props({ selectedAccountId: 'cimb', density: 'compact', recordGroups: compactGroups })} />)
     expect(screen.getByTestId('home-record').className).toContain('is-compact')
     expect(screen.queryByText('🍽️')).toBeNull()
+    expect(screen.getByText('CIMB').closest('[data-testid="home-record"]')?.textContent).toContain('−')
+  })
+
+  it('keeps one currency token and stacks mixed amounts without a dangling separator', async () => {
+    render(<HomeScreen {...props({
+      monthlySpending: [
+        { currency: 'MYR', amountMinor: 7_550 },
+        { currency: 'VND', amountMinor: 250_000 },
+      ],
+      recordActions: {
+        'expense:1': <button type="button">Record actions</button>,
+      },
+    })} />)
+    const lines = screen.getAllByText(/MYR|₫|VND/)
+    expect(document.body.textContent).not.toContain('MYR · MYR')
+    expect(document.body.textContent).not.toMatch(/·\s*$/m)
+    expect(screen.getAllByText((_, node) => node?.classList.contains('home-money-line') ?? false).length).toBeGreaterThan(1)
+    expect(lines.length).toBeGreaterThan(0)
+    expect(screen.getByTestId('home-record').querySelector('.home-record-icon')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Record actions' })).toBeTruthy()
+    expect(screen.getByText('CIMB')).toBeTruthy()
   })
 
   it('shows loading, empty, and error states', () => {

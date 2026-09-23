@@ -166,7 +166,7 @@
   font-weight: 750;
   letter-spacing: -0.03em;
   line-height: 1.15;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 
 .home-note,
@@ -179,7 +179,7 @@
 
 .home-stat-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   margin-top: 12px;
   padding: 4px 4px 0;
 }
@@ -187,6 +187,7 @@
 .home-stat {
   min-width: 0;
   padding-inline: 8px;
+  container-type: inline-size;
 }
 
 .home-stat + .home-stat {
@@ -196,7 +197,30 @@
 .home-stat p {
   margin: 4px 0 0;
   font-weight: 700;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+}
+
+.home-money-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.home-money-lines[data-count="1"] {
+  flex-direction: row;
+}
+
+.home-money-line {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.home-stat .home-money-line {
+  font-size: clamp(0.7rem, 10cqi, 1rem);
 }
 
 .home-tiles {
@@ -261,7 +285,7 @@
 }
 
 .home-section {
-  margin-top: 20px;
+  margin-top: 12px;
 }
 
 .home-section-head {
@@ -328,7 +352,7 @@
 }
 
 .home-record.is-compact {
-  padding-block: 8px;
+  padding-block: 2px;
 }
 
 .home-record-main {
@@ -342,16 +366,21 @@
 
 .home-record.is-compact .home-record-main {
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-record.is-compact .home-chip {
+  margin-top: 2px;
 }
 
 .home-record-icon {
-  width: 36px;
-  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  background: var(--home-surface);
+  background: transparent;
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 .home-record-copy,
@@ -376,7 +405,37 @@
 }
 
 .home-record-money {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
   text-align: right;
+}
+
+.home-record-figures {
+  min-width: 0;
+}
+
+.home-record-action {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-record-action button {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  margin-block: -10px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--home-muted);
+  font-size: 1.125rem;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .home-amount {
@@ -400,7 +459,7 @@
 .home-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 70;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -455,9 +514,28 @@
   color: var(--home-muted);
 }
 
+.home-trip-card .home-account-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-trip-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 750;
+}
+
+.home-trip-card .home-trip-chevron {
+  flex: none;
+  margin-left: auto;
+}
+
 .home-trip-status {
   display: inline-flex;
-  margin-left: 8px;
+  flex: none;
+  margin-left: 0;
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--home-card);
