@@ -241,4 +241,37 @@ describe('HomeScreen', () => {
     await user.click(screen.getByRole('button', { name: 'View trips' }))
     expect(onCreateTrip).toHaveBeenCalled()
   })
+
+  it('shows a retry when records fail and keeps readable trips when affiliations fail', async () => {
+    const user = userEvent.setup()
+    const onRetryRecords = vi.fn()
+    const { rerender } = render(<HomeScreen {...props({
+      recordsStatus: 'error',
+      recordGroups: [],
+      onRetryRecords,
+    })} />)
+    expect(screen.queryByText('No records yet')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onRetryRecords).toHaveBeenCalledOnce()
+    rerender(<HomeScreen {...props({
+      mode: 'travel',
+      travelStatus: 'ready',
+      affiliationsStatus: 'error',
+      trip: {
+        phase: 'active',
+        trip: {
+          id: 'hanoi',
+          type: 'trip',
+          name: 'Hanoi Days',
+          status: 'active',
+          startDate: '2026-09-01',
+          endDate: '2026-09-20',
+          updatedAt: '2026-09-01T00:00:00.000Z',
+        },
+      },
+    })} />)
+    expect(screen.getByText('Hanoi Days')).toBeTruthy()
+    expect(screen.getByText(/Private trip labels could not be loaded/)).toBeTruthy()
+    expect(screen.queryByText('These figures could not be loaded.')).toBeNull()
+  })
 })

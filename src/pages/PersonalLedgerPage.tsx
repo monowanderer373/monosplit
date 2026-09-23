@@ -156,6 +156,9 @@ export default function PersonalLedgerPage() {
         sharedContexts={model.sharedContexts}
         sharedStatus={model.sharedStatus}
         recordGroups={model.recordGroups}
+        recordsStatus={ledger.expensesStatus}
+        onRetryRecords={() => void ledger.refresh()}
+        affiliationsStatus={home.affiliations.status}
         recordActions={recordActions}
         recordStatuses={recordStatuses}
         onShowAllRecords={() => {
@@ -257,7 +260,7 @@ function useHomeModel(input: {
       input.home.settlements.status,
       input.home.spaces.status,
     )
-    const travelStatus = combineStatus(input.home.spaces.status, input.home.affiliations.status)
+    const travelStatus = input.home.spaces.status
     const sharedContexts = sharedStatus === 'ready' && input.participantId
       ? deriveOutstandingSharedContexts({
         ownerParticipantId: input.participantId,
@@ -280,7 +283,9 @@ function useHomeModel(input: {
     const today = localCalendarDate(new Date(), input.timezone)
     const trips = [
       ...spaces.filter((space) => space.type === 'trip' && space.status !== 'voided'),
-      ...tripsFromAffiliations(affiliations, spaces),
+      ...(input.home.affiliations.status === 'ready'
+        ? tripsFromAffiliations(affiliations, spaces)
+        : []),
     ]
     const trip = travelStatus === 'ready'
       ? selectHomeTrip(trips, today, input.homeUi.selectedTripId)

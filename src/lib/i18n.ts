@@ -686,6 +686,15 @@ const translations = {
   'home.unavailable': { en: 'These figures could not be loaded.', zh: '这些金额暂时无法读取。' },
   'home.noAccounts': { en: 'No cash accounts yet', zh: '还没有现金账户' },
   'home.noRecords': { en: 'No records yet', zh: '还没有记录' },
+  'home.recordsUnavailable': {
+    en: 'Recent records could not be loaded.',
+    zh: '最近记录暂时无法读取。',
+  },
+  'home.retry': { en: 'Retry', zh: '重试' },
+  'home.affiliationsUnavailable': {
+    en: 'Private trip labels could not be loaded. Shared trips are still shown.',
+    zh: '私人旅程标签暂时无法读取。共享旅程仍会显示。',
+  },
   'home.manage': { en: '管理', zh: '管理' },
   'home.manageAccounts': { en: 'Manage accounts', zh: '管理账户' },
   'home.accountSheet': { en: 'Choose an account', zh: '选择账户' },

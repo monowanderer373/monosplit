@@ -43,6 +43,9 @@ export type HomeScreenProps = {
   sharedContexts: readonly SharedContext[]
   sharedStatus: 'loading' | 'error' | 'ready'
   recordGroups: readonly HomeDateGroup[]
+  recordsStatus?: 'loading' | 'ready' | 'error'
+  onRetryRecords?: () => void
+  affiliationsStatus?: 'loading' | 'ready' | 'error'
   recordActions?: Record<string, ReactNode>
   recordStatuses?: Record<string, string>
   onShowAllRecords: () => void
@@ -235,9 +238,24 @@ export default function HomeScreen(props: HomeScreenProps) {
             </button>
           </div>
         </div>
+        {props.recordsStatus === 'error' ? (
+          <p className="home-status" role="alert">
+            {t('home.recordsUnavailable')}
+            {' '}
+            <button type="button" className="home-text-button" onClick={props.onRetryRecords}>
+              {t('home.retry')}
+            </button>
+          </p>
+        ) : null}
+        {props.mode === 'travel' && props.affiliationsStatus === 'error' && props.travelStatus !== 'error' ? (
+          <p className="home-status" role="status">{t('home.affiliationsUnavailable')}</p>
+        ) : null}
         {props.mode === 'travel' && props.travelStatus === 'error' ? (
           <p className="home-status" role="alert">{t('home.unavailable')}</p>
-        ) : props.recordGroups.length === 0 ? (
+        ) : props.recordsStatus === 'loading' && props.recordGroups.length === 0 ? (
+          <p className="home-status">{t('home.loading')}</p>
+        ) : props.recordsStatus === 'error' && props.recordGroups.length === 0 ? null
+        : props.recordGroups.length === 0 ? (
           <p className="home-status">{t(props.emptyRecordsLabel ?? 'home.noRecords')}</p>
         ) : props.recordGroups.map((group) => (
           <div key={group.date}>

@@ -44,6 +44,7 @@ function usePersonalLedgerController() {
     expectedVersion: number
     description: string | null
   } | null>(null)
+  const [expensesStatus, setExpensesStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const { authUser } = useAuth()
   const identityId = authUser?.id ?? null
   const participantId = authUser?.participantId ?? null
@@ -79,11 +80,14 @@ function usePersonalLedgerController() {
 
   const refresh = useCallback(async () => {
     if (!identityId || !participantId) return
+    setExpensesStatus((current) => (current === 'ready' ? current : 'loading'))
     try {
       const expenses = await ledgerRepository.listExpenses()
       setLedgerExpenses(identityId, expenses)
+      setExpensesStatus('ready')
     } catch {
-      // Cached rows remain visible while offline or before migrations are applied.
+      // Keep any previously loaded rows, but do not present a failed read as an empty ledger.
+      setExpensesStatus('error')
     }
   }, [identityId, participantId, setLedgerExpenses])
 
@@ -321,6 +325,7 @@ function usePersonalLedgerController() {
     identityId,
     participantId,
     expenses,
+    expensesStatus,
     rows,
     totals,
     outbox: partition?.outbox ?? [],
