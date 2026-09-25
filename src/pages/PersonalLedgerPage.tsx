@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
@@ -31,6 +31,7 @@ import {
   type HomeSpaceRef,
 } from '../lib/homeView'
 import { useT } from '../lib/i18n'
+import { createPersonalAccount } from '../lib/personalAccountRepository'
 import { personPrincipalIds } from '../lib/personMoney'
 import type { ConfirmedSettlement } from '../lib/relationalBalance'
 import { useStore } from '../store/useStore'
@@ -45,7 +46,8 @@ export default function PersonalLedgerPage() {
   const homeUi = useStore((state) => state.homeUi)
   const setHomeUi = useStore((state) => state.setHomeUi)
   const showAllRecords = params.get('records') === 'all'
-  const homeRefreshKey = ledger.expenses.map((expense) => `${expense.id}:${expense.updatedAt}`).join('|')
+  const [accountReload, setAccountReload] = useState(0)
+  const homeRefreshKey = `${ledger.expenses.map((expense) => `${expense.id}:${expense.updatedAt}`).join('|')}:${accountReload}`
   const home = useHomeData(ledger.participantId, homeRefreshKey, showAllRecords)
   const model = useHomeModel({
     participantId: ledger.participantId,
@@ -148,6 +150,12 @@ export default function PersonalLedgerPage() {
         onSelectAccount={(selectedAccountId) => setHomeUi({ selectedAccountId })}
         accounts={model.accounts}
         accountsStatus={home.accounts.status}
+        accountsRefreshing={home.refreshing && home.accounts.status === 'ready'}
+        defaultCurrency={authUser.defaultCurrency ?? 'MYR'}
+        onCreateAccount={async (input) => {
+          await createPersonalAccount(input)
+          setAccountReload((current) => current + 1)
+        }}
         balances={model.balances}
         monthlySpending={model.monthlySpending}
         receivables={model.receivables}

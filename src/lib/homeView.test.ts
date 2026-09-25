@@ -3,6 +3,7 @@ import type { CanonicalExpense } from '../types'
 import {
   HOME_RECENT_LIMIT,
   homeRecordAccountFilter,
+  homeRecordAmountState,
   isBookedHomeExpense,
   accountAttentionSources,
   availableMoney,
@@ -665,6 +666,9 @@ describe('funding fail-closed and booked activity', () => {
     })
     expect(record?.amountKnown).toBe(false)
     expect(record?.amountMinor).not.toBe(300_000)
+    expect(homeRecordAmountState(false, 'loading')).toBe('pending')
+    expect(homeRecordAmountState(false, 'error')).toBe('unavailable')
+    expect(homeRecordAmountState(true, 'ready')).toBe('amount')
   })
 
   it('drops pending direct expenses and ignores the daily account filter while traveling', () => {

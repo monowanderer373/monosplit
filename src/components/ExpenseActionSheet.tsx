@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CanonicalExpense, GroupRole } from '../types'
 import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
 import { SELECTABLE_EXPENSE_CATEGORIES } from '../lib/categories'
@@ -55,7 +56,8 @@ export default function ExpenseActionSheet({
   pendingRequest = null,
   onCancelExpense,
   onRefresh,
-}: Props) {
+  statusNotice = '',
+}: Props & { statusNotice?: string }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<EditorMode>('menu')
@@ -267,12 +269,12 @@ export default function ExpenseActionSheet({
         •••
       </button>
 
-      {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 sm:items-center sm:p-4">
+      {open ? createPortal(
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/35 sm:items-center sm:p-4">
           <div className="absolute inset-0" aria-hidden="true" onClick={() => setOpen(false)} />
           <section
             ref={dialogRef}
-            className="relative z-10 max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-[var(--ms-surface)] p-5 shadow-2xl sm:rounded-[2rem]"
+            className="relative z-10 max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-[var(--ms-surface)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem]"
             role="dialog"
             aria-modal="true"
             aria-labelledby={`expense-action-${expense.id}`}
@@ -301,16 +303,21 @@ export default function ExpenseActionSheet({
               <p className="mt-4 rounded-xl bg-[var(--ms-danger-bg)] px-3 py-2 text-sm text-[var(--ms-danger)]">
                 {t(error)}
               </p>
+            ) : statusNotice ? (
+              <p className="mt-4 rounded-xl bg-[var(--ms-danger-bg)] px-3 py-2 text-sm text-[var(--ms-danger)]" role="alert">
+                {statusNotice}
+              </p>
             ) : null}
 
             {mode === 'menu' ? (
-              <div className="mt-5 grid gap-3">
+              <div className="mt-5 grid w-full gap-3" data-testid="expense-action-menu">
                 {policy.actions.map((action) => (
                   <button
                     key={action}
-                    className={action === 'cancel' || action === 'request_cancellation'
+                    data-testid={`expense-action-${action}`}
+                    className={`w-full whitespace-normal text-left ${action === 'cancel' || action === 'request_cancellation'
                       ? 'ms-btn-ghost text-[var(--ms-danger)]'
-                      : 'ms-btn-ghost'}
+                      : 'ms-btn-ghost'}`}
                     disabled={failClosed}
                     onClick={() => begin(action)}
                   >
@@ -518,7 +525,8 @@ export default function ExpenseActionSheet({
               </div>
             ) : null}
           </section>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   )

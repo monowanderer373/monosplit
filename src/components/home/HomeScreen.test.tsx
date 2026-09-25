@@ -89,6 +89,7 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
     onSelectTrip: vi.fn(),
     onCreateTrip: vi.fn(),
     onOpenSharedContext: vi.fn(),
+    onCreateAccount: vi.fn(async () => undefined),
     ...overrides,
   }
 }
@@ -318,5 +319,50 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Hanoi Days')).toBeTruthy()
     expect(screen.getByText(/Private trip labels could not be loaded/)).toBeTruthy()
     expect(screen.queryByText('These figures could not be loaded.')).toBeNull()
+  })
+
+  it('offers a first-account action that opens the real create form', async () => {
+    const user = userEvent.setup()
+    const onCreateAccount = vi.fn(async () => undefined)
+    render(<HomeScreen {...props({
+      accounts: [],
+      balances: [],
+      recordGroups: [],
+      tileLayout: 'hidden',
+      onCreateAccount,
+    })} />)
+    await user.click(screen.getByTestId('home-add-first-account'))
+    expect(screen.getByTestId('home-create-account-sheet')).toBeTruthy()
+    await user.type(screen.getByLabelText('Account name'), 'Touch n Go')
+    await user.click(screen.getByTestId('home-create-account'))
+    expect(onCreateAccount).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Touch n Go',
+      accountType: 'ewallet',
+      openingBalanceMinor: null,
+      balanceAsOf: null,
+    }))
+  })
+
+  it('shows loading instead of an amount error while funding is still pending', () => {
+    const pending = groups[0]!.records.map((record) => ({ ...record, amountKnown: false, walletName: null }))
+    const { rerender } = render(<HomeScreen {...props({
+      accountsStatus: 'loading',
+      recordGroups: [{ ...groups[0]!, records: pending }],
+    })} />)
+    expect(screen.getAllByText('Loading home…').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Amount unavailable')).toBeNull()
+    rerender(<HomeScreen {...props({
+      accountsStatus: 'error',
+      recordGroups: [{ ...groups[0]!, records: pending }],
+      sharedStatus: 'error',
+    })} />)
+    expect(screen.getAllByText('Amount unavailable').length).toBeGreaterThan(0)
+  })
+
+  it('keeps a verified amount visible with an updating indication during refresh', () => {
+    render(<HomeScreen {...props({ accountsRefreshing: true })} />)
+    expect(screen.getAllByText(/123,456,789\.01/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Updating…').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Amount unavailable')).toBeNull()
   })
 })

@@ -57,7 +57,7 @@ test.describe('local relational multi-user journey', () => {
     await expect(owner.getByRole('heading', { name: 'Sabah E2E Trip' })).toBeVisible()
     spaceUrl = owner.url()
     const ownerNavigation = owner.getByRole('navigation', { name: 'Primary navigation' })
-    await expect(ownerNavigation.getByRole('button', { name: '共享' })).toHaveAttribute('aria-current', 'page')
+    await expect(ownerNavigation.getByRole('button', { name: 'Shared' })).toHaveAttribute('aria-current', 'page')
     await expect(owner.getByText('Close Trip')).toHaveCount(0)
     await expect(owner.getByText('Final Statement')).toHaveCount(0)
     await expectSectionOrder(owner, [

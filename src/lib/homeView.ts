@@ -669,6 +669,15 @@ export function groupHomeRecords(
   return groups
 }
 
+export function homeRecordAmountState(
+  amountKnown: boolean,
+  accountsStatus: 'loading' | 'error' | 'ready',
+): 'amount' | 'pending' | 'unavailable' {
+  if (amountKnown) return 'amount'
+  if (accountsStatus === 'error') return 'unavailable'
+  return 'pending'
+}
+
 export function signedAmountCue(direction: 'in' | 'out'): { sign: '+' | '−'; tone: 'incoming' | 'outgoing' } {
   return direction === 'in'
     ? { sign: '+', tone: 'incoming' }
