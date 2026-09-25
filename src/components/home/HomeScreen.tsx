@@ -114,7 +114,7 @@ export default function HomeScreen(props: HomeScreenProps) {
           <button
             type="button"
             aria-pressed={props.mode === 'travel'}
-            onClick={() => props.onModeChange('travel')}
+            onClick={() => props.onModeChange(props.mode === 'travel' ? 'daily' : 'travel')}
           >
             {t('home.modeTravel')}
           </button>
@@ -278,7 +278,7 @@ export default function HomeScreen(props: HomeScreenProps) {
         : props.recordGroups.length === 0 ? (
           <p className="home-status">{t(props.emptyRecordsLabel ?? 'home.noRecords')}</p>
         ) : props.recordGroups.map((group) => (
-          <div key={group.date}>
+          <div className="home-day" key={group.date}>
             <div className="home-date">
               <strong>
                 {group.kind === 'today'
@@ -544,6 +544,7 @@ function RecordRow({
           {record.showChip ? <span className="home-chip">{chipText(record, t)}</span> : null}
           {record.statusLabel ? <p className="home-note">{record.statusLabel}</p> : null}
         </div>
+        <i className="home-dots" aria-hidden="true" />
         <div className="home-record-money">
           <div className="home-record-figures">
             <p className={`home-amount ${homeRecordAmountState(record.amountKnown, accountsStatus) === 'amount' ? cue.tone : ''}`}>

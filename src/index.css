@@ -22,42 +22,42 @@
   font-family: 'Plus Jakarta Sans', 'DM Sans', Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 
   /* ── Surfaces ── */
-  --ms-bg: #fdfbf7;
-  --ms-bg-warm: #f6f1e9;
-  --ms-surface: #ffffff;
-  --ms-surface-dim: #f6f1e9;
+  --ms-bg: #f4efe4;
+  --ms-bg-warm: #efe4d4;
+  --ms-surface: #faf6ee;
+  --ms-surface-dim: #efe4d4;
   /* ── Lines ── */
-  --ms-border: #efe7dc;
-  --ms-border-light: #f6f0e7;
-  --ms-hairline: #efe7dc;
+  --ms-border: #d9cbb8;
+  --ms-border-light: #efe4d4;
+  --ms-hairline: #d9cbb8;
   /* Retained so older markup keeps resolving; now just a hairline value. */
-  --ms-sketch-line: #efe7dc;
+  --ms-sketch-line: #d9cbb8;
 
   /* ── Text: three levels only, so hierarchy stays decidable ── */
-  --ms-text: #1f1b18;
-  --ms-text-secondary: #7a6a5c;
-  --ms-text-muted: #a79684;
+  --ms-text: #1a120c;
+  --ms-text-secondary: #6d5c4e;
+  --ms-text-muted: #6d5c4e;
 
   /* ── Accent: reserved for primary actions and brand, never decoration ── */
-  --ms-accent: #c2571a;
-  --ms-accent-hover: #a6470f;
-  --ms-accent-light: #e9a276;
-  --ms-accent-bg: #fbede2;
+  --ms-accent: #d7263d;
+  --ms-accent-hover: #b61e32;
+  --ms-accent-light: #e2b143;
+  --ms-accent-bg: #f8e4e1;
 
   /* ── Status ── */
-  --ms-success: #3f6b4a;
-  --ms-success-bg: #eaf1eb;
-  --ms-danger: #a63d2e;
-  --ms-danger-bg: #f8ece9;
-  --ms-info: #4a6e86;
-  --ms-info-bg: #ebf0f3;
+  --ms-success: #1d4e89;
+  --ms-success-bg: #e7eef6;
+  --ms-danger: #d7263d;
+  --ms-danger-bg: #f8e4e1;
+  --ms-info: #1d4e89;
+  --ms-info-bg: #e7eef6;
 
   /* ── Elevation: the only tool that creates hierarchy.
         elev-3 is for the one thing on screen that matters most. ── */
   --ms-elev-1: 0 1px 2px rgba(31, 27, 24, 0.05);
   --ms-elev-2: 0 2px 10px rgba(31, 27, 24, 0.05);
   --ms-elev-3: 0 6px 22px rgba(31, 27, 24, 0.09), 0 1px 2px rgba(31, 27, 24, 0.05);
-  --ms-elev-accent: 0 8px 20px rgba(194, 87, 26, 0.24);
+  --ms-elev-accent: 0 8px 20px rgba(215, 38, 61, 0.28);
 
   /* ── Shape ── */
   --ms-radius-card: 1.375rem;
@@ -94,6 +94,24 @@ body {
 
 #root {
   min-height: 100dvh;
+}
+
+html[data-place="bali"] {
+  --ms-bg: #fff6ea;
+  --ms-bg-warm: #ffe7cf;
+  --ms-surface: #fffaf3;
+  --ms-surface-dim: #ffe7cf;
+  --ms-border: #f0d3b4;
+  --ms-border-light: #ffe7cf;
+  --ms-hairline: #f0d3b4;
+  --ms-text: #1b2c2a;
+  --ms-text-secondary: #6d5b48;
+  --ms-text-muted: #6d5b48;
+  --ms-accent: #e25b3a;
+  --ms-accent-hover: #c4472a;
+  --ms-accent-bg: #ffe7d8;
+  --ms-success: #0f7a78;
+  --ms-danger: #e25b3a;
 }
 
 @layer components {

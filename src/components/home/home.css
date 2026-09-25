@@ -1,15 +1,16 @@
 .home-shell {
-  --home-bg: #fffcf8;
-  --home-surface: #f3ede4;
-  --home-card: #fffdf9;
-  --home-text: #292724;
-  --home-muted: #77736e;
-  --home-line: #eee9e2;
-  --home-accent: #c86542;
-  --home-in: #087b75;
-  --home-out: #b74843;
-  --home-warn: #f8f1e4;
-  --home-shared: #e7f0ec;
+  --home-bg: #f4efe4;
+  --home-surface: #efe4d4;
+  --home-card: #faf6ee;
+  --home-text: #1a120c;
+  --home-muted: #6d5c4e;
+  --home-line: #d9cbb8;
+  --home-accent: #d7263d;
+  --home-in: #1d4e89;
+  --home-out: #d7263d;
+  --home-warn: #f3e6c8;
+  --home-shared: #e4ebe6;
+  font-family: "IBM Plex Mono", ui-monospace, monospace !important;
   background: var(--home-bg) !important;
   color: var(--home-text) !important;
   padding-top: max(12px, env(safe-area-inset-top)) !important;
@@ -34,9 +35,11 @@
 
 .home-title {
   margin: 0;
+  font-family: Fraunces, serif;
   font-size: 1.5rem;
-  line-height: 1.2;
-  font-weight: 800;
+  line-height: 1.1;
+  font-weight: 560;
+  letter-spacing: -0.03em;
 }
 
 .home-today {
@@ -48,10 +51,8 @@
 .home-mode {
   justify-self: end;
   display: inline-flex;
-  padding: 4px;
-  border-radius: 999px;
-  background: var(--home-surface);
-  border: 1px solid var(--home-line);
+  gap: 5px;
+  align-items: center;
 }
 
 .home-mode button,
@@ -65,21 +66,32 @@
 }
 
 .home-mode button {
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--home-muted);
+  position: relative;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px dashed var(--home-text);
+  border-radius: 2px;
+  background:
+    radial-gradient(circle at 0 50%, var(--home-bg) 3px, transparent 3.5px),
+    radial-gradient(circle at 100% 50%, var(--home-bg) 3px, transparent 3.5px);
+  color: var(--home-text);
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 700;
-  padding: 0 14px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
 .home-mode button[aria-pressed="true"] {
-  background: var(--home-card);
-  color: var(--home-text);
-  box-shadow: 0 1px 2px rgb(44 41 38 / 8%);
+  background:
+    radial-gradient(circle at 0 50%, var(--home-bg) 3px, transparent 3.5px),
+    radial-gradient(circle at 100% 50%, var(--home-bg) 3px, transparent 3.5px),
+    var(--home-text);
+  color: var(--home-bg);
+  border-style: solid;
+  box-shadow: none;
 }
 
 .home-card,
@@ -162,10 +174,11 @@
 
 .home-balance-figure {
   margin: 0;
+  font-family: Fraunces, serif;
   font-size: clamp(1.5rem, 7vw, 2rem);
-  font-weight: 750;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  font-weight: 560;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
   overflow-wrap: normal;
 }
 
@@ -196,8 +209,19 @@
 
 .home-stat p {
   margin: 4px 0 0;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: normal;
+}
+
+.home-stat .home-meta {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.75rem;
+  letter-spacing: 0;
 }
 
 .home-money-lines {
@@ -295,7 +319,9 @@
 
 .home-section-head h2 {
   margin: 0;
-  font-size: 1rem;
+  font-family: Fraunces, serif;
+  font-size: 1.15rem;
+  font-weight: 560;
 }
 
 .home-section-actions,
@@ -306,9 +332,9 @@
 }
 
 .home-density {
-  padding: 2px;
-  border-radius: 999px;
-  background: var(--home-surface);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .home-density button,
@@ -321,21 +347,37 @@
 }
 
 .home-density button {
-  min-width: 44px;
-  padding: 0 10px;
-  color: var(--home-muted);
+  min-width: 0;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1.5px solid var(--home-accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--home-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .home-density button[aria-pressed="true"] {
-  background: var(--home-card);
-  color: var(--home-text);
+  background: var(--home-accent);
+  color: #fffaf5;
 }
 
 .home-date {
-  margin-top: 20px;
+  margin-top: 16px;
   padding: 10px 12px;
   border-radius: 9px;
-  background: #f3ede4;
+  background: var(--home-surface);
+  color: var(--home-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.home-day + .home-day {
+  margin-top: 28px;
 }
 
 .home-date:first-child {
@@ -440,7 +482,10 @@
 
 .home-amount {
   margin: 0;
-  font-weight: 750;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
@@ -450,6 +495,71 @@
 
 .home-amount.outgoing {
   color: var(--home-out);
+}
+
+.home-dots {
+  display: none;
+}
+
+.home-record.is-compact .home-chip,
+.home-record.is-compact .home-wallet,
+.home-record.is-compact .home-record-icon {
+  display: none;
+}
+
+.home-record.is-compact .home-record-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.home-record.is-compact .home-dots {
+  display: block;
+  flex: 1 1 auto;
+  border-bottom: 1px dotted var(--home-muted);
+  transform: translateY(-3px);
+  min-width: 16px;
+}
+
+.home-record.is-compact .home-record-title {
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.home-record.is-compact .home-amount {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+html[data-place="bali"] .home-shell {
+  --home-bg: #fff6ea;
+  --home-surface: #ffe7cf;
+  --home-card: #fffaf3;
+  --home-text: #1b2c2a;
+  --home-muted: #6d5b48;
+  --home-line: #f0d3b4;
+  --home-accent: #e25b3a;
+  --home-in: #0f7a78;
+  --home-out: #e25b3a;
+  --home-warn: #ffe0b8;
+  --home-shared: #d5efe6;
+}
+
+html.is-swapping::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  background: linear-gradient(165deg, #7ec8c3 0%, #f6c453 46%, #e25b3a 100%);
+  animation: theme-wash 0.72s ease;
+}
+
+@keyframes theme-wash {
+  0% { opacity: 0; transform: translateY(18%); }
+  38% { opacity: 0.88; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-16%); }
 }
 
 .home-wallet {
@@ -576,7 +686,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .home-shell *,
-  .home-sheet-backdrop {
+  .home-sheet-backdrop,
+  html.is-swapping::after {
     transition: none !important;
     animation: none !important;
   }
