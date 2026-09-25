@@ -53,7 +53,7 @@ test('keeps Person Detail money-first and inherits that Person', async ({
     await expect(owner).toHaveURL(/\/person\/[0-9a-f-]+$/i)
     await expect(
       owner.getByRole('navigation', { name: 'Primary navigation' })
-        .getByRole('button', { name: '共享', exact: true }),
+        .getByRole('button', { name: 'Shared', exact: true }),
     ).toHaveAttribute('aria-current', 'page')
     await expect(owner.getByText('Manual', { exact: true }).first()).toBeVisible()
     await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()

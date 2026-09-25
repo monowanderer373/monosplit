@@ -13,7 +13,9 @@ import type {
   SharedContext,
   SummaryTileLayout,
 } from '../../lib/homeView'
-import { isAvailableMoneyAccount, localCalendarDate } from '../../lib/homeView'
+import { homeRecordAmountState, isAvailableMoneyAccount, localCalendarDate } from '../../lib/homeView'
+import { parseMajorAmount } from '../../lib/money'
+import type { CashAccountType } from '../../lib/personalAccountRepository'
 import { useT, type TranslationKey } from '../../lib/i18n'
 import { formatDate, localeForLang } from '../../lib/locale'
 import { formatMinorAmount } from '../../lib/money'
@@ -35,6 +37,15 @@ export type HomeScreenProps = {
   onSelectAccount: (accountId: 'all' | string) => void
   accounts: readonly HomeAccount[]
   accountsStatus: 'loading' | 'error' | 'ready'
+  accountsRefreshing?: boolean
+  defaultCurrency?: string
+  onCreateAccount: (input: {
+    name: string
+    accountType: CashAccountType
+    currency: string
+    openingBalanceMinor: number | null
+    balanceAsOf: string | null
+  }) => Promise<void>
   balances: readonly AvailableMoneyTotal[]
   monthlySpending: readonly CurrencyAmount[]
   receivables: readonly CurrencyAmount[]
@@ -63,7 +74,7 @@ export type HomeScreenProps = {
 export default function HomeScreen(props: HomeScreenProps) {
   const t = useT()
   const lang = useStore((state) => state.lang)
-  const [sheet, setSheet] = useState<null | 'accounts' | 'manage' | 'tasks' | 'shared' | 'trips'>(null)
+  const [sheet, setSheet] = useState<null | 'accounts' | 'manage' | 'tasks' | 'shared' | 'trips' | 'create'>(null)
   const assetAccounts = props.accounts.filter(isAvailableMoneyAccount)
   const selected = props.selectedAccountId === 'all'
     ? null
@@ -143,6 +154,10 @@ export default function HomeScreen(props: HomeScreenProps) {
               balances={props.balances}
               hidden={props.balanceHidden}
               emptyLabel={t('home.noAccounts')}
+              refreshing={props.accountsRefreshing}
+              onAddAccount={assetAccounts.length === 0 && props.accountsStatus === 'ready'
+                ? () => setSheet('create')
+                : undefined}
             />
             <button
               type="button"
@@ -238,6 +253,9 @@ export default function HomeScreen(props: HomeScreenProps) {
             </button>
           </div>
         </div>
+        {props.accountsRefreshing ? (
+          <p className="home-status" role="status" data-testid="home-updating">{t('home.updating')}</p>
+        ) : null}
         {props.recordsStatus === 'error' ? (
           <p className="home-status" role="alert">
             {t('home.recordsUnavailable')}
@@ -273,7 +291,7 @@ export default function HomeScreen(props: HomeScreenProps) {
             {group.records.map((record) => (
               <RecordRow
                 key={record.id}
-                accountsReady={props.accountsStatus === 'ready'}
+                accountsStatus={props.accountsStatus}
                 record={{
                   ...record,
                   statusLabel: props.recordStatuses?.[record.id] ?? null,
@@ -331,7 +349,18 @@ export default function HomeScreen(props: HomeScreenProps) {
               </span>
             </div>
           ))}
+          <button type="button" className="home-sheet-option" data-testid="home-add-account" onClick={() => setSheet('create')}>
+            <span>{t('home.addAccount')}</span>
+          </button>
         </HomeSheet>
+      ) : null}
+
+      {sheet === 'create' ? (
+        <CreateAccountSheet
+          defaultCurrency={props.defaultCurrency ?? 'MYR'}
+          onClose={() => setSheet(null)}
+          onCreate={props.onCreateAccount}
+        />
       ) : null}
 
       {sheet === 'tasks' ? (
@@ -397,17 +426,33 @@ function BalanceValues({
   balances,
   hidden,
   emptyLabel,
+  refreshing,
+  onAddAccount,
 }: {
   status: 'loading' | 'error' | 'ready'
   balances: readonly AvailableMoneyTotal[]
   hidden: boolean
   emptyLabel: string
+  refreshing?: boolean
+  onAddAccount?: () => void
 }) {
   const t = useT()
   const lang = useStore((state) => state.lang)
   if (status === 'loading') return <p className="home-status">{t('home.loading')}</p>
   if (status === 'error') return <p className="home-status" role="alert">{t('home.unavailable')}</p>
-  if (balances.length === 0) return <p className="home-status">{emptyLabel}</p>
+  if (balances.length === 0) {
+    return (
+      <div>
+        <p className="home-status">{emptyLabel}</p>
+        {onAddAccount ? (
+          <button type="button" className="home-text-button" data-testid="home-add-first-account" onClick={onAddAccount}>
+            {t('home.addAccount')}
+          </button>
+        ) : null}
+        {refreshing ? <p className="home-note" role="status">{t('home.updating')}</p> : null}
+      </div>
+    )
+  }
   const unknownCount = balances.reduce((sum, balance) => sum + balance.unknownOpeningCount, 0)
   return (
     <div data-testid="home-balance-values" aria-label={hidden ? t('home.balanceHidden') : undefined}>
@@ -426,6 +471,7 @@ function BalanceValues({
       {!hidden && unknownCount > 0 ? (
         <p className="home-note">{t('home.balanceIncompleteCount', { count: unknownCount })}</p>
       ) : null}
+      {refreshing ? <p className="home-note" role="status">{t('home.updating')}</p> : null}
     </div>
   )
 }
@@ -475,7 +521,13 @@ function TripCard({
   )
 }
 
-function RecordRow({ record, accountsReady }: { record: DisplayRecord; accountsReady: boolean }) {
+function RecordRow({
+  record,
+  accountsStatus,
+}: {
+  record: DisplayRecord
+  accountsStatus: 'loading' | 'error' | 'ready'
+}) {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const cue = record.direction === 'in'
@@ -494,20 +546,26 @@ function RecordRow({ record, accountsReady }: { record: DisplayRecord; accountsR
         </div>
         <div className="home-record-money">
           <div className="home-record-figures">
-            <p className={`home-amount ${record.amountKnown === false ? '' : cue.tone}`}>
-              {record.amountKnown === false ? t('home.amountUnavailable') : (
-                <>
-                  <span className="home-sr">{cue.label}</span>
-                  {cue.sign}{formatMoney(record.amountMinor, record.currency, lang, t)}
-                </>
-              )}
+            <p className={`home-amount ${homeRecordAmountState(record.amountKnown, accountsStatus) === 'amount' ? cue.tone : ''}`}>
+              {homeRecordAmountState(record.amountKnown, accountsStatus) === 'unavailable'
+                ? t('home.amountUnavailable')
+                : homeRecordAmountState(record.amountKnown, accountsStatus) === 'pending'
+                  ? t('home.loading')
+                  : (
+                    <>
+                      <span className="home-sr">{cue.label}</span>
+                      {cue.sign}{formatMoney(record.amountMinor, record.currency, lang, t)}
+                    </>
+                  )}
             </p>
             <p className="home-wallet">
-              {!accountsReady
-                ? t('home.unavailable')
-                : record.fundingPending
-                  ? t('home.fundingPending')
-                  : record.walletName ?? t('home.walletUnlinked')}
+              {accountsStatus === 'loading'
+                ? t('home.loading')
+                : accountsStatus === 'error'
+                  ? t('home.unavailable')
+                  : record.fundingPending
+                    ? t('home.fundingPending')
+                    : record.walletName ?? t('home.walletUnlinked')}
             </p>
           </div>
           {record.action ? <div className="home-record-action">{record.action}</div> : null}
@@ -665,6 +723,97 @@ function EyeIcon() {
       <path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z" fill="none" stroke="currentColor" strokeWidth="1.5" />
       <circle cx="10" cy="10" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
     </svg>
+  )
+}
+
+function CreateAccountSheet({
+  defaultCurrency,
+  onClose,
+  onCreate,
+}: {
+  defaultCurrency: string
+  onClose: () => void
+  onCreate: HomeScreenProps['onCreateAccount']
+}) {
+  const t = useT()
+  const [name, setName] = useState('')
+  const [accountType, setAccountType] = useState<CashAccountType>('ewallet')
+  const [currency, setCurrency] = useState(defaultCurrency)
+  const [opening, setOpening] = useState('')
+  const [asOf, setAsOf] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const submit = async () => {
+    const trimmedName = name.trim()
+    const trimmedOpening = opening.trim()
+    const trimmedDate = asOf.trim()
+    if (!trimmedName) return
+    if ((trimmedOpening === '') !== (trimmedDate === '')) {
+      setError(t('home.openingPair'))
+      return
+    }
+    let openingBalanceMinor: number | null = null
+    if (trimmedOpening !== '') {
+      try {
+        openingBalanceMinor = /^0+(?:\.0*)?$/.test(trimmedOpening)
+          ? 0
+          : parseMajorAmount(trimmedOpening, currency)
+      } catch {
+        setError(t('home.openingPair'))
+        return
+      }
+    }
+    setSaving(true)
+    setError('')
+    try {
+      await onCreate({
+        name: trimmedName,
+        accountType,
+        currency: currency.trim().toUpperCase(),
+        openingBalanceMinor,
+        balanceAsOf: trimmedDate || null,
+      })
+      onClose()
+    } catch {
+      setError(t('home.unavailable'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <HomeSheet title={t('home.addAccountTitle')} onClose={onClose} testId="home-create-account-sheet">
+      <label className="home-sheet-option">
+        <span>{t('home.accountName')}</span>
+        <input className="ms-input" value={name} onChange={(event) => setName(event.target.value)} />
+      </label>
+      <label className="home-sheet-option">
+        <span>{t('home.accountType')}</span>
+        <select className="ms-input" value={accountType} onChange={(event) => setAccountType(event.target.value as CashAccountType)}>
+          <option value="cash">{t('home.accountType.cash')}</option>
+          <option value="bank">{t('home.accountType.bank')}</option>
+          <option value="ewallet">{t('home.accountType.ewallet')}</option>
+        </select>
+      </label>
+      <label className="home-sheet-option">
+        <span>{t('home.accountCurrency')}</span>
+        <input className="ms-input" value={currency} maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} />
+      </label>
+      <p className="home-note">{t('home.openingHelp')}</p>
+      <label className="home-sheet-option">
+        <span>{t('home.openingAmount')}</span>
+        <input className="ms-input" inputMode="decimal" value={opening} onChange={(event) => setOpening(event.target.value)} />
+      </label>
+      <label className="home-sheet-option">
+        <span>{t('home.openingDate')}</span>
+        <input className="ms-input" type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} />
+      </label>
+      {error ? <p className="home-status" role="alert">{error}</p> : null}
+      <button type="button" className="home-sheet-option" data-testid="home-create-account" disabled={saving || name.trim() === ''} onClick={() => void submit()}>
+        <span>{saving ? t('home.creatingAccount') : t('home.createAccount')}</span>
+      </button>
+    </HomeSheet>
   )
 }
 

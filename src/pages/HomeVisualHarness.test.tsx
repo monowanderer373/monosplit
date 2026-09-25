@@ -29,7 +29,7 @@ describe('home visual harness', () => {
           <BottomNavigation />
         </MemoryRouter>,
       )
-      expect(view.getByRole('button', { name: '共享' }).getAttribute('aria-current')).toBe('page')
+      expect(view.getByRole('button', { name: 'Shared' }).getAttribute('aria-current')).toBe('page')
       view.unmount()
     }
   })

@@ -423,7 +423,7 @@
   justify-content: center;
 }
 
-.home-record-action button {
+.home-record-action > button {
   width: 44px !important;
   height: 44px !important;
   min-width: 44px !important;

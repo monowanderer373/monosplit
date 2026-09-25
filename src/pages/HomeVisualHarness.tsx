@@ -1,6 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import BottomNavigation from '../components/BottomNavigation'
+import ExpenseActionSheet from '../components/ExpenseActionSheet'
+import GlobalMoneyAction from '../components/GlobalMoneyAction'
 import HomeScreen from '../components/home/HomeScreen'
 import '../components/home/home.css'
 import {
@@ -12,6 +14,7 @@ import {
   summaryTileLayout,
   type HomeAccount,
 } from '../lib/homeView'
+import { useStore } from '../store/useStore'
 import type { CanonicalExpense } from '../types'
 
 const owner = 'owner'
@@ -133,7 +136,7 @@ function HarnessBody() {
   const mode = scenario.startsWith('travel') ? 'travel' : 'daily'
   const hidden = scenario === 'hidden'
   const selectedAccountId = scenario === 'account' ? 'cimb' : 'all'
-  const accountTasks = scenario === 'none' || scenario === 'shared-only'
+  const accountTasks = scenario === 'none' || scenario === 'shared-only' || scenario === 'empty-accounts'
     ? []
     : [{ id: 'funding:1', kind: 'pending_funding' as const, actionable: true as const }]
   const sharedContexts = scenario === 'none' || scenario === 'account-only'
@@ -156,7 +159,7 @@ function HarnessBody() {
       ownerParticipantId: owner,
       expenses,
       funding: [],
-      accounts,
+      accounts: scenario === 'empty-accounts' ? [] : accounts,
       people: [{ id: 'person-lan', displayName: 'Lan', participantIds: ['lan'] }],
       spaces: [{
         id: 'hanoi',
@@ -168,7 +171,7 @@ function HarnessBody() {
         updatedAt: '2026-09-01T00:00:00.000Z',
       }],
       affiliations: [],
-      journals: [{
+      journals: scenario === 'empty-accounts' ? [] : [{
         id: 'refund-1',
         kind: 'refund',
         occurredOn: '2026-09-16',
@@ -219,9 +222,6 @@ function HarnessBody() {
         onToggleBalanceHidden={() => undefined}
         selectedAccountId={selectedAccountId}
         onSelectAccount={() => undefined}
-        accounts={accounts}
-        accountsStatus={scenario === 'error' ? 'error' : 'ready'}
-        balances={scenario === 'error' ? [] : availableMoney(accounts, selectedAccountId)}
         monthlySpending={[{ currency: 'MYR', amountMinor: 8_640 }]}
         receivables={[{ currency: 'MYR', amountMinor: 2_400 }]}
         tileLayout={summaryTileLayout(accountTasks.length, sharedContexts.length)}
@@ -238,16 +238,47 @@ function HarnessBody() {
         onSelectTrip={() => undefined}
         onCreateTrip={() => undefined}
         onOpenSharedContext={() => undefined}
+        onCreateAccount={async () => undefined}
+        accounts={scenario === 'empty-accounts' ? [] : accounts}
+        accountsStatus={scenario === 'error' ? 'error' : 'ready'}
+        balances={scenario === 'error' || scenario === 'empty-accounts' ? [] : availableMoney(accounts, selectedAccountId)}
       />
     </main>
   )
 }
 
 export default function HomeVisualHarness() {
+  const [params] = useSearchParams()
+  const setLang = useStore((state) => state.setLang)
+  const requestedLang = params.get('lang')
+  useEffect(() => {
+    if (requestedLang === 'en' || requestedLang === 'zh') setLang(requestedLang)
+  }, [requestedLang, setLang])
+  const showActions = params.get('case') === 'expense-actions'
+  const sample = expense({
+    id: 'sheet-expense',
+    scope: 'personal',
+    totalMinor: 1_200,
+    ownerPaidMinor: 1_200,
+    description: 'Coffee',
+  })
   return (
     <>
+      {showActions ? (
+        <div className="home-shell">
+          <div className="home-record-action" data-testid="expense-action-host">
+            <ExpenseActionSheet
+              expense={sample}
+              currentParticipantId={owner}
+              onRefresh={async () => undefined}
+              statusNotice="Could not refresh this expense. The actions below must stay readable."
+            />
+          </div>
+        </div>
+      ) : null}
       <HarnessBody />
       <BottomNavigation />
+      <GlobalMoneyAction onAdd={() => undefined} />
     </>
   )
 }
