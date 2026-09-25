@@ -9,24 +9,16 @@ import { contextRankSurfaceForPath } from '../lib/moneyContext'
 import { recordProductEvent } from '../lib/productEvents'
 import ContextGate from './ContextGate'
 import UniversalQuickAddSheet from './UniversalQuickAddSheet'
+import PaperSheet from './navigation/PaperSheet'
 
 function LoadingAction({ onClose }: { onClose: () => void }) {
   const t = useT()
   const dialogRef = useAccessibleDialog<HTMLElement>(onClose)
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center sm:p-4">
-      <section
-        ref={dialogRef}
-        className="relative w-full max-w-lg rounded-t-[2rem] bg-[var(--ms-surface)] p-6 text-center shadow-2xl sm:rounded-[2rem]"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('contextGate.loading')}
-        tabIndex={-1}
-      >
+    <PaperSheet label={t('contextGate.loading')} dialogRef={dialogRef} onClose={onClose}>
         <p className="text-sm font-bold text-[var(--ms-text-secondary)]">{t('contextGate.loading')}</p>
         <button className="ms-btn-ghost mt-4" onClick={onClose}>{t('common.close')}</button>
-      </section>
-    </div>
+    </PaperSheet>
   )
 }
 

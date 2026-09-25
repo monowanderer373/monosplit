@@ -1,28 +1,24 @@
 import { useT } from '../lib/i18n'
+import CenterActionButton from './navigation/CenterActionButton'
+import './navigation/paper.css'
 
 type Props = {
   onAdd: () => void
+  composerOpen?: boolean
+  disabled?: boolean
 }
 
-export default function GlobalMoneyAction({ onAdd }: Props) {
+export default function GlobalMoneyAction({ onAdd, composerOpen = false, disabled = false }: Props) {
   const t = useT()
 
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 z-[45] flex justify-center"
-      data-testid="global-money-action-layer"
-      style={{
-        bottom:
-          'calc(max(0.75rem, env(safe-area-inset-bottom)) + 1rem)',
-      }}
-    >
-      <button
-        className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--ms-accent)] text-3xl font-light text-white shadow-[var(--ms-elev-accent)]"
+    <div className="tt-center-layer z-[45]" data-testid="global-money-action-layer">
+      <CenterActionButton
+        label={t('ledger.quickAddLabel')}
         onClick={onAdd}
-        aria-label={t('ledger.quickAddLabel')}
-      >
-        +
-      </button>
+        open={composerOpen}
+        disabled={disabled}
+      />
     </div>
   )
 }

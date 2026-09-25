@@ -111,7 +111,7 @@ function ShellContents() {
       {showNavigation ? (
         <>
           <BottomNavigation />
-          <GlobalMoneyAction onAdd={openGlobalAdd} />
+          <GlobalMoneyAction onAdd={openGlobalAdd} composerOpen={Boolean(quickAdd.action)} />
         </>
       ) : null}
       <GlobalMoneyActionHost />
