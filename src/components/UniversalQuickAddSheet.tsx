@@ -17,6 +17,7 @@ import type {
   UniversalQuickAddValues,
 } from '../lib/universalQuickAdd'
 import { applySuggestedCategory } from '../lib/universalQuickAdd'
+import PaperSheet from './navigation/PaperSheet'
 
 type Props = {
   session: UniversalQuickAddSession
@@ -153,16 +154,7 @@ export default function UniversalQuickAddSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 sm:items-center sm:p-4">
-      <div className="absolute inset-0" aria-hidden="true" onClick={onClose} />
-      <section
-        ref={dialogRef}
-        className="relative z-10 max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-[var(--ms-surface)] p-5 shadow-2xl sm:rounded-[2rem]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="universal-quick-add-title"
-        tabIndex={-1}
-      >
+    <PaperSheet labelledBy="universal-quick-add-title" dialogRef={dialogRef} onClose={onClose}>
         <header className="mb-5 flex items-start justify-between gap-4">
           <div>
             {session.contextPolicy === 'switchable' ? (
@@ -186,7 +178,7 @@ export default function UniversalQuickAddSheet({
 
         <label className="block">
           <span className="sr-only">{t('expense.amount')}</span>
-          <div className="flex items-center gap-3 rounded-2xl bg-[var(--ms-bg-warm)] px-4 py-3">
+          <div className="tt-sheet-amount">
             <span className="text-sm font-bold text-[var(--ms-text-secondary)]">{values.currency}</span>
             <input
               ref={amountRef}
@@ -418,7 +410,6 @@ export default function UniversalQuickAddSheet({
         >
           {saving ? t('common.saving') : t('quickAdd.save')}
         </button>
-      </section>
-    </div>
+    </PaperSheet>
   )
 }

@@ -14,6 +14,7 @@ import {
   type MoneyContextCatalog,
 } from '../lib/moneyContextCatalog'
 import { dedupeContextPickerSections } from '../lib/contextPickerSections'
+import PaperSheet from './navigation/PaperSheet'
 
 type Props = {
   isAnonymous: boolean
@@ -173,16 +174,7 @@ export default function ContextGate({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center sm:p-4">
-      <div className="absolute inset-0" aria-hidden="true" onClick={onClose} />
-      <section
-        ref={dialogRef}
-        className="relative z-10 max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-[var(--ms-surface)] p-5 shadow-2xl sm:rounded-[2rem]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="context-gate-title"
-        tabIndex={-1}
-      >
+    <PaperSheet labelledBy="context-gate-title" dialogRef={dialogRef} onClose={onClose}>
         <header className="flex items-start justify-between gap-4">
           <div>
             <p className="ms-label">{t(mode === 'switch' ? 'contextPicker.switchLabel' : 'contextGate.label')}</p>
@@ -252,7 +244,6 @@ export default function ContextGate({
             {t('contextGate.noTargets')}
           </p>
         ) : null}
-      </section>
-    </div>
+    </PaperSheet>
   )
 }
