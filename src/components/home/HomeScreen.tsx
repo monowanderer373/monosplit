@@ -97,7 +97,7 @@ export default function HomeScreen(props: HomeScreenProps) {
   }
 
   return (
-    <div className="home-frame">
+    <div className="home-frame" data-density={props.density}>
       <header className="home-header" data-testid="home-header">
         <div>
           <h1 className="home-title">{props.mode === 'daily' ? t('home.modeDaily') : t('home.modeTravel')}</h1>
@@ -124,7 +124,7 @@ export default function HomeScreen(props: HomeScreenProps) {
       {props.mode === 'daily' ? (
         <>
         <section
-          className="home-card"
+          className="home-card home-balance-card"
           aria-labelledby="home-balance-title"
           onPointerDown={onSwipeDown}
           onPointerUp={onSwipeUp}
