@@ -39,6 +39,7 @@ export default function FriendsPage() {
   const [manualName, setManualName] = useState('')
   const [action, setAction] = useState('')
   const [inviteUrl, setInviteUrl] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!authUser?.participantId || authUser.isAnonymous) {
@@ -175,7 +176,7 @@ export default function FriendsPage() {
           <h1 className="mt-1 text-3xl font-extrabold">{t('friends.title')}</h1>
           <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">{t('friends.subtitle')}</p>
         </div>
-        <button className="ms-btn-ghost" onClick={() => navigate('/')}>{t('common.ledger')}</button>
+        <button className="ms-btn-ghost" aria-expanded={showAdd} onClick={() => setShowAdd(!showAdd)}>{showAdd ? t('common.close') : `+ ${t('friends.addPerson')}`}</button>
       </header>
 
       {error ? <p className="mx-auto mt-4 max-w-4xl rounded-xl bg-[var(--ms-danger-bg)] px-4 py-3 text-sm text-[var(--ms-danger)]">{t(error)}</p> : null}
@@ -259,7 +260,7 @@ export default function FriendsPage() {
         </section>
       ) : null}
 
-      <section className="ms-card-hero mx-auto mt-6 max-w-4xl">
+      {showAdd ? <section className="ms-card-hero mx-auto mt-6 max-w-4xl">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1">
             <p className="ms-label">{t('friends.secureInvite')}</p>
@@ -271,7 +272,7 @@ export default function FriendsPage() {
           </button>
         </div>
         {inviteUrl ? <p className="mt-3 truncate text-xs font-bold text-[var(--ms-success)]">{t('friends.inviteCopied')}</p> : null}
-      </section>
+      </section> : null}
 
       <section className="mx-auto mt-8 max-w-4xl">
         <p className="ms-label">{t('friends.accepted')}</p>
@@ -297,7 +298,7 @@ export default function FriendsPage() {
         )}
       </section>
 
-      <section className="mx-auto mt-8 max-w-4xl">
+      {showAdd ? <section className="mx-auto mt-8 max-w-4xl">
         <p className="ms-label">{t('friends.noAccount')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('friends.untracked')}</h2>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -315,7 +316,7 @@ export default function FriendsPage() {
             {action === 'manual' ? t('common.adding') : t('friends.addPerson')}
           </button>
         </div>
-      </section>
+      </section> : null}
     </main>
   )
 }

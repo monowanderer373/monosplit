@@ -21,9 +21,9 @@ export default function SharedPage() {
   ]
 
   return (
-    <div>
+    <div className="tt-shared">
       <div className="ms-page !pb-0">
-        <div className="mx-auto flex max-w-4xl gap-2" role="tablist" aria-label={t('nav.shared')}>
+        <div className="tt-context-tabs mx-auto flex max-w-4xl gap-2" role="tablist" aria-label={t('nav.shared')}>
           {tabs.map((item) => (
             <button
               key={item.id}

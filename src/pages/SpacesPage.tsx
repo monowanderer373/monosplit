@@ -21,6 +21,7 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
   const [spaces, setSpaces] = useState<SpaceWithRole[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [type, setType] = useState<SpaceType>(preferredType ?? 'trip')
   const [currency, setCurrency] = useState(authUser?.defaultCurrency ?? 'MYR')
@@ -93,10 +94,10 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
           <h1 className="mt-1 text-3xl font-extrabold">{t('spaces.title')}</h1>
           <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">{t('spaces.subtitle')}</p>
         </div>
-        <button className="ms-btn-ghost" onClick={() => navigate('/')}>{t('common.ledger')}</button>
+        <button className="ms-btn-ghost" aria-expanded={showCreate} onClick={() => setShowCreate(!showCreate)}>{showCreate ? t('common.close') : `+ ${t('spaces.create')}`}</button>
       </header>
 
-      {!authUser.isAnonymous ? (
+      {!authUser.isAnonymous && showCreate ? (
         <section className="ms-card-hero mx-auto mt-6 max-w-4xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <label className="min-w-0 flex-1 text-xs font-bold text-[var(--ms-text-secondary)]">
@@ -127,14 +128,14 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
             </button>
           </div>
         </section>
-      ) : (
+      ) : authUser.isAnonymous ? (
         <section className="ms-card mx-auto mt-6 max-w-4xl">
           <p className="font-bold">{t('spaces.guestSession')}</p>
           <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">
             {t('spaces.guestHelp')}
           </p>
         </section>
-      )}
+      ) : null}
 
       {error ? (
         <p className="mx-auto mt-4 max-w-4xl rounded-xl bg-[var(--ms-danger-bg)] px-4 py-3 text-sm text-[var(--ms-danger)]">
@@ -155,7 +156,7 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
           <div className="ms-card p-6 text-sm text-[var(--ms-text-secondary)]">{t('spaces.loading')}</div>
         ) : (preferredType ? spaces.filter(({ space }) => space.type === preferredType) : spaces).length === 0 ? (
           <div className="ms-card-hero text-center">
-            <p className="text-4xl">🐾</p>
+            <p className="text-4xl" aria-hidden="true">＋</p>
             <h3 className="mt-3 text-xl font-extrabold">{t('spaces.emptyTitle')}</h3>
             <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
               {t('spaces.emptyHelp')}

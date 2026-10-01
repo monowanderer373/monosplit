@@ -1,0 +1,81 @@
+/* Approved Warm Minimal language. Navigation retains its paper-craft identity. */
+:root {
+  --ms-bg: #f8f4ed;
+  --ms-bg-warm: #f1e7d9;
+  --ms-surface: #fffdf9;
+  --ms-surface-dim: #f5ede2;
+  --ms-border: #e6d9c9;
+  --ms-border-light: #f0e7dc;
+  --ms-text: #342f29;
+  --ms-text-secondary: #746a5f;
+  --ms-text-muted: #746a5f;
+  --ms-accent: #eac09a;
+  --ms-accent-hover: #dfae83;
+  --ms-accent-bg: #f6e4d4;
+  --ms-success: #16716e;
+  --ms-success-bg: #eaf3ee;
+  --ms-danger: #b9473d;
+  --ms-danger-bg: #f8e9e4;
+  --ms-elev-accent: 0 2px 5px #76543912;
+  --ms-radius-card: 1rem;
+  --ms-radius-field: .75rem;
+}
+#root .ms-page { max-width: 688px; font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; font-size: 16px; }
+#root .ms-page :is(.max-w-4xl,.max-w-7xl) { max-width: 640px; }
+#root .ms-page h1 { font-size: 28.8px; line-height: 1.3; font-weight: 700; letter-spacing: -.025em; }
+#root .ms-page :is(h2,h3,.ms-title) { font-size: 18.4px; line-height: 1.4; font-weight: 700; letter-spacing: -.015em; }
+#root .ms-page :is(.font-extrabold,.font-bold) { font-weight: 600; }
+#root .ms-page :is(h1.font-extrabold,h2.font-extrabold,h3.font-extrabold) { font-weight: 700; }
+#root :is(.ms-currency,.tt-money-currency) { font-weight: 400; font-size: .66em; color: var(--ms-text-secondary); }
+#root .tt-money-number { font-weight: inherit; }
+#root :is(.ms-amount,.ms-amount-hero) { font-weight: 650; }
+#root .ms-btn-primary { color: #493222; font-weight: 600; min-height: 44px; }
+#root .ms-btn-ghost { min-height: 44px; font-weight: 500; }
+#root .ms-input { font-size: 16px; }
+#root .ms-card-hero { border: 1px solid var(--ms-border-light); box-shadow: 0 1px 0 #ffffff inset, 0 7px 22px #5c48300c; }
+#root .ms-label { font-size: 12px; letter-spacing: .02em; text-transform: none; font-weight: 500; }
+#root .home-shell {
+  --home-bg: #f8f4ed; --home-surface: #fffdf9; --home-card: #fffdf9;
+  --home-text: #342f29; --home-muted: #746a5f; --home-line: #e6d9c9;
+  --home-accent: #ae693c; --home-in: #16716e; --home-out: #b9473d;
+}
+#root .home-balance-card { background: linear-gradient(160deg,#fffdf9,#f3e6d5); box-shadow: 0 1px 0 #ffffff inset,0 7px 22px #5c483010; padding: 20px; }
+#root .home-mode button { border: 0; border-radius: 10px; font-size: 14px; text-transform: none; letter-spacing: 0; background: #f1e7d9; min-height: 36px; font-weight: 500; }
+#root .home-mode button[aria-pressed="true"] { background: #eac09a; color: #493222; }
+#root .home-section { margin-top: 24px; }
+#root .home-section-head h2 { font-size: 18.4px; font-weight: 700; }
+#root .home-record-title { font-size: 16px; font-weight: 500; }
+#root .home-amount { font-size: 15px; font-weight: 600; }
+#root .home-frame[data-density="detailed"] .home-day { box-shadow: 0 3px 10px #5c483007; }
+#root .home-stat p { font-size: 13px; font-weight: 400; }
+#root .tt-context-tabs { padding: 4px; border-radius: 14px; background: var(--ms-bg-warm); }
+#root .tt-context-tabs button { flex: 1; border: 0; box-shadow: none; background: transparent; }
+#root .tt-context-tabs button[aria-selected="true"] { background: var(--ms-surface); color: var(--ms-text); box-shadow: 0 2px 5px #76543912; }
+#root .tt-shared :is(.sm\:grid-cols-2) { grid-template-columns: 1fr; }
+#root .tt-sheet-panel { background: #fffdf9; color: #342f29; font-family: Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+#root .tt-sheet-panel .ms-btn-primary { background: #eac09a !important; color: #493222; box-shadow: 0 2px 5px #76543912 !important; }
+#root .tt-sheet-panel .ms-btn-primary:hover { background: #dfae83 !important; }
+#root .tt-sheet-panel h2 { font-size: 19px; font-weight: 700; }
+#root .tt-sheet-amount { border: 0; border-radius: 0; border-bottom: 1px solid #e6d9c9; padding: 12px 0; background: transparent; }
+#root .tt-sheet-amount input { font-size: 33.6px; font-weight: 650; }
+.tt-quick-currency { max-width: 88px; color: #746a5f; background: transparent; border: 0; font: inherit; font-weight: 400; padding: 8px 0; }
+.tt-quick-footer { position: sticky; bottom: -20px; margin: 20px -20px -20px; padding: 12px 20px max(20px,env(safe-area-inset-bottom)); background: #fffdf9; border-top: 1px solid #f0e7dc; z-index: 2; }
+.tt-quick-footer .ms-btn-primary { width: 100%; min-height: 48px; }
+@media (min-width:640px) { #root .ms-page { padding-inline:24px; } }
+@media (max-width:359px) { #root .home-section-head { flex-wrap:wrap; row-gap:8px; } }
+
+#root .ms-brand { font-family: Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+.tt-insights-filters { display:grid; grid-template-columns:1.3fr 1fr .8fr; gap:12px; margin-top:24px; }
+.tt-insights-filters label { display:grid; gap:8px; min-width:0; font-size:12px; color:var(--ms-text-secondary); }
+.tt-insights-filters .ms-input { width:100%; min-width:0; }
+.tt-insights-total { font-size:33.6px; font-weight:650; letter-spacing:-.025em; margin:8px 0; }
+.tt-donut { width:180px; height:180px; border-radius:50%; margin:28px auto; padding:24px; }
+.tt-donut > div { height:100%; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--ms-surface); font-size:13px; color:var(--ms-text-secondary); }
+.tt-insight-rows > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 0; border-bottom:1px solid var(--ms-border-light); font-size:14px; }
+.tt-insight-rows > div:last-child { border:0; }
+.tt-insight-rows strong { font-weight:600; font-size:15px; }
+.tt-category-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.tt-ranking-number { color:var(--ms-text-secondary); width:20px; font-size:12px; }
+.tt-trend { display:flex; align-items:flex-end; height:140px; gap:4px; margin:28px 0 12px; border-bottom:1px solid var(--ms-border); }
+.tt-trend > div { flex:1; background:#dfac84; border-radius:4px 4px 0 0; max-width:32px; }
+@media(max-width:420px) { .tt-insights-filters { grid-template-columns:1fr 1fr; } .tt-insights-filters label:first-child { grid-column:1/-1; } }

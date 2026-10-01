@@ -156,7 +156,10 @@ export default function UniversalQuickAddSheet({
   return (
     <PaperSheet labelledBy="universal-quick-add-title" dialogRef={dialogRef} onClose={onClose}>
         <header className="mb-5 flex items-start justify-between gap-4">
-          <div>
+            <h2 id="universal-quick-add-title" className="mt-1 text-2xl font-extrabold">
+              {t(scope === 'personal' ? 'quickAdd.title' : 'expense.addTitle')}
+            </h2>
+          <div className="flex items-center gap-2">
             {session.contextPolicy === 'switchable' ? (
               <button
                 type="button"
@@ -169,18 +172,14 @@ export default function UniversalQuickAddSheet({
             ) : (
               <p className="ms-label">{contextLabel} · {t('quickAdd.contextLocked')}</p>
             )}
-            <h2 id="universal-quick-add-title" className="mt-1 text-2xl font-extrabold">
-              {t(scope === 'personal' ? 'quickAdd.title' : 'expense.addTitle')}
-            </h2>
-          </div>
-          <button className="ms-btn-ghost h-11 w-11 p-0" onClick={onClose} aria-label={t('common.close')}>×</button>
+          <button className="ms-btn-ghost h-11 w-11 p-0" onClick={onClose} aria-label={t('common.close')}>×</button></div>
         </header>
 
-        <label className="block">
-          <span className="sr-only">{t('expense.amount')}</span>
+        <div>
           <div className="tt-sheet-amount">
-            <span className="text-sm font-bold text-[var(--ms-text-secondary)]">{values.currency}</span>
+            <select className="tt-quick-currency" aria-label={t('expense.currency')} value={values.currency} onChange={(event) => onUpdate({ currency: event.target.value })}>{CURRENCIES.map((item) => <option key={item.code} value={item.code}>{item.code}</option>)}</select>
             <input
+              aria-label={t('expense.amount')}
               ref={amountRef}
               className="min-w-0 flex-1 bg-transparent text-right text-4xl font-extrabold tracking-tight outline-none"
               inputMode="decimal"
@@ -200,7 +199,7 @@ export default function UniversalQuickAddSheet({
               }}
             />
           </div>
-        </label>
+        </div>
 
         <label className="mt-4 block text-xs font-bold text-[var(--ms-text-secondary)]">
           {t('expense.description')}
@@ -313,35 +312,7 @@ export default function UniversalQuickAddSheet({
           </>
         ) : null}
 
-        <div className={`mt-4 grid gap-2 ${scope === 'personal' ? '' : 'grid-cols-2'}`}>
-          <button
-            type="button"
-            className="ms-btn-ghost w-full text-sm"
-            onClick={() => onUpdate({ detailsExpanded: !values.detailsExpanded })}
-            aria-expanded={values.detailsExpanded}
-          >
-            {values.detailsExpanded ? t('quickAdd.hideDetails') : t('quickAdd.moreDetails')}
-          </button>
-          {scope !== 'personal' ? (
-            <button
-              type="button"
-              className="ms-btn-ghost w-full text-sm"
-              onClick={() => onUpdate({ detailsExpanded: true })}
-            >
-              {t('expenseCapture.multiplePayers')}
-            </button>
-          ) : null}
-        </div>
-
-        {values.detailsExpanded ? (
-          <div className="mt-3 rounded-2xl bg-[var(--ms-bg-warm)] p-3">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
-                {t('expense.currency')}
-                <select className="ms-input mt-1 w-full" value={values.currency} onChange={(event) => onUpdate({ currency: event.target.value })}>
-                  {CURRENCIES.map((item) => <option key={item.code} value={item.code}>{item.code}</option>)}
-                </select>
-              </label>
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
                 {t('expense.date')}
                 <input className="ms-input mt-1 w-full" type="date" value={values.occurredOn} onChange={(event) => onUpdate({ occurredOn: event.target.value })} />
@@ -363,8 +334,29 @@ export default function UniversalQuickAddSheet({
               </label>
             </div>
 
-            {scope !== 'personal' ? (
-              <div className="mt-3">
+        {scope !== 'personal' ? <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            className="ms-btn-ghost w-full text-sm"
+            onClick={() => onUpdate({ detailsExpanded: !values.detailsExpanded })}
+            aria-expanded={values.detailsExpanded}
+          >
+            {values.detailsExpanded ? t('quickAdd.hideDetails') : t('quickAdd.moreDetails')}
+          </button>
+            <button
+              type="button"
+              className="ms-btn-ghost w-full text-sm"
+              onClick={() => onUpdate({ detailsExpanded: true })}
+            >
+              {t('expenseCapture.multiplePayers')}
+            </button>
+        </div> : null}
+
+        {scope !== 'personal' && values.detailsExpanded ? (
+          <div className="mt-3 rounded-2xl bg-[var(--ms-bg-warm)] p-3">
+
+
+                <div className="mt-3">
                 <p className="text-xs font-extrabold text-[var(--ms-text-secondary)]">{t('expenseCapture.amountPaid')}</p>
                 <div className="mt-2 grid gap-2">
                   {selectedParticipants.map((participant) => (
@@ -389,8 +381,7 @@ export default function UniversalQuickAddSheet({
                   ))}
                 </div>
               </div>
-            ) : null}
-          </div>
+            </div>
         ) : null}
 
         {error ? (
@@ -399,8 +390,8 @@ export default function UniversalQuickAddSheet({
           </p>
         ) : null}
 
-        <button
-          className="ms-btn-primary mt-5 h-12 w-full text-base"
+        <div className="tt-quick-footer"><button
+          className="ms-btn-primary h-12 w-full text-base"
           disabled={
             saving
             || values.amount.trim() === ''
@@ -409,7 +400,7 @@ export default function UniversalQuickAddSheet({
           onClick={() => void submit()}
         >
           {saving ? t('common.saving') : t('quickAdd.save')}
-        </button>
+        </button></div>
     </PaperSheet>
   )
 }

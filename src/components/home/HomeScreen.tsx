@@ -1,3 +1,4 @@
+import MoneyText from '../MoneyText'
 import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { useAccessibleDialog } from '../../hooks/useAccessibleDialog'
 import { getCategoryIcon } from '../../lib/categories'
@@ -466,7 +467,7 @@ function BalanceValues({
               ? '••••'
               : balance.amountMinor == null
                 ? t('home.balanceIncomplete')
-                : formatMoney(balance.amountMinor, balance.currency, lang, t)}
+                : <MoneyText value={formatMoney(balance.amountMinor, balance.currency, lang, t)} />}
             {!hidden && balance.knownOnly ? <span className="home-note"> {t('home.knownBalance')}</span> : null}
           </p>
         ))}
@@ -558,7 +559,7 @@ function RecordRow({
                   : (
                     <>
                       <span className="home-sr">{cue.label}</span>
-                      {cue.sign}{formatMoney(record.amountMinor, record.currency, lang, t)}
+                      {cue.sign}{<MoneyText value={formatMoney(record.amountMinor, record.currency, lang, t)} />}
                     </>
                   )}
             </p>
@@ -693,7 +694,7 @@ function MoneyLines({
     <span className="home-money-lines" data-count={lines.length}>
       {lines.map((line, index) => (
         <span key={`${line.currency}:${line.amountMinor}:${index}`} className="home-money-line">
-          {formatMoney(line.amountMinor, line.currency, lang, t)}
+          {<MoneyText value={formatMoney(line.amountMinor, line.currency, lang, t)} />}
         </span>
       ))}
     </span>
