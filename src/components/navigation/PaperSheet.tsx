@@ -7,11 +7,13 @@ export default function PaperSheet({
   dialogRef,
   onClose,
   children,
+  expanded = false,
 }: {
   labelledBy?: string
   label?: string
   dialogRef: Ref<HTMLElement>
   onClose: () => void
+  expanded?: boolean
   children: ReactNode
 }) {
   return (
@@ -19,7 +21,7 @@ export default function PaperSheet({
       <div className="tt-sheet-scrim" aria-hidden="true" onClick={onClose} />
       <section
         ref={dialogRef}
-        className="tt-paper tt-sheet-panel"
+        className={`tt-paper tt-sheet-panel${expanded ? ' tt-sheet-expanded' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
