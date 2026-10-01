@@ -26,6 +26,7 @@ export default function BottomNavigation() {
   return (
     <nav className="tt-nav" aria-label={t('navigation.primary')}>
       <PaperSurface className="tt-nav-surface">
+        <span className="tt-nav-tape" aria-hidden="true" />
         <div className="tt-nav-grid">
           {item(daily)}
           {item(insights)}
