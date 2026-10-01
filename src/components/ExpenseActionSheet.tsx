@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { CanonicalExpense, GroupRole } from '../types'
 import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
@@ -41,6 +41,8 @@ type EditorMode =
   | 'view_request'
 
 type Props = {
+  trigger?: ReactNode
+  triggerClassName?: string
   expense: CanonicalExpense
   currentParticipantId: string
   spaceRole?: GroupRole | null
@@ -57,6 +59,8 @@ export default function ExpenseActionSheet({
   onCancelExpense,
   onRefresh,
   statusNotice = '',
+  trigger,
+  triggerClassName,
 }: Props & { statusNotice?: string }) {
   const t = useT()
   const [open, setOpen] = useState(false)
@@ -262,11 +266,11 @@ export default function ExpenseActionSheet({
   return (
     <>
       <button
-        className="ms-btn-ghost min-h-10 px-3 py-2 text-xs"
+        className={triggerClassName ?? "ms-btn-ghost min-h-10 px-3 py-2 text-xs"}
         aria-label={t('expenseAction.open', { name: expenseName })}
         onClick={openSheet}
       >
-        •••
+        {trigger ?? '•••'}
       </button>
 
       {open ? createPortal(

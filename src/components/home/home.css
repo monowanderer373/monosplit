@@ -474,6 +474,7 @@
 }
 
 .home-record.is-compact {
+  border-bottom: 0;
   padding-block: 2px;
 }
 
@@ -784,3 +785,14 @@ html.is-swapping::after {
     grid-template-columns: 1fr;
   }
 }
+
+/* Amount is the record action target; reserve no trailing menu column. */
+.home-amount-button {
+  display: inline-flex; align-items: center; justify-content: flex-end;
+  min-height: 44px; padding: 0; border: 0; background: transparent;
+  color: inherit; font: inherit; letter-spacing: inherit; cursor: pointer;
+}
+.home-amount-button:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 3px; border-radius: 4px; }
+.home-record.is-compact .home-record-copy { flex: 1; }
+.home-record.is-compact .home-record-title { white-space: normal; overflow-wrap: anywhere; }
+.home-record.is-compact .home-dots { display: none; }

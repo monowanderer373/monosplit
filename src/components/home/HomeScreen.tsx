@@ -1,5 +1,5 @@
 import MoneyText from '../MoneyText'
-import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { cloneElement, isValidElement, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { useAccessibleDialog } from '../../hooks/useAccessibleDialog'
 import { getCategoryIcon } from '../../lib/categories'
 import type {
@@ -537,6 +537,18 @@ function RecordRow({
   const cue = record.direction === 'in'
     ? { sign: '+', tone: 'incoming', label: t('home.incoming') }
     : { sign: '−', tone: 'outgoing', label: t('home.outgoing') }
+  const amountContent = (<>
+              {homeRecordAmountState(record.amountKnown, accountsStatus) === 'unavailable'
+                ? t('home.amountUnavailable')
+                : homeRecordAmountState(record.amountKnown, accountsStatus) === 'pending'
+                  ? t('home.loading')
+                  : (
+                    <>
+                      <span className="home-sr">{cue.label}</span>
+                      {cue.sign}{<MoneyText value={formatMoney(record.amountMinor, record.currency, lang, t)} />}
+                    </>
+                  )}
+  </>)
   return (
     <article className={record.compact ? 'home-record is-compact' : 'home-record'} data-testid="home-record">
       <div className="home-record-main">
@@ -552,16 +564,9 @@ function RecordRow({
         <div className="home-record-money">
           <div className="home-record-figures">
             <p className={`home-amount ${homeRecordAmountState(record.amountKnown, accountsStatus) === 'amount' ? cue.tone : ''}`}>
-              {homeRecordAmountState(record.amountKnown, accountsStatus) === 'unavailable'
-                ? t('home.amountUnavailable')
-                : homeRecordAmountState(record.amountKnown, accountsStatus) === 'pending'
-                  ? t('home.loading')
-                  : (
-                    <>
-                      <span className="home-sr">{cue.label}</span>
-                      {cue.sign}{<MoneyText value={formatMoney(record.amountMinor, record.currency, lang, t)} />}
-                    </>
-                  )}
+              {isValidElement<{ trigger?: ReactNode; triggerClassName?: string }>(record.action)
+                ? cloneElement(record.action, { trigger: amountContent, triggerClassName: 'home-amount-button' })
+                : amountContent}
             </p>
             <p className="home-wallet">
               {accountsStatus === 'loading'
@@ -573,7 +578,6 @@ function RecordRow({
                     : record.walletName ?? t('home.walletUnlinked')}
             </p>
           </div>
-          {record.action ? <div className="home-record-action">{record.action}</div> : null}
         </div>
       </div>
     </article>
