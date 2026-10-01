@@ -79,3 +79,76 @@
 .tt-trend { display:flex; align-items:flex-end; height:140px; gap:4px; margin:28px 0 12px; border-bottom:1px solid var(--ms-border); }
 .tt-trend > div { flex:1; background:#dfac84; border-radius:4px 4px 0 0; max-width:32px; }
 @media(max-width:420px) { .tt-insights-filters { grid-template-columns:1fr 1fr; } .tt-insights-filters label:first-child { grid-column:1/-1; } }
+
+/* Detailed records: date rail with individual warm paper cards. */
+#root .home-frame[data-density="detailed"] .home-day {
+  position: relative;
+  margin: 24px 0 0 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  --timeline-paper: #fffdf9;
+}
+#root .home-frame[data-density="detailed"] .home-day:nth-of-type(even) { --timeline-paper: #fcf7ef; }
+#root .home-frame[data-density="detailed"] .home-day::before {
+  content: "";
+  position: absolute;
+  left: -24px;
+  top: 20px;
+  bottom: -26px;
+  width: 1px;
+  background: #d7b49e;
+  pointer-events: none;
+}
+#root .home-frame[data-density="detailed"] .home-day:last-child::before { bottom: 14px; }
+#root .home-frame[data-density="detailed"] .home-date {
+  position: relative;
+  margin: 0 0 12px;
+  padding: 0;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+#root .home-frame[data-density="detailed"] .home-date::before {
+  content: "";
+  position: absolute;
+  left: -33px;
+  top: 2px;
+  width: 19px;
+  height: 19px;
+  border: 1.5px solid #bc8d71;
+  border-radius: 50%;
+  background: var(--home-bg);
+  box-sizing: border-box;
+}
+#root .home-frame[data-density="detailed"] .home-record {
+  padding: 16px;
+  margin: 0 0 10px;
+  border: 1px solid #e6d9c9;
+  border-radius: 16px;
+  background: var(--timeline-paper);
+  box-shadow: 0 1px 0 #ffffff inset, 0 4px 12px #5c48300b;
+}
+#root .home-frame[data-density="detailed"] .home-record:last-child { margin-bottom: 0; border-bottom: 1px solid #e6d9c9; }
+#root .home-frame[data-density="detailed"] .home-record-main { gap: 12px; align-items: start; }
+#root .home-frame[data-density="detailed"] .home-record-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f2dfce;
+  font-size: 18px;
+}
+#root .home-frame[data-density="detailed"] .home-record-copy { padding-top: 2px; }
+#root .home-frame[data-density="detailed"] .home-chip { margin-top: 7px; background: #f1e7d9; font-size: 12px; }
+#root .home-frame[data-density="detailed"] .home-amount-button { margin-top: -9px; }
+#root .home-frame[data-density="detailed"] .home-wallet { margin-top: 3px; font-size: 12px; font-weight: 400; }
+@media (max-width: 420px) {
+  #root .home-frame[data-density="detailed"] .home-day { margin-left: 26px; }
+  #root .home-frame[data-density="detailed"] .home-day::before { left: -19px; }
+  #root .home-frame[data-density="detailed"] .home-date::before { left: -28px; }
+  #root .home-frame[data-density="detailed"] .home-record { padding: 12px; }
+  #root .home-frame[data-density="detailed"] .home-record-main { gap: 8px; }
+  #root .home-frame[data-density="detailed"] .home-record-icon { width: 30px; height: 30px; font-size: 16px; }
+}
