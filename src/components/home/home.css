@@ -61,6 +61,294 @@
 .home-tile,
 .home-sheet button,
 .home-density-toggle {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.home-mode button {
+  position: relative;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px dashed var(--home-text);
+  border-radius: 2px;
+  background:
+    radial-gradient(circle at 0 50%, var(--home-bg) 3px, transparent 3.5px),
+    radial-gradient(circle at 100% 50%, var(--home-bg) 3px, transparent 3.5px);
+  color: var(--home-text);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.home-mode button[aria-pressed="true"] {
+  background:
+    radial-gradient(circle at 0 50%, var(--home-bg) 3px, transparent 3.5px),
+    radial-gradient(circle at 100% 50%, var(--home-bg) 3px, transparent 3.5px),
+    var(--home-text);
+  color: var(--home-bg);
+  border-style: solid;
+  box-shadow: none;
+}
+
+.home-card,
+.home-trip-card {
+  background: var(--home-surface);
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.home-balance-card {
+  background:
+    repeating-linear-gradient(90deg, rgba(92, 64, 38, 0.045) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(0deg, rgba(92, 64, 38, 0.03) 0 1px, transparent 1px 8px),
+    radial-gradient(circle at 16% 0%, rgba(255, 248, 236, 0.42), transparent 46%),
+    linear-gradient(165deg, #e8d3b6 0%, #dcc09a 100%);
+  border: 1px solid rgba(110, 88, 67, 0.14);
+  color: var(--home-text);
+}
+
+.home-balance-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.home-card-top,
+.home-record,
+.home-section-head,
+.home-stat-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-account-button,
+.home-icon-button,
+.home-text-button,
+.home-tile,
+.home-sheet button,
+.home-density-toggle,
+.home-link-row {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.home-account-button,
+.home-text-button,
+.home-link-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0 4px;
+  text-align: left;
+}
+
+.home-account-button span,
+.home-record-title,
+.home-trip-name {
+  overflow-wrap: anywhere;
+}
+
+.home-account-button span {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.home-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0;
+}
+
+.home-balance-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+
+.home-balance-figure {
+  margin: 0;
+  font-family: Fraunces, serif;
+  font-size: clamp(1.5rem, 7vw, 2rem);
+  font-weight: 560;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  overflow-wrap: normal;
+}
+
+.home-note,
+.home-wallet,
+.home-chip,
+.home-meta {
+  color: var(--home-muted);
+  font-size: 0.75rem;
+}
+
+.home-stat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-top: 12px;
+  padding: 4px 4px 0;
+}
+
+.home-stat {
+  min-width: 0;
+  padding-inline: 8px;
+  container-type: inline-size;
+}
+
+.home-stat + .home-stat {
+  border-left: 1px solid var(--home-line);
+}
+
+.home-stat p {
+  margin: 4px 0 0;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: normal;
+}
+
+.home-stat .home-meta {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+
+.home-money-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.home-money-lines[data-count="1"] {
+  flex-direction: row;
+}
+
+.home-money-line {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.home-stat .home-money-line {
+  font-size: clamp(0.7rem, 10cqi, 1rem);
+}
+
+.home-tiles {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.home-tiles[data-layout="both"] {
+  grid-template-columns: 1fr 1fr;
+}
+
+.home-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.home-tile-account {
+  background: var(--home-warn);
+}
+
+.home-tile-shared {
+  background: var(--home-shared);
+}
+
+.home-tile-icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(255 253 249 / 72%);
+}
+
+.home-tile strong {
+  font-size: 0.95rem;
+}
+
+.home-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--home-card);
+  color: var(--home-text);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.home-section {
+  margin-top: 12px;
+}
+
+.home-section-head {
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.home-section-head h2 {
+  margin: 0;
+  font-family: Fraunces, serif;
+  font-size: 1.15rem;
+  font-weight: 560;
+}
+
+.home-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-text-button {
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.home-density-toggle {
   position: relative;
   display: inline-grid;
   place-items: center;
@@ -496,3 +784,4 @@ html.is-swapping::after {
     grid-template-columns: 1fr;
   }
 }
+
