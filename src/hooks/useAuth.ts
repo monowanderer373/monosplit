@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useContext, createContext } from 'react'
+import { useState, useEffect, useContext, createContext } from 'react'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -63,6 +63,8 @@ function buildProfile(
 type AuthContextValue = {
   authUser: UserProfile | null
   loading: boolean
+  sessionError: boolean
+  retrySession: () => void
   signUp: (email: string, password: string, displayName: string, emailRedirectTo?: string) => Promise<unknown>
   signIn: (email: string, password: string) => Promise<unknown>
   signInAnonymously: () => Promise<unknown>
@@ -83,87 +85,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(supabaseEnabled)
 
-  // Set auth user immediately from session token; enrich from DB in background
-  const fetchProfileAndSet = useCallback((user: User) => {
-    setAuthUser(buildProfile(user))
-
-    if (!supabase) return
-    void Promise.all([
-      Promise.resolve(supabase
-        .from('user_profiles')
-        .select('display_name, avatar_url, default_currency, timezone')
-        .eq('id', user.id)
-        .maybeSingle()),
-      Promise.resolve(supabase
-        .from('participants')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle()),
-    ])
-      .then(([profileResult, participantResult]) => {
-        const enriched = buildProfile(user, profileResult.data, participantResult.data?.id ?? null)
-        setAuthUser((current) => applyProfileEnrichment(current, enriched))
-      })
-      .catch((cause: unknown) => {
-        // DB unavailable — basic profile already set, continue
-        observeAuthFailure('profile_load', 'session', cause)
-      })
-  }, [])
+  const [sessionError, setSessionError] = useState(false)
+  const [sessionAttempt, setSessionAttempt] = useState(0)
 
   useEffect(() => {
-    if (!supabase || !supabaseEnabled) {
-      return
-    }
+    if (!supabase || !supabaseEnabled) return
+    const client = supabase
+    let active = true
+    let revision = 0
+    let sessionIdentity: string | null = null
+    setLoading(true)
+    setSessionError(false)
 
-    let loadingResolved = false
-    const resolveLoading = () => {
-      if (!loadingResolved) {
-        loadingResolved = true
+    // Keep database requests outside Supabase's auth callback/lock. A new
+    // session revision also invalidates any older profile or bootstrap response.
+    const acceptSession = async (user: User | null) => {
+      const requestRevision = ++revision
+      if (!active) return
+      setSessionError(false)
+      if (user && sessionIdentity !== user.id) setLoading(true)
+      sessionIdentity = user?.id ?? null
+      if (!user) {
+        setAuthUser(null)
+        setLoading(false)
+        return
+      }
+
+      setAuthUser((current) => current?.id === user.id
+        ? { ...current, email: user.email, isAnonymous: user.is_anonymous ?? false }
+        : buildProfile(user))
+      try {
+        // Yield out of the auth notification before doing any database work.
+        await new Promise<void>((resolve) => setTimeout(resolve, 0))
+        if (!active || revision !== requestRevision) return
+        const [profileResult, participantResult] = await Promise.all([
+          client.from('user_profiles')
+            .select('display_name, avatar_url, default_currency, timezone')
+            .eq('id', user.id).maybeSingle(),
+          client.from('participants').select('id')
+            .eq('auth_user_id', user.id).maybeSingle(),
+        ])
+        if (!active || revision !== requestRevision) return
+        if (profileResult.error) throw profileResult.error
+        if (participantResult.error) throw participantResult.error
+        const enriched = buildProfile(user, profileResult.data, participantResult.data?.id ?? null)
+        setAuthUser((current) => applyProfileEnrichment(current, enriched))
+        setLoading(false)
+      } catch (cause) {
+        if (!active || revision !== requestRevision) return
+        observeAuthFailure('profile_load', 'session', cause)
+        // A failed read must not masquerade as logged out or missing schema.
+        setSessionError(true)
         setLoading(false)
       }
     }
 
-    let initialSessionFired = false
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        // Synchronous: sets authUser immediately, DB enrich runs in background
-        fetchProfileAndSet(session.user)
-      } else {
-        setAuthUser(null)
-      }
-
-      if (event === 'INITIAL_SESSION') {
-        initialSessionFired = true
-        observeAuthOutcome('initial_session', 'succeeded', 'session')
-        resolveLoading()
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      if (!active || event === 'INITIAL_SESSION') return
+      if (session?.user || event === 'SIGNED_OUT') {
+        void acceptSession(session?.user ?? null)
       }
     })
 
-    // Safety fallback for mobile Chrome / PWA where INITIAL_SESSION sometimes misfires
-    const fallbackTimer = setTimeout(() => {
-      if (initialSessionFired) return
-      console.warn('[auth] INITIAL_SESSION timeout — getSession() fallback')
-      void Promise.resolve(supabase!.auth.getSession())
-        .then(({ data: { session } }) => {
-          if (session?.user) {
-            fetchProfileAndSet(session.user)
-          } else {
-            setAuthUser(null)
-          }
-        })
-        .catch((e: unknown) => {
-          observeAuthFailure('initial_session', 'session', e)
-          console.warn('[auth] initial session fallback unavailable')
-        })
-        .finally(resolveLoading)
-    }, 3000)
+    // Read the persisted session immediately, rather than using a timer to
+    // decide when a user is signed out. Later auth events take precedence.
+    const bootstrapRevision = revision
+    void client.auth.getSession().then(({ data: { session }, error }) => {
+      if (!active || revision !== bootstrapRevision) return
+      if (error) throw error
+      observeAuthOutcome('initial_session', 'succeeded', 'session')
+      return acceptSession(session?.user ?? null)
+    }).catch((cause: unknown) => {
+      if (!active || revision !== bootstrapRevision) return
+      observeAuthFailure('initial_session', 'session', cause)
+      setSessionError(true)
+      setLoading(false)
+    })
 
     return () => {
+      active = false
       subscription.unsubscribe()
-      clearTimeout(fallbackTimer)
     }
-  }, [fetchProfileAndSet])
+  }, [sessionAttempt])
 
   // ── Auth methods ────────────────────────────────────────────────────────────
 
@@ -265,6 +268,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value: {
         authUser,
         loading,
+        sessionError,
+        retrySession: () => setSessionAttempt((attempt) => attempt + 1),
         signUp,
         signIn,
         signInAnonymously,

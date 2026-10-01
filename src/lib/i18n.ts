@@ -591,6 +591,7 @@ const translations = {
   'spaceType.group': { en: 'Group', zh: '群组' },
   'spaceType.trip': { en: 'Trip', zh: '旅程' },
 
+  'ledger.sessionUnavailable': { en: 'Unable to verify your session. Please retry.', zh: '暂时无法确认登录状态，请重试。' },
   'ledger.opening': { en: 'Opening your ledger…', zh: '正在打开你的账本…' },
   'ledger.brand': { en: 'TABBY TALLY', zh: 'TABBY TALLY' },
   'ledger.privateLabel': { en: 'Tabby Tally', zh: 'Tabby Tally' },
