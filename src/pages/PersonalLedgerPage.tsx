@@ -40,7 +40,7 @@ export default function PersonalLedgerPage() {
   const t = useT()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const { authUser, loading } = useAuth()
+  const { authUser, loading, sessionError, retrySession } = useAuth()
   const ledger = usePersonalLedger()
   const changeState = useExpenseChanges(Boolean(ledger.participantId), ledger.refresh)
   const homeUi = useStore((state) => state.homeUi)
@@ -63,6 +63,19 @@ export default function PersonalLedgerPage() {
     return (
       <main className="ms-page flex min-h-dvh items-center justify-center">
         <p className="text-sm text-[var(--ms-text-secondary)]">{t('ledger.opening')}</p>
+      </main>
+    )
+  }
+
+  if (sessionError) {
+    return (
+      <main className="ms-page flex min-h-dvh items-center justify-center">
+        <section className="ms-card-hero w-full max-w-md text-center" role="alert">
+          <p>{t('ledger.sessionUnavailable')}</p>
+          <button className="ms-btn-primary mt-6 w-full" onClick={retrySession}>
+            {t('common.retry')}
+          </button>
+        </section>
       </main>
     )
   }
