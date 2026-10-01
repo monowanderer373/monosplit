@@ -114,18 +114,7 @@ export default function ProfilePage() {
 
   return (
     <main className="ms-page pb-28">
-      <header className="mb-6 flex items-center justify-between">
-        <button className="ms-btn-ghost" onClick={() => navigate('/')}>
-          {t('common.back')} · {t('common.ledger')}
-        </button>
-        <button
-          className="ms-btn-ghost text-[var(--ms-danger)]"
-          title={authUser.isAnonymous ? t('auth.profile.signOutRisk') : undefined}
-          onClick={() => authUser.isAnonymous ? setShowGuestSignOutWarning(true) : void handleSignOut()}
-        >
-          {t('auth.signOut')}
-        </button>
-      </header>
+      <header className="mb-6"><h1>{t('nav.me')}</h1><p className="mt-2 text-sm text-[var(--ms-text-secondary)]">{authUser.displayName}</p></header>
 
       {showGuestSignOutWarning ? (
         <section className="ms-card-hero mb-5 border border-[var(--ms-danger)] p-5">
@@ -257,6 +246,15 @@ export default function ProfilePage() {
           {accountMessage ? <p className="mt-3 text-xs text-[var(--ms-text-secondary)]" aria-live="polite">{accountMessage}</p> : null}
         </section>
       )}
+      <div className="mt-8 border-t border-[var(--ms-border)] pt-5">
+        <button
+          className="ms-btn-ghost text-[var(--ms-danger)]"
+          title={authUser.isAnonymous ? t('auth.profile.signOutRisk') : undefined}
+          onClick={() => authUser.isAnonymous ? setShowGuestSignOutWarning(true) : void handleSignOut()}
+        >
+          {t('auth.signOut')}
+        </button>
+      </div>
     </main>
   )
 }
