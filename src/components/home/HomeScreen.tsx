@@ -236,12 +236,15 @@ export default function HomeScreen(props: HomeScreenProps) {
               title={t(props.density === 'detailed' ? 'home.compact' : 'home.detailed')}
               onClick={() => props.onDensityChange(props.density === 'detailed' ? 'compact' : 'detailed')}
             >
-              <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M4 5h12M4 10h12M4 15h12" />
-                {props.density === 'detailed' ? <path d="M7 7h9M7 12h9M7 17h9" opacity=".45" /> : null}
-              </svg>
-              <span>{t(props.density === 'detailed' ? 'home.detailed' : 'home.compact')}</span>
-              <span className="home-density-arrows" aria-hidden="true">⇄</span>
+              <span className="home-density-track" aria-hidden="true">
+                <span className="home-density-thumb">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                    {props.density === 'detailed'
+                      ? <path d="M4 4h8M4 8h8M4 12h8" />
+                      : <path d="M4 5h8M4 11h8" />}
+                  </svg>
+                </span>
+              </span>
             </button>
             <button
               type="button"
