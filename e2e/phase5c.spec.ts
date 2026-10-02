@@ -202,11 +202,10 @@ async function proposeCorrection(
   nextAmount: string,
 ): Promise<void> {
   await owner.goto('/')
-  await owner.getByRole('button', { name: `Actions for ${description}` }).click()
-  const dialog = owner.getByRole('dialog', { name: description })
-  await dialog.getByRole('button', { name: 'Correct expense' }).click()
+  await owner.getByRole('button', { name: `Edit ${description}` }).click()
+  const dialog = owner.getByRole('dialog')
   await dialog.getByLabel('Total amount').fill(nextAmount)
-  await dialog.getByRole('button', { name: 'Review correction' }).click()
+  await dialog.getByRole('button', { name: 'Review changes' }).click()
   await expect(dialog.getByText(
     'This correction will not affect the balance until everyone required has approved it.',
   )).toBeVisible()
@@ -215,8 +214,8 @@ async function proposeCorrection(
 }
 
 async function requestCancellation(owner: Page, description: string): Promise<void> {
-  await owner.getByRole('button', { name: `Actions for ${description}` }).click()
-  const dialog = owner.getByRole('dialog', { name: description })
+  await owner.getByRole('button', { name: `Edit ${description}` }).click()
+  const dialog = owner.getByRole('dialog')
   await expect(dialog.getByRole('button', { name: 'Cancel expense' })).toHaveCount(0)
   await dialog.getByRole('button', { name: 'Request cancellation' }).click()
   await dialog.getByRole('button', { name: 'Send cancellation request' }).click()

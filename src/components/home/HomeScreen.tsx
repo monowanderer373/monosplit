@@ -614,9 +614,7 @@ function RecordRow({
         <div className="home-record-money">
           <div className="home-record-figures">
             <p className={`home-amount ${homeRecordAmountState(record.amountKnown, accountsStatus) === 'amount' ? cue.tone : ''}`}>
-              {isValidElement<{ trigger?: ReactNode; triggerClassName?: string }>(record.action)
-                ? cloneElement(record.action, { trigger: amountContent, triggerClassName: 'home-amount-button' })
-                : amountContent}
+              {amountContent}
             </p>
             <p className="home-wallet">
               {accountsStatus === 'loading'
@@ -630,6 +628,13 @@ function RecordRow({
           </div>
         </div>
       </div>
+      {isValidElement<{ trigger?: ReactNode; triggerClassName?: string; contextLabel?: string }>(record.action)
+        ? cloneElement(record.action, {
+          trigger: null,
+          triggerClassName: 'home-record-trigger',
+          contextLabel: `${chipText(record, t)}${record.walletName ? ` · ${record.walletName}` : ''}`,
+        })
+        : record.action}
     </article>
   )
 }

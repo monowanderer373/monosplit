@@ -329,6 +329,25 @@ describe('HomeScreen', () => {
     expect(screen.getByText('CIMB')).toBeTruthy()
   })
 
+  it.each(['detailed', 'compact'] as const)('places the %s edit trigger over the whole card and supports keyboard activation', async density => {
+    const edited = vi.fn()
+    function Action({ triggerClassName }: { triggerClassName?: string }) {
+      return <button type="button" className={triggerClassName} onClick={edited}>Edit record</button>
+    }
+    render(<HomeScreen {...props({
+      density,
+      recordGroups: groups.map(group => ({ ...group, records: group.records.map(record => ({ ...record, compact: density === 'compact' })) })),
+      recordActions: { 'expense:1': <Action /> },
+    })} />)
+    const card = screen.getByTestId('home-record')
+    const trigger = screen.getByRole('button', { name: 'Edit record' })
+    expect(card.querySelector('.home-record-trigger')).toBe(trigger)
+    expect(card.querySelector('.home-amount button')).toBeNull()
+    trigger.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(edited).toHaveBeenCalledTimes(1)
+  })
+
   it('shows loading, empty, and error states', () => {
     const { rerender } = render(<HomeScreen {...props({
       accountsStatus: 'loading',

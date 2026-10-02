@@ -72,16 +72,16 @@ test('committed create uses server cancellation and owner-local restore', async 
 
   const expense = page.getByRole('article').filter({ hasText: description })
   const currentExpenseAction = page.getByRole('button', {
-    name: `Actions for ${description}`,
+    name: `Edit ${description}`,
   })
   await expect(expense).toBeVisible()
   await expect.poll(() => serverExpenseCount(account, description)).toBe(1)
   await expect(expense.getByRole('button', { name: 'Undo add' })).toHaveCount(0)
 
   await expense
-    .getByRole('button', { name: `Actions for ${description}` })
+    .getByRole('button', { name: `Edit ${description}` })
     .press('Enter')
-  const actions = page.getByRole('dialog', { name: description })
+  const actions = page.getByRole('dialog')
   await actions.getByRole('button', { name: 'Cancel expense', exact: true }).click()
   await actions.getByRole('button', { name: 'Confirm cancellation' }).click()
 

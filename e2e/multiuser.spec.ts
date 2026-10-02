@@ -148,8 +148,8 @@ test.describe('local relational multi-user journey', () => {
 
     const betaOwn = betaBrowser.page.getByRole('article').filter({ hasText: 'Exact ferry' })
     const alphaExpense = betaBrowser.page.getByRole('article').filter({ hasText: 'Remainder dinner' })
-    await expect(betaOwn.getByRole('button', { name: 'Actions for Exact ferry' })).toBeVisible()
-    await expect(alphaExpense.getByRole('button', { name: 'Actions for Remainder dinner' })).toHaveCount(0)
+    await expect(betaOwn.getByRole('button', { name: 'Edit Exact ferry' })).toBeVisible()
+    await expect(alphaExpense.getByRole('button', { name: 'Edit Remainder dinner' })).toHaveCount(0)
 
     await expectDebt(owner, 'Beta owes You', 'RM 2.50')
     await expectDebt(betaBrowser.page, 'You owe Alpha', 'RM 2.50')

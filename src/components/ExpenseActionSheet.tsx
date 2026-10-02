@@ -1,76 +1,54 @@
 import { capitalizeDescription } from '../lib/description'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { CanonicalExpense, GroupRole } from '../types'
 import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
 import { SELECTABLE_EXPENSE_CATEGORIES } from '../lib/categories'
-import {
-  deriveExpenseActionPolicy,
-  financialFailureDisposition,
-  type ExpenseAction,
-} from '../lib/expenseActionPolicy'
-import {
-  expenseChangeRepository,
-  type DirectExpenseChangeRequest,
-  type ExpenseFinancialPayload,
-} from '../lib/expenseChangeRepository'
+import { CURRENCIES } from '../lib/currency'
+import { deriveExpenseActionPolicy, financialFailureDisposition, type ExpenseAction } from '../lib/expenseActionPolicy'
+import { expenseChangeRepository, type DirectExpenseChangeRequest, type ExpenseFinancialPayload } from '../lib/expenseChangeRepository'
 import { rescaleMinorAmounts } from '../lib/expenseFinancialDraft'
+import { expenseEditSnapshot, financialEditsChanged, metadataEditsChanged, saveExpenseEdits } from '../lib/saveExpenseEdits'
 import { generateId } from '../lib/id'
-import {
-  categoryKey,
-  friendlyErrorKey,
-  machineCode,
-  useT,
-  type TranslationKey,
-} from '../lib/i18n'
-import {
-  currencyExponent,
-  formatMinorAmount,
-  parseMajorAmount,
-  reconcileMinorAmounts,
-} from '../lib/money'
+import { categoryKey, friendlyErrorKey, machineCode, useT, type TranslationKey } from '../lib/i18n'
+import { currencyExponent, formatMinorAmount, parseMajorAmount, reconcileMinorAmounts } from '../lib/money'
 import { ledgerRepository } from '../lib/ledgerRepository'
+import { useStore } from '../store/useStore'
+import QuickIcon from './QuickIcon'
+import MoneyText from './MoneyText'
+import './expense-editor.css'
 
-type EditorMode =
-  | 'menu'
-  | 'metadata'
-  | 'financial'
-  | 'correction'
-  | 'space_correction'
-  | 'cancel'
-  | 'request_cancellation'
-  | 'view_request'
-
+type EditorMode = 'metadata' | 'financial' | 'correction' | 'space_correction' | 'cancel' | 'request_cancellation' | 'view_request'
 type Props = {
   trigger?: ReactNode
   triggerClassName?: string
+  contextLabel?: string
   expense: CanonicalExpense
   currentParticipantId: string
   spaceRole?: GroupRole | null
   pendingRequest?: DirectExpenseChangeRequest | null
   onCancelExpense?: (expenseId: string) => Promise<void>
   onRefresh: () => Promise<unknown>
+  statusNotice?: string
 }
 
 export default function ExpenseActionSheet({
-  expense,
-  currentParticipantId,
-  spaceRole = null,
-  pendingRequest = null,
-  onCancelExpense,
-  onRefresh,
-  statusNotice = '',
-  trigger,
-  triggerClassName,
-}: Props & { statusNotice?: string }) {
+  expense, currentParticipantId, spaceRole = null, pendingRequest = null,
+  onCancelExpense, onRefresh, statusNotice = '', trigger, triggerClassName, contextLabel,
+}: Props) {
   const t = useT()
+  const zh = useStore(state => state.lang) === 'zh'
+  const copy = (en: string, cn: string) => zh ? cn : en
   const [open, setOpen] = useState(false)
-  const [mode, setMode] = useState<EditorMode>('menu')
-  const [reviewing, setReviewing] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [requestedMode, setMode] = useState<EditorMode>('financial')
+  const [reviewPayload, setReviewPayload] = useState<ExpenseFinancialPayload | null>(null)
+  const [splitOpen, setSplitOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [failClosed, setFailClosed] = useState(false)
   const [error, setError] = useState<TranslationKey | ''>('')
-  const [message, setMessage] = useState<TranslationKey | ''>('')
+  const [notice, setNotice] = useState('')
+  const [partialSave, setPartialSave] = useState(false)
   const [description, setDescription] = useState(expense.description ?? '')
   const [category, setCategory] = useState(expense.category)
   const [occurredOn, setOccurredOn] = useState(expense.occurredOn)
@@ -78,574 +56,251 @@ export default function ExpenseActionSheet({
   const [currency, setCurrency] = useState(expense.currency)
   const [paid, setPaid] = useState<Record<string, string>>({})
   const [shares, setShares] = useState<Record<string, string>>({})
-  const dialogRef = useAccessibleDialog<HTMLElement>(() => setOpen(false))
-  const orderedParticipations = useMemo(
-    () => [...expense.participations].sort((a, b) => a.order - b.order),
-    [expense.participations],
-  )
-  const policy = useMemo(() => deriveExpenseActionPolicy({
-    expense,
-    currentParticipantId,
-    spaceRole,
-    pendingRequest,
-  }), [currentParticipantId, expense, pendingRequest, spaceRole])
+  const baseline = useRef(expenseEditSnapshot(expense))
+  const draftActive = useRef(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const busy = useRef(false)
+  const orderedParticipations = useMemo(() => [...expense.participations].sort((a, b) => a.order - b.order), [expense.participations])
+  const policy = useMemo(() => deriveExpenseActionPolicy({ expense, currentParticipantId, spaceRole, pendingRequest }), [expense, currentParticipantId, spaceRole, pendingRequest])
+  const initialMode = (): EditorMode => {
+    if (policy.actions.includes('edit_financials')) return 'financial'
+    if (policy.actions.includes('propose_correction')) return expense.scope === 'space' ? 'space_correction' : 'correction'
+    return policy.actions.includes('edit_metadata') ? 'metadata' : 'view_request'
+  }
+  // Re-evaluate edit authority if a shared participant responds while open.
+  const mode = requestedMode === 'cancel' || requestedMode === 'request_cancellation' ? requestedMode : initialMode()
+  const mutationBlocked = failClosed || policy.mutationBlocked
+    || (mode === 'cancel' && !policy.actions.includes('cancel'))
+    || (mode === 'request_cancellation' && !policy.actions.includes('request_cancellation'))
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
 
+  const requestClose = () => {
+    if (busy.current || closing) return
+    setClosing(true)
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    closeTimer.current = setTimeout(() => { setOpen(false); setClosing(false) }, reduced ? 100 : 180)
+  }
   const openSheet = () => {
-    setDescription(expense.description ?? '')
-    setCategory(expense.category)
-    setOccurredOn(expense.occurredOn)
-    setTotal(minorInput(expense.totalMinor, expense.currency))
-    setCurrency(expense.currency)
-    setPaid(amountInputs(expense, 'paid'))
-    setShares(amountInputs(expense, 'share'))
-    setReviewing(false)
-    setMode('menu')
-    setError('')
-    setMessage('')
+    if (!draftActive.current || expense.id !== baseline.current.expenseId || expense.version > baseline.current.version) {
+      baseline.current = expenseEditSnapshot(expense)
+      setDescription(expense.description ?? '')
+      setCategory(expense.category)
+      setOccurredOn(expense.occurredOn)
+      setTotal(minorInput(expense.totalMinor, expense.currency))
+      setCurrency(expense.currency)
+      setPaid(amountInputs(expense, 'paid'))
+      setShares(amountInputs(expense, 'share'))
+      setPartialSave(false)
+      setError('')
+      setNotice('')
+      setSplitOpen(false)
+      draftActive.current = true
+    }
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setClosing(false)
+    setReviewPayload(null)
+    setMode(initialMode())
     setFailClosed(false)
     setOpen(true)
   }
-
   if (policy.actions.length === 0) return null
 
-  const expenseName = expense.description ?? t(categoryKey(expense.category))
-  const begin = (action: ExpenseAction) => {
-    setError('')
-    setMessage('')
-    setReviewing(false)
-    setMode(actionMode(action, expense.scope))
-  }
-
-  const changeTotal = (value: string) => {
-    setTotal(value)
-    try {
-      const nextTotal = parseMajorAmount(value, currency)
-      setPaid(rescaledInputs(expense, 'paid', nextTotal))
-      setShares(rescaledInputs(expense, 'share', nextTotal))
-    } catch {
-      // Keep the user's partial input; validation runs before review/submit.
-    }
-  }
-
-  const submitMetadata = async () => {
-    await runMutation(async () => {
-      await ledgerRepository.updateExpenseMetadata({
-        expenseId: expense.id,
-        expectedVersion: expense.version,
-        description: capitalizeDescription(description.trim()) || null,
-        category,
-        occurredOn,
-      })
-    })
-  }
-
+  const expenseName = capitalizeDescription(expense.description ?? t(categoryKey(expense.category)))
+  const editing = ['metadata', 'financial', 'correction', 'space_correction'].includes(mode)
+  const shared = expense.scope !== 'personal'
+  const sharedNames = orderedParticipations.filter(person => person.participantId !== currentParticipantId).map(person => person.nameSnapshot).join(', ')
+  const subtitle = contextLabel ?? (shared ? copy(`Shared with ${sharedNames}`, `与 ${sharedNames} 共享`) : copy('Personal expense', '个人账目'))
   const buildPayload = (): ExpenseFinancialPayload => {
     const totalMinor = parseMajorAmount(total, currency)
-    const participantIds = orderedParticipations.map((item) => item.participantId)
-    const contributionAmounts = participantIds.map((id) => (
-      parseNonnegativeMajor(paid[id] ?? '', currency)
-    ))
-    const shareAmounts = participantIds.map((id) => (
-      parseNonnegativeMajor(shares[id] ?? '', currency)
-    ))
-    reconcileMinorAmounts(
-      Object.fromEntries(participantIds.map((id, index) => [
-        id,
-        contributionAmounts[index],
-      ])),
-      totalMinor,
-    )
-    reconcileMinorAmounts(
-      Object.fromEntries(participantIds.map((id, index) => [
-        id,
-        shareAmounts[index],
-      ])),
-      totalMinor,
-    )
-    return {
-      totalMinor,
-      currency: currency.toUpperCase(),
-      description: capitalizeDescription(description.trim()) || null,
-      category,
-      occurredOn,
-      participantIds,
-      contributionAmounts,
-      shareAmounts,
-    }
+    const participantIds = orderedParticipations.map(person => person.participantId)
+    const contributionAmounts = participantIds.map(id => parseNonnegativeMajor(paid[id] ?? '', currency))
+    const shareAmounts = participantIds.map(id => parseNonnegativeMajor(shares[id] ?? '', currency))
+    return { totalMinor, currency, description: capitalizeDescription(description.trim()) || null, category, occurredOn, participantIds, contributionAmounts, shareAmounts }
   }
+  let draft: ExpenseFinancialPayload | null = null
+  try { draft = buildPayload() } catch { /* Partial input remains editable. */ }
+  const financialChanged = !draft || financialEditsChanged(baseline.current.payload, draft)
+  const dirty = !draft || financialChanged || metadataEditsChanged(baseline.current.payload, draft)
+  const needsReview = shared && financialChanged
 
-  const reviewFinancialChange = () => {
+  const changeAmount = (value: string, nextCurrency = currency) => {
     try {
-      buildPayload()
-      setError('')
-      if (mode === 'correction' || mode === 'space_correction') {
-        setReviewing(true)
-      } else {
-        void submitFinancialChange()
-      }
-    } catch {
-      setError('expenseAction.amountsMustReconcile')
-    }
-  }
-
-  const submitFinancialChange = async () => {
-    let payload: ExpenseFinancialPayload
-    try {
-      payload = buildPayload()
-    } catch {
-      setError('expenseAction.amountsMustReconcile')
-      return
-    }
-    await runMutation(async () => {
-      if (mode === 'financial') {
-        await ledgerRepository.replaceExpenseFinancials({
-          expenseId: expense.id,
-          expectedVersion: expense.version,
-          totalMinor: payload.totalMinor,
-          currency: payload.currency,
-          participantIds: payload.participantIds,
-          contributionAmounts: payload.contributionAmounts,
-          shareAmounts: payload.shareAmounts,
-        })
-      } else if (mode === 'correction') {
-        await expenseChangeRepository.proposeDirectChange({
-          requestId: generateId(),
-          targetExpenseId: expense.id,
-          expectedTargetVersion: expense.version,
-          kind: 'correction',
-          replacement: payload,
-        })
-      } else {
-        await expenseChangeRepository.correctSpaceExpense({
-          requestId: generateId(),
-          targetExpenseId: expense.id,
-          expectedVersion: expense.version,
-          replacement: payload,
-        })
-      }
-    })
-  }
-
-  const submitCancellation = async () => {
-    await runMutation(async () => {
-      if (mode === 'request_cancellation') {
-        await expenseChangeRepository.proposeDirectChange({
-          requestId: generateId(),
-          targetExpenseId: expense.id,
-          expectedTargetVersion: expense.version,
-          kind: 'cancellation',
-        })
-      } else {
-        if (onCancelExpense) await onCancelExpense(expense.id)
-        else await ledgerRepository.voidExpense(expense.id, expense.version)
-      }
-    })
+      const nextTotal = parseMajorAmount(value, nextCurrency)
+      const current = draft ?? baseline.current.payload
+      const scale = (amounts: number[]) => Object.fromEntries(current.participantIds.map((id, index) => [id,
+        minorInput(rescaleMinorAmounts(amounts, current.totalMinor, nextTotal)[index], nextCurrency),
+      ]))
+      setPaid(scale(current.contributionAmounts))
+      setShares(scale(current.shareAmounts))
+    } catch { /* Validate after the user finishes entering an amount. */ }
+    setTotal(value)
+    setCurrency(nextCurrency)
+    setError('')
   }
 
   const runMutation = async (mutation: () => Promise<void>) => {
-    if (saving || failClosed) return
+    if (busy.current || mutationBlocked) return
+    busy.current = true
     setSaving(true)
     setError('')
-    setMessage('')
+    setNotice('')
+    const beforeVersion = baseline.current.version
+    let completed = false
     try {
       await mutation()
+      completed = true
+      draftActive.current = false
       await onRefresh()
       setOpen(false)
+      setPartialSave(false)
     } catch (cause) {
-      const disposition = financialFailureDisposition(machineCode(cause))
-      if (disposition === 'fail_closed') setFailClosed(true)
-      if (disposition === 'refetch') {
-        await onRefresh()
-        setMessage('changeRequest.changedRefresh')
+      if (completed) {
+        setNotice(copy('Saved. Reload the page to refresh your records.', '已保存。请刷新页面以更新记录。'))
+        setFailClosed(true)
+      } else {
+        if (baseline.current.version > beforeVersion) setPartialSave(true)
+        const disposition = financialFailureDisposition(machineCode(cause))
+        if (disposition === 'fail_closed' || disposition === 'refetch') setFailClosed(true)
+        if (disposition === 'refetch') {
+          draftActive.current = false
+          setNotice(t('changeRequest.changedRefresh'))
+        }
+        setError(friendlyErrorKey(cause))
+        if (baseline.current.version > beforeVersion || disposition === 'refetch') {
+          try { await onRefresh() } catch { /* Keep the acknowledged save version for retry. */ }
+        }
       }
-      setError(friendlyErrorKey(cause))
     } finally {
+      busy.current = false
       setSaving(false)
     }
   }
-
-  return (
-    <>
-      <button
-        className={triggerClassName ?? "ms-btn-ghost min-h-10 px-3 py-2 text-xs"}
-        aria-label={t('expenseAction.open', { name: expenseName })}
-        onClick={openSheet}
-      >
-        {trigger ?? '•••'}
-      </button>
-
-      {open ? createPortal(
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/35 sm:items-center sm:p-4">
-          <div className="absolute inset-0" aria-hidden="true" onClick={() => setOpen(false)} />
-          <section
-            ref={dialogRef}
-            className="tt-paper-dialog relative z-10 max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-[var(--ms-surface)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`expense-action-${expense.id}`}
-            tabIndex={-1}
-          >
-            <header className="flex items-start justify-between gap-4">
-              <div>
-                <p className="ms-label">{t('expenseAction.actions')}</p>
-                <h2 id={`expense-action-${expense.id}`} className="mt-1 text-2xl font-extrabold">
-                  {expenseName}
-                </h2>
-              </div>
-              <button
-                className="ms-btn-ghost h-11 w-11 shrink-0 p-0"
-                onClick={() => setOpen(false)}
-                aria-label={t('common.close')}
-              >
-                ×
-              </button>
-            </header>
-
-            {message ? (
-              <p className="mt-4 text-sm font-bold text-[var(--ms-info)]">{t(message)}</p>
-            ) : null}
-            {error ? (
-              <p className="mt-4 rounded-xl bg-[var(--ms-danger-bg)] px-3 py-2 text-sm text-[var(--ms-danger)]">
-                {t(error)}
-              </p>
-            ) : statusNotice ? (
-              <p className="mt-4 rounded-xl bg-[var(--ms-danger-bg)] px-3 py-2 text-sm text-[var(--ms-danger)]" role="alert">
-                {statusNotice}
-              </p>
-            ) : null}
-
-            {mode === 'menu' ? (
-              <div className="mt-5 grid w-full gap-3" data-testid="expense-action-menu">
-                {policy.actions.map((action) => (
-                  <button
-                    key={action}
-                    data-testid={`expense-action-${action}`}
-                    className={`w-full whitespace-normal text-left ${action === 'cancel' || action === 'request_cancellation'
-                      ? 'ms-btn-ghost text-[var(--ms-danger)]'
-                      : 'ms-btn-ghost'}`}
-                    disabled={failClosed}
-                    onClick={() => begin(action)}
-                  >
-                    {t(actionLabel(action))}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            {mode === 'metadata' ? (
-              <MetadataFields
-                description={description}
-                category={category}
-                occurredOn={occurredOn}
-                onDescription={setDescription}
-                onCategory={setCategory}
-                onOccurredOn={setOccurredOn}
-              />
-            ) : null}
-
-            {(mode === 'financial' || mode === 'correction' || mode === 'space_correction')
-              && !reviewing ? (
-                <div className="mt-5">
-                  {mode !== 'financial' ? (
-                    <div className="mb-4 rounded-2xl bg-[var(--ms-accent-bg)] p-3 text-sm">
-                      <p className="font-bold">{t('expenseAction.currencyLocked')}</p>
-                      <p className="mt-1 text-[var(--ms-text-secondary)]">
-                        {t('expenseAction.cancelAndNew')}
-                      </p>
-                    </div>
-                  ) : policy.financialEditRequiresReconfirmation ? (
-                    <p className="mb-4 rounded-2xl bg-[var(--ms-info-bg)] p-3 text-sm font-bold text-[var(--ms-info)]">
-                      {t('expenseAction.reconfirmWarning')}
-                    </p>
-                  ) : null}
-
-                  {mode !== 'financial' ? (
-                    <MetadataFields
-                      description={description}
-                      category={category}
-                      occurredOn={occurredOn}
-                      onDescription={setDescription}
-                      onCategory={setCategory}
-                      onOccurredOn={setOccurredOn}
-                    />
-                  ) : null}
-
-                  <div className={mode !== 'financial' ? 'mt-4' : ''}>
-                    <div className="grid grid-cols-[1fr_7rem] gap-3">
-                      <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
-                        {t('expenseAction.amount')}
-                        <input
-                          className="ms-input mt-1 w-full"
-                          value={total}
-                          inputMode="decimal"
-                          onChange={(event) => changeTotal(event.target.value)}
-                        />
-                      </label>
-                      <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
-                        {t('expenseAction.currency')}
-                        <input
-                          className="ms-input mt-1 w-full"
-                          value={currency}
-                          readOnly={mode !== 'financial'}
-                          onChange={(event) => setCurrency(event.target.value.toUpperCase())}
-                        />
-                      </label>
-                    </div>
-
-                    <p className="ms-label mt-5">{t('expenseAction.participantAmounts')}</p>
-                    <div className="mt-2 grid gap-3">
-                      {orderedParticipations.map((participation) => (
-                        <div key={participation.id} className="rounded-2xl bg-[var(--ms-bg-warm)] p-3">
-                          <p className="font-bold">{participation.nameSnapshot}</p>
-                          <div className="mt-2 grid grid-cols-2 gap-3">
-                            <label className="text-xs text-[var(--ms-text-secondary)]">
-                              {t('expenseAction.paidBy', { name: participation.nameSnapshot })}
-                              <input
-                                className="ms-input mt-1 w-full"
-                                inputMode="decimal"
-                                aria-label={t('expenseAction.paidBy', { name: participation.nameSnapshot })}
-                                value={paid[participation.participantId] ?? ''}
-                                onChange={(event) => setPaid((current) => ({
-                                  ...current,
-                                  [participation.participantId]: event.target.value,
-                                }))}
-                              />
-                            </label>
-                            <label className="text-xs text-[var(--ms-text-secondary)]">
-                              {t('expenseAction.shareFor', { name: participation.nameSnapshot })}
-                              <input
-                                className="ms-input mt-1 w-full"
-                                inputMode="decimal"
-                                aria-label={t('expenseAction.shareFor', { name: participation.nameSnapshot })}
-                                value={shares[participation.participantId] ?? ''}
-                                onChange={(event) => setShares((current) => ({
-                                  ...current,
-                                  [participation.participantId]: event.target.value,
-                                }))}
-                              />
-                            </label>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-            {reviewing ? (
-              <div className="mt-5">
-                <p className="ms-label">{t('expenseAction.reviewCorrection')}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-[var(--ms-bg-warm)] p-4">
-                    <p className="text-xs font-bold text-[var(--ms-text-muted)]">{t('expenseAction.current')}</p>
-                    <p className="mt-2 font-extrabold">{expenseName}</p>
-                    <p className="mt-1 text-xl font-extrabold">
-                      {formatMinorAmount(expense.totalMinor, expense.currency)}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--ms-border)] p-4">
-                    <p className="text-xs font-bold text-[var(--ms-accent)]">
-                      {t(mode === 'space_correction'
-                        ? 'expenseAction.corrected'
-                        : 'expenseAction.proposed')}
-                    </p>
-                    <p className="mt-2 font-extrabold">{description || t(categoryKey(category))}</p>
-                    <p className="mt-1 text-xl font-extrabold">
-                      {formatMinorAmount(parseMajorAmount(total, currency), currency)}
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">
-                  {t('expenseAction.unchangedPrincipals')}
-                </p>
-                {mode === 'correction' ? (
-                  <p className="mt-2 text-sm font-bold">{t('expenseAction.noEffectUntilApproved')}</p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {(mode === 'cancel' || mode === 'request_cancellation') ? (
-              <div className="mt-5 rounded-2xl bg-[var(--ms-danger-bg)] p-4">
-                <p className="font-extrabold">
-                  {t(mode === 'cancel'
-                    ? 'expenseAction.cancelExpense'
-                    : 'expenseAction.requestCancellation')}
-                </p>
-                <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
-                  {t(mode === 'cancel'
-                    ? 'expenseAction.cancelHelp'
-                    : 'expenseAction.cancellationRequestHelp')}
-                </p>
-              </div>
-            ) : null}
-
-            {mode === 'view_request' ? (
-              <p className="mt-5 rounded-2xl bg-[var(--ms-info-bg)] p-4 text-sm font-bold text-[var(--ms-info)]">
-                {t('expenseAction.requestFrozen')}
-              </p>
-            ) : null}
-
-            {mode !== 'menu' ? (
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <button
-                  className="ms-btn-ghost"
-                  disabled={saving}
-                  onClick={() => reviewing ? setReviewing(false) : setMode('menu')}
-                >
-                  {t('common.back')}
-                </button>
-                {mode === 'metadata' ? (
-                  <button className="ms-btn-primary" disabled={saving || failClosed} onClick={() => void submitMetadata()}>
-                    {saving ? t('expenseAction.saving') : t('expenseAction.saveDetails')}
-                  </button>
-                ) : mode === 'financial' || mode === 'correction' || mode === 'space_correction' ? (
-                  <button
-                    className="ms-btn-primary"
-                    disabled={saving || failClosed}
-                    onClick={() => reviewing ? void submitFinancialChange() : reviewFinancialChange()}
-                  >
-                    {saving
-                      ? t('expenseAction.saving')
-                      : reviewing
-                        ? t(mode === 'space_correction'
-                          ? 'expenseAction.submitSpaceCorrection'
-                          : 'expenseAction.submitCorrection')
-                        : mode === 'financial'
-                          ? t('expenseAction.saveExpense')
-                          : t('expenseAction.reviewCorrection')}
-                  </button>
-                ) : mode === 'cancel' || mode === 'request_cancellation' ? (
-                  <button
-                    className="ms-btn-primary"
-                    disabled={saving || failClosed}
-                    onClick={() => void submitCancellation()}
-                  >
-                    {saving
-                      ? t('expenseAction.saving')
-                      : t(mode === 'cancel'
-                        ? 'expenseAction.confirmCancel'
-                        : 'expenseAction.sendCancellationRequest')}
-                  </button>
-                ) : <span />}
-              </div>
-            ) : null}
-          </section>
-        </div>,
-        document.body,
-      ) : null}
-    </>
-  )
-}
-
-function MetadataFields({
-  description,
-  category,
-  occurredOn,
-  onDescription,
-  onCategory,
-  onOccurredOn,
-}: {
-  description: string
-  category: string
-  occurredOn: string
-  onDescription: (value: string) => void
-  onCategory: (value: string) => void
-  onOccurredOn: (value: string) => void
-}) {
-  const t = useT()
-  return (
-    <div className="mt-5 grid gap-4">
-      <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
-        {t('expenseAction.description')}
-        <input
-          className="ms-input mt-1 w-full"
-          value={description}
-          autoCapitalize="sentences"
-          onChange={(event) => onDescription(capitalizeDescription(event.target.value))}
-        />
-      </label>
-      <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
-        {t('expenseAction.category')}
-        <select
-          className="ms-input mt-1 w-full"
-          value={category}
-          onChange={(event) => onCategory(event.target.value)}
-        >
-          {SELECTABLE_EXPENSE_CATEGORIES.map((item) => (
-            <option key={item} value={item}>{t(categoryKey(item))}</option>
-          ))}
-        </select>
-      </label>
-      <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
-        {t('expenseAction.date')}
-        <input
-          className="ms-input mt-1 w-full"
-          type="date"
-          value={occurredOn}
-          onChange={(event) => onOccurredOn(event.target.value)}
-        />
-      </label>
-    </div>
-  )
-}
-
-function actionMode(action: ExpenseAction, scope: CanonicalExpense['scope']): EditorMode {
-  if (action === 'edit_metadata') return 'metadata'
-  if (action === 'edit_financials') return 'financial'
-  if (action === 'propose_correction') {
-    return scope === 'space' ? 'space_correction' : 'correction'
+  const save = async (payload: ExpenseFinancialPayload) => {
+    const moneyChanged = financialEditsChanged(baseline.current.payload, payload)
+    if (mode === 'metadata' && moneyChanged) { setFailClosed(true); return }
+    await runMutation(async () => {
+      if (!moneyChanged || mode === 'financial') {
+        await saveExpenseEdits(baseline.current, payload, ledgerRepository, applied => { baseline.current = applied })
+      } else if (mode === 'correction') {
+        await expenseChangeRepository.proposeDirectChange({ requestId: generateId(), targetExpenseId: expense.id, expectedTargetVersion: expense.version, kind: 'correction', replacement: payload })
+      } else if (mode === 'space_correction') {
+        await expenseChangeRepository.correctSpaceExpense({ requestId: generateId(), targetExpenseId: expense.id, expectedVersion: expense.version, replacement: payload })
+      }
+    })
   }
-  return action
-}
-
-function actionLabel(action: ExpenseAction): TranslationKey {
-  const keys: Record<ExpenseAction, TranslationKey> = {
-    edit_metadata: 'expenseAction.editDetails',
-    edit_financials: 'expenseAction.editExpense',
-    propose_correction: 'expenseAction.correctExpense',
-    cancel: 'expenseAction.cancelExpense',
-    request_cancellation: 'expenseAction.requestCancellation',
-    view_request: 'expenseAction.viewRequest',
+  const submit = () => {
+    try {
+      const payload = buildPayload()
+      if (financialEditsChanged(baseline.current.payload, payload)) {
+        for (const amounts of [payload.contributionAmounts, payload.shareAmounts]) {
+          reconcileMinorAmounts(Object.fromEntries(payload.participantIds.map((id, index) => [id, amounts[index]])), payload.totalMinor)
+        }
+      }
+      if (needsReview && !reviewPayload) { setReviewPayload(payload); setError('') }
+      else void save(reviewPayload ?? payload)
+    } catch { setError(shared ? 'expenseAction.amountsMustReconcile' : 'error.validAmount') }
   }
-  return keys[action]
+  const cancel = async () => runMutation(async () => {
+    if (mode === 'request_cancellation') {
+      await expenseChangeRepository.proposeDirectChange({ requestId: generateId(), targetExpenseId: expense.id, expectedTargetVersion: baseline.current.version, kind: 'cancellation' })
+    } else if (onCancelExpense) await onCancelExpense(expense.id)
+    else await ledgerRepository.voidExpense(expense.id, baseline.current.version)
+  })
+  const cancellationAction = policy.actions.find(action => action === 'cancel' || action === 'request_cancellation')
+  const beginCancellation = (action: ExpenseAction) => {
+    setMode(action === 'request_cancellation' ? 'request_cancellation' : 'cancel')
+    setReviewPayload(null)
+    setError('')
+  }
+
+  return <>
+    <button type="button" className={triggerClassName ?? 'ms-btn-ghost min-h-10 px-3 py-2 text-xs'} aria-haspopup="dialog" aria-expanded={open}
+      aria-label={copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)} onClick={openSheet}>
+      {triggerClassName === 'home-record-trigger' ? <span className="home-sr">{copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)}</span> : trigger ?? <QuickIcon name="edit" size={16} />}
+    </button>
+    {open ? createPortal(<EditorDialog titleId={`expense-action-${expense.id}`} closing={closing} onClose={requestClose}>
+      <header className="expense-editor-header">
+        <span className="expense-editor-icon"><QuickIcon name={({ Drinks: 'Drink', Transportation: 'Transport', Flight: 'Travel', Accommodation: 'Stay', Activities: 'Fun', Sightseeing: 'Travel' } as Record<string, string>)[category] ?? category} size={24} /></span>
+        <div><h2 id={`expense-action-${expense.id}`}>{editing ? copy('Edit record', '编辑记录') : mode === 'view_request' ? t('expenseAction.viewRequest') : t('expenseAction.cancelExpense')}</h2><p>{subtitle}</p></div>
+        <button type="button" className="expense-editor-close" onClick={requestClose} disabled={saving} aria-label={t('common.close')}><QuickIcon name="close" size={18} /></button>
+      </header>
+      <form className="expense-editor-form" onSubmit={event => { event.preventDefault(); if (editing) submit(); else if (mode !== 'view_request') void cancel() }}>
+        {partialSave ? <p className="expense-editor-notice" role="status">{copy('Amount and split saved. Details are not saved yet; retry saves only the remaining details.', '金额与分摊已保存，资料尚未保存；重试只会保存剩余资料。')}</p> : null}
+        {notice ? <p className="expense-editor-notice" role="status">{notice}</p> : null}
+        {error || statusNotice ? <p className="expense-editor-error" role="alert">{error ? t(error) : statusNotice}</p> : null}
+        {editing && !reviewPayload ? <fieldset disabled={saving || mutationBlocked} className="expense-editor-fields">
+          <label className="expense-editor-label" htmlFor={`edit-amount-${expense.id}`}>{copy('Amount', '金额')}</label>
+          <div className="expense-editor-amount">
+            <select aria-label={t('expenseAction.currency')} value={currency} disabled={mode !== 'financial'} onChange={event => changeAmount(total, event.target.value)}>
+              {CURRENCIES.map(item => <option key={item.code} value={item.code}>{item.symbol} · {item.code}</option>)}
+            </select>
+            <input id={`edit-amount-${expense.id}`} aria-label={t('expenseAction.amount')} inputMode="decimal" value={total} readOnly={mode === 'metadata'} required onChange={event => changeAmount(event.target.value)} />
+          </div>
+          <label className="expense-editor-label expense-editor-description">{t('expenseAction.description')}<input className="ms-input" value={description} autoCapitalize="sentences" onChange={event => setDescription(capitalizeDescription(event.target.value))} /></label>
+          <div className="expense-editor-pair">
+            <label className="expense-editor-label">{t('expenseAction.category')}<select className="ms-input" value={category} onChange={event => setCategory(event.target.value)}>
+              {!SELECTABLE_EXPENSE_CATEGORIES.some(item => item === category) ? <option value={category}>{category}</option> : null}
+              {SELECTABLE_EXPENSE_CATEGORIES.map(item => <option key={item} value={item}>{t(categoryKey(item))}</option>)}
+            </select></label>
+            <label className="expense-editor-label">{t('expenseAction.date')}<input className="ms-input" type="date" required value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>
+          </div>
+          {shared ? <div className="expense-editor-split">
+            <button type="button" className="expense-editor-split-toggle" aria-expanded={splitOpen} aria-controls={splitOpen ? `edit-split-${expense.id}` : undefined} onClick={() => setSplitOpen(value => !value)}><QuickIcon name="split" size={20} /><span>{copy('Split details', '分摊资料')}</span><span aria-hidden="true" className={splitOpen ? 'is-open' : ''}>⌄</span></button>
+            {splitOpen ? <div className="expense-editor-split-table" id={`edit-split-${expense.id}`}>
+              <div className="expense-editor-split-head"><span>{copy('Person', '参与者')}</span><span>{copy('Paid', '支付')}</span><span>{copy('Share', '分摊')}</span></div>
+              {orderedParticipations.map(person => <div className="expense-editor-split-row" key={person.id}>
+                <span>{person.participantId === currentParticipantId ? t('common.you') : person.nameSnapshot}</span>
+                <input aria-label={t('expenseAction.paidBy', { name: person.nameSnapshot })} inputMode="decimal" value={paid[person.participantId] ?? ''} readOnly={mode === 'metadata'} onChange={event => setPaid(current => ({ ...current, [person.participantId]: event.target.value }))} />
+                <input aria-label={t('expenseAction.shareFor', { name: person.nameSnapshot })} inputMode="decimal" value={shares[person.participantId] ?? ''} readOnly={mode === 'metadata'} onChange={event => setShares(current => ({ ...current, [person.participantId]: event.target.value }))} />
+              </div>)}
+            </div> : <p className="expense-editor-hint">{orderedParticipations.length} {copy('people · Existing split is kept', '人 · 保留现有分摊方式')}</p>}
+            {mode !== 'financial' ? <p className="expense-editor-hint">{t('expenseAction.currencyLocked')}</p> : null}
+          </div> : <div className="expense-editor-personal"><QuickIcon name="split" size={18} /><span>{copy('Personal expense', '个人账目')}</span><span>{copy('Only you', '仅自己')}</span></div>}
+        </fieldset> : null}
+        {editing && reviewPayload ? <div className="expense-editor-review" data-testid="expense-edit-review">
+          <p className="expense-editor-label">{copy('Review changes', '检查修改')}</p>
+          <div className="expense-editor-change"><MoneyText value={formatMinorAmount(baseline.current.payload.totalMinor, baseline.current.payload.currency)} /><span>→</span><MoneyText value={formatMinorAmount(reviewPayload.totalMinor, reviewPayload.currency)} /></div>
+          <p>{capitalizeDescription(reviewPayload.description ?? t(categoryKey(reviewPayload.category)))}</p>
+          <div className="expense-editor-review-people">{orderedParticipations.map((person, index) => <div key={person.id}>
+            <span>{person.participantId === currentParticipantId ? t('common.you') : person.nameSnapshot}</span>
+            <span>{copy('Paid', '支付')}: <MoneyText value={formatMinorAmount(baseline.current.payload.contributionAmounts[index], baseline.current.payload.currency)} /> → <MoneyText value={formatMinorAmount(reviewPayload.contributionAmounts[index], reviewPayload.currency)} /></span>
+            <span>{copy('Share', '分摊')}: <MoneyText value={formatMinorAmount(baseline.current.payload.shareAmounts[index], baseline.current.payload.currency)} /> → <MoneyText value={formatMinorAmount(reviewPayload.shareAmounts[index], reviewPayload.currency)} /></span>
+          </div>)}</div>
+          {mode === 'correction' ? <p className="expense-editor-hint">{t('expenseAction.noEffectUntilApproved')}</p> : mode === 'space_correction' ? <p className="expense-editor-hint">{t('expenseAction.unchangedPrincipals')}</p> : policy.financialEditRequiresReconfirmation ? <p className="expense-editor-hint">{t('expenseAction.reconfirmWarning')}</p> : null}
+        </div> : null}
+        {mode === 'cancel' || mode === 'request_cancellation' ? <div className="expense-editor-cancel-confirm"><p>{expenseName}</p><p>{t(mode === 'cancel' ? 'expenseAction.cancelHelp' : 'expenseAction.cancellationRequestHelp')}</p></div> : null}
+        {mode === 'view_request' ? <p className="expense-editor-notice">{t('expenseAction.requestFrozen')}</p> : <footer className="expense-editor-footer">
+          {reviewPayload || !editing ? <button type="button" className="expense-editor-back" disabled={saving} onClick={() => { setReviewPayload(null); setMode(initialMode()) }}>{t('common.back')}</button> : null}
+          <button type="submit" className="ms-btn-primary expense-editor-save" disabled={saving || mutationBlocked || (editing && !dirty)}>
+            {saving ? t('expenseAction.saving') : !editing ? t(mode === 'cancel' ? 'expenseAction.confirmCancel' : 'expenseAction.sendCancellationRequest') : reviewPayload ? mode === 'correction' ? t('expenseAction.submitCorrection') : mode === 'space_correction' ? t('expenseAction.submitSpaceCorrection') : copy('Save changes', '保存修改') : needsReview ? copy('Review changes', '检查修改') : copy('Save changes', '保存修改')}
+          </button>
+          {editing && !reviewPayload && cancellationAction ? <button type="button" className="expense-editor-cancel-link" disabled={saving || mutationBlocked} onClick={() => beginCancellation(cancellationAction)}>{t(cancellationAction === 'cancel' ? 'expenseAction.cancelExpense' : 'expenseAction.requestCancellation')}</button> : null}
+        </footer>}
+      </form>
+    </EditorDialog>, document.getElementById('root') ?? document.body) : null}
+  </>
 }
 
-function amountInputs(
-  expense: CanonicalExpense,
-  kind: 'paid' | 'share',
-): Record<string, string> {
-  return Object.fromEntries(expense.participations.map((participation) => {
-    const source = kind === 'paid' ? expense.payerContributions : expense.shares
-    const amount = source.find((item) => (
-      item.expenseParticipationId === participation.id
-    ))?.amountMinor ?? 0
-    return [participation.participantId, minorInput(amount, expense.currency)]
-  }))
+function EditorDialog({ titleId, closing, onClose, children }: { titleId: string; closing: boolean; onClose: () => void; children: ReactNode }) {
+  const ref = useAccessibleDialog<HTMLElement>(onClose)
+  const swipeStart = useRef<number | null>(null)
+  useEffect(() => {
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = overflow }
+  }, [])
+  return <div className={`expense-editor-backdrop${closing ? ' is-closing' : ''}`}>
+    <div className="tt-sheet-scrim expense-editor-scrim" data-testid="expense-editor-scrim" aria-hidden="true" onClick={onClose} />
+    <section ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="expense-editor">
+      <div className="expense-editor-handle" aria-hidden="true" onPointerDown={event => { swipeStart.current = event.clientY; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerUp={event => { if (swipeStart.current !== null && event.clientY - swipeStart.current > 48) onClose(); swipeStart.current = null }} onPointerCancel={() => { swipeStart.current = null }} />
+      {children}
+    </section>
+  </div>
 }
-
-function rescaledInputs(
-  expense: CanonicalExpense,
-  kind: 'paid' | 'share',
-  nextTotalMinor: number,
-): Record<string, string> {
-  const ordered = [...expense.participations].sort((a, b) => a.order - b.order)
-  const source = kind === 'paid' ? expense.payerContributions : expense.shares
-  const amounts = ordered.map((participation) => source.find((item) => (
-    item.expenseParticipationId === participation.id
-  ))?.amountMinor ?? 0)
-  const scaled = rescaleMinorAmounts(amounts, expense.totalMinor, nextTotalMinor)
-  return Object.fromEntries(ordered.map((participation, index) => [
-    participation.participantId,
-    minorInput(scaled[index], expense.currency),
-  ]))
+function amountInputs(expense: CanonicalExpense, kind: 'paid' | 'share'): Record<string, string> {
+  const snapshot = expenseEditSnapshot(expense).payload
+  const amounts = kind === 'paid' ? snapshot.contributionAmounts : snapshot.shareAmounts
+  return Object.fromEntries(snapshot.participantIds.map((id, index) => [id, minorInput(amounts[index], expense.currency)]))
 }
-
-function minorInput(amountMinor: number, currency: string): string {
-  const exponent = currencyExponent(currency)
-  return (amountMinor / 10 ** exponent).toFixed(exponent)
-}
-
-function parseNonnegativeMajor(value: string, currency: string): number {
-  if (/^0+(?:\.0*)?$/.test(value.trim())) return 0
-  return parseMajorAmount(value, currency)
-}
+function minorInput(amountMinor: number, currency: string): string { return (amountMinor / 10 ** currencyExponent(currency)).toFixed(currencyExponent(currency)) }
+function parseNonnegativeMajor(value: string, currency: string): number { return /^0+(?:\.0*)?$/.test(value.trim()) ? 0 : parseMajorAmount(value, currency) }

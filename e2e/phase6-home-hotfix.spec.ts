@@ -22,36 +22,36 @@ test('zero-account home offers add account in the selected language', async ({ p
   }
 })
 
-test('expense actions stay wide when an error is visible', async ({ page }) => {
+test('whole-card editor stays usable above navigation at small widths', async ({ page }) => {
   for (const width of [360, 390]) {
     await page.setViewportSize({ width, height: 844 })
     await page.goto('/__home-visual?case=expense-actions')
-    await page.getByRole('button', { name: 'Actions for Coffee' }).click()
-    const menu = page.getByTestId('expense-action-menu')
-    await expect(menu).toBeVisible()
-    await expect(page.getByText('Could not refresh this expense.')).toBeVisible()
-    const labels = ['Edit details', 'Edit expense', 'Cancel expense']
-    for (const label of labels) {
-      const button = menu.getByRole('button', { name: label })
-      const box = await button.boundingBox()
-      expect(box?.width ?? 0).toBeGreaterThan(160)
-    }
+    const trigger = page.getByRole('button', { name: 'Edit Coffee' })
+    await trigger.click({ position: { x: 20, y: 20 } })
+    const editor = page.getByRole('dialog', { name: 'Edit record' })
+    await expect(editor).toBeVisible()
+    await expect(page.getByText(/Could not refresh this expense/)).toBeVisible()
+    await expect(editor.getByRole('textbox', { name: 'Total amount' })).toBeVisible()
+    await expect(editor.getByRole('textbox', { name: 'Description' })).toBeVisible()
+    await expect(editor.getByRole('button', { name: 'Edit details' })).toHaveCount(0)
+    await expect(editor.getByRole('button', { name: 'Edit expense' })).toHaveCount(0)
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(1)
     const stacking = await page.evaluate(() => {
-      const button = document.querySelector('[data-testid="expense-action-cancel"]')
+      const sheet = document.querySelector('.expense-editor-backdrop')
       const layer = document.querySelector('[data-testid="global-money-action-layer"]')
-      const sheet = button?.closest('.fixed')
-      return {
-        buttonZ: sheet ? Number(getComputedStyle(sheet).zIndex) : 0,
-        addZ: layer ? Number(getComputedStyle(layer).zIndex) : 0,
-      }
+      return { editorZ: sheet ? Number(getComputedStyle(sheet).zIndex) : 0, addZ: layer ? Number(getComputedStyle(layer).zIndex) : 0 }
     })
-    expect(stacking.buttonZ).toBeGreaterThan(stacking.addZ)
-    const cancel = await menu.getByRole('button', { name: 'Cancel expense' }).boundingBox()
+    expect(stacking.editorZ).toBeGreaterThan(stacking.addZ)
+    const cancel = await editor.getByRole('button', { name: 'Cancel expense' }).boundingBox()
     expect(cancel && cancel.y >= 0 && cancel.y + cancel.height <= 844).toBeTruthy()
-    await page.screenshot({ path: `test-results/phase6-hotfix/expense-actions-${width}.png`, fullPage: true })
+    await page.screenshot({ path: `test-results/phase6-hotfix/expense-editor-${width}.png`, fullPage: true })
+    await page.getByTestId('expense-editor-scrim').click({ position: { x: 3, y: 3 } })
+    await expect(editor).toHaveCount(0)
+    await trigger.press('Enter')
+    await expect(editor).toBeVisible()
     await page.keyboard.press('Escape')
+    await expect(editor).toHaveCount(0)
   }
 })
 
