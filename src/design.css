@@ -164,3 +164,33 @@
 .tt-calculator-keys .is-operator { background:#f1dfcd; }
 .tt-calculator-keys .is-equals { grid-column:1/-1; background:#eac09a; color:#493222; }
 .tt-calculator-error { margin:0 0 10px; color:#b9473d; font-size:12px; }
+
+/* Soft wallet: pale peach clasp, a quiet account label, unchanged balance scale. */
+#root .home-balance-card {
+  position:relative;
+  border-radius:26px;
+  border:1px solid #e5d7c5;
+  background:#fffaf2;
+  padding:20px;
+  box-shadow:0 1px 0 #ffffff inset,0 5px 16px #7654390c;
+  margin-right:6px;
+}
+#root .home-balance-card::after {
+  content:"";
+  position:absolute;
+  top:24px;
+  right:-9px;
+  width:33px;
+  height:26px;
+  border-radius:10px 5px 5px 10px;
+  border:1px solid #deb18b;
+  background:radial-gradient(circle at 13px 13px,#fffaf2 0 5px,transparent 5.5px),#eac09a;
+  box-shadow:0 2px 4px #76543914;
+  pointer-events:none;
+}
+#root .home-balance-card .home-account-button { min-height:36px; margin-top:-6px; padding-left:0; }
+#root .home-balance-card .home-account-button span { font-size:14px; font-weight:400; color:#746a5f; }
+#root .home-balance-card .home-account-button svg { width:12px; height:12px; color:#746a5f; }
+.home-wallet-manage { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:36px; height:36px; margin:-6px 24px 0 0; border:0; border-radius:10px; background:transparent; color:#746a5f; cursor:pointer; }
+.home-wallet-manage:hover { background:#f1e7d9; }
+.home-wallet-manage:focus-visible { outline:2px solid #ae693c; outline-offset:2px; }

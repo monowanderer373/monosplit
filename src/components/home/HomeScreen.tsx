@@ -142,11 +142,16 @@ export default function HomeScreen(props: HomeScreenProps) {
             </button>
             <button
               type="button"
-              className="home-text-button"
+              className="home-wallet-manage"
               data-testid="home-manage"
+              aria-label={t('home.manage')}
+              title={t('home.manage')}
               onClick={() => setSheet('manage')}
             >
-              {t('home.manage')}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                <path d="M3 6h7m4 0h7M3 12h12m4 0h2M3 18h3m4 0h11" />
+                <circle cx="12" cy="6" r="2"/><circle cx="17" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>
+              </svg>
             </button>
           </div>
           <div className="home-balance-line">
