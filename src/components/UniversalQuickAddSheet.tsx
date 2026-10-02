@@ -49,12 +49,11 @@ export default function UniversalQuickAddSheet({
 }: Props) {
   const t = useT()
   const amountRef = useRef<HTMLInputElement>(null)
-  const dialogRef = useAccessibleDialog<HTMLElement>(onClose, amountRef)
+  const dialogRef = useAccessibleDialog<HTMLElement>(onClose)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<TranslationKey | ''>('')
   const zh = useStore((state) => state.lang) === 'zh'
-  const [calculatorOpen, setCalculatorOpen] = useState(false)
-  const [expression, setExpression] = useState('')
+  const [expression, setExpression] = useState(session.values.amount)
   const [calculatorError, setCalculatorError] = useState(false)
   const context = session.context
   const values = session.values
@@ -175,7 +174,7 @@ export default function UniversalQuickAddSheet({
   }
 
   return (
-    <PaperSheet expanded={calculatorOpen} labelledBy="universal-quick-add-title" dialogRef={dialogRef} onClose={onClose}>
+    <PaperSheet expanded labelledBy="universal-quick-add-title" dialogRef={dialogRef} onClose={onClose}>
         <header className="mb-5 flex items-start justify-between gap-4">
             <h2 id="universal-quick-add-title" className="mt-1 text-2xl font-extrabold">
               {t(scope === 'personal' ? 'quickAdd.title' : 'expense.addTitle')}
@@ -201,7 +200,7 @@ export default function UniversalQuickAddSheet({
             <select className="tt-quick-currency" aria-label={t('expense.currency')} value={values.currency} onChange={(event) => onUpdate({ currency: event.target.value })}>{CURRENCIES.map((item) => <option key={item.code} value={item.code}>{item.code}</option>)}</select>
             <input
               aria-label={t('expense.amount')}
-              readOnly={calculatorOpen}
+              readOnly
               ref={amountRef}
               className="min-w-0 flex-1 bg-transparent text-right text-4xl font-extrabold tracking-tight outline-none"
               inputMode="decimal"
@@ -220,21 +219,11 @@ export default function UniversalQuickAddSheet({
                 if (event.key === 'Enter') void submit()
               }}
             />
-            <button type="button" className="tt-calculator-toggle" aria-label={zh ? '金额计算器' : 'Amount calculator'} aria-expanded={calculatorOpen} aria-controls="quick-calculator" onClick={() => {
-              if (!calculatorOpen) { setExpression(values.amount); setCalculatorError(false); amountRef.current?.blur() }
-              setCalculatorOpen(!calculatorOpen)
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M8 6h8M8 11h2m4 0h2m-8 4h2m4 0h2m-8 4h2m4 0h2"/></svg>
-            </button>
+
           </div>
         </div>
 
-        {calculatorOpen ? <section id="quick-calculator" className="tt-calculator" aria-label={zh ? '计算器' : 'Calculator'}>
-          <label className="ms-label" htmlFor="calculator-expression">{zh ? '算式 · 按 = 填入金额' : 'Calculation · = applies to amount'}</label>
-          <input id="calculator-expression" className="tt-calculator-expression" value={expression} placeholder="0" inputMode="none" onChange={event => {setExpression(event.target.value.slice(0,120));setCalculatorError(false)}} onKeyDown={event => {if(event.key === 'Enter'){event.preventDefault();applyCalculation()}}} />
-          {calculatorError ? <p className="tt-calculator-error" role="alert">{zh ? '请检查算式；金额不能为负数，也不能除以零。' : 'Check the calculation. Amounts must be nonnegative; division by zero is invalid.'}</p> : null}
-          <div className="tt-calculator-keys">{['C','⌫','%','÷','7','8','9','×','4','5','6','−','1','2','3','+','(','0','.',')','='].map(key => <button type="button" key={key} className={`${['÷','×','−','+','%'].includes(key) ? 'is-operator' : ''}${key === '=' ? ' is-equals' : ''}`} aria-label={key === '⌫' ? (zh ? '退格' : 'Backspace') : key === 'C' ? (zh ? '清除算式' : 'Clear calculation') : key === '=' ? (zh ? '计算并填入金额' : 'Calculate and apply amount') : key} onClick={() => calculatorKey(key)}>{key}</button>)}</div>
-        </section> : null}
+
 
         <label className="mt-4 block text-xs font-bold text-[var(--ms-text-secondary)]">
           {t('expense.description')}
@@ -418,6 +407,13 @@ export default function UniversalQuickAddSheet({
               </div>
             </div>
         ) : null}
+
+        <section id="quick-calculator" className="tt-calculator" aria-label={zh ? '计算器' : 'Calculator'}>
+          <label className="ms-label" htmlFor="calculator-expression">{zh ? '算式 · 按 = 填入金额' : 'Calculation · = applies to amount'}</label>
+          <input id="calculator-expression" className="tt-calculator-expression" value={expression} placeholder="0" inputMode="none" onChange={event => {setExpression(event.target.value.slice(0,120));setCalculatorError(false)}} onKeyDown={event => {if(event.key === 'Enter'){event.preventDefault();applyCalculation()}}} />
+          {calculatorError ? <p className="tt-calculator-error" role="alert">{zh ? '请检查算式；金额不能为负数，也不能除以零。' : 'Check the calculation. Amounts must be nonnegative; division by zero is invalid.'}</p> : null}
+          <div className="tt-calculator-keys">{['C','⌫','%','÷','7','8','9','×','4','5','6','−','1','2','3','+','(','0','.',')','='].map(key => <button type="button" key={key} className={`${['÷','×','−','+','%'].includes(key) ? 'is-operator' : ''}${key === '=' ? ' is-equals' : ''}`} aria-label={key === '⌫' ? (zh ? '退格' : 'Backspace') : key === 'C' ? (zh ? '清除算式' : 'Clear calculation') : key === '=' ? (zh ? '计算并填入金额' : 'Calculate and apply amount') : key} onClick={() => calculatorKey(key)}>{key}</button>)}</div>
+        </section>
 
         {error ? (
           <p className="mt-3 rounded-xl bg-[var(--ms-danger-bg)] px-3 py-2 text-sm text-[var(--ms-danger)]">
