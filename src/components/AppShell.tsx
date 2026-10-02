@@ -89,20 +89,8 @@ function ShellContents() {
   const showNavigation = Boolean(authUser?.participantId)
   const homeMode = useStore((state) => state.homeUi.mode)
   const place = location.pathname === '/' && homeMode === 'travel' ? 'bali' : 'home'
-  const placeRef = useRef(place)
-
   useEffect(() => {
     document.documentElement.dataset.place = place
-    if (placeRef.current !== place) {
-      document.documentElement.classList.remove('is-swapping')
-      void document.documentElement.offsetWidth
-      document.documentElement.classList.add('is-swapping')
-      const timer = window.setTimeout(() => document.documentElement.classList.remove('is-swapping'), 720)
-      placeRef.current = place
-      return () => window.clearTimeout(timer)
-    }
-    placeRef.current = place
-    return undefined
   }, [place])
 
   return (

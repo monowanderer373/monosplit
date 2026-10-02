@@ -642,22 +642,6 @@ html[data-place="bali"] .home-shell {
   --home-shared: #d5efe6;
 }
 
-html.is-swapping::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  pointer-events: none;
-  background: linear-gradient(165deg, #7ec8c3 0%, #f6c453 46%, #e25b3a 100%);
-  animation: theme-wash 0.72s ease;
-}
-
-@keyframes theme-wash {
-  0% { opacity: 0; transform: translateY(18%); }
-  38% { opacity: 0.88; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-16%); }
-}
-
 .home-wallet {
   margin: 2px 0 0;
 }
@@ -825,8 +809,7 @@ html.is-swapping::after {
 
 @media (prefers-reduced-motion: reduce) {
   .home-shell *,
-  .home-sheet-backdrop,
-  html.is-swapping::after {
+  .home-sheet-backdrop {
     transition: none !important;
     animation: none !important;
   }
