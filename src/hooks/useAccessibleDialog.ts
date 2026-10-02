@@ -31,6 +31,8 @@ function setBackgroundInert(dialog: HTMLElement): () => void {
   while (branch?.parentElement && branch.parentElement !== document.body) {
     for (const sibling of Array.from(branch.parentElement.children)) {
       if (sibling === branch || !(sibling instanceof HTMLElement)) continue
+      // The dismiss scrim belongs to the active dialog, not its background.
+      if (sibling.matches('.home-sheet-scrim, .qa-scrim, .tt-sheet-scrim')) continue
       restored.push({
         element: sibling,
         inert: sibling.inert,

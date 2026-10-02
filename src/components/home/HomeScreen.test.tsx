@@ -151,6 +151,7 @@ describe('HomeScreen', () => {
       const trigger = screen.getByTestId(triggerId)
       await user.click(trigger)
       const dialog = screen.getByTestId(sheetId)
+      expect((screen.getByTestId(`${sheetId}-scrim`) as HTMLElement).inert).not.toBe(true)
       await user.click(dialog.querySelector('h2')!)
       expect(screen.getByTestId(sheetId)).toBeTruthy()
       await user.click(screen.getByTestId(`${sheetId}-scrim`))
