@@ -119,6 +119,22 @@ describe('HomeScreen', () => {
     expect(screen.getByTestId('home-day-total').textContent).not.toContain('123,456,789.01')
   })
 
+  it('keeps zero debt clickable and opens a settled empty state', async () => {
+    const user = userEvent.setup()
+    render(<div id="root"><HomeScreen {...props({receivables:[],sharedContexts:[]})} /></div>)
+    const collect = screen.getByTestId('home-receivable')
+    expect(collect.textContent).toContain('0.00')
+    expect(collect.getAttribute('data-empty')).toBe('true')
+    expect(collect.getAttribute('aria-expanded')).toBe('false')
+    await user.click(collect)
+    expect(screen.getByRole('dialog', {name:'To collect'})).toBeTruthy()
+    expect(screen.getByText('All settled')).toBeTruthy()
+    expect(collect.getAttribute('aria-expanded')).toBe('true')
+    await user.click(screen.getByTestId('home-shared-sheet-scrim'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(collect.getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('separates collection and payment totals and opens only the selected direction', async () => {
     const user = userEvent.setup()
     const onOpenSharedContext = vi.fn()

@@ -137,6 +137,8 @@ export default function HomeScreen(props: HomeScreenProps) {
               type="button"
               className="home-account-button"
               data-testid="home-account-selector"
+              aria-haspopup="dialog"
+              aria-expanded={sheet === 'accounts'}
               onClick={() => setSheet('accounts')}
             >
               <span id="home-balance-title">{selected?.name ?? t('home.allAccounts')}</span>
@@ -146,6 +148,8 @@ export default function HomeScreen(props: HomeScreenProps) {
               type="button"
               className="home-wallet-manage"
               data-testid="home-manage"
+              aria-haspopup="dialog"
+              aria-expanded={sheet === 'manage'}
               aria-label={t('home.manage')}
               title={t('home.manage')}
               onClick={() => setSheet('manage')}
@@ -181,12 +185,12 @@ export default function HomeScreen(props: HomeScreenProps) {
         </section>
         <div className="home-stat-row">
           {(['receivable', 'payable'] as const).map(direction => (
-            <button key={direction} type="button" className={`home-stat home-debt-stat is-${direction}`} data-testid={`home-${direction}`} aria-haspopup="dialog" onClick={() => setSheet(direction)}>
+            <button key={direction} type="button" className={`home-stat home-debt-stat is-${direction}`} data-testid={`home-${direction}`} aria-haspopup="dialog" aria-expanded={sheet === direction} data-state={props.sharedStatus} data-empty={props.sharedStatus === 'ready' && (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).every(line => line.amountMinor === 0)} onClick={() => setSheet(direction)}>
               <span className="home-meta">{t(direction === 'receivable' ? 'home.toCollect' : 'home.payable')}<Chevron /></span>
               <span className="home-debt-value">
                 {props.sharedStatus === 'error' ? t('home.unavailable')
-                  : props.sharedStatus === 'loading' ? t('home.loading')
-                  : <MoneyLines lines={direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)} lang={lang} t={t} />}
+                  : props.sharedStatus === 'loading' ? <><span className="home-sr">{t('home.loading')}</span><span className="home-debt-skeleton" aria-hidden="true" /></>
+                  : <MoneyLines lines={(direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).length > 0 ? (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)) : [{currency:props.defaultCurrency ?? 'MYR',amountMinor:0}]} lang={lang} t={t} />}
               </span>
             </button>
           ))}
@@ -372,7 +376,7 @@ export default function HomeScreen(props: HomeScreenProps) {
       {sheet === 'receivable' || sheet === 'payable' ? (
         <HomeSheet title={t(sheet === 'receivable' ? 'home.toCollect' : 'home.payable')} onClose={() => setSheet(null)} testId="home-shared-sheet">
           {props.sharedStatus !== 'ready' ? <p className="home-status" role="status">{t(props.sharedStatus === 'loading' ? 'home.loading' : 'home.unavailable')}</p> : <SharedSide
-            title={t(sheet === 'receivable' ? 'home.receivable' : 'home.payable')}
+            title={lang === 'zh' ? '未结金额' : 'Outstanding'}
             tone={sheet}
             contexts={props.sharedContexts}
             direction={sheet}
@@ -606,17 +610,28 @@ function SharedSide({
     const lines = context.lines.filter((line) => line.direction === direction)
     return lines.length === 0 ? [] : [{ context, lines }]
   })
+  const totals = new Map<string, number>()
+  for (const { lines } of visible) for (const line of lines) {
+    totals.set(line.currency, addMinor(totals.get(line.currency) ?? 0, line.amountMinor))
+  }
   return (
-    <div>
-      <h3 className={`home-side-title ${tone}`}>{title}</h3>
-      {visible.length === 0 ? <p className="home-status">{t('home.noSharedSide')}</p> : visible.map(({ context, lines }) => (
-        <button key={`${direction}:${context.id}`} type="button" className="home-sheet-option" onClick={() => onOpen(context)}>
-          <span>{context.label || t('home.sharedSpace')}</span>
-          <span className="home-meta">
-            <MoneyLines lines={lines.map((line) => ({ currency: line.currency, amountMinor: line.amountMinor }))} lang={lang} t={t} />
-          </span>
-        </button>
-      ))}
+    <div className={`home-shared-side is-${tone}`}>
+      {visible.length === 0 ? <div className="home-debt-empty">
+        <span className="home-empty-check" aria-hidden="true">✓</span>
+        <h3>{lang === 'zh' ? '全部已结清' : 'All settled'}</h3>
+        <p>{t('home.noSharedSide')}</p>
+      </div> : <>
+        <div className="home-shared-total">
+          <p className="home-meta">{title}</p>
+          <MoneyLines lines={Array.from(totals, ([currency, amountMinor]) => ({ currency, amountMinor }))} lang={lang} t={t} />
+        </div>
+        {visible.map(({ context, lines }) => (
+          <button key={`${direction}:${context.id}`} type="button" className="home-sheet-option home-debt-option" onClick={() => onOpen(context)}>
+            <span className="home-debt-person"><span>{context.label || t('home.sharedSpace')}</span><small>{context.source === 'friend' ? (lang === 'zh' ? '朋友' : 'Friend') : context.source === 'trip' ? (lang === 'zh' ? '旅行' : 'Trip') : (lang === 'zh' ? '群组' : 'Group')}</small></span>
+            <span className="home-debt-row-money"><MoneyLines lines={lines.map((line) => ({ currency: line.currency, amountMinor: line.amountMinor }))} lang={lang} t={t} /><Chevron /></span>
+          </button>
+        ))}
+      </>}
     </div>
   )
 }

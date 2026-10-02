@@ -945,3 +945,76 @@ html.is-swapping::after {
 @media (max-width: 359px) {
   #root .home-frame[data-density="compact"] .home-record-main { gap: 8px; }
 }
+
+/* Navigation-inspired paper controls. Stitching is decorative and never blocks input. */
+#root .home-stat-row { padding: 0; gap: 12px; margin-top: 14px; }
+#root .home-debt-stat {
+  position: relative;
+  min-height: 84px;
+  padding: 14px 16px;
+  border: 1px solid #e4cdb4;
+  border-radius: 16px;
+  background: linear-gradient(175deg, #fffaf2, #f9efdf);
+  box-shadow: inset 0 1px 0 #fffdf7, 0 2px 5px #6e58430d;
+  transition: background 160ms ease, box-shadow 90ms ease, transform 90ms ease;
+}
+#root .home-debt-stat::before, #root .home-balance-card::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px dashed #d7b79580;
+  border-radius: 11px;
+  pointer-events: none;
+}
+#root .home-debt-stat .home-meta { font-size: 13px; font-weight: 400; }
+#root .home-debt-stat .home-meta svg { transform: rotate(-90deg); }
+#root .home-debt-value { margin-top: 7px; font-size: 22px; font-weight: 500; letter-spacing: -.025em; }
+#root .home-debt-stat.is-receivable .home-debt-value { color: #397e7a; }
+#root .home-debt-stat.is-payable .home-debt-value { color: #b66b5d; }
+#root .home-debt-stat[data-state="error"] .home-debt-value { font-size: 13px; color: var(--home-muted); letter-spacing: 0; }
+#root .home-debt-stat:hover { background: #fff4e7; }
+#root .home-debt-stat:active, #root .home-debt-stat[aria-expanded="true"] {
+  background: linear-gradient(160deg, #ffece0, #fae0d0);
+  box-shadow: inset 0 1px 2px #76543912, 0 1px 2px #6e58430a;
+}
+#root .home-debt-stat:active { transform: translateY(1px); }
+#root .home-debt-stat:focus-visible { outline: 2px solid #ae693c; outline-offset: 3px; }
+.home-debt-skeleton { display: block; width: 76px; height: 19px; margin: 5px 0; border-radius: 6px; background: #e9dfd2; animation: home-debt-pulse 1.3s ease-in-out infinite alternate; }
+@keyframes home-debt-pulse { to { opacity: .45; } }
+#root .home-balance-card { background: linear-gradient(175deg, #fffaf2, #f8eddd); border-color: #e4cdb4; }
+#root .home-balance-card::before { inset: 8px; border-radius: 19px; }
+#root .home-balance-card .home-account-button[aria-expanded="true"], #root .home-wallet-manage[aria-expanded="true"] { background: #f9e4d3; }
+#root .home-balance-card :is(.home-account-button, .home-wallet-manage, .home-icon-button) { transition: background 160ms ease, transform 90ms ease; }
+#root .home-balance-card button:active { transform: translateY(1px); }
+.home-sheet { background: linear-gradient(175deg, #fffaf2, #fcf4e8); border-color: #e4cdb4; }
+.home-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px dashed #d7b79580;
+  border-radius: 18px;
+  pointer-events: none;
+}
+.home-sheet .home-sheet-option { font-size: 14px; border-bottom-color: #ecdfce; }
+.home-sheet .home-sheet-option[aria-current="true"] { background: #fae3d2; }
+.home-sheet button.home-sheet-option:active { background: #f9dfca; }
+.home-sheet .home-icon-button { border: 0; background: transparent; }
+.home-shared-total { padding: 6px 0 18px; margin-bottom: 4px; border-bottom: 1px solid #ecdfce; }
+.home-shared-total > .home-meta { margin: 0 0 6px; font-size: 12px; }
+.home-shared-total > .home-money-lines { font-size: 26px; font-weight: 500; }
+.home-shared-side.is-receivable :is(.home-shared-total > .home-money-lines, .home-debt-row-money) { color: #397e7a; }
+.home-shared-side.is-payable :is(.home-shared-total > .home-money-lines, .home-debt-row-money) { color: #b66b5d; }
+.home-debt-person { display: grid; gap: 4px; min-width: 0; }
+.home-debt-person small { font-size: 11px; color: var(--home-muted); }
+.home-debt-row-money { display: flex; align-items: center; gap: 8px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.home-debt-row-money svg { transform: rotate(-90deg); width: 12px; height: 12px; color: var(--home-muted); }
+.home-debt-empty { text-align: center; padding: 20px 8px 28px; }
+.home-empty-check { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #fae5d5; color: #ae693c; font-size: 20px; }
+.home-debt-empty h3 { margin: 14px 0 6px; font-size: 16px; font-weight: 500; }
+.home-debt-empty p { font-size: 13px; color: var(--home-muted); }
+@media (prefers-reduced-motion: reduce) {
+  #root .home-debt-stat, #root .home-balance-card button, .home-debt-skeleton { animation: none; transition: none; }
+}
+
+#root .home-debt-stat[data-empty="true"] .home-debt-value { color: #8a7968; }
+#root .home-debt-stat .home-money-line { font-size: clamp(11px, 15cqi, 22px); }
