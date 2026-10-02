@@ -13,6 +13,23 @@ function Harness({shared=false}:{shared?:boolean}={}){const [session,setSession]
 beforeEach(()=>{localStorage.clear();mocked.submit.mockReset();mocked.submit.mockResolvedValue({ok:true});render(<Harness/>)})
 afterEach(cleanup)
 describe('Quick Add capture',()=>{
+ it('restores interaction after dismissing a nested panel',async()=>{
+  cleanup()
+  Object.defineProperty(HTMLElement.prototype,'inert',{configurable:true,get(){return this.hasAttribute('inert')},set(value){this.toggleAttribute('inert',!!value)}})
+  try {
+   render(<Harness/>);
+   await screen.findByRole('button',{name:/Touch n Go/});
+   fireEvent.click(screen.getByRole('button',{name:/Touch n Go/}));
+   const content=screen.getByRole('textbox',{name:'Amount',hidden:true}).closest('.qa-content') as HTMLElement;
+   expect(content.inert).toBe(true);
+   fireEvent.click(screen.getByRole('button',{name:'Close panel'}));
+   await waitFor(()=>expect(content.inert).toBe(false));
+   fireEvent.click(screen.getByRole('button',{name:/Date$/}));
+   expect(screen.getByRole('dialog',{name:'Date'})).toBeTruthy();
+  } finally {
+   cleanup();delete (HTMLElement.prototype as unknown as {inert?:boolean}).inert;
+  }
+ })
  it('uses category as an editable description and saves an expression without pressing equals',async()=>{
   fireEvent.click(screen.getByRole('button',{name:'Coffee'}))
   expect((screen.getByRole('textbox',{name:'Description'}) as HTMLInputElement).value).toBe('Coffee')

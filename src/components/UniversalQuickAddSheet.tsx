@@ -176,7 +176,7 @@ export default function UniversalQuickAddSheet({session,onUpdate,onConfigureSpli
  const [year,monthNumber]=month.split('-').map(Number)
  const monthStart=new Date(year,monthNumber-1,1),days=new Date(year,monthNumber,0).getDate()
  return <div className={`qa-backdrop${closing?' qa-leaving':''}`}><main ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="qa-title" tabIndex={-1} className="qa-main">
- <div className="qa-content" inert={panel!==null || saving}>
+ <div className="qa-content" inert={saving}>
  <header className="qa-header"><button type="button" className="qa-icon-button" onClick={close} aria-label={copy('Close Quick Add','关闭快速记账')}><QuickIcon name="back"/></button><div><h1 id="qa-title">{copy('Quick Add','记一笔')}</h1><p>{copy('Expense','支出')}</p></div><span className="qa-header-spacer"/></header>
  <div className="qa-categories" aria-label={copy('Expense categories','支出分类')}><div className="qa-category-grid">{categories.map(category=><button key={category.name} type="button" aria-pressed={values.category===category.name} className={`qa-category${values.category===category.name?' is-selected':''}`} onClick={()=>chooseCategory(category)}><QuickIcon name={category.icon}/><span>{categoryLabel(category)}</span></button>)}<button type="button" className="qa-category qa-edit" onClick={()=>{setError('');setPanel('categories')}}><QuickIcon name="edit"/><span>{copy('Edit','编辑')}</span></button></div></div>
  <div className="qa-entry-zone">
