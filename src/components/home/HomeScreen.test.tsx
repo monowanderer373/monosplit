@@ -135,6 +135,26 @@ describe('HomeScreen', () => {
     expect(collect.getAttribute('aria-expanded')).toBe('false')
   })
 
+  it('opens mode choices, selects Travel and restores trigger focus', async () => {
+    const user = userEvent.setup()
+    const change = vi.fn()
+    render(<HomeScreen {...props({onModeChange:change})} />)
+    const trigger = screen.getByRole('button', {name:'Daily'})
+    expect(screen.queryByRole('menu')).toBeNull()
+    await user.click(trigger)
+    expect(screen.getByRole('menuitemradio', {name:'Daily'}).getAttribute('aria-checked')).toBe('true')
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(change).toHaveBeenCalledWith('travel')
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+    await user.click(trigger)
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).toBeNull()
+    await user.click(trigger)
+    await user.click(screen.getByRole('heading', {name:'Recent records'}))
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
   it('separates collection and payment totals and opens only the selected direction', async () => {
     const user = userEvent.setup()
     const onOpenSharedContext = vi.fn()
@@ -170,7 +190,7 @@ describe('HomeScreen', () => {
       },
     } })} />)
     expect(screen.getByTestId('home-mode-switch').parentElement).toBe(screen.getByTestId('home-header'))
-    expect(screen.getByRole('button', { name: 'Travel' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Travel' }).getAttribute('aria-haspopup')).toBe('menu')
   })
 
   it('opens the account sheet and offers manage accounts', async () => {

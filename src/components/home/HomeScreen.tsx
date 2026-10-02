@@ -1,6 +1,6 @@
 import { capitalizeDescription } from '../../lib/description'
 import MoneyText from '../MoneyText'
-import { cloneElement, isValidElement, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAccessibleDialog } from '../../hooks/useAccessibleDialog'
 import { getCategoryIcon } from '../../lib/categories'
@@ -106,22 +106,7 @@ export default function HomeScreen(props: HomeScreenProps) {
           <h1 className="home-title">{props.mode === 'daily' ? t('home.modeDaily') : t('home.modeTravel')}</h1>
           <p className="home-today">{formatDate(today, lang)}</p>
         </div>
-        <div className="home-mode" role="group" aria-label={t('home.modeLabel')} data-testid="home-mode-switch">
-          <button
-            type="button"
-            aria-pressed={props.mode === 'daily'}
-            onClick={() => props.onModeChange('daily')}
-          >
-            {t('home.modeDaily')}
-          </button>
-          <button
-            type="button"
-            aria-pressed={props.mode === 'travel'}
-            onClick={() => props.onModeChange(props.mode === 'travel' ? 'daily' : 'travel')}
-          >
-            {t('home.modeTravel')}
-          </button>
-        </div>
+        <ModeBookmark mode={props.mode} onChange={props.onModeChange} />
       </header>
 
       {props.mode === 'daily' ? (
@@ -411,6 +396,64 @@ export default function HomeScreen(props: HomeScreenProps) {
       ) : null}
     </div>
   )
+}
+
+function ModeBookmark({ mode, onChange }: {
+  mode: 'daily' | 'travel'
+  onChange: (mode: 'daily' | 'travel') => void
+}) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const menuId = useId()
+  const root = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const options = useRef<Array<HTMLButtonElement | null>>([])
+  const modes = ['daily', 'travel'] as const
+  useEffect(() => {
+    if (!open) return
+    options.current[mode === 'daily' ? 0 : 1]?.focus()
+    const outside = (event: globalThis.PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', outside, true)
+    return () => document.removeEventListener('pointerdown', outside, true)
+  }, [open, mode])
+  const close = () => { setOpen(false); trigger.current?.focus() }
+  return <div ref={root} className="home-mode-bookmark" data-mode={mode} data-testid="home-mode-switch">
+    <button ref={trigger} type="button" className="home-mode-trigger"
+      aria-label={t(mode === 'daily' ? 'home.modeDaily' : 'home.modeTravel')}
+      aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined}
+      onClick={() => setOpen(value => !value)}
+      onKeyDown={event => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true) }
+      }}>
+      <ModeIcon mode={mode} /><span>{t(mode === 'daily' ? 'home.modeDaily' : 'home.modeTravel')}</span><Chevron />
+    </button>
+    {open ? <div id={menuId} className="home-mode-menu" role="menu" aria-label={t('home.modeLabel')}
+      onKeyDown={event => {
+        const current = options.current.indexOf(document.activeElement as HTMLButtonElement)
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() }
+        else if (event.key === 'Tab') setOpen(false)
+        else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+          event.preventDefault()
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + 2) % 2
+          options.current[next]?.focus()
+        }
+      }}>
+      {modes.map((choice, index) => <button key={choice} ref={element => { options.current[index] = element }}
+        type="button" role="menuitemradio" aria-checked={choice === mode} tabIndex={-1}
+        onClick={() => { if (choice !== mode) onChange(choice); close() }}>
+        <ModeIcon mode={choice} /><span>{t(choice === 'daily' ? 'home.modeDaily' : 'home.modeTravel')}</span>
+        <span className="home-mode-check" aria-hidden="true">{choice === mode ? '✓' : ''}</span>
+      </button>)}
+    </div> : null}
+  </div>
+}
+
+function ModeIcon({ mode }: { mode: 'daily' | 'travel' }) {
+  return <svg className="home-mode-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {mode === 'daily' ? <><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4m8-4v4M4 11h16m-12 4h1m6 0h1m-8 3h1"/></> : <><rect x="5" y="6" width="14" height="15" rx="3"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M9 6v15m6-15v15"/></>}
+  </svg>
 }
 
 function BalanceValues({
