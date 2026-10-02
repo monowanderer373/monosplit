@@ -1,3 +1,4 @@
+import { capitalizeDescription } from './description'
 import type { ExpenseScope, ParticipantKind } from '../types'
 import { normalizeCategory } from './categories'
 import { equalMinorShares, parseMajorAmount, reconcileMinorAmounts } from './money'
@@ -132,7 +133,7 @@ export function compileLedgerExpense(draft: LedgerExpenseDraft): LedgerCompileRe
         spaceId: draft.spaceId,
         totalMinor,
         currency: draft.currency.toUpperCase(),
-        description: draft.description.trim() || null,
+        description: capitalizeDescription(draft.description.trim()) || null,
         category: normalizeCategory(draft.category) !== 'Other' ? normalizeCategory(draft.category) : draft.category.trim().slice(0, 100) || 'Other',
         occurredOn: draft.occurredOn,
         participantIds,

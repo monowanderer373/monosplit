@@ -1,3 +1,4 @@
+import { capitalizeDescription } from '../../lib/description'
 import MoneyText from '../MoneyText'
 import { cloneElement, isValidElement, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -15,7 +16,7 @@ import type {
   SharedContext,
   SummaryTileLayout,
 } from '../../lib/homeView'
-import { homeRecordAmountState, isAvailableMoneyAccount, localCalendarDate, payableTotals } from '../../lib/homeView'
+import { addMinor, homeRecordAmountState, isAvailableMoneyAccount, localCalendarDate, payableTotals } from '../../lib/homeView'
 import { parseMajorAmount } from '../../lib/money'
 import type { CashAccountType } from '../../lib/personalAccountRepository'
 import { useT, type TranslationKey } from '../../lib/i18n'
@@ -283,6 +284,7 @@ export default function HomeScreen(props: HomeScreenProps) {
                     ? `${t('home.yesterday')} · ${formatDate(group.date, lang)}`
                     : formatDate(group.date, lang)}
               </strong>
+              {props.density === 'compact' ? <DayTotal records={group.records} /> : null}
             </div>
             {group.records.map((record) => (
               <RecordRow
@@ -507,6 +509,25 @@ function TripCard({
   )
 }
 
+/** Total of the outgoing records displayed in this date group; currencies stay separate. */
+function DayTotal({ records }: { records: readonly HomeRecordPresentation[] }) {
+  const t = useT()
+  const lang = useStore((state) => state.lang)
+  const outgoing = records.filter((record) => record.direction === 'out')
+  const totals = new Map<string, number>()
+  const incomplete = outgoing.some((record) => !record.amountKnown)
+  if (!incomplete) for (const record of outgoing) {
+    totals.set(record.currency, addMinor(totals.get(record.currency) ?? 0, record.amountMinor))
+  }
+  return <span className="home-day-total" data-testid="home-day-total">
+    <span>{lang === 'zh' ? '合计' : 'Total'}</span>
+    {incomplete ? <span>{t('home.amountUnavailable')}</span> : <MoneyLines
+      lines={Array.from(totals, ([currency, amountMinor]) => ({ currency, amountMinor }))}
+      lang={lang} t={t}
+    />}
+  </span>
+}
+
 function RecordRow({
   record,
   accountsStatus,
@@ -538,7 +559,7 @@ function RecordRow({
           <span className="home-record-icon" aria-hidden="true">{getCategoryIcon(record.category)}</span>
         ) : null}
         <div className="home-record-copy">
-          <p className="home-record-title">{record.description}</p>
+          <p className="home-record-title">{capitalizeDescription(record.description)}</p>
           {record.showChip ? <span className="home-chip">{chipText(record, t)}</span> : null}
           {record.statusLabel ? <p className="home-note">{record.statusLabel}</p> : null}
         </div>

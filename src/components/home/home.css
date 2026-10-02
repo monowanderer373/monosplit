@@ -848,3 +848,100 @@ html.is-swapping::after {
 .home-record.is-compact .home-record-copy { flex: 1; }
 .home-record.is-compact .home-record-title { white-space: normal; overflow-wrap: anywhere; }
 .home-record.is-compact .home-dots { display: none; }
+
+/* Compact: quiet date rail, aligned figures, plain paper edge. */
+#root .home-frame[data-density="compact"] .home-day {
+  position: relative;
+  margin: 24px 0 0 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+#root .home-frame[data-density="compact"] .home-day::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 12px;
+  bottom: -36px;
+  width: 1px;
+  background: #dfc3ae;
+  pointer-events: none;
+}
+#root .home-frame[data-density="compact"] .home-day:last-child::before { bottom: 12px; }
+#root .home-frame[data-density="compact"] .home-date {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  padding: 0;
+  min-height: 24px;
+}
+#root .home-frame[data-density="compact"] .home-date::before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 7px;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 1px solid #bf9274;
+  border-radius: 50%;
+  background: var(--home-bg);
+}
+#root .home-frame[data-density="compact"] .home-date strong {
+  padding: 0;
+  font-size: 15px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--home-text);
+}
+#root .home-day-total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--home-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+#root .home-day-total .tt-money-currency { font-size: .85em; }
+#root .home-frame[data-density="compact"] .home-record { padding: 7px 0; border: 0; }
+#root .home-frame[data-density="compact"] .home-record-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+}
+#root .home-frame[data-density="compact"] .home-record-title {
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+#root .home-frame[data-density="compact"] .home-amount {
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+#root .home-record.is-compact .home-chip {
+  display: block;
+  margin-top: 2px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--home-muted);
+}
+#root .home-record.is-compact .home-dots { display: none; }
+#root .home-record.is-compact .home-amount-button { padding-block: 7px; margin-block: -7px; }
+@media (max-width: 359px) {
+  #root .home-frame[data-density="compact"] .home-record-main { gap: 8px; }
+}

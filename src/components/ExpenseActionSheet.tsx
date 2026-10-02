@@ -1,3 +1,4 @@
+import { capitalizeDescription } from '../lib/description'
 import { useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { CanonicalExpense, GroupRole } from '../types'
@@ -131,7 +132,7 @@ export default function ExpenseActionSheet({
       await ledgerRepository.updateExpenseMetadata({
         expenseId: expense.id,
         expectedVersion: expense.version,
-        description: description.trim() || null,
+        description: capitalizeDescription(description.trim()) || null,
         category,
         occurredOn,
       })
@@ -164,7 +165,7 @@ export default function ExpenseActionSheet({
     return {
       totalMinor,
       currency: currency.toUpperCase(),
-      description: description.trim() || null,
+      description: capitalizeDescription(description.trim()) || null,
       category,
       occurredOn,
       participantIds,
@@ -559,7 +560,8 @@ function MetadataFields({
         <input
           className="ms-input mt-1 w-full"
           value={description}
-          onChange={(event) => onDescription(event.target.value)}
+          autoCapitalize="sentences"
+          onChange={(event) => onDescription(capitalizeDescription(event.target.value))}
         />
       </label>
       <label className="text-xs font-bold text-[var(--ms-text-secondary)]">

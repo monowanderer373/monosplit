@@ -95,6 +95,30 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
 }
 
 describe('HomeScreen', () => {
+  it('shows separate outgoing currency totals and sentence case in compact records', () => {
+    const base = groups[0]!.records[0]!
+    const records = [
+      {...base, id:'one',description:'dinner at IKEA',amountMinor:3000,compact:true,showIcon:false},
+      {...base, id:'two',description:'coffee',amountMinor:5000,compact:true,showIcon:false},
+      {...base, id:'three',currency:'USD',amountMinor:700,compact:true,showIcon:false},
+      {...base, id:'four',direction:'in' as const,amountMinor:900,compact:true,showIcon:false},
+    ]
+    render(<HomeScreen {...props({density:'compact',recordGroups:[{...groups[0]!,records}]})} />)
+    expect(screen.getByText('Dinner at IKEA')).toBeTruthy()
+    const total = screen.getByTestId('home-day-total').textContent!
+    expect(total).toContain('Total')
+    expect(total).toContain('80.00')
+    expect(total).toContain('7.00')
+    expect(total).not.toContain('89.00')
+  })
+
+  it('does not show a misleading subtotal when an outgoing amount is unknown', () => {
+    render(<HomeScreen {...props({density:'compact',recordGroups:[{
+      ...groups[0]!, records:[{...groups[0]!.records[0]!,amountKnown:false,compact:true}],
+    }]})} />)
+    expect(screen.getByTestId('home-day-total').textContent).not.toContain('123,456,789.01')
+  })
+
   it('separates collection and payment totals and opens only the selected direction', async () => {
     const user = userEvent.setup()
     const onOpenSharedContext = vi.fn()
