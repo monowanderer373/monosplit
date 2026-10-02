@@ -15,7 +15,7 @@ import type {
   SharedContext,
   SummaryTileLayout,
 } from '../../lib/homeView'
-import { homeRecordAmountState, isAvailableMoneyAccount, localCalendarDate } from '../../lib/homeView'
+import { homeRecordAmountState, isAvailableMoneyAccount, localCalendarDate, payableTotals } from '../../lib/homeView'
 import { parseMajorAmount } from '../../lib/money'
 import type { CashAccountType } from '../../lib/personalAccountRepository'
 import { useT, type TranslationKey } from '../../lib/i18n'
@@ -76,7 +76,7 @@ export type HomeScreenProps = {
 export default function HomeScreen(props: HomeScreenProps) {
   const t = useT()
   const lang = useStore((state) => state.lang)
-  const [sheet, setSheet] = useState<null | 'accounts' | 'manage' | 'tasks' | 'shared' | 'trips' | 'create'>(null)
+  const [sheet, setSheet] = useState<null | 'accounts' | 'manage' | 'tasks' | 'receivable' | 'payable' | 'trips' | 'create'>(null)
   const assetAccounts = props.accounts.filter(isAvailableMoneyAccount)
   const selected = props.selectedAccountId === 'all'
     ? null
@@ -179,18 +179,16 @@ export default function HomeScreen(props: HomeScreenProps) {
           </div>
         </section>
         <div className="home-stat-row">
-          <div className="home-stat">
-            <p className="home-meta">{t('home.monthSpending')}</p>
-            <p><MoneyLines lines={props.monthlySpending} lang={lang} t={t} /></p>
-          </div>
-          <div className="home-stat">
-            <p className="home-meta">{t('home.toCollect')}</p>
-            <p>
-              {props.sharedStatus === 'error'
-                ? t('home.unavailable')
-                : <MoneyLines lines={props.receivables} lang={lang} t={t} />}
-            </p>
-          </div>
+          {(['receivable', 'payable'] as const).map(direction => (
+            <button key={direction} type="button" className={`home-stat home-debt-stat is-${direction}`} data-testid={`home-${direction}`} aria-haspopup="dialog" onClick={() => setSheet(direction)}>
+              <span className="home-meta">{t(direction === 'receivable' ? 'home.toCollect' : 'home.payable')}<Chevron /></span>
+              <span className="home-debt-value">
+                {props.sharedStatus === 'error' ? t('home.unavailable')
+                  : props.sharedStatus === 'loading' ? t('home.loading')
+                  : <MoneyLines lines={direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)} lang={lang} t={t} />}
+              </span>
+            </button>
+          ))}
         </div>
         </>
       ) : (
@@ -203,9 +201,8 @@ export default function HomeScreen(props: HomeScreenProps) {
         />
       )}
 
-      {props.mode === 'daily' && props.tileLayout !== 'hidden' ? (
-        <div className="home-tiles" data-layout={props.tileLayout} data-testid="home-tiles">
-          {props.tileLayout !== 'shared' ? (
+      {props.mode === 'daily' && props.tileLayout !== 'hidden' && props.tileLayout !== 'shared' ? (
+        <div className="home-tiles" data-layout="account" data-testid="home-tiles">
             <button type="button" className="home-tile home-tile-account" onClick={() => setSheet('tasks')}>
               <strong>{t('home.accountTasks')}</strong>
               {props.accountTasks.length > 0 ? (
@@ -214,17 +211,6 @@ export default function HomeScreen(props: HomeScreenProps) {
                 </span>
               ) : null}
             </button>
-          ) : null}
-          {props.tileLayout !== 'account' ? (
-            <button type="button" className="home-tile home-tile-shared" onClick={() => setSheet('shared')}>
-              <strong>{t('home.sharedBalances')}</strong>
-              {props.sharedContexts.length > 0 ? (
-                <span className="home-badge" aria-label={t('home.sharedCount', { count: props.sharedContexts.length })}>
-                  {props.sharedContexts.length}
-                </span>
-              ) : null}
-            </button>
-          ) : null}
         </div>
       ) : null}
 
@@ -381,28 +367,18 @@ export default function HomeScreen(props: HomeScreenProps) {
         </HomeSheet>
       ) : null}
 
-      {sheet === 'shared' ? (
-        <HomeSheet title={t('home.sharedBalances')} onClose={() => setSheet(null)} testId="home-shared-sheet">
-          <SharedSide
-            title={t('home.receivable')}
-            tone="receivable"
+      {sheet === 'receivable' || sheet === 'payable' ? (
+        <HomeSheet title={t(sheet === 'receivable' ? 'home.toCollect' : 'home.payable')} onClose={() => setSheet(null)} testId="home-shared-sheet">
+          {props.sharedStatus !== 'ready' ? <p className="home-status" role="status">{t(props.sharedStatus === 'loading' ? 'home.loading' : 'home.unavailable')}</p> : <SharedSide
+            title={t(sheet === 'receivable' ? 'home.receivable' : 'home.payable')}
+            tone={sheet}
             contexts={props.sharedContexts}
-            direction="receivable"
+            direction={sheet}
             onOpen={(context) => {
               setSheet(null)
               props.onOpenSharedContext(context)
             }}
-          />
-          <SharedSide
-            title={t('home.payable')}
-            tone="payable"
-            contexts={props.sharedContexts}
-            direction="payable"
-            onOpen={(context) => {
-              setSheet(null)
-              props.onOpenSharedContext(context)
-            }}
-          />
+          />}
         </HomeSheet>
       ) : null}
 

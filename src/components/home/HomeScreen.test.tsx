@@ -95,6 +95,25 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
 }
 
 describe('HomeScreen', () => {
+  it('separates collection and payment totals and opens only the selected direction', async () => {
+    const user = userEvent.setup()
+    const onOpenSharedContext = vi.fn()
+    const contexts = [...props().sharedContexts, {id:'group:owes',source:'group' as const,label:'Travel group',personId:null,spaceId:'owes',lines:[{currency:'MYR',direction:'payable' as const,amountMinor:1200},{currency:'USD',direction:'payable' as const,amountMinor:300}]}]
+    render(<div id="root"><HomeScreen {...props({sharedContexts:contexts,onOpenSharedContext})} /></div>)
+    expect(screen.getByTestId('home-receivable').textContent).toContain('5.00')
+    expect(screen.getByTestId('home-payable').textContent).toContain('12.00')
+    expect(screen.getByTestId('home-payable').textContent).toContain('3.00')
+    expect(screen.queryByRole('button',{name:/To collect and pay/})).toBeNull()
+    await user.click(screen.getByTestId('home-payable'))
+    expect(screen.getByRole('dialog',{name:'To pay'})).toBeTruthy()
+    expect(screen.queryByRole('button',{name:/Lan/})).toBeNull()
+    await user.click(screen.getByRole('button',{name:/Travel group/}))
+    expect(onOpenSharedContext).toHaveBeenCalledWith(expect.objectContaining({spaceId:'owes'}))
+    await user.click(screen.getByTestId('home-receivable'))
+    expect(screen.getByRole('dialog',{name:'To collect'})).toBeTruthy()
+    expect(screen.queryByRole('button',{name:/Travel group/})).toBeNull()
+    expect(screen.getByRole('button',{name:/Lan/})).toBeTruthy()
+  })
   it('keeps the daily and travel switch in the upper-right header', () => {
     const { rerender } = render(<HomeScreen {...props()} />)
     expect(screen.getByTestId('home-mode-switch').parentElement).toBe(screen.getByTestId('home-header'))
@@ -159,7 +178,7 @@ describe('HomeScreen', () => {
       expect(document.activeElement).toBe(trigger)
       expect(document.body.style.overflow).toBe('')
     }
-    const sharedTrigger = screen.getByRole('button', { name: /To collect and pay/ })
+    const sharedTrigger = screen.getByTestId('home-receivable')
     await user.click(sharedTrigger)
     await user.click(screen.getByTestId('home-shared-sheet-scrim'))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -188,12 +207,12 @@ describe('HomeScreen', () => {
     useStore.setState({ homeUi: { ...useStore.getState().homeUi, balanceHidden: false } })
     render(<Harness />)
     expect(screen.getByTestId('home-balance-values').textContent).toContain(formatted)
-    expect(screen.getByText(/Spent this month/)).toBeTruthy()
+    expect(screen.queryByText(/Spent this month/)).toBeNull()
     await user.click(screen.getByTestId('home-balance-eye'))
     expect(screen.getByTestId('home-balance-values').textContent).not.toContain(formatted)
     expect(screen.getByTestId('home-balance-values').getAttribute('aria-label')).toBe('Account balances hidden')
     expect(screen.getByTestId('home-balance-eye').getAttribute('aria-label')).toBe('Show account balances')
-    expect(screen.getByText(/Spent this month/).parentElement?.textContent).toContain('20.00')
+    expect(screen.getByTestId('home-receivable').textContent).toContain('5.00')
     expect(useStore.getState().homeUi.balanceHidden).toBe(true)
   })
 
@@ -205,7 +224,8 @@ describe('HomeScreen', () => {
     await user.click(screen.getByRole('button', { name: /Account tasks/ }))
     expect(screen.getByRole('dialog', { name: 'Account tasks' })).toBeTruthy()
     await user.keyboard('{Escape}')
-    await user.click(screen.getByRole('button', { name: /To collect and pay/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await user.click(screen.getByTestId('home-receivable'))
     await user.click(screen.getByRole('button', { name: /Lan/ }))
     expect(onOpenSharedContext).toHaveBeenCalledWith(expect.objectContaining({ personId: 'person-lan' }))
     await user.click(screen.getByRole('button', { name: 'All ›' }))
@@ -231,7 +251,7 @@ describe('HomeScreen', () => {
 
   it('keeps one currency token and stacks mixed amounts without a dangling separator', async () => {
     render(<HomeScreen {...props({
-      monthlySpending: [
+      receivables: [
         { currency: 'MYR', amountMinor: 7_550 },
         { currency: 'VND', amountMinor: 250_000 },
       ],

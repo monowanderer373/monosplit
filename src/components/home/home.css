@@ -217,6 +217,15 @@
   border-left: 1px solid var(--home-line);
 }
 
+.home-debt-stat { border: 0; background: transparent; text-align: left; font: inherit; color: inherit; cursor: pointer; border-radius: 12px; padding-block: 9px; transition: background 150ms ease, transform 150ms ease; }
+.home-debt-stat:hover { background: #efe6d780; }
+.home-debt-stat:active { transform: translateY(1px); background: #eadbc980; }
+.home-debt-stat .home-meta { display: flex; align-items: center; justify-content: space-between; }
+.home-debt-stat .home-meta svg { width: 12px; height: 12px; opacity: .55; }
+.home-debt-value { display: block; margin-top: 6px; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.home-debt-stat.is-receivable .home-debt-value { color: #477768; }
+.home-debt-stat.is-payable .home-debt-value { color: #b46151; }
+
 .home-stat p {
   margin: 4px 0 0;
   font-family: inherit;

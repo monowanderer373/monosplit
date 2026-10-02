@@ -407,6 +407,10 @@ export function receivableTotals(contexts: readonly SharedContext[]): CurrencyAm
   return sumDirection(contexts, 'receivable')
 }
 
+export function payableTotals(contexts: readonly SharedContext[]): CurrencyAmount[] {
+  return sumDirection(contexts, 'payable')
+}
+
 export function monthlyPersonalSpending(
   rows: readonly PersonalLedgerRow[],
   monthKey: string,
