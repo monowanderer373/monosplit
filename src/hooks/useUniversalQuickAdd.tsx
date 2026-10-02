@@ -15,6 +15,7 @@ import {
 import { usePersonalLedger } from './usePersonalLedger'
 import type { LedgerExpenseDraft } from '../lib/compileExpense'
 import { generateId } from '../lib/id'
+import { readQuickDraft, writeQuickDraft } from '../lib/quickDraft'
 import type { MoneyContextRef } from '../lib/moneyContext'
 import { resolveMoneyContext } from '../lib/moneyContextCatalog'
 import {
@@ -71,7 +72,8 @@ type UniversalQuickAddContextValue = Readonly<{
   confirmContextSwitch: () => void
   cancelContextSwitchWarning: () => void
   updateValues: (patch: Partial<UniversalQuickAddValues>) => void
-  submit: () => Promise<SaveResult>
+  configureSplit: (ref: MoneyContextRef, selectedIds?: string[]) => Promise<boolean>
+  submit: (options?: { continueAdding?: boolean; beforeClose?: () => Promise<void>; values?: Partial<UniversalQuickAddValues> }) => Promise<SaveResult>
   close: () => void
   clearFeedback: () => void
 }>
@@ -119,8 +121,9 @@ export function UniversalQuickAddProvider({
 
   const installSession = useCallback((next: UniversalQuickAddSession | null) => {
     sessionRef.current = next
+    if (next?.context && next.captureSource === 'manual') writeQuickDraft(identityKey, next)
     setSessionState(next)
-  }, [])
+  }, [identityKey])
 
   const resolveRef = useCallback(async (
     ref: MoneyContextRef,
@@ -176,9 +179,10 @@ export function UniversalQuickAddProvider({
           ? active.values
           : {
               ...active.values,
-              currency: resolved.defaultCurrency,
-              selectedParticipantIds:
-                resolved.ref.kind === 'person'
+              currency: active.values.selectedParticipantIds.length ? active.values.currency : resolved.defaultCurrency,
+              selectedParticipantIds: active.values.selectedParticipantIds.length
+                ? [...new Set([resolved.currentParticipantId, ...active.values.selectedParticipantIds.filter(id => resolved.availableParticipants.some(p => p.id === id))])]
+                : resolved.ref.kind === 'person'
                   ? [resolved.currentParticipantId, resolved.ref.participantId]
                   : resolved.availableParticipants.map((participant) => participant.id),
             },
@@ -200,20 +204,21 @@ export function UniversalQuickAddProvider({
   const open = useCallback((request: OpenRequest) => {
     resolutionGenerationRef.current += 1
     const startedAtMs = Date.now()
-    const provided = request.context ?? null
+    const restore = !request.initialValues && !request.onSave && !request.onSaved && !request.spaceCandidateId && !request.personCandidateId && (request.entryPoint === 'global' || request.entryPoint === 'personal') ? readQuickDraft(identityKey) : null
+    const provided = restore?.context?.ref ?? request.context ?? null
     const resolved = provided && isResolvedMoneyContext(provided) ? provided : null
     const unresolved = provided && !isResolvedMoneyContext(provided) ? provided : null
     const next = createUniversalQuickAddSession({
       identityKey,
       sessionId: generateId(),
-      clientRequestId: request.clientRequestId ?? generateId(),
+      clientRequestId: request.clientRequestId ?? restore?.clientRequestId ?? generateId(),
       startedAtMs,
       entryPoint: request.entryPoint,
       captureSource: request.captureSource,
       contextPolicy: request.contextPolicy,
       context: resolved,
       originalContext: resolved?.ref ?? unresolved,
-      initialValues: request.initialValues,
+      initialValues: request.initialValues ?? restore?.values,
     })
     callbacksRef.current = {
       onSave: request.onSave,
@@ -431,11 +436,33 @@ export function UniversalQuickAddProvider({
     installSession(updateUniversalQuickAddValues(active, patch))
   }, [installSession])
 
-  const submit = useCallback(async (): Promise<SaveResult> => {
+  const configureSplit = useCallback(async (ref: MoneyContextRef, selectedIds?: string[]) => {
+    const active = sessionRef.current
+    if (!active || active.contextPolicy === 'locked') return false
+    const resolved = await resolveRef(ref)
+    if (!resolved || sessionRef.current?.sessionId !== active.sessionId) return false
+    if (selectedIds?.some(id => !resolved.availableParticipants.some(p => p.id === id))) return false
+    const next = switchUniversalQuickAddContext(active, resolved)
+    installSession({ ...next, values: { ...next.values,
+      currency: active.values.currency,
+      category: active.values.category,
+      categorySource: active.values.categorySource,
+      selectedParticipantIds: selectedIds
+        ? [...new Set([resolved.currentParticipantId, ...selectedIds.filter(id => resolved.availableParticipants.some(p => p.id === id))])]
+        : next.values.selectedParticipantIds,
+    } })
+    return true
+  }, [installSession, resolveRef])
+
+  const submittingRef = useRef(false)
+  const submit = useCallback(async (options?: { continueAdding?: boolean; beforeClose?: () => Promise<void>; values?: Partial<UniversalQuickAddValues> }): Promise<SaveResult> => {
+    if (submittingRef.current) return { ok: false, error: 'saving' }
+    submittingRef.current = true
+    try {
     const active = sessionRef.current
     let context = active?.context
     if (!active || !context) return { ok: false, error: 'invalid_context' }
-    let values = active.values
+    let values = { ...active.values, ...options?.values }
     if (context.ref.kind === 'person') {
       const previousParticipantId = context.ref.participantId
       const resolved = await resolveRef(context.ref)
@@ -452,6 +479,7 @@ export function UniversalQuickAddProvider({
           : previousParticipantId,
       )
     }
+    if (values.selectedParticipantIds.some(id => !context.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'invalid_context' }
     const participants = context.availableParticipants.filter((participant) =>
       values.selectedParticipantIds.includes(participant.id),
     )
@@ -476,6 +504,7 @@ export function UniversalQuickAddProvider({
       payerAmounts: values.payerAmounts,
       splitMode: values.splitMode,
       exactShareAmounts: values.exactShareAmounts,
+      fundingAccountId: values.accountId,
     }
     const result = await (callbacksRef.current.onSave ?? ledger.saveDraft)(
       draft,
@@ -489,11 +518,33 @@ export function UniversalQuickAddProvider({
     }
     const saveState = result.saveState ?? 'recorded'
     setFeedback({ kind: saveState })
-    history.close()
-    installSession(null)
-    callbacksRef.current = {}
+    writeQuickDraft(identityKey, null)
+    if (options?.continueAdding && active.captureSource === 'manual' ) {
+      const personal = context.availableParticipants.find(p => p.id === context.currentParticipantId)!
+      const nextContext: ResolvedMoneyContext = active.contextPolicy === 'locked' ? context : {
+        ref: { kind: 'personal' }, currentParticipantId: personal.id,
+        availableParticipants: [personal], defaultCurrency: values.currency,
+      }
+      const next = createUniversalQuickAddSession({
+        identityKey, sessionId: generateId(), clientRequestId: generateId(), startedAtMs: Date.now(),
+        entryPoint: active.entryPoint, contextPolicy: active.contextPolicy, context: nextContext,
+        initialValues: { category: values.category, categorySource: values.categorySource,
+          occurredOn: values.occurredOn, currency: values.currency, accountId: values.accountId },
+      })
+      callbacksRef.current = {}
+      window.dispatchEvent(new Event('tt:accounts-changed'))
+      history.replace({ step: 'capture', context: nextContext.ref, startedAtMs: next.startedAtMs })
+      installSession(next)
+    } else {
+      window.dispatchEvent(new Event('tt:accounts-changed'))
+      await options?.beforeClose?.()
+      history.close()
+      installSession(null)
+      callbacksRef.current = {}
+    }
     return { ...result, saveState }
-  }, [history, installSession, ledger.saveDraft, resolveRef])
+    } finally { submittingRef.current = false }
+  }, [history, identityKey, installSession, ledger.saveDraft, resolveRef])
 
   const close = useCallback(() => {
     resolutionGenerationRef.current += 1
@@ -525,6 +576,7 @@ export function UniversalQuickAddProvider({
     confirmContextSwitch,
     cancelContextSwitchWarning: () => setPendingSwitch(null),
     updateValues,
+    configureSplit,
     submit,
     close,
     clearFeedback: () => setFeedback(null),

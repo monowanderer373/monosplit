@@ -1,5 +1,5 @@
 import { currencyExponent } from './money'
-type Fraction = { n: bigint; d: bigint }
+type Fraction = { n: bigint; d: bigint; percent?: boolean }
 /** Small decimal-expression parser. Money is rounded once, in minor units. */
 export function calculateQuickAmount(expression: string, currency: string): string {
   const source = expression.replace(/\s/g, '').replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')
@@ -21,11 +21,11 @@ export function calculateQuickAmount(expression: string, currency: string): stri
     if (token === '+' || token === '-') {const v=factor();value={n:token==='-' ? -v.n : v.n,d:v.d}}
     else if (token === '(') {value=sum();if(tokens[position++]!==')') throw new Error('Missing parenthesis')}
     else {if(!token || !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(token) || token.length>18) throw new Error('Invalid number');const [whole,decimal='']=token.split('.');value={n:BigInt((whole || '0')+decimal),d:10n**BigInt(decimal.length)}}
-    while(tokens[position]==='%'){position++;value={n:value.n,d:value.d*100n}}
+    while(tokens[position]==='%'){position++;value={n:value.n,d:value.d*100n,percent:true}}
     return value
   }
   const product = (): Fraction => {let v=factor();while(tokens[position]==='*'||tokens[position]==='/'){const op=tokens[position++];v=combine(v,factor(),op)}return v}
-  const sum = (): Fraction => {let v=product();while(tokens[position]==='+'||tokens[position]==='-'){const op=tokens[position++];v=combine(v,product(),op)}return v}
+  const sum = (): Fraction => {let v=product();while(tokens[position]==='+'||tokens[position]==='-'){const op=tokens[position++];const right=product();v=combine(v,right.percent ? combine(v,right,'*') : right,op)}return v}
   const result=sum()
   if(position!==tokens.length || result.n<0n) throw new Error('Invalid amount')
   const exponent=currencyExponent(currency),scale=10n**BigInt(exponent)

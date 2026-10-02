@@ -34,6 +34,9 @@ export type UniversalQuickAddValues = Readonly<{
   exactShareAmounts: Record<string, string>
   payerAmounts: Record<string, string>
   detailsExpanded: boolean
+  accountId?: string | null
+  calculation?: string
+  items?: { id: string; name: string; amount: string; participantIds: string[] }[]
 }>
 
 export type UniversalQuickAddSession = Readonly<{
@@ -68,8 +71,9 @@ export type SaveFeedbackState =
   | Readonly<{ kind: 'pending-sync' }>
   | Readonly<{ kind: 'needs-attention' }>
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+export function todayIso(): string {
+  const date = new Date()
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 export function defaultSelectedParticipantIds(
@@ -220,6 +224,8 @@ export function switchUniversalQuickAddContext(
       splitMode: 'equal',
       exactShareAmounts: {},
       payerAmounts: {},
+      items: [],
+      detailsExpanded: false,
     },
   }
 }

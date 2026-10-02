@@ -1275,7 +1275,7 @@ export function categoryKey(category: string): TranslationKey {
     Stay: 'cat.Accommodation',
   }
   const key = `cat.${category}` as TranslationKey
-  return aliases[category] ?? (translations[key] ? key : 'cat.Other')
+  return aliases[category] ?? (translations[key] ? key : category as TranslationKey)
 }
 
 export function roleKey(role: string): TranslationKey {

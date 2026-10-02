@@ -6,6 +6,8 @@ describe('Quick Add calculator', () => {
     expect(calc('12+3×4','MYR')).toBe('24.00')
     expect(calc('(12+3)÷4','MYR')).toBe('3.75')
     expect(calc('100×10%','MYR')).toBe('10.00')
+    expect(calc('100+10%','MYR')).toBe('110.00')
+    expect(calc('100-10%','MYR')).toBe('90.00')
   })
   it('rounds once for the selected currency', () => {
     expect(calc('10÷3','MYR')).toBe('3.33')

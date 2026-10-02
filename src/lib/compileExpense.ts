@@ -23,6 +23,7 @@ export type LedgerExpenseDraft = {
   payerAmounts: Record<string, string>
   splitMode: 'equal' | 'exact'
   exactShareAmounts: Record<string, string>
+  fundingAccountId?: string | null
 }
 
 export type CreateExpenseCommand = {
@@ -37,6 +38,7 @@ export type CreateExpenseCommand = {
   participantIds: string[]
   contributionAmounts: number[]
   shareAmounts: number[]
+  fundingAccountId?: string | null
 }
 
 export type LedgerCompileErrorCode =
@@ -131,11 +133,13 @@ export function compileLedgerExpense(draft: LedgerExpenseDraft): LedgerCompileRe
         totalMinor,
         currency: draft.currency.toUpperCase(),
         description: draft.description.trim() || null,
-        category: normalizeCategory(draft.category || 'Other'),
+        category: normalizeCategory(draft.category) !== 'Other' ? normalizeCategory(draft.category) : draft.category.trim().slice(0, 100) || 'Other',
         occurredOn: draft.occurredOn,
         participantIds,
         contributionAmounts: participantIds.map((id) => payerAmounts[id]),
         shareAmounts: participantIds.map((id) => shares[id]),
+        ...(draft.fundingAccountId && payerAmounts[draft.currentParticipantId] > 0
+          ? { fundingAccountId: draft.fundingAccountId } : {}),
       },
     }
   } catch {

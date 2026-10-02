@@ -111,6 +111,7 @@ export default function GlobalMoneyActionHost() {
       onUpdate={quickAdd.updateValues}
       onOpenContextPicker={quickAdd.openSwitchPicker}
       onClose={quickAdd.close}
+      onConfigureSplit={quickAdd.configureSplit}
       onSubmit={quickAdd.submit}
     />
   )

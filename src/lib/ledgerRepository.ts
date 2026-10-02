@@ -163,7 +163,7 @@ const expenseSelect = `
 export const ledgerRepository: LedgerRepository = {
   async createExpense(command) {
     if (!supabase) throw new LedgerRepositoryError('not_configured')
-    const { data, error } = await supabase.rpc('create_expense', {
+    const { data, error } = await supabase.rpc(command.fundingAccountId ? 'create_expense_with_funding' : 'create_expense', {
       request_id: command.requestId,
       expense_scope: command.scope,
       target_space_id: command.spaceId,
@@ -175,15 +175,21 @@ export const ledgerRepository: LedgerRepository = {
       participant_ids: command.participantIds,
       contribution_amounts: command.contributionAmounts,
       share_amounts: command.shareAmounts,
+      ...(command.fundingAccountId ? {
+        funding_request_id: command.requestId,
+        funding_account_id: command.fundingAccountId,
+        funding_account_amount_minor: null,
+      } : {}),
     })
-    if (error || typeof data !== 'string') {
+    const expenseId = command.fundingAccountId ? data?.expense_id : data
+    if (error || typeof expenseId !== 'string') {
       throw new LedgerRepositoryError(
         'server_rejected',
         error?.message,
         createFailureOutcome(error),
       )
     }
-    return data
+    return expenseId
   },
 
   async listExpenses() {

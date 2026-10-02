@@ -78,7 +78,7 @@ function ShellContents() {
       })
       return
     }
-    quickAdd.open({ entryPoint: 'global' })
+    quickAdd.open({ entryPoint: 'global', context: personalContext })
   }, [
     authUser?.isAnonymous,
     location.pathname,

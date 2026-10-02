@@ -90,6 +90,12 @@ export function useHomeData(
   const [settlements, setSettlements] = useState<Ready<SettlementPayment[]>>(() => cachedSlice(participantId, 'settlements'))
   const [spaces, setSpaces] = useState<Ready<SpaceWithRole[]>>(() => cachedSlice(participantId, 'spaces'))
   const [affiliations, setAffiliations] = useState<Ready<PersonalExpenseAffiliation[]>>(() => cachedSlice(participantId, 'affiliations'))
+  const [accountRefresh, setAccountRefresh] = useState(0)
+  useEffect(() => {
+    const refresh = () => setAccountRefresh(n => n + 1)
+    window.addEventListener('tt:accounts-changed', refresh)
+    return () => window.removeEventListener('tt:accounts-changed', refresh)
+  }, [])
   const [refreshing, setRefreshing] = useState(() => hasVerifiedHome(participantId))
 
   if (loadedFor !== participantId) {
@@ -126,7 +132,7 @@ export function useHomeData(
     return () => {
       cancelled = true
     }
-  }, [includeAllActivity, participantId, refreshKey])
+  }, [includeAllActivity, participantId, refreshKey, accountRefresh])
 
   return { accounts, people, settlements, spaces, affiliations, refreshing }
 }
