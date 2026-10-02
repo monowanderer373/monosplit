@@ -1040,3 +1040,35 @@ html[data-place="bali"] .home-shell {
 .home-mode-icon { flex-shrink: 0; }
 @keyframes home-mode-menu-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .home-mode-menu { animation: none; } .home-mode-trigger::before, .home-mode-trigger > svg:last-child { transition: none; } }
+
+/* C: a small stitched paper tab under the title, shared by both modes. */
+#root .home-title {
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+  padding-bottom: 6px;
+}
+#root .home-title::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: -3px;
+  right: -6px;
+  bottom: 0;
+  height: 13px;
+  border-radius: 3px 3px 0 3px;
+  background:
+    linear-gradient(135deg, transparent 50%, #d5a57d66 51%) right bottom / 7px 7px no-repeat,
+    linear-gradient(165deg, #fae5d1, #f5d8bc);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
+#root .home-title::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 7px;
+  bottom: 4px;
+  border-bottom: 1px dashed #cfa37a80;
+  pointer-events: none;
+}
+#root .home-header .home-today { margin-top: 8px; }
