@@ -279,7 +279,7 @@ export default function ExpenseActionSheet({
           <div className="absolute inset-0" aria-hidden="true" onClick={() => setOpen(false)} />
           <section
             ref={dialogRef}
-            className="relative z-10 max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-[var(--ms-surface)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem]"
+            className="tt-paper-dialog relative z-10 max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-[var(--ms-surface)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem]"
             role="dialog"
             aria-modal="true"
             aria-labelledby={`expense-action-${expense.id}`}

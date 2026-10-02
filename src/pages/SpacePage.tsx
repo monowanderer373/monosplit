@@ -272,7 +272,7 @@ export default function SpacePage() {
           <button className="ms-btn-ghost py-2 text-sm" onClick={() => void refresh()}>{t('common.refresh')}</button>
         </div>
 
-        <div className="ms-list">
+        <div className="ms-list tt-paper-list">
           {expenses.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-4xl">🧾</p>
@@ -291,7 +291,7 @@ export default function SpacePage() {
             return (
               <div key={expense.id}>
                 {index > 0 ? <hr className="ms-divider" /> : null}
-                <article className="ms-row items-start">
+                <article className="ms-row tt-record-card items-start">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate font-extrabold">{expense.description ?? t(categoryKey(expense.category))}</p>

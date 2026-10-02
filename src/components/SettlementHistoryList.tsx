@@ -59,7 +59,7 @@ export default function SettlementHistoryList({
           {t('history.unavailable')}
         </p>
       ) : (
-        <div className="ms-list mt-3">
+        <div className="ms-list tt-paper-list mt-3">
           {result.entries.map((entry, index) => {
             const debtorName = participantName(
               entry.settlement.debtorParticipantId,
@@ -78,7 +78,7 @@ export default function SettlementHistoryList({
             return (
               <div key={entry.allocation.id}>
                 {index > 0 ? <hr className="ms-divider" /> : null}
-                <article className="ms-row items-start" data-testid={`settlement-history-${entry.allocation.id}`}>
+                <article className="ms-row tt-record-card items-start" data-testid={`settlement-history-${entry.allocation.id}`}>
                   <div className="min-w-0 flex-1">
                     <p className="font-extrabold">
                       {t('history.settlementDirection', {

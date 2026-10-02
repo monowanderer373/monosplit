@@ -54,13 +54,13 @@ export default function ActivityFeed({
       <p className="ms-label">{t('activity.label')}</p>
       <h2 className="mt-1 text-xl font-extrabold">{t('activity.title')}</h2>
       {error ? <p className="mt-2 text-xs text-[var(--ms-danger)]">{t(error)}</p> : null}
-      <div className="ms-list mt-3">
+      <div className="ms-list tt-paper-list mt-3">
         {activity.length === 0 ? (
           <p className="p-5 text-center text-sm text-[var(--ms-text-muted)]">{t('activity.empty')}</p>
         ) : activity.map((event, index) => (
           <div key={event.id}>
             {index > 0 ? <hr className="ms-divider" /> : null}
-            <article className="ms-row">
+            <article className="ms-row tt-record-card">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">{t(activityEventKey(event.eventType))}</p>
                 <p className="mt-1 text-xs text-[var(--ms-text-muted)]">{formatDateTime(event.createdAt, lang)}</p>

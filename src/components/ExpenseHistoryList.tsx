@@ -56,7 +56,7 @@ export default function ExpenseHistoryList({
           {t('history.unavailable')}
         </p>
       ) : (
-        <div className="ms-list mt-3">
+        <div className="ms-list tt-paper-list mt-3">
           {result.entries.map((entry, index) => (
             <div key={entry.expense.id}>
               {index > 0 ? <hr className="ms-divider" /> : null}
@@ -86,7 +86,7 @@ function ExpenseHistoryRow({
   const next = entry.nextExpenseId ? expenseById.get(entry.nextExpenseId) : null
 
   return (
-    <article className="ms-row items-start" data-testid={`expense-history-${expense.id}`}>
+    <article className="ms-row tt-record-card items-start" data-testid={`expense-history-${expense.id}`}>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-extrabold text-[var(--ms-accent)]">
           {t(historyLabel(entry))}

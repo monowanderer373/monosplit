@@ -1,0 +1,203 @@
+/* Shared paper material. Typography, density controls and mode toggles stay
+   owned by their existing components. Decoration never receives pointer input. */
+:root {
+  --paper-stock: #fffbf3;
+  --paper-stock-raised: #fbf1e3;
+  --paper-edge: #e5d6c3;
+  --paper-stitch: #cfb99e;
+  --paper-lift: 0 1px 0 #ffffffde inset, 0 3px 5px #765a3710, 0 9px 22px #765a370a;
+  --paper-pressed: 0 2px 4px #765a371c inset, 0 1px 0 #ffffffc7;
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.78' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23988367' opacity='.035' filter='url(%23n)' d='M0 0h128v128H0z'/%3E%3C/svg%3E");
+}
+
+/* Quiet surfaces: texture and depth, without stitching every container. */
+#root :is(.ms-card, .ms-card-soft, .ms-card-hero) {
+  background-image: var(--paper-grain), linear-gradient(135deg, #fffcf6, #fbf1e5);
+  border-color: var(--paper-edge);
+  box-shadow: var(--paper-lift);
+}
+#root .ms-card-soft { box-shadow: 0 1px 0 #fff9 inset, 0 2px 6px #765a3707; }
+#root .home-shell :is(.home-balance-card, .home-debt-stat) {
+  background-image: var(--paper-grain), linear-gradient(125deg, #fffbf3, #f6e9d7);
+}
+#root :is(.home-sheet, .tt-sheet-panel, .tt-paper-dialog) {
+  background-color: var(--paper-stock);
+  background-image: var(--paper-grain), linear-gradient(140deg, #fffcf5, #faf0e3);
+  border: 1px solid var(--paper-edge);
+  box-shadow: 0 1px 0 #fff inset, 0 16px 48px #59432926;
+}
+#root .tt-paper-dialog { outline: none; }
+#root .tt-paper-dialog > header {
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--paper-stitch);
+  margin-bottom: 20px;
+}
+
+/* Only transactional lists become separate paper cards. Compact stays a plain
+   continuous timeline, and financial warnings retain their semantic colors. */
+#root .ms-list.tt-paper-list {
+  display: grid;
+  gap: 12px;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+#root .tt-paper-list > div > .ms-divider { display: none; }
+#root .ms-row.tt-record-card,
+#root .home-frame[data-density="detailed"] .home-record:not(.is-compact) {
+  position: relative;
+  border: 1px solid var(--paper-edge);
+  border-radius: 17px 14px 18px 15px / 15px 18px 14px 17px;
+  background-color: var(--paper-stock);
+  background-image: var(--paper-grain), linear-gradient(120deg, #fffdf7, #fbf3e7);
+  box-shadow: var(--paper-lift);
+  overflow: visible;
+}
+#root .ms-row.tt-record-card { padding: 18px 16px; }
+#root .tt-record-card::after,
+#root .home-frame[data-density="detailed"] .home-record:not(.is-compact)::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  top: -5px;
+  right: 22px;
+  width: 29px;
+  height: 10px;
+  border: 1px solid #d5bb9670;
+  border-radius: 2px 1px 3px 1px;
+  background: var(--paper-grain), linear-gradient(100deg, #ead6b8b8, #f3e1c6b8);
+  box-shadow: 0 1px 2px #765a370a;
+  transform: rotate(7deg);
+}
+#root .home-frame[data-density="detailed"] .home-record-icon {
+  border: 1px solid #e5d1b8;
+  border-radius: 11px 9px 12px 10px;
+  background: var(--paper-grain), linear-gradient(140deg, #fbebd3, #f1dac0);
+  box-shadow: 0 1px 0 #fff9 inset, 0 2px 3px #765a3710;
+}
+#root .home-frame[data-density="detailed"] .home-chip {
+  border: 1px solid #e8d8c2;
+  background: var(--paper-grain), #f7ecdc;
+  box-shadow: 0 1px 0 #fff8 inset;
+}
+#root .home-frame[data-density="detailed"] .home-amount-button:focus-visible {
+  outline: 2px solid #b97f50;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* Stitched action faces. Existing min-height and type sizes are preserved. */
+#root :is(.ms-btn-primary, .ms-btn-ghost):not([aria-pressed]):not([role="switch"]),
+#root .qa-main :is(.qa-primary, .qa-save-buttons > button) {
+  position: relative;
+  isolation: isolate;
+  background-image: var(--paper-grain);
+  box-shadow: var(--paper-lift);
+  transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+#root :is(.ms-btn-primary, .ms-btn-ghost):not([aria-pressed]):not([role="switch"])::after,
+#root .qa-main :is(.qa-primary, .qa-save-buttons > button)::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed currentColor;
+  border-radius: inherit;
+  opacity: .22;
+}
+#root .qa-main .qa-primary {
+  background-color: #eac09a;
+  border-color: #d4a780;
+  color: #493222;
+}
+#root :is(.ms-btn-primary, .ms-btn-ghost):not([aria-pressed]):not([role="switch"]):active:not(:disabled),
+#root .qa-main :is(.qa-primary, .qa-save-buttons > button):active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--paper-pressed);
+}
+#root :is(.ms-btn-primary, .ms-btn-ghost):not([aria-pressed]):not([role="switch"]):disabled,
+#root .qa-main :is(.qa-primary, .qa-save-buttons > button):disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+}
+#root :is(.ms-btn-primary, .ms-btn-ghost):not([aria-pressed]):not([role="switch"]):focus-visible,
+#root .qa-main button:focus-visible {
+  outline: 2px solid #b97f50;
+  outline-offset: 3px;
+}
+#root .ms-input {
+  background-image: var(--paper-grain);
+  background-color: #fffcf7;
+  border-color: var(--paper-edge);
+  box-shadow: 0 1px 3px #765a3708 inset;
+}
+#root .ms-input:focus {
+  border-color: #b98b65;
+  box-shadow: 0 0 0 3px #eac09a2b, 0 1px 3px #765a3708 inset;
+}
+
+/* Reusable icon plates, tags and seals match the existing navigation stock. */
+#root :is(.tt-chip, .tt-icon-button) {
+  background-image: var(--paper-grain);
+  box-shadow: 0 1px 0 #fff9 inset, 0 2px 4px #765a3710;
+}
+#root .tt-badge { box-shadow: 0 1px 0 #fff4 inset, 0 2px 3px #765a3718; }
+#root .home-sheet button.home-sheet-option {
+  border: 1px solid var(--paper-edge);
+  border-radius: 12px 10px 13px 11px;
+  background-image: var(--paper-grain);
+  margin-block: 8px;
+  box-shadow: 0 1px 0 #fff9 inset, 0 2px 3px #765a3707;
+}
+#root .home-sheet button.home-sheet-option:active { box-shadow: var(--paper-pressed); }
+
+/* Quick Add uses the same stock for category tiles, account choices and keys.
+   Segmented switches, calendars and checkbox/radio controls are left intact. */
+#root .qa-backdrop .qa-main,
+#root .qa-main .qa-panel {
+  background-image: var(--paper-grain), linear-gradient(135deg, #fffbf3, #faf0e3);
+}
+#root .qa-main :is(.qa-category, .qa-account-row, .qa-person-choice, .qa-actions > button, .qa-icon-button, .qa-add-row) {
+  background-image: var(--paper-grain);
+  border-color: var(--paper-edge);
+  box-shadow: 0 1px 0 #fff9 inset, 0 2px 4px #765a370a;
+}
+#root .qa-main :is(.qa-category, .qa-account-row).is-selected {
+  border-color: #c7986f;
+  box-shadow: 0 1px 0 #fff8 inset, 0 0 0 1px #c7986f26;
+}
+#root .qa-main .qa-icon-tile {
+  background-image: var(--paper-grain), linear-gradient(140deg, #fae8ce, #f1d9bb);
+  border: 1px solid #e4cdb0;
+  box-shadow: 0 1px 0 #fff9 inset;
+}
+#root .qa-main :is(input:not([type="checkbox"]):not([type="radio"]), select) {
+  background-image: var(--paper-grain);
+  border-color: var(--paper-edge);
+}
+#root .qa-main .qa-keypad button {
+  background-image: var(--paper-grain);
+  border-color: var(--paper-edge);
+  box-shadow: 0 1px 0 #fff9 inset, 0 2px 3px #765a370b;
+}
+#root .qa-main :is(.qa-keypad button, .qa-actions > button, .qa-category, .qa-account-row):active:not(:disabled) {
+  box-shadow: var(--paper-pressed);
+}
+
+@media (hover: hover) {
+  #root :is(.ms-btn-primary, .ms-btn-ghost):not([aria-pressed]):not([role="switch"]):hover:not(:disabled),
+  #root .qa-main :is(.qa-primary, .qa-save-buttons > button):hover:not(:disabled) {
+    box-shadow: 0 1px 0 #fff9 inset, 0 4px 9px #765a3718;
+  }
+}
+@media (max-width: 420px) {
+  #root .ms-row.tt-record-card { padding: 16px 12px; }
+  #root .tt-record-card::after,
+  #root .home-frame[data-density="detailed"] .home-record:not(.is-compact)::after { right: 16px; width: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root :is(.ms-btn-primary, .ms-btn-ghost):not([aria-pressed]):not([role="switch"]),
+  #root .qa-main :is(.qa-primary, .qa-save-buttons > button) { transition: none; }
+}

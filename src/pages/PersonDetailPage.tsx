@@ -363,7 +363,7 @@ export default function PersonDetailPage() {
       <section className="mx-auto mt-8 max-w-4xl" data-testid="person-recent">
         <p className="ms-label">{t('person.recent')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('person.recent')}</h2>
-        <div className="ms-list mt-3">
+        <div className="ms-list tt-paper-list mt-3">
           {trackedExpenses.length === 0 ? (
             <p className="p-5 text-center text-sm text-[var(--ms-text-muted)]">{t('person.emptyActivity')}</p>
           ) : trackedExpenses.map((item, index) => {
@@ -379,7 +379,7 @@ export default function PersonDetailPage() {
             return (
             <div key={item.id}>
               {index > 0 ? <hr className="ms-divider" /> : null}
-              <article className="ms-row">
+              <article className="ms-row tt-record-card">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-extrabold">{item.description ?? t(categoryKey(item.category))}</p>
                   {syncedPendingRequest ? (
@@ -423,7 +423,7 @@ export default function PersonDetailPage() {
         <section className="mx-auto mt-8 max-w-4xl" data-testid="person-untracked">
           <p className="ms-label">{t('person.onYourRecords')}</p>
           <h2 className="mt-1 text-xl font-extrabold">{t('person.earlier')}</h2>
-          <div className="ms-list mt-3">
+          <div className="ms-list tt-paper-list mt-3">
             {untrackedExpenses.map((item, index) => {
               const pending = ledger.outbox.find(
                 (entry) => entry.command.requestId === item.clientRequestId,
@@ -437,7 +437,7 @@ export default function PersonDetailPage() {
               return (
               <div key={item.id}>
                 {index > 0 ? <hr className="ms-divider" /> : null}
-                <article className="ms-row">
+                <article className="ms-row tt-record-card">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-extrabold">{item.description ?? t(categoryKey(item.category))}</p>
                     {syncedPendingRequest ? (

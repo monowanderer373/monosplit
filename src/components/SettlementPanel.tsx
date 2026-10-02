@@ -232,7 +232,7 @@ export default function SettlementPanel({
         </div>
       ) : null}
 
-      <div className="ms-list">
+      <div className="ms-list tt-paper-list">
         {debts.length === 0 ? (
           <p className="p-6 text-center text-sm text-[var(--ms-text-muted)]">{t('settlement.empty')}</p>
         ) : debts.map((debt, index) => {
@@ -254,7 +254,7 @@ export default function SettlementPanel({
           return (
             <div key={debt.key}>
               {index > 0 ? <hr className="ms-divider" /> : null}
-              <article className="ms-row items-start">
+              <article className="ms-row tt-record-card items-start">
                 <div className="min-w-0 flex-1">
                   <p className="font-extrabold">
                     {mine
