@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { readFileSync } from 'node:fs'
 import { useState } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { HomeAccount, HomeDateGroup } from '../../lib/homeView'
@@ -117,7 +117,7 @@ describe('HomeScreen', () => {
   it('opens the account sheet and offers manage accounts', async () => {
     const user = userEvent.setup()
     render(
-      <div>
+      <div id="root">
         <HomeScreen {...props()} />
         <GlobalMoneyAction onAdd={() => undefined} />
       </div>,
@@ -133,15 +133,36 @@ describe('HomeScreen', () => {
     const backdrop = sheet.parentElement as HTMLElement
     expect(backdrop.className).toContain('home-sheet-backdrop')
     expect(homeCss).toContain('.home-sheet-backdrop')
-    expect(homeCss).toContain('z-index: 70')
+    expect(homeCss).toContain('z-index: 220')
     await user.click(screen.getByRole('button', { name: 'Close' }))
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     const selector = screen.getByTestId('home-account-selector')
     selector.focus()
     await user.keyboard('{Enter}')
     expect(screen.getByTestId('home-account-sheet')).toBeTruthy()
     await user.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  it('dismisses each home window from outside, keeps inside clicks open, and restores the trigger', async () => {
+    const user = userEvent.setup()
+    render(<div id="root"><HomeScreen {...props()} /></div>)
+    for (const [triggerId, sheetId] of [['home-account-selector','home-account-sheet'],['home-manage','home-manage-sheet']] as const) {
+      const trigger = screen.getByTestId(triggerId)
+      await user.click(trigger)
+      const dialog = screen.getByTestId(sheetId)
+      await user.click(dialog.querySelector('h2')!)
+      expect(screen.getByTestId(sheetId)).toBeTruthy()
+      await user.click(screen.getByTestId(`${sheetId}-scrim`))
+      await waitFor(() => expect(screen.queryByTestId(sheetId)).toBeNull())
+      expect(document.activeElement).toBe(trigger)
+      expect(document.body.style.overflow).toBe('')
+    }
+    const sharedTrigger = screen.getByRole('button', { name: /To collect and pay/ })
+    await user.click(sharedTrigger)
+    await user.click(screen.getByTestId('home-shared-sheet-scrim'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.activeElement).toBe(sharedTrigger)
   })
 
   it('hides only the balance value and remembers the eye through local state', async () => {
@@ -333,6 +354,7 @@ describe('HomeScreen', () => {
     })} />)
     await user.click(screen.getByTestId('home-add-first-account'))
     expect(screen.getByTestId('home-create-account-sheet')).toBeTruthy()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' })))
     await user.type(screen.getByLabelText('Account name'), 'Touch n Go')
     await user.click(screen.getByTestId('home-create-account'))
     expect(onCreateAccount).toHaveBeenCalledWith(expect.objectContaining({

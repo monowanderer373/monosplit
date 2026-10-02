@@ -1,5 +1,6 @@
 import MoneyText from '../MoneyText'
-import { cloneElement, isValidElement, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { cloneElement, isValidElement, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useAccessibleDialog } from '../../hooks/useAccessibleDialog'
 import { getCategoryIcon } from '../../lib/categories'
 import type {
@@ -628,16 +629,34 @@ function HomeSheet({
   onClose,
   testId,
   children,
+  dismissible = true,
 }: {
   title: string
   onClose: () => void
   testId: string
   children: ReactNode
+  dismissible?: boolean
 }) {
   const t = useT()
-  const ref = useAccessibleDialog<HTMLElement>(onClose)
-  return (
-    <div className="home-sheet-backdrop">
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestClose = () => {
+    if (!dismissible || closeTimer.current) return
+    setClosing(true)
+    closeTimer.current = setTimeout(onClose, 180)
+  }
+  const ref = useAccessibleDialog<HTMLElement>(requestClose)
+  useEffect(() => {
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = overflow
+      if (closeTimer.current) clearTimeout(closeTimer.current)
+    }
+  }, [])
+  return createPortal(
+    <div className={`home-sheet-backdrop${closing ? ' is-closing' : ''}`} data-testid={`${testId}-backdrop`}>
+      <div className="home-sheet-scrim" aria-hidden="true" data-testid={`${testId}-scrim`} onClick={requestClose} />
       <section
         ref={ref}
         className="home-sheet"
@@ -649,13 +668,14 @@ function HomeSheet({
       >
         <header>
           <h2 id={`${testId}-title`}>{title}</h2>
-          <button type="button" className="home-icon-button" aria-label={t('home.close')} onClick={onClose}>
+          <button type="button" className="home-icon-button" aria-label={t('home.close')} onClick={requestClose} disabled={!dismissible}>
             ×
           </button>
         </header>
         {children}
       </section>
-    </div>
+    </div>,
+    document.getElementById('root') ?? document.body,
   )
 }
 
@@ -797,7 +817,7 @@ function CreateAccountSheet({
   }
 
   return (
-    <HomeSheet title={t('home.addAccountTitle')} onClose={onClose} testId="home-create-account-sheet">
+    <HomeSheet title={t('home.addAccountTitle')} onClose={onClose} testId="home-create-account-sheet" dismissible={!saving}>
       <label className="home-sheet-option">
         <span>{t('home.accountName')}</span>
         <input className="ms-input" value={name} onChange={(event) => setName(event.target.value)} />
