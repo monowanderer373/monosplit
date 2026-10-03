@@ -95,6 +95,27 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
 }
 
 describe('HomeScreen', () => {
+  it('shows an overdrawn balance in the wallet and account selector', async () => {
+    const user = userEvent.setup()
+    render(<HomeScreen {...props({ accounts:[{...cimb,entrySumMinor:-1250}], balances:[{currency:'MYR',amountMinor:-1250,knownOnly:false,unknownOpeningCount:0}] })} />)
+    expect(screen.queryByText('Amount unavailable')).toBeNull()
+    expect(screen.getByText('12.50')).toBeTruthy()
+    await user.click(screen.getByTestId('home-account-selector'))
+    expect(screen.getByTestId('home-account-sheet').textContent).toContain('-RM')
+  })
+
+  it('opens the compact notice and dismisses it by clicking outside', async () => {
+    const user = userEvent.setup()
+    render(<HomeScreen {...props()} />)
+    const trigger = screen.getByTestId('home-account-notice')
+    await user.click(trigger)
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    await user.click(screen.getByTestId('home-task-sheet-scrim'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(trigger)
+  })
+
   it('shows separate outgoing currency totals and sentence case in compact records', () => {
     const base = groups[0]!.records[0]!
     const records = [
@@ -371,14 +392,16 @@ describe('HomeScreen', () => {
     expect(screen.queryByTestId('home-tiles')).toBeNull()
   })
 
-  it('shows one full-width tile and hides the row when both counts are zero', () => {
+  it('uses a wallet icon for account tasks and hides it when there are none', () => {
     const { rerender } = render(<HomeScreen {...props({
       tileLayout: 'account',
       sharedContexts: [],
     })} />)
-    expect(screen.getByTestId('home-tiles').getAttribute('data-layout')).toBe('account')
+    expect(screen.getByTestId('home-account-notice').closest('.home-balance-card')).toBeTruthy()
+    expect(screen.queryByTestId('home-tiles')).toBeNull()
     expect(screen.queryByRole('button', { name: /To collect and pay/ })).toBeNull()
     rerender(<HomeScreen {...props({ tileLayout: 'hidden', accountTasks: [], sharedContexts: [] })} />)
+    expect(screen.queryByTestId('home-account-notice')).toBeNull()
     expect(screen.queryByTestId('home-tiles')).toBeNull()
   })
 

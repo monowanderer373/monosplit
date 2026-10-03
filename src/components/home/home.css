@@ -1072,3 +1072,13 @@ html[data-place="bali"] .home-shell {
   pointer-events: none;
 }
 #root .home-header .home-today { margin-top: 8px; }
+
+/* Quiet account attention lives alongside the wallet controls. */
+.home-wallet-actions { display:flex; align-items:center; gap:4px; padding-right:24px; flex-shrink:0; }
+.home-wallet-actions .home-wallet-manage { margin:0; }
+.home-account-notice { position:relative; display:grid; place-items:center; width:36px; height:36px; padding:0; border:0; border-radius:50%; background:transparent; color:#a27a50; cursor:pointer; transition:background 160ms ease, transform 120ms ease; }
+.home-account-notice:hover, .home-account-notice[aria-expanded="true"] { background:#f1e7d9; }
+.home-account-notice:active { transform:scale(.94); }
+.home-account-notice:focus-visible { outline:2px solid #ae693c; outline-offset:2px; }
+.home-account-notice-dot { position:absolute; top:6px; right:5px; width:5px; height:5px; border-radius:50%; background:#d69b66; box-shadow:0 0 0 2px #fbf3e8; }
+@media (prefers-reduced-motion:reduce) { .home-account-notice { transition:none; } }

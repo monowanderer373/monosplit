@@ -129,6 +129,18 @@ export default function HomeScreen(props: HomeScreenProps) {
               <span id="home-balance-title">{selected?.name ?? t('home.allAccounts')}</span>
               <Chevron />
             </button>
+            <div className="home-wallet-actions">
+              {props.accountTasks.length > 0 ? (
+                <button type="button" className="home-account-notice" data-testid="home-account-notice"
+                  aria-label={`${t('home.accountTasks')} · ${t('home.taskCount', { count: props.accountTasks.length })}`}
+                  title={t('home.accountTasks')} aria-haspopup="dialog" aria-expanded={sheet === 'tasks'}
+                  onClick={() => setSheet('tasks')}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5M12 16h.01" />
+                  </svg>
+                  <span className="home-account-notice-dot" aria-hidden="true" />
+                </button>
+              ) : null}
             <button
               type="button"
               className="home-wallet-manage"
@@ -144,6 +156,7 @@ export default function HomeScreen(props: HomeScreenProps) {
                 <circle cx="12" cy="6" r="2"/><circle cx="17" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>
               </svg>
             </button>
+            </div>
           </div>
           <div className="home-balance-line">
             <BalanceValues
@@ -190,19 +203,6 @@ export default function HomeScreen(props: HomeScreenProps) {
           onCreate={props.onCreateTrip}
         />
       )}
-
-      {props.mode === 'daily' && props.tileLayout !== 'hidden' && props.tileLayout !== 'shared' ? (
-        <div className="home-tiles" data-layout="account" data-testid="home-tiles">
-            <button type="button" className="home-tile home-tile-account" onClick={() => setSheet('tasks')}>
-              <strong>{t('home.accountTasks')}</strong>
-              {props.accountTasks.length > 0 ? (
-                <span className="home-badge" aria-label={t('home.taskCount', { count: props.accountTasks.length })}>
-                  {props.accountTasks.length}
-                </span>
-              ) : null}
-            </button>
-        </div>
-      ) : null}
 
       <section className="home-section" aria-labelledby="home-records-title">
         <div className="home-section-head">

@@ -30,6 +30,15 @@ describe('money', () => {
     )
   })
 
+  it('formats signed balances without permitting negative expense inputs', () => {
+    expect(formatMinorAmount(-1250, 'MYR', 'en-MY')).toContain('-RM');
+    expect(formatMinorAmount(-1250, 'MYR', 'en-MY')).toContain('12.50');
+    expect(formatMinorAmount(-123, 'JPY', 'ja-JP')).toContain('-');
+    expect(() => formatMinorAmount(-Number.MAX_SAFE_INTEGER - 1, 'MYR')).toThrow('amount_overflow');
+    expect(() => parseMajorAmount('-12.50', 'MYR')).toThrow('invalid_amount');
+    expect(() => equalMinorShares(-1250, ['dav'])).toThrow('invalid_amount');
+  })
+
   it('allocates the remainder by fixed participant order', () => {
     expect(Object.fromEntries(equalMinorShares(10_000, ['dav', 'lan', 'mei']))).toEqual({
       dav: 3334,

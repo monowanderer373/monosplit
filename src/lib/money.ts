@@ -67,7 +67,8 @@ export function parseMajorAmount(input: string, currency: string): number {
 }
 
 export function formatMinorAmount(amountMinor: number, currency: string, locale?: string): string {
-  assertMinorAmount(amountMinor, { allowZero: true })
+  // Balances and journal entries are signed; expense input validation stays positive.
+  if (!Number.isSafeInteger(amountMinor)) throw new MoneyError('amount_overflow')
   const exponent = currencyExponent(currency)
   return new Intl.NumberFormat(locale, {
     style: 'currency',
