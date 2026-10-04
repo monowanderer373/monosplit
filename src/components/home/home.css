@@ -1088,3 +1088,18 @@ html[data-place="bali"] .home-shell {
 .home-account-notice:focus-visible { outline:2px solid #ae693c; outline-offset:2px; }
 .home-account-notice-dot { position:absolute; top:6px; right:5px; width:5px; height:5px; border-radius:50%; background:#d69b66; box-shadow:0 0 0 2px #fbf3e8; }
 @media (prefers-reduced-motion:reduce) { .home-account-notice { transition:none; } }
+
+/* Wallet notices stay anchored to their trigger rather than opening a sheet. */
+.home-notice-anchor { position:relative; }
+.home-notice-popover { position:absolute; z-index:40; top:calc(100% + 9px); right:-40px; width:min(320px, calc(100vw - 96px)); box-sizing:border-box; padding:12px 14px 6px; border:1px solid #d3b99b; border-radius:16px; background:#fffaf2; color:var(--home-text); box-shadow:0 8px 24px #65452a24; transform-origin:calc(100% - 58px) top; animation:home-notice-enter 170ms ease-out; }
+.home-notice-popover::before { content:''; position:absolute; top:-6px; right:51px; width:10px; height:10px; background:#fffaf2; border-top:1px solid #d3b99b; border-left:1px solid #d3b99b; transform:rotate(45deg); }
+.home-notice-popover:focus { outline:none; }
+.home-notice-popover header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:6px; }
+.home-notice-popover h2 { margin:0; font-family:var(--home-serif); font-size:17px; font-weight:600; }
+.home-notice-list { margin:0; padding:0; list-style:none; max-height:min(228px, 45dvh); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#cdbda9 transparent; }
+.home-notice-list:focus-visible { outline:2px solid #ae693c; outline-offset:2px; border-radius:6px; }
+.home-notice-row { display:flex; align-items:flex-start; gap:10px; min-height:64px; box-sizing:border-box; padding:14px 0; border-top:1px solid #eaddce; }
+.home-notice-icon { display:grid; place-items:center; flex-shrink:0; width:28px; height:28px; border-radius:50%; background:#f9ead9; color:#a47142; font-size:15px; }
+.home-notice-row p { margin:3px 0 0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+@keyframes home-notice-enter { from { opacity:0; transform:translateY(-5px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+@media(prefers-reduced-motion:reduce) { .home-notice-popover { animation:none; } }

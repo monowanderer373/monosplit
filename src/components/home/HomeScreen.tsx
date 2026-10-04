@@ -79,7 +79,7 @@ export type HomeScreenProps = {
 export default function HomeScreen(props: HomeScreenProps) {
   const t = useT()
   const lang = useStore((state) => state.lang)
-  const [sheet, setSheet] = useState<null | 'accounts' | 'manage' | 'tasks' | 'receivable' | 'payable' | 'trips' | 'create'>(null)
+  const [sheet, setSheet] = useState<null | 'accounts' | 'manage' | 'receivable' | 'payable' | 'trips' | 'create'>(null)
   const assetAccounts = props.accounts.filter(isAvailableMoneyAccount)
   const selected = props.selectedAccountId === 'all'
     ? null
@@ -132,17 +132,7 @@ export default function HomeScreen(props: HomeScreenProps) {
               <Chevron />
             </button>
             <div className="home-wallet-actions">
-              {props.accountTasks.length > 0 ? (
-                <button type="button" className="home-account-notice" data-testid="home-account-notice"
-                  aria-label={`${t('home.accountTasks')} · ${t('home.taskCount', { count: props.accountTasks.length })}`}
-                  title={t('home.accountTasks')} aria-haspopup="dialog" aria-expanded={sheet === 'tasks'}
-                  onClick={() => setSheet('tasks')}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-                    <circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5M12 16h.01" />
-                  </svg>
-                  <span className="home-account-notice-dot" aria-hidden="true" />
-                </button>
-              ) : null}
+              {props.accountTasks.length > 0 ? <AccountNotice tasks={props.accountTasks} /> : null}
             <button
               type="button"
               className="home-wallet-manage"
@@ -351,14 +341,6 @@ export default function HomeScreen(props: HomeScreenProps) {
           onClose={() => setSheet(null)}
           onCreate={props.onCreateAccount}
         />
-      ) : null}
-
-      {sheet === 'tasks' ? (
-        <HomeSheet title={t('home.accountTasks')} onClose={() => setSheet(null)} testId="home-task-sheet">
-          {props.accountTasks.length === 0 ? <p className="home-status">{t('home.noTasks')}</p> : props.accountTasks.map((task) => (
-            <p key={task.id} className="home-sheet-option">{taskLabel(task, t)}</p>
-          ))}
-        </HomeSheet>
       ) : null}
 
       {sheet === 'receivable' || sheet === 'payable' ? (
@@ -769,6 +751,66 @@ function chipText(record: HomeRecordPresentation, t: ReturnType<typeof useT>): s
   return t(record.chip.spaceType === 'group' ? 'home.chipGroup' : 'home.chipTrip', {
     name: record.chip.spaceName,
   })
+}
+
+/** Non-modal notice: keeps the ledger visible, scrollable and interactive. */
+function AccountNotice({ tasks }: { tasks: readonly AccountAttentionSource[] }) {
+  const t = useT()
+  const lang = useStore((state) => state.lang)
+  const [open, setOpen] = useState(false)
+  const wrapper = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const panel = useRef<HTMLElement>(null)
+  const id = useId()
+  useEffect(() => {
+    if (!open) return
+    panel.current?.focus({ preventScroll: true })
+    const outside = (event: globalThis.PointerEvent) => {
+      if (event.target instanceof Node && !wrapper.current?.contains(event.target)) setOpen(false)
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setOpen(false)
+      trigger.current?.focus({ preventScroll: true })
+    }
+    const focusOutside = (event: FocusEvent) => {
+      if (event.target instanceof Node && !wrapper.current?.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('keydown', escape)
+    document.addEventListener('focusin', focusOutside)
+    return () => {
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('keydown', escape)
+      document.removeEventListener('focusin', focusOutside)
+    }
+  }, [open])
+  return <div className="home-notice-anchor" ref={wrapper}>
+    <button ref={trigger} type="button" className="home-account-notice" data-testid="home-account-notice"
+      aria-label={`${t('home.accountTasks')} · ${t('home.taskCount', { count: tasks.length })}`}
+      title={t('home.accountTasks')} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined}
+      onClick={() => setOpen(value => !value)}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5M12 16h.01" />
+      </svg>
+      <span className="home-account-notice-dot" aria-hidden="true" />
+    </button>
+    {open ? <section ref={panel} id={id} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`}
+      tabIndex={-1} className="home-notice-popover" data-testid="home-notice-popover">
+      <header>
+        <h2 id={`${id}-title`}>{t('home.accountTasks')}</h2>
+        <button type="button" className="home-icon-button" aria-label={t('home.close')}
+          onClick={() => { setOpen(false); trigger.current?.focus({ preventScroll: true }) }}>×</button>
+      </header>
+      <ul className="home-notice-list" tabIndex={0} aria-label={lang === 'zh' ? '通知列表' : 'Notifications'}>
+        {tasks.map(task => <li key={task.id} className="home-notice-row">
+          <span className="home-notice-icon" aria-hidden="true">!</span>
+          <p>{taskLabel(task, t)}</p>
+        </li>)}
+      </ul>
+    </section> : null}
+  </div>
 }
 
 function taskLabel(task: AccountAttentionSource, t: ReturnType<typeof useT>): string {
