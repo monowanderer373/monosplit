@@ -156,6 +156,22 @@ describe('HomeScreen', () => {
     expect(collect.getAttribute('aria-expanded')).toBe('false')
   })
 
+  it('makes manual splits discoverable without calling them settled or adding them to confirmed totals', async () => {
+    const user = userEvent.setup()
+    const onOpen = vi.fn()
+    const preview = { id: 'preview:1', source: 'friend' as const, label: 'Test friend', personId: 'test-person', spaceId: null, status: 'manual' as const, description: 'Test split', lines: [{ currency: 'MYR', direction: 'receivable' as const, amountMinor: 500 }] }
+    render(<HomeScreen {...props({ receivables: [], sharedContexts: [], sharedPreviews: [preview], onOpenSharedContext: onOpen })} />)
+    const collect = screen.getByTestId('home-receivable')
+    expect(collect.textContent).toContain('0.00')
+    expect(collect.textContent).toContain('Pending / manual records')
+    await user.click(collect)
+    expect(screen.queryByText('All settled')).toBeNull()
+    expect(screen.getByText('No confirmed balance')).toBeTruthy()
+    expect(screen.getByText('Manual records')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: /Test friend.*Test split/ }))
+    expect(onOpen).toHaveBeenCalledWith(preview)
+  })
+
   it('opens mode choices, selects Travel and restores trigger focus', async () => {
     const user = userEvent.setup()
     const change = vi.fn()

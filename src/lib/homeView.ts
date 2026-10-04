@@ -87,6 +87,52 @@ export type SharedContext = {
   }>
 }
 
+export type SharedPreviewContext = SharedContext & {
+  status: 'pending' | 'manual'
+  description: string
+}
+
+// Display-only previews: never feed these projected participations into
+// confirmed balances, settlement eligibility, or persistence.
+export function deriveSharedPreviewContexts(input: {
+  ownerParticipantId: string
+  expenses: readonly CanonicalExpense[]
+  people: readonly HomePerson[]
+}): SharedPreviewContext[] {
+  const contexts: SharedPreviewContext[] = []
+  for (const expense of input.expenses) {
+    if (expense.scope !== 'direct' || expense.status !== 'active') continue
+    const owner = expense.participations.find(p => p.participantId === input.ownerParticipantId)
+    if (!owner || owner.state !== 'accepted' || owner.trackingMode !== 'tracked') continue
+    const projected: CanonicalExpense = {
+      ...expense,
+      participations: expense.participations.map(p =>
+        p.state === 'pending' || p.state === 'untracked'
+          ? { ...p, state: 'accepted', trackingMode: 'tracked' }
+          : p),
+    }
+    for (const participation of expense.participations) {
+      if (participation.participantId === input.ownerParticipantId) continue
+      const status = participation.state === 'untracked' && participation.trackingMode === 'untracked'
+        ? 'manual' : participation.state === 'pending' && participation.trackingMode === 'tracked'
+          ? 'pending' : null
+      if (!status) continue
+      const lines = linesFromDebt(input.ownerParticipantId, deriveRelationalDebtLines([projected], [], {
+        scope: 'direct', participantIds: [input.ownerParticipantId, participation.participantId],
+      }))
+      if (!lines.length) continue
+      const person = input.people.find(p => p.participantIds.includes(participation.participantId))
+      contexts.push({
+        id: `preview:${expense.id}:${participation.participantId}`,
+        source: 'friend', label: person?.displayName ?? participation.nameSnapshot,
+        personId: person?.id ?? null, spaceId: null, lines, status,
+        description: expense.description ?? '',
+      })
+    }
+  }
+  return contexts
+}
+
 export type HomePerson = {
   id: string
   displayName: string

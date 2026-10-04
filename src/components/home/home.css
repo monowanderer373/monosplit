@@ -982,6 +982,12 @@ html[data-place="bali"] .home-shell {
 .home-sheet .home-sheet-option[aria-current="true"] { background: #fae3d2; }
 .home-sheet button.home-sheet-option:active { background: #f9dfca; }
 .home-sheet .home-icon-button { border: 0; background: transparent; }
+.home-split-preview-hint { display: block; margin-top: 5px; font-size: 10px; font-weight: 400; color: var(--ms-text-secondary); }
+.home-split-preview-section { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #dfceb7; }
+.home-split-preview-section h3 { margin: 0 0 6px; font-size: 14px; }
+.home-split-preview-section > .home-meta { margin-bottom: 10px; line-height: 1.5; }
+.home-split-preview-section .home-debt-person { min-width: 0; }
+.home-split-preview-section .home-debt-person small { overflow-wrap: anywhere; }
 .home-shared-total { padding: 6px 0 18px; margin-bottom: 4px; border-bottom: 1px solid #ecdfce; }
 .home-shared-total > .home-meta { margin: 0 0 6px; font-size: 12px; }
 .home-shared-total > .home-money-lines { font-size: 26px; font-weight: 500; }

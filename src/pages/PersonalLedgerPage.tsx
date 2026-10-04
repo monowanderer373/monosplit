@@ -15,6 +15,7 @@ import {
   availableMoney,
   buildHomeRecords,
   deriveOutstandingSharedContexts,
+  deriveSharedPreviewContexts,
   groupHomeRecords,
   homeRecordAccountFilter,
   isAvailableMoneyAccount,
@@ -175,6 +176,7 @@ export default function PersonalLedgerPage() {
         tileLayout={model.tileLayout}
         accountTasks={model.accountTasks}
         sharedContexts={model.sharedContexts}
+        sharedPreviews={model.sharedPreviews}
         sharedStatus={model.sharedStatus}
         recordGroups={model.recordGroups}
         recordsStatus={ledger.expensesStatus}
@@ -197,6 +199,7 @@ export default function PersonalLedgerPage() {
         onOpenSharedContext={(context) => {
           if (context.personId) navigate(`/person/${context.personId}`)
           else if (context.spaceId) navigate(`/space/${context.spaceId}`)
+          else navigate('/shared')
         }}
         emptyRecordsLabel={model.emptyRecordsLabel}
       />
@@ -291,6 +294,9 @@ function useHomeModel(input: {
         spaces,
       })
       : []
+    const sharedPreviews = sharedStatus === 'ready' && input.participantId
+      ? deriveSharedPreviewContexts({ ownerParticipantId: input.participantId, expenses: input.expenses, people })
+      : []
     const accountTasks = input.home.accounts.status === 'ready' && input.home.accounts.data
       ? listActionableAccountTasks(accountAttentionSources({
         pendingFundingIds: input.home.accounts.data.pendingFundingIds,
@@ -352,6 +358,7 @@ function useHomeModel(input: {
       tileLayout: summaryTileLayout(accountCount, sharedCount),
       accountTasks,
       sharedContexts,
+      sharedPreviews,
       sharedStatus,
       recordGroups: groupHomeRecords(presentHomeRecords(limited, input.homeUi.density), today),
       flatRecords: limited,

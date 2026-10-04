@@ -11,6 +11,7 @@ import {
   buildHomeRecords,
   countActionableAccountTasks,
   deriveOutstandingSharedContexts,
+  deriveSharedPreviewContexts,
   groupHomeRecords,
   localCalendarDate,
   monthlyPersonalSpending,
@@ -135,6 +136,37 @@ function account(overrides: Partial<HomeAccount> & Pick<HomeAccount, 'id' | 'cur
     ...overrides,
   }
 }
+
+describe('unconfirmed split previews', () => {
+  it('shows manual and pending splits without changing authoritative collect totals or inputs', () => {
+    const manual = expense({ id: 'manual', totalMinor: 1000, ownerPaidMinor: 1000, ownerShareMinor: 500 })
+    manual.participations[1]!.state = 'untracked'
+    manual.participations[1]!.trackingMode = 'untracked'
+    const pending = expense({ id: 'pending', totalMinor: 2000, ownerPaidMinor: 2000, ownerShareMinor: 1000, currency: 'USD' })
+    pending.participations[1]!.state = 'pending'
+    const input = { ownerParticipantId: 'owner', expenses: [manual, pending], people: [{ id: 'p', displayName: 'Test friend', participantIds: ['lan'] }] }
+    const before = JSON.stringify(input)
+    const previews = deriveSharedPreviewContexts(input)
+    expect(previews.map(p => [p.status, p.personId, p.lines])).toEqual([
+      ['manual', 'p', [{ currency: 'MYR', direction: 'receivable', amountMinor: 500 }]],
+      ['pending', 'p', [{ currency: 'USD', direction: 'receivable', amountMinor: 1000 }]],
+    ])
+    expect(receivableTotals(deriveOutstandingSharedContexts({ ...input, settlements: [], spaces: [] }))).toEqual([])
+    expect(JSON.stringify(input)).toBe(before)
+  })
+
+  it('handles friend-funded splits and excludes cancelled, declined, personal and accepted records', () => {
+    const payable = expense({ id: 'payable', totalMinor: 1000, ownerPaidMinor: 0, otherPaidMinor: 1000, ownerShareMinor: 500 })
+    payable.participations[1]!.state = 'pending'
+    const cancelled = { ...payable, id: 'cancelled', status: 'voided' as const }
+    const declined = { ...payable, id: 'declined', participations: payable.participations.map(p => p.participantId === 'owner' ? p : { ...p, state: 'declined' as const }) }
+    const accepted = expense({ id: 'accepted', totalMinor: 1000, ownerPaidMinor: 1000, ownerShareMinor: 500 })
+    const personal = expense({ id: 'personal', scope: 'personal', totalMinor: 1000, ownerPaidMinor: 1000, ownerShareMinor: 1000 })
+    const result = deriveSharedPreviewContexts({ ownerParticipantId: 'owner', expenses: [payable, cancelled, declined, accepted, personal], people: [] })
+    expect(result).toHaveLength(1)
+    expect(result[0]!.lines).toEqual([{ currency: 'MYR', direction: 'payable', amountMinor: 500 }])
+  })
+})
 
 describe('available money', () => {
   const accounts: HomeAccount[] = [

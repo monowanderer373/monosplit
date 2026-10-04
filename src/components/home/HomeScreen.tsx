@@ -14,6 +14,7 @@ import type {
   HomeSpaceRef,
   HomeTripSelection,
   SharedContext,
+  SharedPreviewContext,
   SummaryTileLayout,
 } from '../../lib/homeView'
 import { addMinor, homeRecordAmountState, isAvailableMoneyAccount, localCalendarDate, payableTotals } from '../../lib/homeView'
@@ -55,6 +56,7 @@ export type HomeScreenProps = {
   tileLayout: SummaryTileLayout
   accountTasks: readonly AccountAttentionSource[]
   sharedContexts: readonly SharedContext[]
+  sharedPreviews?: readonly SharedPreviewContext[]
   sharedStatus: 'loading' | 'error' | 'ready'
   recordGroups: readonly HomeDateGroup[]
   recordsStatus?: 'loading' | 'ready' | 'error'
@@ -190,6 +192,7 @@ export default function HomeScreen(props: HomeScreenProps) {
                   : props.sharedStatus === 'loading' ? <><span className="home-sr">{t('home.loading')}</span><span className="home-debt-skeleton" aria-hidden="true" /></>
                   : <MoneyLines lines={(direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).length > 0 ? (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)) : [{currency:props.defaultCurrency ?? 'MYR',amountMinor:0}]} lang={lang} t={t} />}
               </span>
+              {props.sharedStatus === 'ready' && (props.sharedPreviews ?? []).some(context => context.lines.some(line => line.direction === direction)) ? <small className="home-split-preview-hint">{lang === 'zh' ? '另有待确认／手动记录' : 'Pending / manual records'}</small> : null}
             </button>
           ))}
         </div>
@@ -360,16 +363,29 @@ export default function HomeScreen(props: HomeScreenProps) {
 
       {sheet === 'receivable' || sheet === 'payable' ? (
         <HomeSheet title={t(sheet === 'receivable' ? 'home.toCollect' : 'home.payable')} onClose={() => setSheet(null)} testId="home-shared-sheet">
-          {props.sharedStatus !== 'ready' ? <p className="home-status" role="status">{t(props.sharedStatus === 'loading' ? 'home.loading' : 'home.unavailable')}</p> : <SharedSide
+          {props.sharedStatus !== 'ready' ? <p className="home-status" role="status">{t(props.sharedStatus === 'loading' ? 'home.loading' : 'home.unavailable')}</p> : <><SharedSide
             title={lang === 'zh' ? '未结金额' : 'Outstanding'}
             tone={sheet}
             contexts={props.sharedContexts}
             direction={sheet}
+            hasPreviews={(props.sharedPreviews ?? []).some(context => context.lines.some(line => line.direction === sheet))}
             onOpen={(context) => {
               setSheet(null)
               props.onOpenSharedContext(context)
             }}
-          />}
+          />
+          {(['pending', 'manual'] as const).map(status => {
+            const contexts = (props.sharedPreviews ?? []).filter(context => context.status === status && context.lines.some(line => line.direction === sheet))
+            if (!contexts.length) return null
+            return <section className="home-split-preview-section" key={status}>
+              <h3>{status === 'pending' ? (lang === 'zh' ? '待确认' : 'Pending confirmation') : (lang === 'zh' ? '手动记录' : 'Manual records')}</h3>
+              <p className="home-meta">{status === 'pending' ? (lang === 'zh' ? '预计分账金额；对方确认后才计入上方金额。' : 'Expected split amounts. Included above only after acceptance.') : (lang === 'zh' ? '你记录的分账；未获对方确认，不计入已确认金额。' : 'Your recorded splits. Unconfirmed and excluded from the confirmed total.')}</p>
+              {contexts.map(context => <button key={context.id} type="button" className="home-sheet-option home-debt-option" onClick={() => { setSheet(null); props.onOpenSharedContext(context) }}>
+                <span className="home-debt-person"><span>{context.label}</span><small>{capitalizeDescription(context.description)}</small></span>
+                <span className="home-debt-row-money"><MoneyLines lines={context.lines.filter(line => line.direction === sheet)} lang={lang} t={t} /><Chevron /></span>
+              </button>)}
+            </section>
+          })}</>}
         </HomeSheet>
       ) : null}
 
@@ -644,12 +660,14 @@ function SharedSide({
   tone,
   contexts,
   direction,
+  hasPreviews = false,
   onOpen,
 }: {
   title: string
   tone: 'receivable' | 'payable'
   contexts: readonly SharedContext[]
   direction: 'receivable' | 'payable'
+  hasPreviews?: boolean
   onOpen: (context: SharedContext) => void
 }) {
   const t = useT()
@@ -665,9 +683,9 @@ function SharedSide({
   return (
     <div className={`home-shared-side is-${tone}`}>
       {visible.length === 0 ? <div className="home-debt-empty">
-        <span className="home-empty-check" aria-hidden="true">✓</span>
-        <h3>{lang === 'zh' ? '全部已结清' : 'All settled'}</h3>
-        <p>{t('home.noSharedSide')}</p>
+        <span className="home-empty-check" aria-hidden="true">{hasPreviews ? '…' : '✓'}</span>
+        <h3>{hasPreviews ? (lang === 'zh' ? '暂无已确认金额' : 'No confirmed balance') : (lang === 'zh' ? '全部已结清' : 'All settled')}</h3>
+        <p>{hasPreviews ? (lang === 'zh' ? '分账记录在下方。' : 'Your split records are below.') : t('home.noSharedSide')}</p>
       </div> : <>
         <div className="home-shared-total">
           <p className="home-meta">{title}</p>
