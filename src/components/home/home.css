@@ -851,7 +851,7 @@ html[data-place="bali"] .home-shell {
   background: #dfc3ae;
   pointer-events: none;
 }
-#root .home-frame[data-density="compact"] .home-day:last-child::before { bottom: 12px; }
+#root .home-frame[data-density="compact"] .home-day:has(+ .home-records-end)::before { bottom: 12px; }
 #root .home-frame[data-density="compact"] .home-date {
   position: relative;
   display: flex;
@@ -1103,3 +1103,16 @@ html[data-place="bali"] .home-shell {
 .home-notice-row p { margin:3px 0 0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
 @keyframes home-notice-enter { from { opacity:0; transform:translateY(-5px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
 @media(prefers-reduced-motion:reduce) { .home-notice-popover { animation:none; } }
+
+/* A date stays with its complete day while older days join the timeline. */
+#root .home-frame .home-day .home-date {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 3;
+  background: var(--home-bg);
+  padding-block: 8px;
+  box-shadow: 0 5px 8px var(--home-bg);
+}
+.home-records-end { margin-top: 24px; padding: 12px 0 8px; text-align: center; color: var(--home-muted); font-size: 12px; }
+.home-records-end p { margin: 0; }
+.home-records-end button { min-height: 44px; }

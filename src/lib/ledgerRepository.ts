@@ -195,13 +195,25 @@ export const ledgerRepository: LedgerRepository = {
 
   async listExpenses() {
     if (!supabase) throw new LedgerRepositoryError('not_configured')
-    const { data, error } = await supabase
-      .from('expenses')
-      .select(expenseSelect)
-      .order('occurred_on', { ascending: false })
-      .order('created_at', { ascending: false })
-    if (error) throw new LedgerRepositoryError('server_rejected', error.message)
-    return ((data ?? []) as unknown as ExpenseRow[]).map(mapExpenseRow)
+    const client = supabase
+    const rows: CanonicalExpense[] = []
+    const seen = new Set<string>()
+    const pageSize = 500
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await client
+        .from('expenses')
+        .select(expenseSelect)
+        .order('occurred_on', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, from + pageSize - 1)
+      if (error) throw new LedgerRepositoryError('server_rejected', error.message)
+      const page = (data ?? []) as unknown as ExpenseRow[]
+      for (const row of page) {
+        if (!seen.has(row.id)) { seen.add(row.id); rows.push(mapExpenseRow(row)) }
+      }
+      if (page.length < pageSize) return rows
+    }
   },
 
   async findExpenseByRequestId(requestId) {

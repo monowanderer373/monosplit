@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
 import HomeScreen from '../components/home/HomeScreen'
@@ -9,7 +9,6 @@ import { useExpenseChanges } from '../hooks/useExpenseChanges'
 import { useHomeData } from '../hooks/useHomeData'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
 import {
-  HOME_RECENT_LIMIT,
   accountAttentionSources,
   addMinor,
   availableMoney,
@@ -40,16 +39,14 @@ import { useStore } from '../store/useStore'
 export default function PersonalLedgerPage() {
   const t = useT()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
   const { authUser, loading, sessionError, retrySession } = useAuth()
   const ledger = usePersonalLedger()
   const changeState = useExpenseChanges(Boolean(ledger.participantId), ledger.refresh)
   const homeUi = useStore((state) => state.homeUi)
   const setHomeUi = useStore((state) => state.setHomeUi)
-  const showAllRecords = params.get('records') === 'all'
   const [accountReload, setAccountReload] = useState(0)
   const homeRefreshKey = `${ledger.expenses.map((expense) => `${expense.id}:${expense.updatedAt}`).join('|')}:${accountReload}`
-  const home = useHomeData(ledger.participantId, homeRefreshKey, showAllRecords)
+  const home = useHomeData(ledger.participantId, homeRefreshKey, true)
   const model = useHomeModel({
     participantId: ledger.participantId,
     timezone: authUser?.timezone ?? 'Asia/Kuala_Lumpur',
@@ -57,7 +54,6 @@ export default function PersonalLedgerPage() {
     rows: ledger.rows,
     home,
     homeUi,
-    showAllRecords,
   })
 
   if (loading) {
@@ -184,12 +180,7 @@ export default function PersonalLedgerPage() {
         affiliationsStatus={home.affiliations.status}
         recordActions={recordActions}
         recordStatuses={recordStatuses}
-        onShowAllRecords={() => {
-          const next = new URLSearchParams(params)
-          next.set('records', 'all')
-          setParams(next)
-        }}
-        showingAllRecords={showAllRecords}
+        recordsViewKey={`${ledger.participantId}:${homeUi.mode}:${model.selectedAccountId}:${model.trip?.trip?.id ?? ''}`}
         trip={model.trip}
         trips={model.trips}
         travelStatus={model.travelStatus}
@@ -216,7 +207,6 @@ function useHomeModel(input: {
   rows: ReturnType<typeof usePersonalLedger>['rows']
   home: ReturnType<typeof useHomeData>
   homeUi: ReturnType<typeof useStore.getState>['homeUi']
-  showAllRecords: boolean
 }) {
   return useMemo(() => {
     const accounts = input.home.accounts.data?.accounts ?? []
@@ -343,7 +333,6 @@ function useHomeModel(input: {
     const filtered = input.homeUi.mode === 'travel'
       ? records.filter((record) => record.expenseId != null && travelIds.has(record.expenseId))
       : records
-    const limited = input.showAllRecords ? filtered : filtered.slice(0, HOME_RECENT_LIMIT)
     const bookedRows = input.participantId
       ? input.rows.filter((row) => isBookedHomeExpense(row.expense, input.participantId!))
       : []
@@ -360,8 +349,8 @@ function useHomeModel(input: {
       sharedContexts,
       sharedPreviews,
       sharedStatus,
-      recordGroups: groupHomeRecords(presentHomeRecords(limited, input.homeUi.density), today),
-      flatRecords: limited,
+      recordGroups: groupHomeRecords(presentHomeRecords(filtered, input.homeUi.density), today),
+      flatRecords: filtered,
       trip,
       trips,
       travelStatus,

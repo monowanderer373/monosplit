@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { readFileSync } from 'node:fs'
 import { useState } from 'react'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { HomeAccount, HomeDateGroup } from '../../lib/homeView'
@@ -14,6 +14,7 @@ const homeCss = readFileSync('src/components/home/home.css', 'utf8')
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
 })
 
 const cimb: HomeAccount = {
@@ -80,8 +81,6 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
     }],
     sharedStatus: 'ready',
     recordGroups: groups,
-    onShowAllRecords: vi.fn(),
-    showingAllRecords: false,
     trip: null,
     trips: [],
     travelStatus: 'ready',
@@ -95,6 +94,49 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
 }
 
 describe('HomeScreen', () => {
+  it.each(['detailed', 'compact'] as const)('shows whole days and automatically appends older records in %s mode', async density => {
+    let onIntersect!: IntersectionObserverCallback
+    const disconnect = vi.fn()
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) { onIntersect = callback }
+      observe = vi.fn()
+      disconnect = disconnect
+    })
+    const days: HomeDateGroup[] = [
+      { ...groups[0]!, records: Array.from({ length: 12 }, (_, index) => ({ ...groups[0]!.records[0]!, id: `first:${index}`, description: `First day ${index}` })) },
+      { ...groups[0]!, date: '2026-09-15', kind: 'yesterday', records: [{ ...groups[0]!.records[0]!, id: 'older', description: 'Older day record' }] },
+    ]
+    const { rerender } = render(<HomeScreen {...props({ density, recordGroups: days })} />)
+    expect(screen.getByText('First day 11')).toBeTruthy()
+    expect(screen.queryByText('Older day record')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'All ›' })).toBeNull()
+    act(() => onIntersect([{ isIntersecting: true }] as IntersectionObserverEntry[], {} as IntersectionObserver))
+    expect(screen.getByText('Older day record')).toBeTruthy()
+    expect(screen.getByText('All records shown')).toBeTruthy()
+    rerender(<HomeScreen {...props({ density: density === 'compact' ? 'detailed' : 'compact', recordGroups: days })} />)
+    expect(screen.getByText('Older day record')).toBeTruthy()
+    expect(screen.getAllByText('Older day record')).toHaveLength(1)
+  })
+
+  it('offers manual continuation without IntersectionObserver and resets when the record filter changes', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined)
+    const user = userEvent.setup()
+    const days = [groups[0]!, { ...groups[0]!, date: '2026-09-15', records: [{ ...groups[0]!.records[0]!, id: 'older', description: 'Older day record' }] }]
+    const { rerender } = render(<HomeScreen {...props({ recordGroups: days, recordsViewKey: 'wallet-a' })} />)
+    await user.click(screen.getByRole('button', { name: 'Show earlier records' }))
+    expect(screen.getByText('Older day record')).toBeTruthy()
+    rerender(<HomeScreen {...props({ recordGroups: days, recordsViewKey: 'wallet-b' })} />)
+    expect(screen.queryByText('Older day record')).toBeNull()
+  })
+
+  it('does not claim all records are shown while reads are loading or have failed', () => {
+    const { rerender } = render(<HomeScreen {...props({ recordsStatus: 'ready', accountsRefreshing: true })} />)
+    expect(screen.queryByText('All records shown')).toBeNull()
+    rerender(<HomeScreen {...props({ recordsStatus: 'error' })} />)
+    expect(screen.queryByText('All records shown')).toBeNull()
+    expect(screen.getByText('Some records could not load')).toBeTruthy()
+  })
+
   it('shows an overdrawn balance in the wallet and account selector', async () => {
     const user = userEvent.setup()
     render(<HomeScreen {...props({ accounts:[{...cimb,entrySumMinor:-1250}], balances:[{currency:'MYR',amountMinor:-1250,knownOnly:false,unknownOpeningCount:0}] })} />)
@@ -328,11 +370,10 @@ describe('HomeScreen', () => {
     expect(useStore.getState().homeUi.balanceHidden).toBe(true)
   })
 
-  it('opens summary destinations and the existing history action', async () => {
+  it('opens summary destinations without a separate All history action', async () => {
     const user = userEvent.setup()
-    const onShowAllRecords = vi.fn()
     const onOpenSharedContext = vi.fn()
-    render(<HomeScreen {...props({ onShowAllRecords, onOpenSharedContext })} />)
+    render(<HomeScreen {...props({ onOpenSharedContext })} />)
     await user.click(screen.getByRole('button', { name: /Account tasks/ }))
     expect(screen.getByRole('dialog', { name: 'Account tasks' })).toBeTruthy()
     await user.keyboard('{Escape}')
@@ -340,8 +381,7 @@ describe('HomeScreen', () => {
     await user.click(screen.getByTestId('home-receivable'))
     await user.click(screen.getByRole('button', { name: /Lan/ }))
     expect(onOpenSharedContext).toHaveBeenCalledWith(expect.objectContaining({ personId: 'person-lan' }))
-    await user.click(screen.getByRole('button', { name: 'All ›' }))
-    expect(onShowAllRecords).toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'All ›' })).toBeNull()
   })
 
   it('keeps long labels and large amounts in the document', () => {

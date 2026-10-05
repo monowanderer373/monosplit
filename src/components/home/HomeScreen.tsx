@@ -64,8 +64,7 @@ export type HomeScreenProps = {
   affiliationsStatus?: 'loading' | 'ready' | 'error'
   recordActions?: Record<string, ReactNode>
   recordStatuses?: Record<string, string>
-  onShowAllRecords: () => void
-  showingAllRecords: boolean
+  recordsViewKey?: string
   trip: HomeTripSelection | null
   trips: readonly HomeSpaceRef[]
   travelStatus: 'loading' | 'error' | 'ready'
@@ -222,14 +221,6 @@ export default function HomeScreen(props: HomeScreenProps) {
                 </span>
               </span>
             </button>
-            <button
-              type="button"
-              className="home-text-button"
-              aria-current={props.showingAllRecords ? 'true' : undefined}
-              onClick={props.onShowAllRecords}
-            >
-              {t('home.viewAll')} ›
-            </button>
           </div>
         </div>
         {props.accountsRefreshing ? (
@@ -256,31 +247,8 @@ export default function HomeScreen(props: HomeScreenProps) {
         ) : props.recordsStatus === 'error' && props.recordGroups.length === 0 ? null
         : props.recordGroups.length === 0 ? (
           <p className="home-status">{t(props.emptyRecordsLabel ?? 'home.noRecords')}</p>
-        ) : props.recordGroups.map((group) => (
-          <div className="home-day" key={group.date}>
-            <div className="home-date">
-              <strong>
-                {group.kind === 'today'
-                  ? `${t('home.today')} · ${formatDate(group.date, lang)}`
-                  : group.kind === 'yesterday'
-                    ? `${t('home.yesterday')} · ${formatDate(group.date, lang)}`
-                    : formatDate(group.date, lang)}
-              </strong>
-              {props.density === 'compact' ? <DayTotal records={group.records} /> : null}
-            </div>
-            {group.records.map((record) => (
-              <RecordRow
-                key={record.id}
-                accountsStatus={props.accountsStatus}
-                record={{
-                  ...record,
-                  statusLabel: props.recordStatuses?.[record.id] ?? null,
-                  action: props.recordActions?.[record.id],
-                }}
-              />
-            ))}
-          </div>
-        ))}
+        ) : <RecentRecordList key={props.recordsViewKey ?? `${props.mode}:${props.selectedAccountId}:${props.trip?.trip?.id ?? ''}`} props={props} />}
+
       </section>
 
       {sheet === 'accounts' ? (
@@ -571,6 +539,50 @@ function DayTotal({ records }: { records: readonly HomeRecordPresentation[] }) {
       lang={lang} t={t}
     />}
   </span>
+}
+
+function RecentRecordList({ props }: { props: HomeScreenProps }) {
+  const t = useT()
+  const lang = useStore(state => state.lang)
+  const [visibleDays, setVisibleDays] = useState(1)
+  const sentinel = useRef<HTMLButtonElement>(null)
+  const hasMore = visibleDays < props.recordGroups.length
+  useEffect(() => {
+    const target = sentinel.current
+    if (!hasMore || !target || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        observer.disconnect()
+        setVisibleDays(count => count + 1)
+      }
+    }, { rootMargin: '0px 0px 100px 0px' })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [hasMore, visibleDays, props.recordGroups.length])
+  const incomplete = props.recordsStatus === 'error' || props.accountsStatus === 'error'
+    || (props.mode === 'travel' && (props.travelStatus === 'error' || props.affiliationsStatus === 'error'))
+  const loading = props.recordsStatus === 'loading' || props.accountsStatus === 'loading' || props.accountsRefreshing
+    || (props.mode === 'travel' && (props.travelStatus === 'loading' || props.affiliationsStatus === 'loading'))
+  return <>
+    {props.recordGroups.slice(0, visibleDays).map(group => <div className="home-day" key={group.date}>
+      <div className="home-date">
+        <strong>{group.kind === 'today'
+          ? `${t('home.today')} · ${formatDate(group.date, lang)}`
+          : group.kind === 'yesterday'
+            ? `${t('home.yesterday')} · ${formatDate(group.date, lang)}`
+            : formatDate(group.date, lang)}</strong>
+        {props.density === 'compact' ? <DayTotal records={group.records} /> : null}
+      </div>
+      {group.records.map(record => <RecordRow key={record.id} accountsStatus={props.accountsStatus}
+        record={{ ...record, statusLabel: props.recordStatuses?.[record.id] ?? null, action: props.recordActions?.[record.id] }} />)}
+    </div>)}
+    <div className="home-records-end" data-testid="home-records-end">
+      {hasMore ? <button ref={sentinel} type="button" className="home-text-button" onClick={() => setVisibleDays(count => count + 1)}>
+        {lang === 'zh' ? '查看更早记录' : 'Show earlier records'}
+      </button> : <p role="status">{incomplete ? (lang === 'zh' ? '部分记录暂时无法加载' : 'Some records could not load')
+        : loading ? t('home.loading') : (lang === 'zh' ? '已显示所有记录' : 'All records shown')}</p>}
+    </div>
+  </>
 }
 
 function RecordRow({

@@ -229,8 +229,6 @@ function HarnessBody() {
         sharedContexts={sharedContexts}
         sharedStatus="ready"
         recordGroups={scenario.startsWith('travel-empty') ? [] : model}
-        onShowAllRecords={() => undefined}
-        showingAllRecords={false}
         trip={trip}
         trips={trip ? [trip.trip] : []}
         travelStatus="ready"
