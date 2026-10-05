@@ -533,12 +533,25 @@ function DayTotal({ records }: { records: readonly HomeRecordPresentation[] }) {
     totals.set(record.currency, addMinor(totals.get(record.currency) ?? 0, record.amountMinor))
   }
   return <span className="home-day-total" data-testid="home-day-total">
-    <span>{lang === 'zh' ? '合计' : 'Total'}</span>
-    {incomplete ? <span>{t('home.amountUnavailable')}</span> : <MoneyLines
+    <span className="home-day-total-label">{lang === 'zh' ? '合计' : 'Total'}</span>
+    <span className="home-day-total-value">{incomplete ? t('home.amountUnavailable') : <MoneyLines
       lines={Array.from(totals, ([currency, amountMinor]) => ({ currency, amountMinor }))}
       lang={lang} t={t}
-    />}
+    />}</span>
   </span>
+}
+
+function CompactDate({ date, kind }: { date: string; kind: HomeDateGroup['kind'] }) {
+  const t = useT()
+  const lang = useStore(state => state.lang)
+  const value = new Date(`${date}T00:00:00`)
+  if (Number.isNaN(value.getTime())) return <strong>{date}</strong>
+  const day = new Intl.DateTimeFormat(localeForLang(lang), { month: 'short', day: 'numeric' }).format(value)
+  const year = new Intl.DateTimeFormat(localeForLang(lang), { year: 'numeric' }).format(value)
+  return <time className="home-compact-date" dateTime={date}>
+    <strong>{kind === 'today' ? `${t('home.today')} · ` : kind === 'yesterday' ? `${t('home.yesterday')} · ` : ''}{day}</strong>
+    {' '}<span className="home-date-year">{year}</span>
+  </time>
 }
 
 function RecentRecordList({ props }: { props: HomeScreenProps }) {
@@ -566,11 +579,11 @@ function RecentRecordList({ props }: { props: HomeScreenProps }) {
   return <>
     {props.recordGroups.slice(0, visibleDays).map(group => <div className="home-day" key={group.date}>
       <div className="home-date">
-        <strong>{group.kind === 'today'
+        {props.density === 'compact' ? <CompactDate date={group.date} kind={group.kind} /> : <strong>{group.kind === 'today'
           ? `${t('home.today')} · ${formatDate(group.date, lang)}`
           : group.kind === 'yesterday'
             ? `${t('home.yesterday')} · ${formatDate(group.date, lang)}`
-            : formatDate(group.date, lang)}</strong>
+            : formatDate(group.date, lang)}</strong>}
         {props.density === 'compact' ? <DayTotal records={group.records} /> : null}
       </div>
       {group.records.map(record => <RecordRow key={record.id} accountsStatus={props.accountsStatus}
@@ -617,7 +630,12 @@ function RecordRow({
         ) : null}
         <div className="home-record-copy">
           <p className="home-record-title">{capitalizeDescription(record.description)}</p>
-          {record.showChip ? <span className="home-chip">{chipText(record, t)}</span> : null}
+          {record.showChip ? <span className="home-chip">
+            {record.compact && (record.chip.kind === 'direct' || record.chip.kind === 'space') ? <svg className="home-shared-mark" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="9" cy="7" r="3" /><path d="M2 21v-2a7 7 0 0 1 14 0v2H2Z M16 4a3 3 0 0 1 0 6 M19 21h3v-2a7 7 0 0 0-5-6" />
+            </svg> : null}
+            {chipText(record, t)}
+          </span> : null}
           {record.statusLabel ? <p className="home-note">{record.statusLabel}</p> : null}
         </div>
         <i className="home-dots" aria-hidden="true" />
