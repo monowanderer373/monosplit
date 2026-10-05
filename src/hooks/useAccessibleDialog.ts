@@ -73,6 +73,9 @@ export function useAccessibleDialog<T extends HTMLElement>(
     })
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // A nested dialog owns keyboard interaction until it closes.
+      const eventDialog = event.target instanceof Element ? event.target.closest('[role="dialog"]') : null
+      if (eventDialog && eventDialog !== dialog) return
       if (event.key === 'Escape') {
         event.preventDefault()
         closeDialog()

@@ -67,3 +67,29 @@ describe('Quick Add capture',()=>{
   expect(screen.getByRole('dialog',{name:'Payment account'})).toBeTruthy()
  })
 })
+
+ it('reflects participant selection on both the circle and the entire row', async () => {
+  cleanup()
+  render(<Harness shared />)
+  fireEvent.click(screen.getByRole('button',{name:'9'}))
+  fireEvent.click(screen.getByRole('button',{name:/Split/}))
+  const alex=await screen.findByRole('checkbox',{name:'Alex'}) as HTMLInputElement
+  expect(alex.checked).toBe(true)
+  expect(alex.closest('.qa-split-person')?.getAttribute('data-selected')).toBe('true')
+  fireEvent.click(alex)
+  expect(alex.checked).toBe(false)
+  expect(alex.closest('.qa-split-person')?.getAttribute('data-selected')).toBe('false')
+  fireEvent.click(alex)
+  expect(alex.checked).toBe(true)
+  expect(alex.closest('.qa-split-person')?.getAttribute('data-selected')).toBe('true')
+ })
+
+ it('allows choosing a split before entering an amount without saving an expense', async () => {
+  cleanup(); render(<Harness shared />)
+  fireEvent.click(screen.getByRole('button',{name:/Split/}))
+  await screen.findByRole('dialog',{name:'Split expense'})
+  fireEvent.click(screen.getByRole('button',{name:'Apply split'}))
+  expect(screen.queryByRole('dialog',{name:'Split expense'})).toBeNull()
+  expect((screen.getByRole('textbox',{name:'Amount'}) as HTMLInputElement).value).toBe('')
+  expect(mocked.submit).not.toHaveBeenCalled()
+ })

@@ -1,5 +1,5 @@
 import { capitalizeDescription } from '../lib/description'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
 import { useAuth } from '../hooks/useAuth'
 import type { CanonicalExpense } from '../types'
@@ -14,8 +14,9 @@ import { loadQuickAccounts, type QuickAccount } from '../lib/quickAccounts'
 import { createPersonalAccount } from '../lib/personalAccountRepository'
 import { loadMoneyContextCatalog, EMPTY_MONEY_CONTEXT_CATALOG, type MoneyContextCatalog } from '../lib/moneyContextCatalog'
 import type { MoneyContextRef } from '../lib/moneyContext'
-import { currencyExponent, equalMinorShares, parseMajorAmount } from '../lib/money'
+import { parseMajorAmount } from '../lib/money'
 import QuickIcon from './QuickIcon'
+import { QuickPanel, SplitConfiguration } from './SplitConfiguration'
 import './quick-add.css'
 
 type SaveOptions = { continueAdding?: boolean; beforeClose?: () => Promise<void>; values?: Partial<UniversalQuickAddValues> }
@@ -28,11 +29,6 @@ type Props = {
  onSubmit: (options?: SaveOptions) => Promise<{ok:boolean;error?:string;saveState?:string}>
 }
 type Panel = 'account'|'date'|'split'|'categories'|null
-function QuickPanel({title,onClose,children}: {title:string;onClose:()=>void;children:ReactNode}) {
- const ref=useAccessibleDialog<HTMLElement>(onClose)
- return <div className="qa-overlay"><div className="qa-scrim" onClick={onClose} aria-hidden="true"/><section ref={ref} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} className="qa-panel"><div className="qa-handle"/><header><h2>{title}</h2><button type="button" className="qa-icon-button" aria-label="Close panel" onClick={onClose}><QuickIcon name="close"/></button></header>{children}</section></div>
-}
-function major(minor:number,currency:string) {return (minor/10**currencyExponent(currency)).toFixed(currencyExponent(currency))}
 function zeroOrMinor(raw:string,currency:string) {return !raw.trim() || /^0+(\.0*)?$/.test(raw.trim()) ? 0 : parseMajorAmount(raw,currency)}
 export default function UniversalQuickAddSheet({session,onUpdate,onConfigureSplit,onClose,onSubmit}:Props) {
  const {authUser}=useAuth()
@@ -74,7 +70,6 @@ export default function UniversalQuickAddSheet({session,onUpdate,onConfigureSpli
  const [friendIds,setFriendIds]=useState<string[]>([])
  const [splitStage,setSplitStage]=useState<'pick'|'configure'>('pick')
  const [splitBusy,setSplitBusy]=useState(false)
- const [payerOpen,setPayerOpen]=useState(false)
  const [month,setMonth]=useState(()=>values.occurredOn.slice(0,7))
  const evaluatedRef=useRef(false)
  const close=()=>{
@@ -102,18 +97,9 @@ export default function UniversalQuickAddSheet({session,onUpdate,onConfigureSpli
  const currentCategory=categories.find(c=>c.name===values.category)
  const categoryLabel=(category:QuickCategory)=>zh?(category.zh??category.name):category.name
  const computedAmount=(()=>{try{return calculateQuickAmount(expression,values.currency)}catch{return ''}})()
- const money=(n:number)=>`${values.currency==='MYR'?'RM':values.currency} ${major(n,values.currency)}`
  const selected=context.availableParticipants.filter(p=>values.selectedParticipantIds.includes(p.id))
- const ordered=[...selected].sort((a,b)=>a.id===context.currentParticipantId?-1:b.id===context.currentParticipantId?1:0)
  const total=(()=>{try{return parseMajorAmount(computedAmount,values.currency)}catch{return 0}})()
- const shares=(()=>{try{return values.splitMode==='equal'?equalMinorShares(total,ordered.map(p=>p.id)):new Map(ordered.map(p=>[p.id,zeroOrMinor(values.exactShareAmounts[p.id]??'',values.currency)]))}catch{return new Map<string,number>()}})()
  const selfPaid=(()=>{try{return Object.values(values.payerAmounts).some(a=>a.trim())?zeroOrMinor(values.payerAmounts[context.currentParticipantId]??'',values.currency):total}catch{return 0}})()
- const selfShare=shares.get(context.currentParticipantId)??0
- const setExact=(id:string,raw:string)=>{
-  const amounts={...values.exactShareAmounts,[id]:raw},last=ordered.at(-1)?.id
-  if(last && last!==id && total>0){try{const assigned=ordered.filter(p=>p.id!==last).reduce((sum,p)=>sum+zeroOrMinor(amounts[p.id]??'',values.currency),0);if(assigned<=total)amounts[last]=major(total-assigned,values.currency)}catch{/* Keep invalid input visible until corrected. */}}
-  onUpdate({exactShareAmounts:amounts})
- }
  const splitEnabled=context.ref.kind!=='personal'
  const keypad=(key:string)=>{
   if(saving)return
@@ -150,7 +136,7 @@ export default function UniversalQuickAddSheet({session,onUpdate,onConfigureSpli
  }
  const configure=async(ref:MoneyContextRef,ids?:string[])=>{
   setSplitBusy(true);setError('')
-  try{if(await onConfigureSplit(ref,ids)){setSplitStage('configure');setPayerOpen(false)}else setError(copy('This selection is no longer available.','这个对象已不可用。'))}
+  try{if(await onConfigureSplit(ref,ids)){setSplitStage('configure')}else setError(copy('This selection is no longer available.','这个对象已不可用。'))}
   catch{setError(copy('Could not load members. Please retry.','无法加载成员，请重试。'))}
   finally{setSplitBusy(false)}
  }
@@ -197,36 +183,9 @@ export default function UniversalQuickAddSheet({session,onUpdate,onConfigureSpli
  {panel==='date'?<QuickPanel title={copy('Date','日期')} onClose={()=>void cancelPanel()}><div className="qa-calendar-top"><button type="button" aria-label={copy('Previous month','上个月')} onClick={()=>shiftMonth(-1)}>‹</button><strong>{monthStart.toLocaleDateString(zh?'zh-CN':'en-GB',{month:'long',year:'numeric'})}</strong><button type="button" aria-label={copy('Next month','下个月')} onClick={()=>shiftMonth(1)}>›</button></div><div className="qa-calendar">{(zh?['日','一','二','三','四','五','六']:['Su','Mo','Tu','We','Th','Fr','Sa']).map(d=><small key={d}>{d}</small>)}{Array.from({length:monthStart.getDay()},(_,i)=><span key={`blank${i}`}/>)}{Array.from({length:days},(_,i)=>{const date=`${month}-${String(i+1).padStart(2,'0')}`;return <button type="button" key={date} aria-label={date} aria-pressed={values.occurredOn===date} className={values.occurredOn===date?'is-selected':''} onClick={()=>onUpdate({occurredOn:date})}>{i+1}</button>})}</div><div className="qa-two-buttons"><button type="button" onClick={()=>{onUpdate({occurredOn:todayIso()});setMonth(todayIso().slice(0,7))}}>{copy('Today','今天')}</button><button type="button" className="qa-primary" onClick={()=>setPanel(null)}>{copy('Confirm date','确认日期')}</button></div></QuickPanel>:null}
  {panel==='categories'?<QuickPanel title={copy('Edit categories','编辑分类')} onClose={()=>setPanel(null)}><div className="qa-panel-body"><div className="qa-stack"><label>{editingCategory?copy('Rename category','重命名分类'):copy('New category','新增分类')}<input value={categoryName} maxLength={100} onChange={e=>setCategoryName(e.target.value)}/></label><button type="button" className="qa-primary" onClick={addCategory}>{editingCategory?copy('Update','更新'):copy('Add category','新增分类')}</button></div>{categories.map((c,i)=><div className="qa-category-edit-row" key={c.name}><QuickIcon name={c.icon}/><button type="button" onClick={()=>{setEditingCategory(c.name);setCategoryName(c.name)}}>{categoryLabel(c)}</button><button type="button" aria-label={copy(`Move ${c.name} up`,`${c.name} 上移`)} disabled={i===0} onClick={()=>{const next=[...categories];[next[i-1],next[i]]=[next[i],next[i-1]];storeCategories(next)}}>↑</button><button type="button" aria-label={copy(`Move ${c.name} down`,`${c.name} 下移`)} disabled={i===categories.length-1} onClick={()=>{const next=[...categories];[next[i+1],next[i]]=[next[i],next[i+1]];storeCategories(next)}}>↓</button><button type="button" aria-label={copy(`Remove ${c.name}`,`删除 ${c.name}`)} disabled={categories.length<=1} onClick={()=>{storeCategories(categories.filter(row=>row.name!==c.name));if(values.category===c.name)onUpdate({category:'',categorySource:'DEFAULT'})}}><QuickIcon name="close" size={16}/></button></div>)}</div>{error?<p role="alert" className="qa-error">{error}</p>:null}<button type="button" className="qa-primary qa-panel-footer" onClick={()=>setPanel(null)}>{copy('Done','完成')}</button></QuickPanel>:null}
  {panel==='split'?<QuickPanel title={copy('Split expense','分摊消费')} onClose={()=>{if(!splitBusy)void cancelPanel()}}><div className="qa-panel-body">
- {splitStage==='pick'?<><div className="qa-segment">{(['people','groups','trips'] as const).map(v=><button type="button" key={v} aria-pressed={tab===v} onClick={()=>setTab(v)}>{v==='people'?copy('Friends','朋友'):v==='groups'?copy('Groups','群组'):copy('Trips','旅行')}</button>)}</div>{catalogStatus==='loading'?<p>{copy('Loading…','加载中…')}</p>:catalogStatus==='error'?<p className="qa-error">{copy('Could not load shared lists.','无法加载共享列表。')}<button type="button" onClick={()=>void openSplit()}>{copy('Retry','重试')}</button></p>:tab==='people'?<>{!catalog.people.length?<p className="qa-helper">{copy('Add a friend in Shared to split with them.','先在 Shared 添加朋友，再与他们分摊。')}</p>:catalog.people.map(person=><label key={person.personId} className="qa-person-choice"><span className="qa-avatar">{person.displayName.slice(0,1)}</span><span>{person.displayName}</span><input type="checkbox" checked={friendIds.includes(person.participantId)} onChange={()=>setFriendIds(ids=>ids.includes(person.participantId)?ids.filter(id=>id!==person.participantId):[...ids,person.participantId])}/></label>)}<button type="button" className="qa-primary qa-panel-footer" disabled={splitBusy||!friendIds.length} onClick={()=>{const first=catalog.people.find(p=>friendIds.includes(p.participantId));if(first)void configure(first,friendIds)}}>{copy('Split with selected friends','与所选朋友分摊')}</button></>:<>{!catalog[tab].length?<p className="qa-helper">{copy('No active spaces available.','暂无可记账的有效群组／旅行。')}</p>:catalog[tab].map(ref=><button type="button" disabled={splitBusy} className="qa-account-row" key={ref.spaceId} onClick={()=>void configure(ref)}><QuickIcon name={tab==='trips'?'Travel':'split'}/><strong>{ref.displayName}</strong><span>›</span></button>)}</>}</>:<>
- <div className="qa-split-context"><strong>{context.ref.kind==='personal'?copy('Personal','个人'):context.ref.displayName}</strong>{session.contextPolicy==='switchable'?<button className="qa-text-button" type="button" onClick={()=>setSplitStage('pick')}>{copy('Choose people','选择对象')}</button>:null}</div>
- <p className="qa-helper">{copy('Total amount','总金额')}</p><p className="qa-split-total">{money(total)}</p>
- <div className="qa-segment"><button type="button" aria-pressed={values.splitMode==='equal'} onClick={()=>onUpdate({splitMode:'equal',exactShareAmounts:{}})}>{copy('Equally','平均')}</button><button type="button" aria-pressed={values.splitMode==='exact'} onClick={()=>onUpdate({splitMode:'exact'})}>{copy('Amounts','指定金额')}</button><button type="button" onClick={()=>onUpdate({detailsExpanded:!values.detailsExpanded})}>{copy('By item','按项目')}</button></div>
- <button type="button" className="qa-account-row" onClick={()=>setPayerOpen(v=>!v)}><QuickIcon name="wallet"/><span><strong>{Object.values(values.payerAmounts).some(v=>v.trim())?copy('Payment amounts','付款金额'):copy('Paid by You','由我付款')}</strong><small>{selectedAccount?.name??copy('No account linked','未关联账户')}</small></span><span>›</span></button>
- {payerOpen?<div className="qa-stack">{ordered.map(p=><label className="qa-split-person" key={p.id}><span>{p.id===context.currentParticipantId?copy('You','我'):p.displayName}</span><input aria-label={copy(`Paid by ${p.displayName}`,`${p.displayName} 付款`)} type="text" inputMode="decimal" placeholder={p.id===context.currentParticipantId?computedAmount:'0'} value={values.payerAmounts[p.id]??''} onChange={e=>onUpdate({payerAmounts:{...values.payerAmounts,[p.id]:e.target.value}})}/></label>)}<button className="qa-text-button" type="button" onClick={()=>onUpdate({payerAmounts:{}})}>{copy('Reset · I paid all','重置为我付全额')}</button></div>:null}
- {values.detailsExpanded?<QuickItems values={values} participants={ordered.map(p=>({id:p.id,name:p.displayName}))} onUpdate={onUpdate} zh={zh}/>:null}
- {context.availableParticipants.map(p=><div key={p.id} className="qa-split-person"><label><input type="checkbox" checked={values.selectedParticipantIds.includes(p.id)} disabled={p.id===context.currentParticipantId} onChange={()=>onUpdate({selectedParticipantIds:values.selectedParticipantIds.includes(p.id)?values.selectedParticipantIds.filter(id=>id!==p.id):[...values.selectedParticipantIds,p.id],payerAmounts:{},exactShareAmounts:{}})}/><span className="qa-avatar">{p.displayName.slice(0,1)}</span><span>{p.id===context.currentParticipantId?copy('You','我'):p.displayName}</span></label>{values.selectedParticipantIds.includes(p.id)?values.splitMode==='exact'?<input inputMode="decimal" aria-label={copy(`Share for ${p.displayName}`,`${p.displayName} 份额`)} value={values.exactShareAmounts[p.id]??''} placeholder="0.00" onChange={e=>setExact(p.id,e.target.value)}/>:<strong>{money(shares.get(p.id)??0)}</strong>:null}</div>)}
- <div className="qa-split-summary"><p><span>{copy('You pay','我支付')}</span><strong>{money(selfPaid)}</strong></p><p><span>{selfPaid>=selfShare?copy('To collect','待收回'):copy('You owe','我待付')}</span><strong>{money(Math.abs(selfPaid-selfShare))}</strong></p></div>
- <button type="button" className="qa-primary qa-panel-footer" disabled={splitBusy} onClick={()=>{
-  const shareTotal=[...shares.values()].reduce((sum,n)=>sum+n,0)
-  let paidTotal=total;try{if(Object.values(values.payerAmounts).some(v=>v.trim()))paidTotal=ordered.reduce((sum,p)=>sum+zeroOrMinor(values.payerAmounts[p.id]??'',values.currency),0)}catch{paidTotal=-1}
-  if(total>0&&(shareTotal!==total||paidTotal!==total)){setError(copy('Shares and payments must each add up to the total.','份额和付款金额都必须等于总金额。'));return}
-  setPanel(null)
- }}>{copy('Apply split','应用分摊')}</button>{session.contextPolicy==='switchable'?<button type="button" className="qa-text-button" onClick={async()=>{if(await onConfigureSplit({kind:'personal'}))setPanel(null)}}>{copy('Remove split · personal expense','取消分摊 · 个人消费')}</button>:null}</>}
+ {splitStage==='pick'?<><div className="qa-segment">{(['people','groups','trips'] as const).map(v=><button type="button" key={v} aria-pressed={tab===v} onClick={()=>setTab(v)}>{v==='people'?copy('Friends','朋友'):v==='groups'?copy('Groups','群组'):copy('Trips','旅行')}</button>)}</div>{catalogStatus==='loading'?<p>{copy('Loading…','加载中…')}</p>:catalogStatus==='error'?<p className="qa-error">{copy('Could not load shared lists.','无法加载共享列表。')}<button type="button" onClick={()=>void openSplit()}>{copy('Retry','重试')}</button></p>:tab==='people'?<>{!catalog.people.length?<p className="qa-helper">{copy('Add a friend in Shared to split with them.','先在 Shared 添加朋友，再与他们分摊。')}</p>:catalog.people.map(person=><label key={person.personId} className="qa-person-choice" data-selected={friendIds.includes(person.participantId)}><span className="qa-avatar">{person.displayName.slice(0,1)}</span><span>{person.displayName}</span><input type="checkbox" checked={friendIds.includes(person.participantId)} onChange={()=>setFriendIds(ids=>ids.includes(person.participantId)?ids.filter(id=>id!==person.participantId):[...ids,person.participantId])}/></label>)}<button type="button" className="qa-primary qa-panel-footer" disabled={splitBusy||!friendIds.length} onClick={()=>{const first=catalog.people.find(p=>friendIds.includes(p.participantId));if(first)void configure(first,friendIds)}}>{copy('Split with selected friends','与所选朋友分摊')}</button></>:<>{!catalog[tab].length?<p className="qa-helper">{copy('No active spaces available.','暂无可记账的有效群组／旅行。')}</p>:catalog[tab].map(ref=><button type="button" disabled={splitBusy} className="qa-account-row" key={ref.spaceId} onClick={()=>void configure(ref)}><QuickIcon name={tab==='trips'?'Travel':'split'}/><strong>{ref.displayName}</strong><span>›</span></button>)}</>}</>:<>
+ <SplitConfiguration values={values} participants={context.availableParticipants} currentParticipantId={context.currentParticipantId} label={context.ref.kind==='personal'?copy('Personal','个人'):context.ref.displayName} accountLabel={selectedAccount?.name??copy('No account linked','未关联账户')} zh={zh} onUpdate={onUpdate} onApply={()=>setPanel(null)} allowEmptyTotal busy={splitBusy} onChoosePeople={session.contextPolicy==='switchable'?()=>setSplitStage('pick'):undefined} onRemove={session.contextPolicy==='switchable'?()=>{void onConfigureSplit({kind:'personal'}).then(ok=>{if(ok)setPanel(null)}).catch(()=>setError(copy('Could not remove split. Please retry.','无法取消分摊，请重试。')))}:undefined}/></>}
+
  </div>{error?<p role="alert" className="qa-error">{error}</p>:null}</QuickPanel>:null}
  </main></div>
-}
-function QuickItems({values,participants,onUpdate,zh}:{values:UniversalQuickAddValues;participants:{id:string;name:string}[];onUpdate:(patch:Partial<UniversalQuickAddValues>)=>void;zh:boolean}){
- const items=values.items??[]
- const [error,setError]=useState('')
- const patch=(next:NonNullable<UniversalQuickAddValues['items']>)=>onUpdate({items:next})
- const apply=()=>{try{
-  const amounts:Record<string,number>=Object.fromEntries(participants.map(p=>[p.id,0]))
-  let total=0
-  if(!items.length)throw new Error()
-  for(const item of items){const minor=parseMajorAmount(item.amount,values.currency);const ids=item.participantIds.filter(id=>participants.some(p=>p.id===id));const shares=equalMinorShares(minor,ids);total+=minor;for(const [id,n] of shares)amounts[id]+=n}
-  const expected=parseMajorAmount(calculateQuickAmount(values.calculation??values.amount,values.currency),values.currency)
-  if(total!==expected)throw new Error()
-  onUpdate({splitMode:'exact',exactShareAmounts:Object.fromEntries(Object.entries(amounts).map(([id,n])=>[id,major(n,values.currency)])),detailsExpanded:false});setError('')
- }catch{setError(zh?'每个项目需要金额及成员，项目总额须等于消费总额。':'Each item needs an amount and people; item amounts must match the total.') }}
- return <div className="qa-items"><h3>{zh?'按项目分摊':'Split by item'}</h3>{items.map((item,i)=><div className="qa-item" key={item.id}><div className="qa-two-buttons"><input aria-label={`Item ${i+1} name`} placeholder={zh?'项目名称':'Item name'} value={item.name} onChange={e=>patch(items.map((r,j)=>j===i?{...r,name:e.target.value}:r))}/><input aria-label={`Item ${i+1} amount`} inputMode="decimal" placeholder="0.00" value={item.amount} onChange={e=>patch(items.map((r,j)=>j===i?{...r,amount:e.target.value}:r))}/><button type="button" aria-label={`Remove item ${i+1}`} onClick={()=>patch(items.filter((_,j)=>j!==i))}><QuickIcon name="close" size={16}/></button></div><div className="qa-item-people">{participants.map(p=><label key={p.id}><input type="checkbox" checked={item.participantIds.includes(p.id)} onChange={()=>patch(items.map((r,j)=>j===i?{...r,participantIds:r.participantIds.includes(p.id)?r.participantIds.filter(id=>id!==p.id):[...r.participantIds,p.id]}:r))}/>{p.name}</label>)}</div></div>)}<div className="qa-two-buttons"><button type="button" onClick={()=>patch([...items,{id:crypto.randomUUID(),name:'',amount:'',participantIds:participants.map(p=>p.id)}])}>{zh?'新增项目':'Add item'}</button><button type="button" className="qa-primary" onClick={apply}>{zh?'计算份额':'Calculate shares'}</button></div>{error?<p className="qa-error" role="alert">{error}</p>:null}</div>
 }

@@ -11,13 +11,14 @@ import { rescaleMinorAmounts } from '../lib/expenseFinancialDraft'
 import { expenseEditSnapshot, financialEditsChanged, metadataEditsChanged, saveExpenseEdits } from '../lib/saveExpenseEdits'
 import { generateId } from '../lib/id'
 import { categoryKey, friendlyErrorKey, machineCode, useT, type TranslationKey } from '../lib/i18n'
-import { currencyExponent, formatMinorAmount, parseMajorAmount, reconcileMinorAmounts } from '../lib/money'
+import { currencyExponent, equalMinorShares, formatMinorAmount, parseMajorAmount, reconcileMinorAmounts } from '../lib/money'
 import { ledgerRepository } from '../lib/ledgerRepository'
 import { useStore } from '../store/useStore'
 import { personRepository } from '../lib/personRepository'
 import { personToMoneyContext } from '../lib/moneyContextCatalog'
 import QuickIcon from './QuickIcon'
 import MoneyText from './MoneyText'
+import { QuickPanel, SplitConfiguration, type SplitValues } from './SplitConfiguration'
 import './expense-editor.css'
 
 type EditorMode = 'metadata' | 'financial' | 'correction' | 'space_correction' | 'cancel' | 'request_cancellation' | 'view_request'
@@ -46,6 +47,7 @@ export default function ExpenseActionSheet({
   const [requestedMode, setMode] = useState<EditorMode>('financial')
   const [reviewPayload, setReviewPayload] = useState<ExpenseFinancialPayload | null>(null)
   const [splitOpen, setSplitOpen] = useState(false)
+  const [splitDraft, setSplitDraft] = useState<SplitValues | null>(null)
   const [draftScope, setDraftScope] = useState(expense.scope)
   const [editPeople, setEditPeople] = useState(() => expense.participations.map(person => ({ participantId: person.participantId, nameSnapshot: person.nameSnapshot })))
   const [friends, setFriends] = useState<{ participantId: string; nameSnapshot: string }[]>([])
@@ -96,6 +98,7 @@ export default function ExpenseActionSheet({
 
   const requestClose = () => {
     if (busy.current || closing) return
+    if (splitOpen) { setSplitOpen(false); return }
     setClosing(true)
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     closeTimer.current = setTimeout(() => { setOpen(false); setClosing(false) }, reduced ? 100 : 180)
@@ -163,7 +166,27 @@ export default function ExpenseActionSheet({
     setDraftScope(scope)
     const owner = { participantId: currentParticipantId, nameSnapshot: t('common.you') }
     resetSplit([owner])
-    setSplitOpen(scope === 'direct')
+    setSplitOpen(false)
+  }
+
+  const splitPeople = Array.from(new Map([...editPeople, ...(canChangeType ? friends : [])].map(person => [person.participantId, person])).values())
+  const openSplitPanel = () => {
+    setSplitDraft({ amount: total, currency, selectedParticipantIds: editPeople.map(person => person.participantId), splitMode: 'exact', exactShareAmounts: {...shares}, payerAmounts: {...paid}, detailsExpanded: false })
+    setSplitOpen(true)
+  }
+  const applySplitPanel = () => {
+    if (!splitDraft) return
+    if (mode !== 'metadata') {
+      const people = splitPeople.filter(person => splitDraft.selectedParticipantIds.includes(person.participantId))
+      if (canChangeType) people.sort((a,b) => a.participantId === currentParticipantId ? -1 : b.participantId === currentParticipantId ? 1 : 0)
+      const minor = parseMajorAmount(total, currency)
+      const equal = equalMinorShares(minor, people.map(person => person.participantId))
+      setEditPeople(people)
+      setShares(splitDraft.splitMode === 'equal' ? Object.fromEntries(people.map(person => [person.participantId, minorInput(equal.get(person.participantId) ?? 0, currency)])) : {...splitDraft.exactShareAmounts})
+      setPaid(Object.values(splitDraft.payerAmounts).some(value => value.trim()) ? {...splitDraft.payerAmounts} : Object.fromEntries(people.map(person => [person.participantId, minorInput(person.participantId === currentParticipantId ? minor : 0, currency)])))
+      setReviewPayload(null)
+    }
+    setSplitOpen(false)
   }
 
   const changeAmount = (value: string, nextCurrency = currency) => {
@@ -298,29 +321,14 @@ export default function ExpenseActionSheet({
               <button type="button" aria-pressed={draftScope === 'direct'} disabled={!canChangeType} onClick={() => selectType('direct')}>{copy('Shared expense', '共享账目')}</button>
             </div>
             {!canChangeType ? <p className="expense-editor-hint">{copy('Confirmed shared records require a correction; their participants cannot be removed here.', '已确认的共享记录须走更正流程，不能在此移除参与者。')}</p> : null}
-            {draftScope === 'direct' && canChangeType ? <div className="expense-editor-friends">
-              <p className="expense-editor-label">{copy('Share with', '与谁分摊')}</p>
-              {friendsState === 'loading' ? <p className="expense-editor-hint">{copy('Loading friends…', '正在加载朋友…')}</p> : friendsState === 'error' ? <p role="alert">{copy('Friends could not load. Close and reopen to retry.', '朋友加载失败，请关闭后重试。')}</p> : null}
-              {Array.from(new Map([...editPeople.filter(person => person.participantId !== currentParticipantId), ...friends].map(person => [person.participantId, person])).values()).map(person => <label key={person.participantId}>
-                <input type="checkbox" checked={editPeople.some(item => item.participantId === person.participantId)} onChange={event => resetSplit(event.target.checked ? [...editPeople, person] : editPeople.filter(item => item.participantId !== person.participantId))} />{person.nameSnapshot}
-              </label>)}
-              {friendsState === 'ready' && friends.length === 0 ? <p className="expense-editor-hint">{copy('Add a friend in Shared first.', '先到共享页面添加朋友。')}</p> : null}
-              <button type="button" className="expense-editor-back" onClick={() => resetSplit(editPeople)}>{copy('Split equally · I paid', '平均分摊 · 我支付')}</button>
-              <p className="expense-editor-hint">{copy('Changing people resets the split equally with you paying. You can adjust Paid and Share below.', '更换朋友后默认由你支付并平均分摊，可在下方修改支付与份额。')}</p>
-            </div> : null}
+
           </div> : null}
           {shared ? <div className="expense-editor-split">
-            <button type="button" className="expense-editor-split-toggle" aria-expanded={splitOpen} aria-controls={splitOpen ? `edit-split-${expense.id}` : undefined} onClick={() => setSplitOpen(value => !value)}><QuickIcon name="split" size={20} /><span>{copy('Split details', '分摊资料')}</span><span aria-hidden="true" className={splitOpen ? 'is-open' : ''}>⌄</span></button>
-            {splitOpen ? <div className="expense-editor-split-table" id={`edit-split-${expense.id}`}>
-              <div className="expense-editor-split-head"><span>{copy('Person', '参与者')}</span><span>{copy('Paid', '支付')}</span><span>{copy('Share', '分摊')}</span></div>
-              {editPeople.map(person => <div className="expense-editor-split-row" key={person.participantId}>
-                <span>{person.participantId === currentParticipantId ? t('common.you') : person.nameSnapshot}</span>
-                <input aria-label={t('expenseAction.paidBy', { name: person.nameSnapshot })} inputMode="decimal" value={paid[person.participantId] ?? ''} readOnly={mode === 'metadata'} onChange={event => setPaid(current => ({ ...current, [person.participantId]: event.target.value }))} />
-                <input aria-label={t('expenseAction.shareFor', { name: person.nameSnapshot })} inputMode="decimal" value={shares[person.participantId] ?? ''} readOnly={mode === 'metadata'} onChange={event => setShares(current => ({ ...current, [person.participantId]: event.target.value }))} />
-              </div>)}
-            </div> : <p className="expense-editor-hint">{editPeople.length} {copy('people · Existing split is kept', '人 · 保留现有分摊方式')}</p>}
+            <button type="button" className="expense-editor-split-toggle" aria-haspopup="dialog" aria-expanded={splitOpen} onClick={openSplitPanel}><QuickIcon name="split" size={20} /><span>{copy('Split details', '分摊资料')}</span><span aria-hidden="true">›</span></button>
+            <p className="expense-editor-hint">{editPeople.length} {copy('people · Tap to edit split', '人 · 点击修改分摊')}</p>
             {mode !== 'financial' ? <p className="expense-editor-hint">{t('expenseAction.currencyLocked')}</p> : null}
           </div> : <div className="expense-editor-personal"><QuickIcon name="split" size={18} /><span>{copy('Personal expense', '个人账目')}</span><span>{copy('Only you', '仅自己')}</span></div>}
+
         </fieldset> : null}
         {editing && reviewPayload ? <div className="expense-editor-review" data-testid="expense-edit-review">
           <p className="expense-editor-label">{copy('Review changes', '检查修改')}</p>
@@ -343,6 +351,12 @@ export default function ExpenseActionSheet({
           {editing && !reviewPayload && cancellationAction ? <button type="button" className="expense-editor-cancel-link" disabled={saving || mutationBlocked} onClick={() => beginCancellation(cancellationAction)}>{t(cancellationAction === 'cancel' ? 'expenseAction.cancelExpense' : 'expenseAction.requestCancellation')}</button> : null}
         </footer>}
       </form>
+      {splitOpen && splitDraft ? <div className="expense-split-host"><div className="qa-main expense-split-surface"><QuickPanel title={copy('Split expense', '分摊消费')} onClose={() => setSplitOpen(false)}><div className="qa-panel-body">
+        {canChangeType && friendsState === 'loading' ? <p className="qa-helper">{copy('Loading friends…', '正在加载朋友…')}</p> : null}
+        {canChangeType && friendsState === 'ready' && splitPeople.length < 2 ? <p className="qa-helper">{copy('Add a friend in Shared first.', '先到共享页面添加朋友。')}</p> : null}
+        {canChangeType && friendsState === 'error' ? <p role="alert" className="qa-error">{copy('Friends could not load. Close and reopen the editor to retry.', '朋友加载失败，请重新打开编辑页面重试。')}</p> : null}
+        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={copy('Shared expense', '共享账目')} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType} readOnly={mode === 'metadata'} requireFriend={draftScope === 'direct'} />
+      </div></QuickPanel></div></div> : null}
     </EditorDialog>, document.getElementById('root') ?? document.body) : null}
   </>
 }
