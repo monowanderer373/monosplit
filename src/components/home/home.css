@@ -185,9 +185,9 @@
 .home-balance-figure {
   margin: 0;
   font-family: inherit;
-  font-size: 33.6px;
-  font-weight: 650;
-  letter-spacing: -0.04em;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
   line-height: 1.05;
   overflow-wrap: normal;
 }
@@ -933,12 +933,12 @@ html[data-place="bali"] .home-shell {
 #root .home-stat-row { padding: 0; gap: 10px; margin-top: 12px; align-items: stretch; }
 #root .home-debt-stat {
   position: relative;
-  min-height: 70px;
+  min-height: 60px;
   align-self: stretch;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid #e4cdb4;
   border-radius: 16px;
   background: linear-gradient(175deg, #fffaf2, #f9efdf);
@@ -955,7 +955,7 @@ html[data-place="bali"] .home-shell {
 }
 #root .home-debt-stat .home-meta { font-size: 12px; font-weight: 400; }
 #root .home-debt-stat .home-meta svg { transform: rotate(-90deg); }
-#root .home-debt-value { margin-top: 4px; font-size: 18px; font-weight: 500; letter-spacing: -.025em; }
+#root .home-debt-value { margin-top: 2px; font-size: 16px; font-weight: 500; letter-spacing: -.025em; }
 #root .home-debt-stat.is-receivable .home-debt-value { color: #397e7a; }
 #root .home-debt-stat.is-payable .home-debt-value { color: #b66b5d; }
 #root .home-debt-stat[data-state="error"] .home-debt-value { font-size: 13px; color: var(--home-muted); letter-spacing: 0; }
@@ -986,7 +986,7 @@ html[data-place="bali"] .home-shell {
 .home-sheet .home-sheet-option[aria-current="true"] { background: #fae3d2; }
 .home-sheet button.home-sheet-option:active { background: #f9dfca; }
 .home-sheet .home-icon-button { border: 0; background: transparent; }
-.home-split-preview-hint { position: absolute; top: 16px; right: 30px; width: 5px; height: 5px; border-radius: 50%; background: #ae7950; }
+.home-split-preview-hint { position: absolute; top: 14px; right: 30px; width: 5px; height: 5px; border-radius: 50%; background: #ae7950; }
 .home-split-preview-section { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #dfceb7; }
 .home-split-preview-section h3 { margin: 0 0 6px; font-size: 14px; }
 .home-split-preview-section > .home-meta { margin-bottom: 10px; line-height: 1.5; }
@@ -1010,7 +1010,7 @@ html[data-place="bali"] .home-shell {
 }
 
 #root .home-debt-stat[data-empty="true"] .home-debt-value { color: #8a7968; }
-#root .home-debt-stat .home-money-line { font-size: clamp(11px, 14cqi, 18px); }
+#root .home-debt-stat .home-money-line { font-size: clamp(11px, 13cqi, 16px); }
 
 /* A single current-mode bookmark; the choices appear only on demand. */
 .home-mode-bookmark { position: relative; justify-self: end; z-index: 5; }
@@ -1084,7 +1084,7 @@ html[data-place="bali"] .home-shell {
 #root .home-header .home-today { margin-top: 8px; }
 
 /* Quiet account attention lives alongside the wallet controls. */
-.home-wallet-actions { display:flex; align-items:center; gap:4px; padding-right:24px; flex-shrink:0; }
+.home-wallet-actions { display:flex; align-items:center; gap:6px; padding-right:0; flex-shrink:0; }
 .home-wallet-actions .home-wallet-manage { margin:0; }
 .home-account-notice { position:relative; display:grid; place-items:center; width:36px; height:36px; padding:0; border:0; border-radius:50%; background:transparent; color:#a27a50; cursor:pointer; transition:background 160ms ease, transform 120ms ease; }
 .home-account-notice:hover, .home-account-notice[aria-expanded="true"] { background:#f1e7d9; }
@@ -1120,3 +1120,25 @@ html[data-place="bali"] .home-shell {
 .home-records-end { margin-top: 24px; padding: 12px 0 8px; text-align: center; color: var(--home-muted); font-size: 12px; }
 .home-records-end p { margin: 0; }
 .home-records-end button { min-height: 44px; }
+
+/* Refinement: readable secondary copy, relaxed controls, quieter finance tiles. */
+#root .home-shell { --home-out: #aa5846; --home-accent: #aa5846; --home-muted: #665c51; padding-bottom: calc(9rem + env(safe-area-inset-bottom)) !important; }
+#root .home-balance-card .home-account-button { min-height: 44px; margin-top: 0; }
+#root .home-wallet-actions :is(.home-account-notice, .home-wallet-manage, .home-icon-button) { width: 44px; height: 44px; min-width: 44px; flex-shrink: 0; }
+#root .home-balance-card .home-account-button span,
+#root .home-frame .home-record :is(.home-chip, .home-wallet, .home-note) { color: #665c51; }
+#root .home-debt-stat.is-payable .home-debt-value { color: #95644c; }
+#root .home-amount > .tt-money-currency:first-of-type { margin-left: 3px; }
+#root .home-frame[data-density="compact"] .home-day::before { width: 1.5px; }
+#root .home-frame[data-density="compact"] .home-date::before { width: 11px; height: 11px; left: -21px; border-width: 1.5px; }
+@media (max-width: 359px) {
+  #root .home-wallet-actions { gap: 2px; }
+  #root .home-balance-card { padding-inline: 14px; }
+}
+
+#root .home-balance-card .home-card-top { align-items: center; gap: 8px; }
+#root .home-balance-card .home-account-button { flex: 1; min-width: 0; }
+#root .home-balance-card .home-account-button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#root .home-frame[data-density="detailed"] .home-day { position: relative; margin-left: 14px; }
+#root .home-frame[data-density="detailed"] .home-day::before { content: ""; position: absolute; top: 18px; bottom: 8px; left: -11px; width: 1.5px; background: #cba88e; pointer-events: none; }
+#root .home-frame[data-density="detailed"] .home-date::before { content: ""; position: absolute; top: 11px; left: -17px; width: 13px; height: 13px; box-sizing: border-box; border: 1.5px solid #bf9274; border-radius: 50%; background: var(--home-bg); }

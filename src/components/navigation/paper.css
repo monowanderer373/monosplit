@@ -2,8 +2,8 @@
   --tt-paper: #fff8ec;
   --tt-paper-raised: #f3e7d5;
   --tt-paper-edge: #f2e5d2;
-  --tt-coral: #d94a4e;
-  --tt-coral-pressed: #b9363d;
+  --tt-coral: #aa5846;
+  --tt-coral-pressed: #884633;
   --tt-coral-soft: #f5c8c0;
   --tt-blush: #f8dfd8;
   --tt-sage: #7c947d;
@@ -195,9 +195,9 @@
   height: 64px;
   min-width: 44px;
   min-height: 44px;
-  border: 1px solid #b9363d;
+  border: 1px solid #98513f;
   border-radius: 50%;
-  background: radial-gradient(ellipse at 35% 20%, #fa7374 0%, #e95156 42%, #d43842 85%);
+  background: radial-gradient(ellipse at 35% 20%, #c57f66 0%, #b46b54 42%, #aa5846 85%);
   color: #fffaf6;
   box-shadow: 0 2px 2px #ffffff55 inset, 0 -2px 3px #9e253455 inset;
   padding: 0;
@@ -207,20 +207,13 @@
 .tt-seal::before {
   content: "";
   position: absolute;
-  inset: -9px;
-  background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Cdefs%3E%3Cmask%20id%3D%22ring%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22white%22/%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2240%22%20fill%3D%22black%22/%3E%3C/mask%3E%3C/defs%3E%3Cpolygon%20mask%3D%22url%28%23ring%29%22%20points%3D%2298.00%2C50.00%2096.54%2C52.29%2096.77%2C54.61%2096.10%2C56.84%2097.08%2C59.36%2095.20%2C61.32%2094.98%2C63.64%2093.88%2C65.70%2094.35%2C68.37%2092.13%2C69.92%2091.45%2C72.16%2089.97%2C73.96%2089.91%2C76.67%2087.43%2C77.76%2086.33%2C79.82%2084.53%2C81.29%2083.94%2C83.94%2081.29%2C84.53%2079.82%2C86.33%2077.76%2C87.43%2076.67%2C89.91%2073.96%2C89.97%2072.16%2C91.45%2069.92%2C92.13%2068.37%2C94.35%2065.70%2C93.88%2063.64%2C94.98%2061.32%2C95.20%2059.36%2C97.08%2056.84%2C96.10%2054.61%2C96.77%2052.29%2C96.54%2050.00%2C98.00%2047.71%2C96.54%2045.39%2C96.77%2043.16%2C96.10%2040.64%2C97.08%2038.68%2C95.20%2036.36%2C94.98%2034.30%2C93.88%2031.63%2C94.35%2030.08%2C92.13%2027.84%2C91.45%2026.04%2C89.97%2023.33%2C89.91%2022.24%2C87.43%2020.18%2C86.33%2018.71%2C84.53%2016.06%2C83.94%2015.47%2C81.29%2013.67%2C79.82%2012.57%2C77.76%2010.09%2C76.67%2010.03%2C73.96%208.55%2C72.16%207.87%2C69.92%205.65%2C68.37%206.12%2C65.70%205.02%2C63.64%204.80%2C61.32%202.92%2C59.36%203.90%2C56.84%203.23%2C54.61%203.46%2C52.29%202.00%2C50.00%203.46%2C47.71%203.23%2C45.39%203.90%2C43.16%202.92%2C40.64%204.80%2C38.68%205.02%2C36.36%206.12%2C34.30%205.65%2C31.63%207.87%2C30.08%208.55%2C27.84%2010.03%2C26.04%2010.09%2C23.33%2012.57%2C22.24%2013.67%2C20.18%2015.47%2C18.71%2016.06%2C16.06%2018.71%2C15.47%2020.18%2C13.67%2022.24%2C12.57%2023.33%2C10.09%2026.04%2C10.03%2027.84%2C8.55%2030.08%2C7.87%2031.63%2C5.65%2034.30%2C6.12%2036.36%2C5.02%2038.68%2C4.80%2040.64%2C2.92%2043.16%2C3.90%2045.39%2C3.23%2047.71%2C3.46%2050.00%2C2.00%2052.29%2C3.46%2054.61%2C3.23%2056.84%2C3.90%2059.36%2C2.92%2061.32%2C4.80%2063.64%2C5.02%2065.70%2C6.12%2068.37%2C5.65%2069.92%2C7.87%2072.16%2C8.55%2073.96%2C10.03%2076.67%2C10.09%2077.76%2C12.57%2079.82%2C13.67%2081.29%2C15.47%2083.94%2C16.06%2084.53%2C18.71%2086.33%2C20.18%2087.43%2C22.24%2089.91%2C23.33%2089.97%2C26.04%2091.45%2C27.84%2092.13%2C30.08%2094.35%2C31.63%2093.88%2C34.30%2094.98%2C36.36%2095.20%2C38.68%2097.08%2C40.64%2096.10%2C43.16%2096.77%2C45.39%2096.54%2C47.71%22%20fill%3D%22%23fff8ec%22/%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2241.5%22%20fill%3D%22none%22%20stroke%3D%22%23ddc8b0%22%20stroke-width%3D%221%22/%3E%3C/svg%3E") center / contain no-repeat;
-  filter: drop-shadow(0 3px 3px #6e584340);
-  z-index: -2;
-  pointer-events: none;
-}
-.tt-seal::after {
-  content: "";
-  position: absolute;
-  inset: 4px;
+  inset: -5px;
+  border: 4px solid #fff8ec;
   border-radius: 50%;
-  border: 1px dashed #ffb0a86b;
+  box-shadow: 0 2px 5px #6e584325;
   pointer-events: none;
 }
+.tt-seal::after { content: none; }
 .tt-seal-plus { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 .tt-seal-plus svg { display: block; width: 28px; height: 28px; filter: drop-shadow(0 1px 1px #9d233a66); transition: transform var(--tt-motion-normal) var(--tt-ease); }
 .tt-seal:hover { transform: translateY(-2px); }
