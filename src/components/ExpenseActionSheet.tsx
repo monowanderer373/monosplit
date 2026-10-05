@@ -14,6 +14,8 @@ import { categoryKey, friendlyErrorKey, machineCode, useT, type TranslationKey }
 import { currencyExponent, formatMinorAmount, parseMajorAmount, reconcileMinorAmounts } from '../lib/money'
 import { ledgerRepository } from '../lib/ledgerRepository'
 import { useStore } from '../store/useStore'
+import { personRepository } from '../lib/personRepository'
+import { personToMoneyContext } from '../lib/moneyContextCatalog'
 import QuickIcon from './QuickIcon'
 import MoneyText from './MoneyText'
 import './expense-editor.css'
@@ -44,6 +46,24 @@ export default function ExpenseActionSheet({
   const [requestedMode, setMode] = useState<EditorMode>('financial')
   const [reviewPayload, setReviewPayload] = useState<ExpenseFinancialPayload | null>(null)
   const [splitOpen, setSplitOpen] = useState(false)
+  const [draftScope, setDraftScope] = useState(expense.scope)
+  const [editPeople, setEditPeople] = useState(() => expense.participations.map(person => ({ participantId: person.participantId, nameSnapshot: person.nameSnapshot })))
+  const [friends, setFriends] = useState<{ participantId: string; nameSnapshot: string }[]>([])
+  const [friendsState, setFriendsState] = useState<'loading' | 'ready' | 'error'>('loading')
+  useEffect(() => {
+    if (!open || expense.scope === 'space') return
+    let active = true
+    setFriendsState('loading')
+    void personRepository.listPeople().then(people => {
+      if (!active) return
+      setFriends(people.flatMap(person => {
+        const context = personToMoneyContext(person)
+        return context ? [{ participantId: context.participantId, nameSnapshot: context.displayName }] : []
+      }))
+      setFriendsState('ready')
+    }).catch(() => { if (active) setFriendsState('error') })
+    return () => { active = false }
+  }, [open, expense.scope])
   const [saving, setSaving] = useState(false)
   const [failClosed, setFailClosed] = useState(false)
   const [error, setError] = useState<TranslationKey | ''>('')
@@ -88,6 +108,8 @@ export default function ExpenseActionSheet({
       setOccurredOn(expense.occurredOn)
       setTotal(minorInput(expense.totalMinor, expense.currency))
       setCurrency(expense.currency)
+      setDraftScope(expense.scope)
+      setEditPeople([...expense.participations].sort((a,b) => a.order-b.order).map(person => ({ participantId: person.participantId, nameSnapshot: person.nameSnapshot })))
       setPaid(amountInputs(expense, 'paid'))
       setShares(amountInputs(expense, 'share'))
       setPartialSave(false)
@@ -107,21 +129,42 @@ export default function ExpenseActionSheet({
 
   const expenseName = capitalizeDescription(expense.description ?? t(categoryKey(expense.category)))
   const editing = ['metadata', 'financial', 'correction', 'space_correction'].includes(mode)
-  const shared = expense.scope !== 'personal'
+  const shared = draftScope !== 'personal'
+  const canChangeType = mode === 'financial' && expense.scope !== 'space' && !expense.correctsExpenseId
+  const scopeChanged = draftScope !== baseline.current.payload.scope
   const sharedNames = orderedParticipations.filter(person => person.participantId !== currentParticipantId).map(person => person.nameSnapshot).join(', ')
   const subtitle = contextLabel ?? (shared ? copy(`Shared with ${sharedNames}`, `与 ${sharedNames} 共享`) : copy('Personal expense', '个人账目'))
   const buildPayload = (): ExpenseFinancialPayload => {
     const totalMinor = parseMajorAmount(total, currency)
-    const participantIds = orderedParticipations.map(person => person.participantId)
+    if (draftScope === 'direct' && editPeople.length < 2) throw new Error('split_requires_friend')
+    const participantIds = editPeople.map(person => person.participantId)
     const contributionAmounts = participantIds.map(id => parseNonnegativeMajor(paid[id] ?? '', currency))
     const shareAmounts = participantIds.map(id => parseNonnegativeMajor(shares[id] ?? '', currency))
-    return { totalMinor, currency, description: capitalizeDescription(description.trim()) || null, category, occurredOn, participantIds, contributionAmounts, shareAmounts }
+    return { scope: draftScope, totalMinor, currency, description: capitalizeDescription(description.trim()) || null, category, occurredOn, participantIds, contributionAmounts, shareAmounts }
   }
   let draft: ExpenseFinancialPayload | null = null
   try { draft = buildPayload() } catch { /* Partial input remains editable. */ }
   const financialChanged = !draft || financialEditsChanged(baseline.current.payload, draft)
   const dirty = !draft || financialChanged || metadataEditsChanged(baseline.current.payload, draft)
-  const needsReview = shared && financialChanged
+  const needsReview = (shared || scopeChanged) && financialChanged
+  const resetSplit = (people: typeof editPeople) => {
+    setEditPeople(people)
+    try {
+      const minor = parseMajorAmount(total, currency)
+      setPaid(Object.fromEntries(people.map(person => [person.participantId, minorInput(person.participantId === currentParticipantId ? minor : 0, currency)])))
+      const base = Math.floor(minor / people.length)
+      setShares(Object.fromEntries(people.map((person,index) => [person.participantId, minorInput(base + (index === people.length - 1 ? minor % people.length : 0), currency)])))
+    } catch { setError('error.validAmount') }
+    setReviewPayload(null)
+    setError('')
+  }
+  const selectType = (scope: 'personal' | 'direct') => {
+    if (scope === draftScope) return
+    setDraftScope(scope)
+    const owner = { participantId: currentParticipantId, nameSnapshot: t('common.you') }
+    resetSplit([owner])
+    setSplitOpen(scope === 'direct')
+  }
 
   const changeAmount = (value: string, nextCurrency = currency) => {
     try {
@@ -166,6 +209,7 @@ export default function ExpenseActionSheet({
           setNotice(t('changeRequest.changedRefresh'))
         }
         setError(friendlyErrorKey(cause))
+        if (machineCode(cause) === 'PGRST202' || String(cause).includes('reclassify_expense_financials')) setNotice(copy('Expense type switching needs the database update. No type change was saved.', '切换账目类型需要数据库更新，类型修改尚未保存。'))
         if (baseline.current.version > beforeVersion || disposition === 'refetch') {
           try { await onRefresh() } catch { /* Keep the acknowledged save version for retry. */ }
         }
@@ -198,7 +242,10 @@ export default function ExpenseActionSheet({
       }
       if (needsReview && !reviewPayload) { setReviewPayload(payload); setError('') }
       else void save(reviewPayload ?? payload)
-    } catch { setError(shared ? 'expenseAction.amountsMustReconcile' : 'error.validAmount') }
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === 'split_requires_friend') setNotice(copy('Select at least one friend for a shared expense.', '共享账目至少需要选择一位朋友。'))
+      setError(shared ? 'expenseAction.amountsMustReconcile' : 'error.validAmount')
+    }
   }
   const cancel = async () => runMutation(async () => {
     if (mode === 'request_cancellation') {
@@ -244,27 +291,46 @@ export default function ExpenseActionSheet({
             </select></label>
             <label className="expense-editor-label">{t('expenseAction.date')}<input className="ms-input" type="date" required value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>
           </div>
+          {expense.scope !== 'space' ? <div className="expense-editor-type">
+            <span className="expense-editor-label">{copy('Expense type', '账目类型')}</span>
+            <div className="expense-editor-type-options">
+              <button type="button" aria-pressed={draftScope === 'personal'} disabled={!canChangeType} onClick={() => selectType('personal')}>{copy('Personal expense', '个人账目')}</button>
+              <button type="button" aria-pressed={draftScope === 'direct'} disabled={!canChangeType} onClick={() => selectType('direct')}>{copy('Shared expense', '共享账目')}</button>
+            </div>
+            {!canChangeType ? <p className="expense-editor-hint">{copy('Confirmed shared records require a correction; their participants cannot be removed here.', '已确认的共享记录须走更正流程，不能在此移除参与者。')}</p> : null}
+            {draftScope === 'direct' && canChangeType ? <div className="expense-editor-friends">
+              <p className="expense-editor-label">{copy('Share with', '与谁分摊')}</p>
+              {friendsState === 'loading' ? <p className="expense-editor-hint">{copy('Loading friends…', '正在加载朋友…')}</p> : friendsState === 'error' ? <p role="alert">{copy('Friends could not load. Close and reopen to retry.', '朋友加载失败，请关闭后重试。')}</p> : null}
+              {Array.from(new Map([...editPeople.filter(person => person.participantId !== currentParticipantId), ...friends].map(person => [person.participantId, person])).values()).map(person => <label key={person.participantId}>
+                <input type="checkbox" checked={editPeople.some(item => item.participantId === person.participantId)} onChange={event => resetSplit(event.target.checked ? [...editPeople, person] : editPeople.filter(item => item.participantId !== person.participantId))} />{person.nameSnapshot}
+              </label>)}
+              {friendsState === 'ready' && friends.length === 0 ? <p className="expense-editor-hint">{copy('Add a friend in Shared first.', '先到共享页面添加朋友。')}</p> : null}
+              <button type="button" className="expense-editor-back" onClick={() => resetSplit(editPeople)}>{copy('Split equally · I paid', '平均分摊 · 我支付')}</button>
+              <p className="expense-editor-hint">{copy('Changing people resets the split equally with you paying. You can adjust Paid and Share below.', '更换朋友后默认由你支付并平均分摊，可在下方修改支付与份额。')}</p>
+            </div> : null}
+          </div> : null}
           {shared ? <div className="expense-editor-split">
             <button type="button" className="expense-editor-split-toggle" aria-expanded={splitOpen} aria-controls={splitOpen ? `edit-split-${expense.id}` : undefined} onClick={() => setSplitOpen(value => !value)}><QuickIcon name="split" size={20} /><span>{copy('Split details', '分摊资料')}</span><span aria-hidden="true" className={splitOpen ? 'is-open' : ''}>⌄</span></button>
             {splitOpen ? <div className="expense-editor-split-table" id={`edit-split-${expense.id}`}>
               <div className="expense-editor-split-head"><span>{copy('Person', '参与者')}</span><span>{copy('Paid', '支付')}</span><span>{copy('Share', '分摊')}</span></div>
-              {orderedParticipations.map(person => <div className="expense-editor-split-row" key={person.id}>
+              {editPeople.map(person => <div className="expense-editor-split-row" key={person.participantId}>
                 <span>{person.participantId === currentParticipantId ? t('common.you') : person.nameSnapshot}</span>
                 <input aria-label={t('expenseAction.paidBy', { name: person.nameSnapshot })} inputMode="decimal" value={paid[person.participantId] ?? ''} readOnly={mode === 'metadata'} onChange={event => setPaid(current => ({ ...current, [person.participantId]: event.target.value }))} />
                 <input aria-label={t('expenseAction.shareFor', { name: person.nameSnapshot })} inputMode="decimal" value={shares[person.participantId] ?? ''} readOnly={mode === 'metadata'} onChange={event => setShares(current => ({ ...current, [person.participantId]: event.target.value }))} />
               </div>)}
-            </div> : <p className="expense-editor-hint">{orderedParticipations.length} {copy('people · Existing split is kept', '人 · 保留现有分摊方式')}</p>}
+            </div> : <p className="expense-editor-hint">{editPeople.length} {copy('people · Existing split is kept', '人 · 保留现有分摊方式')}</p>}
             {mode !== 'financial' ? <p className="expense-editor-hint">{t('expenseAction.currencyLocked')}</p> : null}
           </div> : <div className="expense-editor-personal"><QuickIcon name="split" size={18} /><span>{copy('Personal expense', '个人账目')}</span><span>{copy('Only you', '仅自己')}</span></div>}
         </fieldset> : null}
         {editing && reviewPayload ? <div className="expense-editor-review" data-testid="expense-edit-review">
           <p className="expense-editor-label">{copy('Review changes', '检查修改')}</p>
+          {scopeChanged ? <p>{baseline.current.payload.scope === 'personal' ? copy('Personal → Shared', '个人 → 共享') : copy('Shared → Personal', '共享 → 个人')}</p> : null}
           <div className="expense-editor-change"><MoneyText value={formatMinorAmount(baseline.current.payload.totalMinor, baseline.current.payload.currency)} /><span>→</span><MoneyText value={formatMinorAmount(reviewPayload.totalMinor, reviewPayload.currency)} /></div>
           <p>{capitalizeDescription(reviewPayload.description ?? t(categoryKey(reviewPayload.category)))}</p>
-          <div className="expense-editor-review-people">{orderedParticipations.map((person, index) => <div key={person.id}>
+          <div className="expense-editor-review-people">{Array.from(new Map([...orderedParticipations, ...editPeople].map(person => [person.participantId, person])).values()).map(person => <div key={person.participantId}>
             <span>{person.participantId === currentParticipantId ? t('common.you') : person.nameSnapshot}</span>
-            <span>{copy('Paid', '支付')}: <MoneyText value={formatMinorAmount(baseline.current.payload.contributionAmounts[index], baseline.current.payload.currency)} /> → <MoneyText value={formatMinorAmount(reviewPayload.contributionAmounts[index], reviewPayload.currency)} /></span>
-            <span>{copy('Share', '分摊')}: <MoneyText value={formatMinorAmount(baseline.current.payload.shareAmounts[index], baseline.current.payload.currency)} /> → <MoneyText value={formatMinorAmount(reviewPayload.shareAmounts[index], reviewPayload.currency)} /></span>
+            <span>{copy('Paid', '支付')}: <MoneyText value={formatMinorAmount(baseline.current.payload.contributionAmounts[baseline.current.payload.participantIds.indexOf(person.participantId)] ?? 0, baseline.current.payload.currency)} /> → <MoneyText value={formatMinorAmount(reviewPayload.contributionAmounts[reviewPayload.participantIds.indexOf(person.participantId)] ?? 0, reviewPayload.currency)} /></span>
+            <span>{copy('Share', '分摊')}: <MoneyText value={formatMinorAmount(baseline.current.payload.shareAmounts[baseline.current.payload.participantIds.indexOf(person.participantId)] ?? 0, baseline.current.payload.currency)} /> → <MoneyText value={formatMinorAmount(reviewPayload.shareAmounts[reviewPayload.participantIds.indexOf(person.participantId)] ?? 0, reviewPayload.currency)} /></span>
           </div>)}</div>
           {mode === 'correction' ? <p className="expense-editor-hint">{t('expenseAction.noEffectUntilApproved')}</p> : mode === 'space_correction' ? <p className="expense-editor-hint">{t('expenseAction.unchangedPrincipals')}</p> : policy.financialEditRequiresReconfirmation ? <p className="expense-editor-hint">{t('expenseAction.reconfirmWarning')}</p> : null}
         </div> : null}

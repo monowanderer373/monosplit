@@ -8,6 +8,7 @@ export type DirectExpenseChangeState =
   | 'cancelled'
 
 export type ExpenseFinancialPayload = {
+  scope?: 'personal' | 'direct' | 'space'
   totalMinor: number
   currency: string
   description: string | null

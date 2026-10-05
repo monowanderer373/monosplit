@@ -6,6 +6,7 @@ import { useStore } from '../store/useStore'
 import type { CanonicalExpense } from '../types'
 const mocks = vi.hoisted(() => ({ metadata: vi.fn(), financial: vi.fn(), direct: vi.fn(), space: vi.fn(), cancel: vi.fn(), refresh: vi.fn() }))
 vi.mock('../lib/ledgerRepository', () => ({ ledgerRepository: { updateExpenseMetadata: mocks.metadata, replaceExpenseFinancials: mocks.financial, voidExpense: mocks.cancel } }))
+vi.mock('../lib/personRepository', () => ({ personRepository: { listPeople: vi.fn().mockResolvedValue([{ id:'person-lan', ownerParticipantId:'you', displayName:'Lan', linkedParticipantId:null, mergedIntoPersonId:null, manualParticipantIds:['manual-lan'], primaryManualParticipantId:'manual-lan', state:'manual', friendshipStatus:'none' }]) } }))
 vi.mock('../lib/expenseChangeRepository', () => ({ expenseChangeRepository: { proposeDirectChange: mocks.direct, correctSpaceExpense: mocks.space } }))
 function expense(scope: CanonicalExpense['scope'] = 'personal', pending = false): CanonicalExpense {
   const people = scope === 'personal' ? ['you'] : ['you', 'lan']
@@ -42,6 +43,35 @@ describe('unified paper expense editor', () => {
     expect(screen.queryByText('Edit expense')).toBeNull()
     expect(screen.queryByRole('textbox', { name: 'Paid by You' })).toBeNull()
   })
+  it('changes a personal record to a shared split after selecting a friend', async () => {
+    mount(); open()
+    fireEvent.click(screen.getByRole('button', { name: 'Shared expense' }))
+    await screen.findByRole('checkbox', { name: 'Lan' })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Lan' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
+    expect(screen.getByText('Personal → Shared')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(mocks.financial).toHaveBeenCalledWith(expect.objectContaining({ nextScope:'direct', participantIds:['you','manual-lan'], contributionAmounts:[3500,0], shareAmounts:[1750,1750] })))
+  })
+  it('changes an unconfirmed shared record to personal and preserves the whole amount', async () => {
+    mount(expense('direct', true)); open()
+    fireEvent.click(screen.getByRole('button', { name: 'Personal expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(mocks.financial).toHaveBeenCalledWith(expect.objectContaining({ nextScope:'personal', participantIds:['you'], contributionAmounts:[3500], shareAmounts:[3500] })))
+  })
+  it('does not allow a confirmed shared record to silently become personal', () => {
+    mount(expense('direct')); open()
+    expect((screen.getByRole('button', { name: 'Personal expense' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+  it('requires a friend before saving a shared record', async () => {
+    mount(); open()
+    fireEvent.click(screen.getByRole('button', { name: 'Shared expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
+    expect(mocks.financial).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toBeTruthy()
+  })
+
   it('saves amount and metadata from one form with the acknowledged version', async () => {
     mount(); open(); amount('40'); description('dinner and tea')
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))

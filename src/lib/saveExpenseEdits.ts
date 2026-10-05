@@ -19,6 +19,7 @@ export function expenseEditSnapshot(expense: CanonicalExpense): ExpenseEditSnaps
     expenseId: expense.id,
     version: expense.version,
     payload: {
+      scope: expense.scope,
       totalMinor: expense.totalMinor,
       currency: expense.currency,
       description: expense.description,
@@ -32,7 +33,7 @@ export function expenseEditSnapshot(expense: CanonicalExpense): ExpenseEditSnaps
 }
 
 export function financialEditsChanged(before: ExpenseFinancialPayload, after: ExpenseFinancialPayload): boolean {
-  return before.totalMinor !== after.totalMinor || before.currency !== after.currency
+  return (after.scope !== undefined && before.scope !== after.scope) || before.totalMinor !== after.totalMinor || before.currency !== after.currency
     || ['participantIds', 'contributionAmounts', 'shareAmounts'].some(key => (
       JSON.stringify(before[key as keyof ExpenseFinancialPayload]) !== JSON.stringify(after[key as keyof ExpenseFinancialPayload])
     ))
@@ -61,6 +62,7 @@ export async function saveExpenseEdits(
   let current = snapshot
   if (financialChanged) {
     const version = await repository.replaceExpenseFinancials({
+      ...((next.scope && (next.scope !== current.payload.scope || JSON.stringify(next.participantIds) !== JSON.stringify(current.payload.participantIds))) ? { nextScope: next.scope } : {}),
       expenseId: current.expenseId,
       expectedVersion: current.version,
       totalMinor: next.totalMinor,

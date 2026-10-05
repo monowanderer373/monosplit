@@ -115,3 +115,11 @@
   .expense-editor-scrim.tt-sheet-scrim { animation-duration: 100ms; }
   #root button.home-record-trigger, .expense-editor-split-toggle > span:last-child { transition: none; }
 }
+
+.expense-editor-type { margin-top:16px; padding-top:14px; border-top:1px dashed #d9b998; }
+.expense-editor-type-options { display:flex; gap:8px; margin-top:8px; }
+.expense-editor-type-options button { flex:1; padding:10px 8px; border:1px solid #dfc8ad; border-radius:12px; background:#fffaf3; color:inherit; }
+.expense-editor-type-options button[aria-pressed="true"] { background:#f4dfc6; border-color:#b78c61; }
+.expense-editor-friends { margin-top:12px; }
+.expense-editor-friends label { display:flex; align-items:center; gap:10px; min-height:40px; }
+.expense-editor-friends input[type="checkbox"] { width:18px; height:18px; accent-color:#b78c61; }

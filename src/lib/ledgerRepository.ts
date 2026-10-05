@@ -47,6 +47,7 @@ export interface LedgerRepository {
     occurredOn: string
   }): Promise<number>
   replaceExpenseFinancials(input: {
+    nextScope?: CanonicalExpense['scope']
     expenseId: string
     expectedVersion: number
     totalMinor: number
@@ -274,7 +275,8 @@ export const ledgerRepository: LedgerRepository = {
 
   async replaceExpenseFinancials(input) {
     if (!supabase) throw new LedgerRepositoryError('not_configured')
-    const { data, error } = await supabase.rpc('replace_expense_financials', {
+    const { data, error } = await supabase.rpc(input.nextScope ? 'reclassify_expense_financials' : 'replace_expense_financials', {
+      ...(input.nextScope ? { next_scope: input.nextScope } : {}),
       target_expense_id: input.expenseId,
       expected_version: input.expectedVersion,
       next_total_minor: input.totalMinor,
@@ -431,6 +433,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
   }
 
   async replaceExpenseFinancials(input: {
+    nextScope?: CanonicalExpense['scope']
     expenseId: string
     expectedVersion: number
     totalMinor: number
@@ -442,6 +445,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     const expense = [...this.expensesByRequest.values()].find((candidate) => candidate.id === input.expenseId)
     if (!expense) throw new LedgerRepositoryError('not_found')
     if (expense.version !== input.expectedVersion) throw new LedgerRepositoryError('server_rejected', 'version_conflict')
+    if (input.nextScope) expense.scope = input.nextScope
     expense.totalMinor = input.totalMinor
     expense.currency = input.currency
     expense.version += 1
