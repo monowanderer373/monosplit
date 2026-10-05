@@ -181,7 +181,7 @@ export default function HomeScreen(props: HomeScreenProps) {
                   : props.sharedStatus === 'loading' ? <><span className="home-sr">{t('home.loading')}</span><span className="home-debt-skeleton" aria-hidden="true" /></>
                   : <MoneyLines lines={(direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).length > 0 ? (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)) : [{currency:props.defaultCurrency ?? 'MYR',amountMinor:0}]} lang={lang} t={t} />}
               </span>
-              {props.sharedStatus === 'ready' && (props.sharedPreviews ?? []).some(context => context.lines.some(line => line.direction === direction)) ? <small className="home-split-preview-hint">{lang === 'zh' ? '另有待确认／手动记录' : 'Pending / manual records'}</small> : null}
+              {props.sharedStatus === 'ready' && (props.sharedPreviews ?? []).some(context => context.lines.some(line => line.direction === direction)) ? <small className="home-split-preview-hint" title={lang === 'zh' ? '另有待确认／手动记录' : 'Pending / manual records'}><span className="home-sr">{lang === 'zh' ? '另有待确认／手动记录' : 'Pending / manual records'}</span></small> : null}
             </button>
           ))}
         </div>

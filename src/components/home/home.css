@@ -930,11 +930,15 @@ html[data-place="bali"] .home-shell {
 }
 
 /* Navigation-inspired paper controls. Stitching is decorative and never blocks input. */
-#root .home-stat-row { padding: 0; gap: 12px; margin-top: 14px; }
+#root .home-stat-row { padding: 0; gap: 10px; margin-top: 12px; align-items: stretch; }
 #root .home-debt-stat {
   position: relative;
-  min-height: 84px;
-  padding: 14px 16px;
+  min-height: 70px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 10px 12px;
   border: 1px solid #e4cdb4;
   border-radius: 16px;
   background: linear-gradient(175deg, #fffaf2, #f9efdf);
@@ -949,9 +953,9 @@ html[data-place="bali"] .home-shell {
   border-radius: 11px;
   pointer-events: none;
 }
-#root .home-debt-stat .home-meta { font-size: 13px; font-weight: 400; }
+#root .home-debt-stat .home-meta { font-size: 12px; font-weight: 400; }
 #root .home-debt-stat .home-meta svg { transform: rotate(-90deg); }
-#root .home-debt-value { margin-top: 7px; font-size: 22px; font-weight: 500; letter-spacing: -.025em; }
+#root .home-debt-value { margin-top: 4px; font-size: 18px; font-weight: 500; letter-spacing: -.025em; }
 #root .home-debt-stat.is-receivable .home-debt-value { color: #397e7a; }
 #root .home-debt-stat.is-payable .home-debt-value { color: #b66b5d; }
 #root .home-debt-stat[data-state="error"] .home-debt-value { font-size: 13px; color: var(--home-muted); letter-spacing: 0; }
@@ -982,7 +986,7 @@ html[data-place="bali"] .home-shell {
 .home-sheet .home-sheet-option[aria-current="true"] { background: #fae3d2; }
 .home-sheet button.home-sheet-option:active { background: #f9dfca; }
 .home-sheet .home-icon-button { border: 0; background: transparent; }
-.home-split-preview-hint { display: block; margin-top: 5px; font-size: 10px; font-weight: 400; color: var(--ms-text-secondary); }
+.home-split-preview-hint { position: absolute; top: 16px; right: 30px; width: 5px; height: 5px; border-radius: 50%; background: #ae7950; }
 .home-split-preview-section { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #dfceb7; }
 .home-split-preview-section h3 { margin: 0 0 6px; font-size: 14px; }
 .home-split-preview-section > .home-meta { margin-bottom: 10px; line-height: 1.5; }
@@ -1006,7 +1010,7 @@ html[data-place="bali"] .home-shell {
 }
 
 #root .home-debt-stat[data-empty="true"] .home-debt-value { color: #8a7968; }
-#root .home-debt-stat .home-money-line { font-size: clamp(11px, 15cqi, 22px); }
+#root .home-debt-stat .home-money-line { font-size: clamp(11px, 14cqi, 18px); }
 
 /* A single current-mode bookmark; the choices appear only on demand. */
 .home-mode-bookmark { position: relative; justify-self: end; z-index: 5; }

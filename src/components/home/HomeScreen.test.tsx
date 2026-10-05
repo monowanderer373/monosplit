@@ -335,7 +335,7 @@ describe('HomeScreen', () => {
     const sharedTrigger = screen.getByTestId('home-receivable')
     await user.click(sharedTrigger)
     await user.click(screen.getByTestId('home-shared-sheet-scrim'))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.queryByTestId('home-shared-sheet')).toBeNull())
     expect(document.activeElement).toBe(sharedTrigger)
   })
 
