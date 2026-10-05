@@ -45,7 +45,6 @@ export default function ExpenseActionSheet({
   const [open, setOpen] = useState(false)
   const [closing, setClosing] = useState(false)
   const [requestedMode, setMode] = useState<EditorMode>('financial')
-  const [reviewPayload, setReviewPayload] = useState<ExpenseFinancialPayload | null>(null)
   const [splitOpen, setSplitOpen] = useState(false)
   const [splitDraft, setSplitDraft] = useState<SplitValues | null>(null)
   const [draftScope, setDraftScope] = useState(expense.scope)
@@ -123,7 +122,6 @@ export default function ExpenseActionSheet({
     }
     if (closeTimer.current) clearTimeout(closeTimer.current)
     setClosing(false)
-    setReviewPayload(null)
     setMode(initialMode())
     setFailClosed(false)
     setOpen(true)
@@ -149,7 +147,6 @@ export default function ExpenseActionSheet({
   try { draft = buildPayload() } catch { /* Partial input remains editable. */ }
   const financialChanged = !draft || financialEditsChanged(baseline.current.payload, draft)
   const dirty = !draft || financialChanged || metadataEditsChanged(baseline.current.payload, draft)
-  const needsReview = (shared || scopeChanged) && financialChanged
   const resetSplit = (people: typeof editPeople) => {
     setEditPeople(people)
     try {
@@ -158,7 +155,6 @@ export default function ExpenseActionSheet({
       const base = Math.floor(minor / people.length)
       setShares(Object.fromEntries(people.map((person,index) => [person.participantId, minorInput(base + (index === people.length - 1 ? minor % people.length : 0), currency)])))
     } catch { setError('error.validAmount') }
-    setReviewPayload(null)
     setError('')
   }
   const selectType = (scope: 'personal' | 'direct') => {
@@ -185,7 +181,6 @@ export default function ExpenseActionSheet({
       if (canChangeType) setDraftScope('direct')
       setShares(splitDraft.splitMode === 'equal' ? Object.fromEntries(people.map(person => [person.participantId, minorInput(equal.get(person.participantId) ?? 0, currency)])) : {...splitDraft.exactShareAmounts})
       setPaid(Object.values(splitDraft.payerAmounts).some(value => value.trim()) ? {...splitDraft.payerAmounts} : Object.fromEntries(people.map(person => [person.participantId, minorInput(person.participantId === currentParticipantId ? minor : 0, currency)])))
-      setReviewPayload(null)
     }
     setSplitOpen(false)
   }
@@ -264,8 +259,7 @@ export default function ExpenseActionSheet({
           reconcileMinorAmounts(Object.fromEntries(payload.participantIds.map((id, index) => [id, amounts[index]])), payload.totalMinor)
         }
       }
-      if (needsReview && !reviewPayload) { setReviewPayload(payload); setError('') }
-      else void save(reviewPayload ?? payload)
+      void save(payload)
     } catch (cause) {
       if (cause instanceof Error && cause.message === 'split_requires_friend') setNotice(copy('Select at least one friend for a shared expense.', '共享账目至少需要选择一位朋友。'))
       setError(shared ? 'expenseAction.amountsMustReconcile' : 'error.validAmount')
@@ -280,7 +274,6 @@ export default function ExpenseActionSheet({
   const cancellationAction = policy.actions.find(action => action === 'cancel' || action === 'request_cancellation')
   const beginCancellation = (action: ExpenseAction) => {
     setMode(action === 'request_cancellation' ? 'request_cancellation' : 'cancel')
-    setReviewPayload(null)
     setError('')
   }
 
@@ -299,7 +292,7 @@ export default function ExpenseActionSheet({
         {partialSave ? <p className="expense-editor-notice" role="status">{copy('Amount and split saved. Details are not saved yet; retry saves only the remaining details.', '金额与分摊已保存，资料尚未保存；重试只会保存剩余资料。')}</p> : null}
         {notice ? <p className="expense-editor-notice" role="status">{notice}</p> : null}
         {error || statusNotice ? <p className="expense-editor-error" role="alert">{error ? t(error) : statusNotice}</p> : null}
-        {editing && !reviewPayload ? <fieldset disabled={saving || mutationBlocked} className="expense-editor-fields">
+        {editing ? <fieldset disabled={saving || mutationBlocked} className="expense-editor-fields">
           <label className="expense-editor-label" htmlFor={`edit-amount-${expense.id}`}>{copy('Amount', '金额')}</label>
           <div className="expense-editor-amount">
             <select aria-label={t('expenseAction.currency')} value={currency} disabled={mode !== 'financial'} onChange={event => changeAmount(total, event.target.value)}>
@@ -331,25 +324,25 @@ export default function ExpenseActionSheet({
           </div> : null}
 
         </fieldset> : null}
-        {editing && reviewPayload ? <div className="expense-editor-review" data-testid="expense-edit-review">
-          <p className="expense-editor-label">{copy('Review changes', '检查修改')}</p>
+        {editing && draft && (shared || scopeChanged) ? <div className="expense-editor-review" data-testid="expense-edit-review">
+          <p className="expense-editor-label">{copy('Split summary', '分摊摘要')}</p>
           {scopeChanged ? <p>{baseline.current.payload.scope === 'personal' ? copy('Personal → Shared', '个人 → 共享') : copy('Shared → Personal', '共享 → 个人')}</p> : null}
-          <div className="expense-editor-change"><MoneyText value={formatMinorAmount(baseline.current.payload.totalMinor, baseline.current.payload.currency)} /><span>→</span><MoneyText value={formatMinorAmount(reviewPayload.totalMinor, reviewPayload.currency)} /></div>
-          <p>{capitalizeDescription(reviewPayload.description ?? t(categoryKey(reviewPayload.category)))}</p>
+          <div className="expense-editor-change"><SummaryAmount before={baseline.current.payload.totalMinor} beforeCurrency={baseline.current.payload.currency} after={draft.totalMinor} currency={draft.currency} /></div>
+          <p>{capitalizeDescription(draft.description ?? t(categoryKey(draft.category)))}</p>
           <div className="expense-editor-review-people">{Array.from(new Map([...orderedParticipations, ...editPeople].map(person => [person.participantId, person])).values()).map(person => <div key={person.participantId}>
             <span>{person.participantId === currentParticipantId ? t('common.you') : person.nameSnapshot}</span>
-            <span>{copy('Paid', '支付')}: <MoneyText value={formatMinorAmount(baseline.current.payload.contributionAmounts[baseline.current.payload.participantIds.indexOf(person.participantId)] ?? 0, baseline.current.payload.currency)} /> → <MoneyText value={formatMinorAmount(reviewPayload.contributionAmounts[reviewPayload.participantIds.indexOf(person.participantId)] ?? 0, reviewPayload.currency)} /></span>
-            <span>{copy('Share', '分摊')}: <MoneyText value={formatMinorAmount(baseline.current.payload.shareAmounts[baseline.current.payload.participantIds.indexOf(person.participantId)] ?? 0, baseline.current.payload.currency)} /> → <MoneyText value={formatMinorAmount(reviewPayload.shareAmounts[reviewPayload.participantIds.indexOf(person.participantId)] ?? 0, reviewPayload.currency)} /></span>
+            <span>{copy('Paid', '支付')}: <SummaryAmount before={baseline.current.payload.contributionAmounts[baseline.current.payload.participantIds.indexOf(person.participantId)] ?? 0} beforeCurrency={baseline.current.payload.currency} after={draft.contributionAmounts[draft.participantIds.indexOf(person.participantId)] ?? 0} currency={draft.currency} /></span>
+            <span>{copy('Share', '分摊')}: <SummaryAmount before={baseline.current.payload.shareAmounts[baseline.current.payload.participantIds.indexOf(person.participantId)] ?? 0} beforeCurrency={baseline.current.payload.currency} after={draft.shareAmounts[draft.participantIds.indexOf(person.participantId)] ?? 0} currency={draft.currency} /></span>
           </div>)}</div>
-          {mode === 'correction' ? <p className="expense-editor-hint">{t('expenseAction.noEffectUntilApproved')}</p> : mode === 'space_correction' ? <p className="expense-editor-hint">{t('expenseAction.unchangedPrincipals')}</p> : policy.financialEditRequiresReconfirmation ? <p className="expense-editor-hint">{t('expenseAction.reconfirmWarning')}</p> : null}
+          {financialChanged && mode === 'correction' ? <p className="expense-editor-hint">{t('expenseAction.noEffectUntilApproved')}</p> : financialChanged && mode === 'space_correction' ? <p className="expense-editor-hint">{t('expenseAction.unchangedPrincipals')}</p> : financialChanged && policy.financialEditRequiresReconfirmation ? <p className="expense-editor-hint">{t('expenseAction.reconfirmWarning')}</p> : null}
         </div> : null}
         {mode === 'cancel' || mode === 'request_cancellation' ? <div className="expense-editor-cancel-confirm"><p>{expenseName}</p><p>{t(mode === 'cancel' ? 'expenseAction.cancelHelp' : 'expenseAction.cancellationRequestHelp')}</p></div> : null}
         {mode === 'view_request' ? <p className="expense-editor-notice">{t('expenseAction.requestFrozen')}</p> : <footer className="expense-editor-footer">
-          {reviewPayload || !editing ? <button type="button" className="expense-editor-back" disabled={saving} onClick={() => { setReviewPayload(null); setMode(initialMode()) }}>{t('common.back')}</button> : null}
+          {!editing ? <button type="button" className="expense-editor-back" disabled={saving} onClick={() => setMode(initialMode())}>{t('common.back')}</button> : null}
           <button type="submit" className="ms-btn-primary expense-editor-save" disabled={saving || mutationBlocked || (editing && !dirty)}>
-            {saving ? t('expenseAction.saving') : !editing ? t(mode === 'cancel' ? 'expenseAction.confirmCancel' : 'expenseAction.sendCancellationRequest') : reviewPayload ? mode === 'correction' ? t('expenseAction.submitCorrection') : mode === 'space_correction' ? t('expenseAction.submitSpaceCorrection') : copy('Save changes', '保存修改') : needsReview ? copy('Review changes', '检查修改') : copy('Save changes', '保存修改')}
+            {saving ? t('expenseAction.saving') : !editing ? t(mode === 'cancel' ? 'expenseAction.confirmCancel' : 'expenseAction.sendCancellationRequest') : copy('Save changes', '保存修改')}
           </button>
-          {editing && !reviewPayload && cancellationAction ? <button type="button" className="expense-editor-cancel-link" disabled={saving || mutationBlocked} onClick={() => beginCancellation(cancellationAction)}>{t(cancellationAction === 'cancel' ? 'expenseAction.cancelExpense' : 'expenseAction.requestCancellation')}</button> : null}
+          {editing && cancellationAction ? <button type="button" className="expense-editor-cancel-link" disabled={saving || mutationBlocked} onClick={() => beginCancellation(cancellationAction)}>{t(cancellationAction === 'cancel' ? 'expenseAction.cancelExpense' : 'expenseAction.requestCancellation')}</button> : null}
         </footer>}
       </form>
       {splitOpen && splitDraft ? <div className="expense-split-host"><div className="qa-main expense-split-surface"><QuickPanel title={copy('Split expense', '分摊消费')} onClose={() => setSplitOpen(false)}><div className="qa-panel-body">
@@ -360,6 +353,10 @@ export default function ExpenseActionSheet({
       </div></QuickPanel></div></div> : null}
     </EditorDialog>, document.getElementById('root') ?? document.body) : null}
   </>
+}
+
+function SummaryAmount({ before, beforeCurrency, after, currency }: { before: number; beforeCurrency: string; after: number; currency: string }) {
+  return <>{before !== after || beforeCurrency !== currency ? <><span className="expense-editor-old-amount"><MoneyText value={formatMinorAmount(before, beforeCurrency)} /></span><span aria-hidden="true"> → </span></> : null}<MoneyText value={formatMinorAmount(after, currency)} /></>
 }
 
 function EditorDialog({ titleId, closing, onClose, children }: { titleId: string; closing: boolean; onClose: () => void; children: ReactNode }) {

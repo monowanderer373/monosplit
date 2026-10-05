@@ -82,8 +82,10 @@
 .expense-editor-notice { color: #826348; background: #f6e5d1; }
 .expense-editor-error { color: #a13c32; background: #f9eae3; }
 .expense-editor-change { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 9px 0; font-size: 23px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.expense-editor-change > span:first-child { color: #958776; font-size: 17px; }
+.expense-editor-old-amount { color: #958776; }
+.expense-editor-change .expense-editor-old-amount { font-size: 17px; }
 .expense-editor-change .tt-money-currency { font-size: .65em; font-weight: 400; }
+.expense-editor-review { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #d7bea2; }
 .expense-editor-review > p:not(.expense-editor-label) { font-size: 14px; }
 .expense-editor-review-people { margin-top: 14px; padding: 4px 12px; border: 1px solid #e8d6bf; border-radius: 12px; background: #fffaf2; }
 .expense-editor-review-people > div { display: grid; gap: 4px; padding: 12px 0; font-size: 12px; }

@@ -33,6 +33,24 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 describe('unified paper expense editor', () => {
+  it('places a live split summary between the type choices and Save changes', () => {
+    mount(expense('direct', true)); open()
+    const summary = screen.getByTestId('expense-edit-review')
+    const shared = screen.getByRole('button', { name: 'Shared expense' })
+    const save = screen.getByRole('button', { name: 'Save changes' })
+    expect(shared.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(summary.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(summary.textContent).toContain('Split summary')
+    expect(summary.textContent).toContain('17.50')
+    expect(summary.textContent).not.toContain('→')
+    amount('40')
+    expect(summary.textContent).toContain('20.00')
+    expect(summary.textContent).toContain('→')
+    expect(screen.getByRole('textbox', { name: 'Total amount' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Review changes' })).toBeNull()
+    expect(mocks.financial).not.toHaveBeenCalled()
+  })
+
   it('opens shared options directly and keeps personal selected when the split is dismissed', () => {
     mount(); open()
     fireEvent.click(screen.getByRole('button', { name: 'Shared expense' }))
@@ -58,15 +76,15 @@ describe('unified paper expense editor', () => {
     expect((screen.getByRole('textbox', { name: 'Share for You' }) as HTMLInputElement).value).toBe('17.50')
     expect(mocks.financial).not.toHaveBeenCalled()
   })
-  it('applies a split draft only to the editor until the correction is reviewed and saved', async () => {
+  it('applies a split draft only to the editor until Save changes is clicked', async () => {
     mount(expense('direct')); open()
     fireEvent.click(screen.getByRole('button', { name: 'Shared expense' }))
     fireEvent.change(screen.getByRole('textbox', { name: 'Share for You' }), { target: { value: '10' } })
     expect((screen.getByRole('textbox', { name: 'Share for Lan' }) as HTMLInputElement).value).toBe('25.00')
     fireEvent.click(screen.getByRole('button', { name: 'Apply split' }))
     expect(mocks.direct).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Propose correction' }))
+    expect(screen.getByTestId('expense-edit-review').textContent).toContain('25.00')
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(mocks.direct).toHaveBeenCalledWith(expect.objectContaining({ replacement: expect.objectContaining({ shareAmounts: [1000,2500], contributionAmounts:[3500,0] }) })))
   })
 
@@ -88,7 +106,6 @@ describe('unified paper expense editor', () => {
     await screen.findByRole('checkbox', { name: 'Lan' })
     fireEvent.click(screen.getByRole('checkbox', { name: 'Lan' }))
     fireEvent.click(screen.getByRole('button', { name: 'Apply split' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
     expect(screen.getByText('Personal → Shared')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(mocks.financial).toHaveBeenCalledWith(expect.objectContaining({ nextScope:'direct', participantIds:['you','manual-lan'], contributionAmounts:[3500,0], shareAmounts:[1750,1750] })))
@@ -96,7 +113,6 @@ describe('unified paper expense editor', () => {
   it('changes an unconfirmed shared record to personal and preserves the whole amount', async () => {
     mount(expense('direct', true)); open()
     fireEvent.click(screen.getByRole('button', { name: 'Personal expense' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(mocks.financial).toHaveBeenCalledWith(expect.objectContaining({ nextScope:'personal', participantIds:['you'], contributionAmounts:[3500], shareAmounts:[3500] })))
   })
@@ -126,19 +142,17 @@ describe('unified paper expense editor', () => {
     expect(mocks.direct).not.toHaveBeenCalled()
     expect(mocks.financial).not.toHaveBeenCalled()
   })
-  it('requires a shared correction review and preserves principal IDs and currency', async () => {
+  it('shows the correction summary inline and saves once while preserving principal IDs and currency', async () => {
     mount(expense('direct')); open(); amount('40')
     expect((screen.getByRole('combobox', { name: 'Currency' }) as HTMLSelectElement).disabled).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
     expect(screen.getByTestId('expense-edit-review')).toBeTruthy()
     expect(mocks.direct).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Propose correction' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(mocks.direct).toHaveBeenCalledWith(expect.objectContaining({ expectedTargetVersion: 1, kind: 'correction', replacement: expect.objectContaining({ currency: 'MYR', participantIds: ['you', 'lan'], totalMinor: 4000, shareAmounts: [2000, 2000] }) })))
     expect(mocks.financial).not.toHaveBeenCalled()
   })
-  it('reviews pending linked edits before updating and reconfirming the expense', async () => {
+  it('shows pending linked edits inline before updating and reconfirming the expense', async () => {
     mount(expense('direct', true)); open(); amount('40')
-    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
     expect(mocks.financial).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(mocks.financial).toHaveBeenCalledTimes(1))
@@ -146,8 +160,7 @@ describe('unified paper expense editor', () => {
   })
   it('keeps group corrections on their existing authoritative route', async () => {
     mount(expense('space')); open(); amount('40')
-    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Apply correction' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(mocks.space).toHaveBeenCalledTimes(1))
     expect(mocks.financial).not.toHaveBeenCalled()
   })
