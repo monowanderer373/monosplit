@@ -182,6 +182,7 @@ export default function ExpenseActionSheet({
       const minor = parseMajorAmount(total, currency)
       const equal = equalMinorShares(minor, people.map(person => person.participantId))
       setEditPeople(people)
+      if (canChangeType) setDraftScope('direct')
       setShares(splitDraft.splitMode === 'equal' ? Object.fromEntries(people.map(person => [person.participantId, minorInput(equal.get(person.participantId) ?? 0, currency)])) : {...splitDraft.exactShareAmounts})
       setPaid(Object.values(splitDraft.payerAmounts).some(value => value.trim()) ? {...splitDraft.payerAmounts} : Object.fromEntries(people.map(person => [person.participantId, minorInput(person.participantId === currentParticipantId ? minor : 0, currency)])))
       setReviewPayload(null)
@@ -318,16 +319,16 @@ export default function ExpenseActionSheet({
             <span className="expense-editor-label">{copy('Expense type', '账目类型')}</span>
             <div className="expense-editor-type-options">
               <button type="button" aria-pressed={draftScope === 'personal'} disabled={!canChangeType} onClick={() => selectType('personal')}>{copy('Personal expense', '个人账目')}</button>
-              <button type="button" aria-pressed={draftScope === 'direct'} disabled={!canChangeType} onClick={() => selectType('direct')}>{copy('Shared expense', '共享账目')}</button>
+              <button type="button" aria-pressed={draftScope === 'direct'} aria-haspopup="dialog" aria-expanded={splitOpen} disabled={!canChangeType && draftScope !== 'direct'} onClick={openSplitPanel}>{copy('Shared expense', '共享账目')}</button>
             </div>
             {!canChangeType ? <p className="expense-editor-hint">{copy('Confirmed shared records require a correction; their participants cannot be removed here.', '已确认的共享记录须走更正流程，不能在此移除参与者。')}</p> : null}
 
           </div> : null}
-          {shared ? <div className="expense-editor-split">
+          {expense.scope === 'space' ? <div className="expense-editor-split">
             <button type="button" className="expense-editor-split-toggle" aria-haspopup="dialog" aria-expanded={splitOpen} onClick={openSplitPanel}><QuickIcon name="split" size={20} /><span>{copy('Split details', '分摊资料')}</span><span aria-hidden="true">›</span></button>
             <p className="expense-editor-hint">{editPeople.length} {copy('people · Tap to edit split', '人 · 点击修改分摊')}</p>
             {mode !== 'financial' ? <p className="expense-editor-hint">{t('expenseAction.currencyLocked')}</p> : null}
-          </div> : <div className="expense-editor-personal"><QuickIcon name="split" size={18} /><span>{copy('Personal expense', '个人账目')}</span><span>{copy('Only you', '仅自己')}</span></div>}
+          </div> : null}
 
         </fieldset> : null}
         {editing && reviewPayload ? <div className="expense-editor-review" data-testid="expense-edit-review">
@@ -355,7 +356,7 @@ export default function ExpenseActionSheet({
         {canChangeType && friendsState === 'loading' ? <p className="qa-helper">{copy('Loading friends…', '正在加载朋友…')}</p> : null}
         {canChangeType && friendsState === 'ready' && splitPeople.length < 2 ? <p className="qa-helper">{copy('Add a friend in Shared first.', '先到共享页面添加朋友。')}</p> : null}
         {canChangeType && friendsState === 'error' ? <p role="alert" className="qa-error">{copy('Friends could not load. Close and reopen the editor to retry.', '朋友加载失败，请重新打开编辑页面重试。')}</p> : null}
-        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={copy('Shared expense', '共享账目')} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType} readOnly={mode === 'metadata'} requireFriend={draftScope === 'direct'} />
+        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={copy('Shared expense', '共享账目')} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType} readOnly={mode === 'metadata'} requireFriend={expense.scope !== 'space'} />
       </div></QuickPanel></div></div> : null}
     </EditorDialog>, document.getElementById('root') ?? document.body) : null}
   </>
