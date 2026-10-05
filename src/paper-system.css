@@ -205,12 +205,13 @@
 /* Recent records: tactile paper stock and one consistent type scale. */
 #root .home-frame[data-density="detailed"] .home-record:not(.is-compact) {
   isolation: isolate;
-  padding: 20px 16px;
-  margin-bottom: 14px;
+  min-height: 68px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
   border: 0;
   background: transparent;
   box-shadow: 0 5px 12px #765a3714;
-  border-radius: 22px 19px 24px 20px;
+  border-radius: 17px 15px 18px 16px;
 }
 #root .home-frame[data-density="detailed"] .home-record:not(.is-compact)::before {
   content: '';
@@ -232,26 +233,26 @@
   border-bottom: 0;
 }
 #root .home-frame[data-density="detailed"] .home-record-main {
-  gap: 12px;
+  gap: 10px;
   align-items: center;
 }
 #root .home-frame[data-density="detailed"] .home-record-icon {
-  width: 44px;
-  height: 44px;
-  font-size: 24px;
+  width: 36px;
+  height: 36px;
+  font-size: 21px;
   border-radius: 13px 11px 14px 12px;
 }
 #root .home-frame[data-density="detailed"] .home-record-copy { padding-top: 0; }
 #root .home-frame[data-density="detailed"] :is(.home-record-title, .home-amount) {
   font-size: 18px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.25;
   letter-spacing: 0;
 }
 #root .home-frame[data-density="detailed"] :is(.home-chip, .home-wallet, .home-record .home-note) {
   font-size: 13px;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 #root .home-record .home-amount.outgoing { color: #aa5846; }
 #root .home-record .home-amount :is(.tt-money-currency, .tt-money-number) {
@@ -260,15 +261,15 @@
   font-weight: inherit;
 }
 @media (max-width: 420px) {
-  #root .home-frame[data-density="detailed"] .home-record:not(.is-compact) { padding: 14px 12px; }
+  #root .home-frame[data-density="detailed"] .home-record:not(.is-compact) { min-height: 64px; padding: 8px 12px; }
   #root .home-frame[data-density="detailed"] .home-record-main {
-    grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-columns: 32px minmax(0, 1.2fr) minmax(0, 1fr);
     gap: 9px;
   }
   #root .home-frame[data-density="detailed"] .home-record-icon {
-    width: 40px;
-    height: 40px;
-    font-size: 22px;
+    width: 32px;
+    height: 32px;
+    font-size: 19px;
   }
   #root .home-frame[data-density="detailed"] :is(.home-record-title, .home-amount) { font-size: 16px; }
   #root .home-frame[data-density="detailed"] :is(.home-chip, .home-wallet, .home-record .home-note) { font-size: 12px; }
@@ -286,3 +287,8 @@
   pointer-events: none;
 }
 #root .home-balance-card::after { width: 30px; height: 11px; top: -5px; right: 24px; }
+
+/* Compact paper cards retain all details and expand naturally for longer text. */
+#root .home-frame[data-density="detailed"] .home-chip { margin-top: 3px; padding: 1px 7px; }
+#root .home-frame[data-density="detailed"] .home-wallet { margin-top: 3px; }
+#root .home-frame[data-density="detailed"] .home-record .home-note { margin-block: 3px 0; }
