@@ -2,7 +2,7 @@
 #root .qa-backdrop .qa-main.qa-stationery {
   --qa-bg: #fbf3e5;
   --qa-card: #fff8ec;
-  --qa-ink: #442b1c;
+  --qa-ink: #38200e;
   --qa-orange: #d73336;
   --qa-peach: #f7e5df;
   background: var(--paper-grain), linear-gradient(125deg, #fff9ef, #f6e8d2);
@@ -33,7 +33,7 @@
   inset: 0;
   z-index: -1;
   background: url('../assets/quick-add/paper-tile.svg') center / 100% 100% no-repeat;
-  filter: drop-shadow(0 2px 1px #79593214) drop-shadow(0 3px 4px #79593216);
+  filter: drop-shadow(0 3px 2px #79593222) drop-shadow(0 5px 5px #79593210);
   pointer-events: none;
   transition: filter 140ms ease;
 }
@@ -87,16 +87,16 @@
 #root .qa-stationery .qa-inputs .qa-description input { font-weight: 550; }
 #root .qa-stationery .qa-keypad button::before,
 #root .qa-stationery .qa-icon-button::before { background-image: url('../assets/quick-add/paper-key.svg'); }
-#root .qa-stationery .qa-keypad button { font-weight: 550; color: #442b1c; }
+#root .qa-stationery .qa-keypad button { font-weight: 600; color: #38200e; }
 #root .qa-stationery .qa-keypad button.qa-operator { background: transparent; }
-#root .qa-stationery .qa-keypad .qa-operator::before { filter: sepia(.17) saturate(1.25) drop-shadow(0 2px 2px #79593218); }
+#root .qa-stationery .qa-keypad .qa-operator::before { background-image: url('../assets/quick-add/operator-key.svg'); }
 #root .qa-stationery .qa-keypad button.qa-equals { color: #c53032; }
-#root .qa-stationery .qa-keypad .qa-equals::before { background-image: url('../assets/quick-add/selected-tile.svg'); filter: drop-shadow(0 2px 2px #79593218); }
-#root .qa-stationery .qa-actions > button svg { color: #705035; }
+#root .qa-stationery .qa-keypad .qa-equals::before { background-image: url('../assets/quick-add/selected-tile.svg'); }
+#root .qa-stationery .qa-actions > button svg { color: #38200e; }
 #root .qa-stationery .qa-actions small { color: #8a7057; }
 #root .qa-stationery .qa-actions > button.is-selected { background: transparent; box-shadow: none; }
 #root .qa-stationery .qa-actions > button.is-selected::before { background-image: url('../assets/quick-add/selected-tile.svg'); }
-#root .qa-stationery .qa-save-buttons > button { color: #442b1c; }
+#root .qa-stationery .qa-save-buttons > button { color: #38200e; }
 #root .qa-stationery .qa-save-buttons > button::after { inset: 6px; border-color: #bd946c; opacity: .65; }
 #root .qa-stationery .qa-save-buttons > button.qa-primary {
   color: #fffaf3;
@@ -111,8 +111,8 @@
 }
 #root .qa-stationery .qa-save-buttons > .qa-primary::after { content: none; }
 #root .qa-stationery .qa-save-buttons > button span { font-weight: 550; }
-#root .qa-stationery :is(.qa-category, .qa-keypad button, .qa-actions > button, .qa-save-buttons > button):active:not(:disabled) { box-shadow: none; }
-#root .qa-stationery :is(.qa-category, .qa-keypad button, .qa-actions > button, .qa-save-buttons > button):active:not(:disabled)::before { filter: drop-shadow(0 1px 1px #79593218); }
+#root .qa-stationery :is(.qa-category, .qa-keypad button, .qa-actions > button, .qa-save-buttons > button, .qa-icon-button):active:not(:disabled) { transform: translateY(2px) scale(.99); box-shadow: none; }
+#root .qa-stationery :is(.qa-category, .qa-keypad button, .qa-actions > button, .qa-save-buttons > button, .qa-icon-button):active:not(:disabled)::before { filter: drop-shadow(0 1px 1px #79593218); }
 #root .qa-stationery button:focus-visible { outline-color: #be3335; }
 @media (max-width: 370px) {
   #root .qa-stationery .qa-category { padding-right: 13px; }
