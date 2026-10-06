@@ -175,7 +175,7 @@ export default function HomeScreen(props: HomeScreenProps) {
         <div className="home-stat-row">
           {(['receivable', 'payable'] as const).map(direction => (
             <button key={direction} type="button" className={`home-stat home-debt-stat is-${direction}`} data-testid={`home-${direction}`} aria-haspopup="dialog" aria-expanded={sheet === direction} data-state={props.sharedStatus} data-empty={props.sharedStatus === 'ready' && (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).every(line => line.amountMinor === 0)} onClick={() => setSheet(direction)}>
-              <span className="home-meta">{t(direction === 'receivable' ? 'home.toCollect' : 'home.payable')}<Chevron /></span>
+              <span className="home-meta">{t(direction === 'receivable' ? 'home.toCollect' : 'home.payable')}</span>
               <span className="home-debt-value">
                 {props.sharedStatus === 'error' ? t('home.unavailable')
                   : props.sharedStatus === 'loading' ? <><span className="home-sr">{t('home.loading')}</span><span className="home-debt-skeleton" aria-hidden="true" /></>
