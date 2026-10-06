@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 210" preserveAspectRatio="none" fill="none">
+  <defs>
+    <linearGradient id="paper" x1="300" y1="0" x2="500" y2="210" gradientUnits="userSpaceOnUse"><stop stop-color="#fff9ef"/><stop offset=".55" stop-color="#fff5e5"/><stop offset="1" stop-color="#f5e6d0"/></linearGradient>
+    <linearGradient id="edge" x2="0" y2="1"><stop stop-color="#fffdf7"/><stop offset="1" stop-color="#dfc7aa"/></linearGradient>
+    <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+    <path id="outline" d="M64 14 74 12 85 15 98 11 112 14 124 12 141 15 157 12 174 15 188 12 205 14 220 11 236 14 252 12 271 15 288 12 306 14 323 12 339 16 357 14 372 17 389 15 406 18 423 16 441 19 459 16 479 18 498 15 517 18 537 15 556 18 575 15 595 17 613 14 632 16 650 13 668 15 686 12 705 14 723 11 741 14 759 12 777 15 794 12 812 14 830 12 848 15 865 12 882 14 899 11 916 14 931 12C967 13 982 38 986 72C991 109 978 147 958 169C936 193 906 203 864 203H136C91 203 62 194 40 171C16 146 7 110 14 73C20 39 32 17 64 14Z"/>
+    <clipPath id="cut"><use xlink:href="#outline"/></clipPath>
+  </defs>
+  <use xlink:href="#outline" fill="url(#paper)" stroke="#fffdf5" stroke-width="5"/>
+  <g clip-path="url(#cut)">
+    <path d="M0 0H1000V210H0Z" filter="url(#grain)" opacity=".075"/>
+    <path d="m54 70 14 3m75 77 22-3m40-64 11 7m49 87 21-4m65-72 13 5m40 72 18-3m68-71 10 5m107 76 17-4m71-79 14 7m39 57 17-2m62-70 12 5m49 76 18-4m66-80 9 7m49 42 17-1m-817-67 16-3m119 31 13-4m46 51 12 4m321-88 13 2m166 40 14-5m72 39 15 2" stroke="#cdbca5" stroke-opacity=".14" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M40 63C34 104 43 138 65 159C84 178 112 187 151 187H849C887 187 916 179 936 158C957 135 967 102 960 64M64 29C105 24 170 27 229 25L355 29M645 29 773 25C836 27 899 24 938 29" stroke="#c69b70" stroke-opacity=".66" stroke-width="2.5" stroke-dasharray="12 12" stroke-linecap="round"/>
+    <path d="M48 161C72 187 104 199 145 199H857C898 199 929 187 952 162" stroke="#ffffff" stroke-opacity=".8" stroke-width="3"/>
+  </g>
+</svg>
