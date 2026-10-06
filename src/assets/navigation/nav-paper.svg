@@ -1,16 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 210" preserveAspectRatio="none" fill="none">
   <defs>
-    
-    
-    <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
-    <path id="outline" d="M64 14 74 12 85 15 98 11 112 14 124 12 141 15 157 12 174 15 188 12 205 14 220 11 236 14 252 12 271 15 288 12 306 14 323 12 339 16 357 14 372 17 389 15 406 18 423 16 441 19 459 16 479 18 498 15 517 18 537 15 556 18 575 15 595 17 613 14 632 16 650 13 668 15 686 12 705 14 723 11 741 14 759 12 777 15 794 12 812 14 830 12 848 15 865 12 882 14 899 11 916 14 931 12C967 13 982 38 986 72C991 109 978 147 958 169C936 193 906 203 864 203H136C91 203 62 194 40 171C16 146 7 110 14 73C20 39 32 17 64 14Z"/>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+    <path id="outline" d="M32 8 L46 6.0 L60 6.4 L74 7.6 L88 8.7 L102 6.6 L116 6.4 L130 6.9 L144 9.0 L158 6.6 L172 9.0 L186 8.6 L200 6.5 L214 8.1 L228 7.8 L242 7.7 L256 10.0 L270 6.4 L284 6.1 L298 9.8 L312 7.6 L326 6.8 L340 7.3 L354 7.5 L368 9.8 L382 6.8 L396 6.9 L410 8.3 L424 8.2 L438 9.8 L452 9.4 L466 7.4 L480 6.8 L494 9.3 L508 10.0 L522 6.1 L536 8.9 L550 9.5 L564 8.6 L578 6.9 L592 9.2 L606 8.9 L620 6.8 L634 8.6 L648 6.9 L662 6.2 L676 7.3 L690 7.3 L704 7.6 L718 8.6 L732 9.3 L746 9.8 L760 9.9 L774 10.0 L788 9.2 L802 7.2 L816 6.7 L830 8.5 L844 8.2 L858 8.7 L872 6.4 L886 6.8 L900 9.7 L914 8.4 L928 8.8 L942 6.4 L956 7.6 Q992 8 992 32 L992.9 44 L992.1 55 L993.2 66 L990.8 77 L991.6 88 L992.6 99 L991.5 110 L992.6 121 L991.9 132 L990.6 143 L990.5 154 L993.1 165 L990.6 176 Q992 202 968 202 L954 200.6 L940 201.0 L926 202.1 L912 202.6 L898 201.4 L884 201.5 L870 202.4 L856 200.8 L842 201.1 L828 201.8 L814 201.9 L800 200.1 L786 200.3 L772 200.4 L758 202.2 L744 202.1 L730 202.9 L716 202.3 L702 200.8 L688 202.3 L674 203.0 L660 201.0 L646 200.0 L632 201.1 L618 200.8 L604 200.5 L590 200.1 L576 200.4 L562 202.6 L548 200.1 L534 201.8 L520 200.6 L506 200.6 L492 202.5 L478 200.9 L464 200.6 L450 201.4 L436 202.1 L422 201.6 L408 202.6 L394 201.2 L380 201.6 L366 202.2 L352 201.4 L338 202.2 L324 201.4 L310 200.4 L296 200.4 L282 202.3 L268 202.2 L254 202.8 L240 202.1 L226 201.7 L212 200.5 L198 202.6 L184 200.4 L170 201.3 L156 200.4 L142 201.1 L128 200.9 L114 201.3 L100 202.1 L86 201.6 L72 200.7 L58 202.3 L44 202.2 Q8 202 8 178 L9.3 166 L6.8 155 L8.6 144 L9.5 133 L7.5 122 L7.3 111 L9.2 100 L7.8 89 L7.9 78 L9.2 67 L7.9 56 L7.3 45 L7.4 34 Q8 8 32 8Z"/>
     <clipPath id="cut"><use xlink:href="#outline"/></clipPath>
   </defs>
-  <use xlink:href="#outline" fill="#eee4d4" stroke="#fff9ef" stroke-width="3"/>
+  <use xlink:href="#outline" fill="#eee4d4" stroke="#d9c9b4" stroke-width=".8"/>
   <g clip-path="url(#cut)">
     <path d="M0 0H1000V210H0Z" filter="url(#grain)" opacity=".025"/>
     <path d="m54 70 14 3m75 77 22-3m40-64 11 7m49 87 21-4m65-72 13 5m40 72 18-3m68-71 10 5m107 76 17-4m71-79 14 7m39 57 17-2m62-70 12 5m49 76 18-4m66-80 9 7m49 42 17-1m-817-67 16-3m119 31 13-4m46 51 12 4m321-88 13 2m166 40 14-5m72 39 15 2" stroke="#cdbca5" stroke-opacity=".14" stroke-width="1.2" stroke-linecap="round"/>
-    <path d="M40 63C34 104 43 138 65 159C84 178 112 187 151 187H849C887 187 916 179 936 158C957 135 967 102 960 64M64 29C105 24 170 27 229 25L355 29M645 29 773 25C836 27 899 24 938 29" stroke="#c69b70" stroke-opacity=".45" stroke-width="2.5" stroke-dasharray="12 12" stroke-linecap="round"/>
-    
+    <rect x="28" y="25" width="944" height="160" rx="22" stroke="#c6ad8e" stroke-opacity=".45" stroke-width="2" stroke-dasharray="12 12"/>
   </g>
 </svg>

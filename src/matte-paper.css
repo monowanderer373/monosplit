@@ -48,7 +48,7 @@
 }
 body, #root { background: var(--paper-grain), var(--matte-bg); }
 #root .ms-page { background-image: var(--paper-grain); color: var(--matte-ink); }
-#root :is(.ms-card, .ms-card-soft, .ms-card-hero, .tt-paper, .home-sheet, .tt-sheet-panel, .tt-paper-dialog) {
+#root :is(.ms-card, .ms-card-soft, .ms-card-hero, .tt-paper:not(.tt-nav-surface), .home-sheet, .tt-sheet-panel, .tt-paper-dialog) {
   background: var(--paper-grain), var(--matte-record);
   border-color: var(--matte-edge);
   box-shadow: var(--paper-lift);
@@ -160,6 +160,13 @@ body, #root { background: var(--paper-grain), var(--matte-bg); }
 #root .qa-main input[type="checkbox"] { accent-color: var(--matte-red); }
 
 /* Navigation uses the same solid stock as the catalogue, without embossing. */
+/* The SVG alone owns the paper outline. The rectangular host stays clear. */
+#root .tt-paper.tt-nav-surface {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
 #root .tt-nav-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 64px minmax(0, 1fr) minmax(0, 1fr); min-height: 74px; padding-block: 8px; }
 #root .tt-nav-item { color: var(--matte-secondary); }
 #root .tt-nav-item[aria-current="page"] { color: var(--matte-red); background: transparent; }
@@ -168,6 +175,6 @@ body, #root { background: var(--paper-grain), var(--matte-bg); }
 #root .tt-center-layer { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 22px); }
 #root .tt-seal-plus svg { width: 28px; height: 28px; filter: none; }
 #root .tt-seal:active, #root .tt-seal[data-pressed="true"] { transform: translateY(2px) scale(.98); filter: drop-shadow(0 1px 1px #59432918); }
-#root .tt-nav-surface::before { filter: drop-shadow(0 3px 3px #59432914) drop-shadow(0 6px 8px #59432912); }
+#root .tt-nav-surface::before { filter: drop-shadow(0 2px 2px #59432918) drop-shadow(0 5px 6px #59432926); }
 
 @media (max-width: 359px) { #root .home-shell .home-balance-card { padding-inline: 14px; } }
