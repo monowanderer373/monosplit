@@ -220,13 +220,42 @@ describe('HomeScreen', () => {
     render(<HomeScreen {...props({ receivables: [], sharedContexts: [], sharedPreviews: [preview], onOpenSharedContext: onOpen })} />)
     const collect = screen.getByTestId('home-receivable')
     expect(collect.textContent).toContain('0.00')
-    expect(collect.textContent).toContain('Pending / manual records')
+    expect(screen.getByTestId('home-receivable-unconfirmed').textContent).toContain('Unconfirmed')
+    expect(screen.getByTestId('home-receivable-unconfirmed').textContent).toContain('5.00')
     await user.click(collect)
     expect(screen.queryByText('All settled')).toBeNull()
     expect(screen.getByText('No confirmed balance')).toBeTruthy()
-    expect(screen.getByText('Manual records')).toBeTruthy()
+    expect(screen.getByText('Your records')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /Test friend.*Test split/ }))
     expect(onOpen).toHaveBeenCalledWith(preview)
+  })
+
+  it('separates preview currencies, directions and statuses while preserving confirmed totals', async () => {
+    const user = userEvent.setup()
+    const manual = { id: 'manual', source: 'friend' as const, label: 'Manual friend', personId: 'manual', spaceId: null, status: 'manual' as const, description: 'Car', lines: [
+      { currency: 'MYR', direction: 'receivable' as const, amountMinor: 2500 },
+      { currency: 'USD', direction: 'receivable' as const, amountMinor: 700 },
+      { currency: 'MYR', direction: 'payable' as const, amountMinor: 900 },
+    ] }
+    const pending = { ...manual, id: 'pending', label: 'Pending friend', status: 'pending' as const, lines: [{ currency: 'MYR', direction: 'receivable' as const, amountMinor: 1000 }] }
+    const view = render(<HomeScreen {...props({ sharedPreviews: [manual, pending] })} />)
+    const collect = screen.getByTestId('home-receivable')
+    expect(collect.querySelector('.home-debt-value')!.textContent).toContain('5.00')
+    const hint = screen.getByTestId('home-receivable-unconfirmed').textContent!
+    expect(hint).toContain('35.00')
+    expect(hint).toContain('7.00')
+    expect(hint).not.toContain('9.00')
+    expect(screen.getByTestId('home-payable-unconfirmed').textContent).toContain('9.00')
+    await user.click(collect)
+    expect(screen.getByText('Confirmed to collect')).toBeTruthy()
+    expect(screen.getByText('Your records')).toBeTruthy()
+    expect(screen.getByText('Pending confirmation')).toBeTruthy()
+    const sections = screen.getByTestId('home-shared-sheet').querySelectorAll('.home-split-preview-section')
+    expect(sections[0]!.querySelector('.home-preview-total')!.textContent).toContain('10.00')
+    expect(sections[1]!.querySelector('.home-preview-total')!.textContent).toContain('25.00')
+    view.unmount()
+    render(<HomeScreen {...props({ sharedPreviews: [manual], sharedStatus: 'error' })} />)
+    expect(screen.queryByTestId('home-receivable-unconfirmed')).toBeNull()
   })
 
   it('opens mode choices, selects Travel and restores trigger focus', async () => {

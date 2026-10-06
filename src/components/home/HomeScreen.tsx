@@ -181,7 +181,7 @@ export default function HomeScreen(props: HomeScreenProps) {
                   : props.sharedStatus === 'loading' ? <><span className="home-sr">{t('home.loading')}</span><span className="home-debt-skeleton" aria-hidden="true" /></>
                   : <MoneyLines lines={(direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).length > 0 ? (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)) : [{currency:props.defaultCurrency ?? 'MYR',amountMinor:0}]} lang={lang} t={t} />}
               </span>
-              {props.sharedStatus === 'ready' && (props.sharedPreviews ?? []).some(context => context.lines.some(line => line.direction === direction)) ? <small className="home-split-preview-hint" title={lang === 'zh' ? '另有待确认／手动记录' : 'Pending / manual records'}><span className="home-sr">{lang === 'zh' ? '另有待确认／手动记录' : 'Pending / manual records'}</span></small> : null}
+              {props.sharedStatus === 'ready' ? <UnconfirmedHint contexts={props.sharedPreviews ?? []} direction={direction} /> : null}
             </button>
           ))}
         </div>
@@ -314,7 +314,7 @@ export default function HomeScreen(props: HomeScreenProps) {
       {sheet === 'receivable' || sheet === 'payable' ? (
         <HomeSheet title={t(sheet === 'receivable' ? 'home.toCollect' : 'home.payable')} onClose={() => setSheet(null)} testId="home-shared-sheet">
           {props.sharedStatus !== 'ready' ? <p className="home-status" role="status">{t(props.sharedStatus === 'loading' ? 'home.loading' : 'home.unavailable')}</p> : <><SharedSide
-            title={lang === 'zh' ? '未结金额' : 'Outstanding'}
+            title={sheet === 'receivable' ? (lang === 'zh' ? '已确认待收款' : 'Confirmed to collect') : (lang === 'zh' ? '已确认待付款' : 'Confirmed to pay')}
             tone={sheet}
             contexts={props.sharedContexts}
             direction={sheet}
@@ -328,8 +328,12 @@ export default function HomeScreen(props: HomeScreenProps) {
             const contexts = (props.sharedPreviews ?? []).filter(context => context.status === status && context.lines.some(line => line.direction === sheet))
             if (!contexts.length) return null
             return <section className="home-split-preview-section" key={status}>
-              <h3>{status === 'pending' ? (lang === 'zh' ? '待确认' : 'Pending confirmation') : (lang === 'zh' ? '手动记录' : 'Manual records')}</h3>
-              <p className="home-meta">{status === 'pending' ? (lang === 'zh' ? '预计分账金额；对方确认后才计入上方金额。' : 'Expected split amounts. Included above only after acceptance.') : (lang === 'zh' ? '你记录的分账；未获对方确认，不计入已确认金额。' : 'Your recorded splits. Unconfirmed and excluded from the confirmed total.')}</p>
+              <div className="home-preview-heading">
+                <h3>{status === 'pending' ? (lang === 'zh' ? '待确认请求' : 'Pending confirmation') : (lang === 'zh' ? '你的记录' : 'Your records')}</h3>
+                <span className="home-preview-status">{lang === 'zh' ? '未确认' : 'Not confirmed'}</span>
+              </div>
+              <p className="home-meta">{status === 'pending' ? (lang === 'zh' ? '等待对方接受，暂不计入已确认金额。' : 'Awaiting acceptance. Excluded from confirmed amounts.') : (lang === 'zh' ? '尚未获对方确认。' : 'Not confirmed by the other person')}</p>
+              <div className="home-preview-total"><MoneyLines lines={previewTotals(contexts, sheet)} lang={lang} t={t} /></div>
               {contexts.map(context => <button key={context.id} type="button" className="home-sheet-option home-debt-option" onClick={() => { setSheet(null); props.onOpenSharedContext(context) }}>
                 <span className="home-debt-person"><span>{context.label}</span><small>{capitalizeDescription(context.description)}</small></span>
                 <span className="home-debt-row-money"><MoneyLines lines={context.lines.filter(line => line.direction === sheet)} lang={lang} t={t} /><Chevron /></span>
@@ -665,6 +669,30 @@ function RecordRow({
         : record.action}
     </article>
   )
+}
+
+/** Display-only preview totals, kept separate from all confirmed financial balances. */
+function previewTotals(contexts: readonly SharedPreviewContext[], direction: 'receivable' | 'payable'): CurrencyAmount[] {
+  const totals = new Map<string, number>()
+  for (const context of contexts) for (const line of context.lines) {
+    if (line.direction !== direction || line.amountMinor <= 0) continue
+    totals.set(line.currency, addMinor(totals.get(line.currency) ?? 0, line.amountMinor))
+  }
+  return Array.from(totals, ([currency, amountMinor]) => ({ currency, amountMinor }))
+}
+
+function UnconfirmedHint({ contexts, direction }: { contexts: readonly SharedPreviewContext[]; direction: 'receivable' | 'payable' }) {
+  const t = useT()
+  const lang = useStore(state => state.lang)
+  const totals = previewTotals(contexts, direction)
+  if (!totals.length) return null
+  return <span className="home-unconfirmed-hint" data-testid={`home-${direction}-unconfirmed`}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="4" width="15" height="17" rx="2" /><path d="M8 2v4 M17 2v4 M2 8h5 M2 13h5 M2 18h5 M10 10h6 M10 14h6 M10 18h4" />
+    </svg>
+    <span>{lang === 'zh' ? '未确认' : 'Unconfirmed'}</span>
+    <MoneyLines lines={totals} lang={lang} t={t} />
+  </span>
 }
 
 function SharedSide({

@@ -986,12 +986,21 @@ html[data-place="bali"] .home-shell {
 .home-sheet .home-sheet-option[aria-current="true"] { background: #fae3d2; }
 .home-sheet button.home-sheet-option:active { background: #f9dfca; }
 .home-sheet .home-icon-button { border: 0; background: transparent; }
-.home-split-preview-hint { position: absolute; top: 14px; right: 30px; width: 5px; height: 5px; border-radius: 50%; background: #ae7950; }
+.home-unconfirmed-hint { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 3px 4px; align-self: flex-start; max-width: 100%; box-sizing: border-box; margin-top: 4px; padding: 3px 5px; border: 0; border-radius: 5px; background: #efe7db66; color: #766757; font-size: 10px; line-height: 1.4; box-shadow: none; }
+.home-unconfirmed-hint > svg { width: 12px; height: 12px; margin-top: 1px; flex-shrink: 0; }
+#root .home-debt-stat .home-unconfirmed-hint .home-money-line { font-size: 10px; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
+#root .home-unconfirmed-hint :is(.tt-money-currency, .tt-money-number) { font-size: inherit; font-weight: inherit; color: inherit; }
+.home-unconfirmed-hint .home-money-lines { min-width: 0; }
 .home-split-preview-section { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #dfceb7; }
 .home-split-preview-section h3 { margin: 0 0 6px; font-size: 14px; }
 .home-split-preview-section > .home-meta { margin-bottom: 10px; line-height: 1.5; }
 .home-split-preview-section .home-debt-person { min-width: 0; }
 .home-split-preview-section .home-debt-person small { overflow-wrap: anywhere; }
+.home-preview-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.home-preview-heading h3 { margin: 0; }
+.home-preview-status { padding: 3px 8px; border-radius: 6px; background: #efe7db66; color: #766757; font-size: 11px; }
+.home-preview-total { margin: 0 0 10px; color: var(--home-text); font-size: 20px; font-weight: 500; }
+.home-preview-total .home-money-line { white-space: normal; overflow-wrap: anywhere; }
 .home-shared-total { padding: 6px 0 18px; margin-bottom: 4px; border-bottom: 1px solid #ecdfce; }
 .home-shared-total > .home-meta { margin: 0 0 6px; font-size: 12px; }
 .home-shared-total > .home-money-lines { font-size: 26px; font-weight: 500; }
