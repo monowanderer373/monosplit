@@ -56,9 +56,7 @@
 
 .tt-paper {
   position: relative;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.7), transparent 42%),
-    linear-gradient(180deg, var(--tt-paper) 0%, var(--tt-paper-edge) 100%);
+  background: var(--tt-paper);
   color: var(--tt-text-primary);
   border: 1px solid var(--tt-border);
   border-radius: var(--tt-radius-paper);
@@ -115,7 +113,7 @@
   width: 27px;
   height: 12px;
   transform: rotate(20deg);
-  background: repeating-linear-gradient(90deg, #edc39188 0 3px, #f8d7aa99 3px 4px);
+  background: #eee4d4;
   border: 1px solid #d6ac7860;
   box-shadow: 0 1px 2px #6e584315;
   pointer-events: none;

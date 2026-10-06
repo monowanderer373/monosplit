@@ -3,7 +3,7 @@ import MoneyText from '../MoneyText'
 import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAccessibleDialog } from '../../hooks/useAccessibleDialog'
-import { getCategoryIcon } from '../../lib/categories'
+import QuickIcon from '../QuickIcon'
 import type {
   AccountAttentionSource,
   AvailableMoneyTotal,
@@ -24,6 +24,15 @@ import { useT, type TranslationKey } from '../../lib/i18n'
 import { formatDate, localeForLang } from '../../lib/locale'
 import { formatMinorAmount } from '../../lib/money'
 import { useStore } from '../../store/useStore'
+
+const recordIconNames: Record<string, string> = {
+  food: 'Food', dessert: 'Food', noodle: 'Food', fruit: 'Food',
+  coffee: 'Coffee', drink: 'Drink', drinks: 'Drink', groceries: 'Groceries', greens: 'Groceries',
+  car: 'Transport', bus: 'Transport', transport: 'Transport', transportation: 'Transport',
+  shopping: 'Shopping', home: 'Home', travel: 'Travel', flight: 'Travel', plane: 'Travel',
+  accommodation: 'Stay', hotel: 'Stay', stay: 'Stay', health: 'Health', bills: 'Bills',
+  fun: 'Fun', activities: 'Fun', sightseeing: 'Travel', gifts: 'Gifts', other: 'Other',
+}
 
 type DisplayRecord = HomeRecordPresentation & {
   statusLabel?: string | null
@@ -212,12 +221,12 @@ export default function HomeScreen(props: HomeScreenProps) {
               onClick={() => props.onDensityChange(props.density === 'detailed' ? 'compact' : 'detailed')}
             >
               <span className="home-density-track" aria-hidden="true">
-                <span className="home-density-thumb">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-                    {props.density === 'detailed'
-                      ? <path d="M4 4h8M4 8h8M4 12h8" />
-                      : <path d="M4 5h8M4 11h8" />}
-                  </svg>
+                <span className="home-density-thumb" />
+                <span className="home-density-option is-detailed">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M4 4h8M4 8h8M4 12h8" /></svg>
+                </span>
+                <span className="home-density-option is-compact">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M3 3h3v3H3ZM10 3h3v3h-3ZM3 10h3v3H3ZM10 10h3v3h-3Z" /></svg>
                 </span>
               </span>
             </button>
@@ -630,7 +639,7 @@ function RecordRow({
     <article className={record.compact ? 'home-record is-compact' : 'home-record'} data-testid="home-record">
       <div className="home-record-main">
         {record.showIcon ? (
-          <span className="home-record-icon" aria-hidden="true">{getCategoryIcon(record.category)}</span>
+          <span className="home-record-icon" aria-hidden="true"><QuickIcon name={recordIconNames[record.category.trim().toLowerCase()] ?? 'Other'} size={20} /></span>
         ) : null}
         <div className="home-record-copy">
           <p className="home-record-title">{capitalizeDescription(record.description)}</p>

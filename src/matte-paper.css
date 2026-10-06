@@ -1,0 +1,173 @@
+/* Approved Matte Paper board. Solid stock colors; texture and cast shadows
+   provide the material, never a shaded or gradient surface. */
+:root[data-theme="solid-vintage"], :root:root, #root {
+  --matte-bg: #f4efe6;
+  --matte-balance: #eee3d2;
+  --matte-record: #fff9ef;
+  --matte-debt: #f8f1e5;
+  --matte-nav: #eee4d4;
+  --matte-ink: #38281c;
+  --matte-secondary: #76624f;
+  --matte-red: #ad3e35;
+  --matte-green: #35685b;
+  --matte-edge: #d9c9b4;
+  --matte-notice: #eae2d6;
+  --paper-grain: url('./assets/paper/fibers.svg');
+  --paper-stock: var(--matte-record);
+  --paper-stock-raised: var(--matte-debt);
+  --paper-edge: var(--matte-edge);
+  --paper-stitch: #c6ad8e;
+  --paper-lift: 0 2px 3px #5943290d, 0 5px 10px #5943290c;
+  --paper-pressed: 0 1px 2px #5943290b;
+  --ms-bg: var(--matte-bg);
+  --ms-bg-warm: var(--matte-balance);
+  --ms-surface: var(--matte-record);
+  --ms-surface-dim: var(--matte-debt);
+  --ms-border: var(--matte-edge);
+  --ms-border-light: #e9dfd1;
+  --ms-hairline: var(--matte-edge);
+  --ms-text: var(--matte-ink);
+  --ms-text-secondary: var(--matte-secondary);
+  --ms-text-muted: var(--matte-secondary);
+  --ms-accent: var(--matte-red);
+  --ms-accent-hover: #94352e;
+  --ms-accent-bg: #f6d8cc;
+  --ms-danger: var(--matte-red);
+  --ms-danger-bg: #f6e5df;
+  --ms-success: var(--matte-green);
+  --ms-success-bg: #e9efea;
+  --tt-paper: var(--matte-record);
+  --tt-paper-raised: var(--matte-debt);
+  --tt-paper-edge: var(--matte-nav);
+  --tt-text-primary: var(--matte-ink);
+  --tt-text-secondary: var(--matte-secondary);
+  --tt-taupe: var(--matte-secondary);
+  --tt-coral: var(--matte-red);
+  --tt-coral-pressed: #94352e;
+  --tt-border: var(--matte-edge);
+}
+body, #root { background: var(--paper-grain), var(--matte-bg); }
+#root .ms-page { background-image: var(--paper-grain); color: var(--matte-ink); }
+#root :is(.ms-card, .ms-card-soft, .ms-card-hero, .tt-paper, .home-sheet, .tt-sheet-panel, .tt-paper-dialog) {
+  background: var(--paper-grain), var(--matte-record);
+  border-color: var(--matte-edge);
+  box-shadow: var(--paper-lift);
+}
+#root .ms-card-soft { background-color: var(--matte-debt); }
+#root :is(.ms-btn-primary, .ms-btn-ghost) {
+  background-image: var(--paper-grain);
+  border-color: var(--matte-edge);
+  box-shadow: var(--paper-lift);
+}
+#root .ms-btn-primary { background-color: var(--matte-red); color: #fff9ef; }
+#root .ms-btn-primary:hover:not(:disabled) { background-color: #94352e; }
+#root .ms-btn-ghost { background-color: var(--matte-record); color: var(--matte-ink); }
+#root .tt-sheet-panel .ms-btn-primary { background: var(--paper-grain), var(--matte-red) !important; color: #fff9ef; }
+#root .tt-sheet-panel .ms-btn-primary:hover { background-color: #94352e !important; }
+#root .ms-input { background: var(--paper-grain), var(--matte-record); color: var(--matte-ink); }
+#root .ms-input:focus { border-color: var(--matte-red); box-shadow: 0 0 0 3px #ad3e3514; }
+#root :is(.tt-chip, .tt-icon-button) { background: var(--paper-grain), var(--matte-debt); }
+#root :is(.ms-btn-primary, .ms-btn-ghost, .tt-icon-button):active:not(:disabled) { transform: translateY(2px); box-shadow: var(--paper-pressed); }
+#root :is(button, input, select, textarea):focus-visible { outline-color: var(--matte-red); }
+
+/* Extra scope keeps this palette stable when a route's CSS loads lazily. */
+#root .home-shell.home-shell {
+  --home-bg: var(--matte-bg); --home-surface: var(--matte-balance);
+  --home-card: var(--matte-record); --home-text: var(--matte-ink);
+  --home-muted: var(--matte-secondary); --home-line: var(--matte-edge);
+  --home-accent: var(--matte-red); --home-in: var(--matte-green); --home-out: var(--matte-red);
+  background: var(--paper-grain), var(--matte-bg) !important;
+}
+#root .home-shell .home-balance-card {
+  background: var(--paper-grain), var(--matte-balance);
+  border: 1px solid var(--matte-edge); border-radius: 24px;
+  padding: 18px 20px; box-shadow: var(--paper-lift);
+}
+#root .home-shell .home-balance-card::before { border-color: #c6ad8e80; inset: 7px; border-radius: 18px; }
+#root .home-shell .home-balance-card::after,
+#root .home-frame[data-density="detailed"] .home-record:not(.is-compact)::after,
+#root .tt-record-card::after, #root .tt-nav-tape { content: none; display: none; }
+#root .home-shell .home-title::before { background: #ead6bc; height: 9px; clip-path: none; border-radius: 3px; }
+#root .home-shell .home-title::after { content: none; }
+#root .home-shell .home-today { color: var(--matte-secondary); }
+#root .home-shell .home-balance-figure { color: var(--matte-ink); font-size: 28px; line-height: 1.2; }
+#root .home-shell .home-account-button span { color: var(--matte-ink); font-weight: 500; }
+#root .home-shell .home-account-notice { color: var(--matte-ink); }
+#root .home-shell .home-wallet-manage { color: var(--matte-ink); }
+#root .home-shell .home-account-notice-dot { background: var(--matte-red); box-shadow: 0 0 0 2px var(--matte-balance); }
+#root .home-shell .home-debt-stat { background: var(--paper-grain), var(--matte-debt); border: 1px solid var(--matte-edge); border-radius: 14px; box-shadow: var(--paper-lift); padding: 9px 12px; }
+#root .home-shell .home-debt-stat::before { content: none; }
+#root .home-shell .home-debt-stat:hover { background-color: #f2e9db; }
+#root .home-shell .home-debt-stat:active { transform: translateY(2px); box-shadow: var(--paper-pressed); }
+#root .home-shell .home-debt-stat .home-meta { color: var(--matte-ink); }
+#root .home-shell .home-debt-stat.is-receivable .home-debt-value { color: var(--matte-green); }
+#root .home-shell .home-debt-stat.is-payable .home-debt-value,
+#root .home-shell .home-debt-stat[data-empty="true"] .home-debt-value { color: var(--matte-secondary); }
+#root .home-shell .home-unconfirmed-hint { background: var(--matte-notice); color: var(--matte-secondary); border: 0; box-shadow: none; border-radius: 7px; }
+#root .home-shell .home-frame[data-density="detailed"] .home-record:not(.is-compact) { box-shadow: var(--paper-lift); }
+#root .home-shell .home-frame[data-density="detailed"] .home-record:not(.is-compact)::before { background: var(--paper-grain), var(--matte-record); box-shadow: inset 0 0 0 1px #d9c9b480; }
+#root .ms-row.tt-record-card { background: var(--paper-grain), var(--matte-record); }
+#root .home-shell .home-frame[data-density="detailed"] .home-record-icon { width: 32px; height: 32px; background: var(--paper-grain), #f0e3d0; border: 1px solid #dfceb8; box-shadow: none; border-radius: 9px; color: var(--matte-ink); }
+#root .home-shell .home-record-icon svg { width: 20px; height: 20px; }
+#root .home-shell .home-frame[data-density="detailed"] .home-record-main { grid-template-columns: 32px minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; }
+#root .home-shell .home-record-title { color: var(--matte-ink); }
+#root .home-shell .home-record .home-amount.outgoing { color: var(--matte-red); }
+#root .home-shell .home-record .home-amount.incoming { color: var(--matte-green); }
+#root .home-shell .home-frame[data-density="detailed"] .home-chip { background: #f0e4d2; border: 0; box-shadow: none; color: var(--matte-secondary); }
+#root .home-shell .home-frame .home-record :is(.home-chip, .home-wallet, .home-note) { color: var(--matte-secondary); }
+#root .home-shell .home-date strong { color: var(--matte-ink); }
+#root .home-shell .home-day::before { background: #c3a585; }
+#root .home-shell .home-date::before { border-color: #b49473; }
+#root .home-shell .home-frame[data-density="compact"] .home-day .home-date::after { background: var(--paper-grain), var(--matte-balance); }
+#root .home-shell .home-frame[data-density="compact"] :is(.home-compact-date strong, .home-day-total-value) { color: var(--matte-ink); }
+#root .home-shell .home-frame[data-density="compact"] :is(.home-date-year, .home-day-total-label) { color: var(--matte-secondary); }
+
+/* Two visible density choices inside one accessible switch. */
+#root .home-shell .home-density-toggle { width: 68px; min-width: 68px; }
+#root .home-shell .home-density-track { width: 64px; height: 30px; background: var(--matte-balance); border-color: var(--matte-edge); box-shadow: none; }
+#root .home-shell .home-density-thumb { top: 2px; left: 2px; width: 26px; height: 24px; border: 0; border-radius: 12px; background: var(--matte-record); box-shadow: 0 1px 3px #59432920; }
+#root .home-shell .home-density-option { position: absolute; top: 0; display: grid; place-items: center; width: 30px; height: 28px; color: var(--matte-secondary); pointer-events: none; }
+#root .home-shell .home-density-option svg { width: 14px; height: 14px; }
+#root .home-shell .home-density-option.is-detailed { left: 0; }
+#root .home-shell .home-density-option.is-compact { right: 0; }
+#root .home-shell .home-density-toggle[aria-checked="true"] .home-density-thumb { transform: translateX(32px); }
+#root .home-shell .home-density-toggle:active .home-density-thumb { transform: translateY(1px); box-shadow: none; }
+#root .home-shell .home-density-toggle[aria-checked="true"]:active .home-density-thumb { transform: translateX(32px) translateY(1px); }
+#root .home-shell .home-mode-trigger::before,
+#root .home-shell .home-mode-menu { background: var(--paper-grain), var(--matte-record); border-color: var(--matte-edge); box-shadow: var(--paper-lift); }
+#root .home-shell .home-mode-trigger { color: var(--matte-secondary); }
+#root .home-shell .home-mode-trigger:hover::before { background-color: var(--matte-debt); }
+#root .home-shell .home-mode-menu button[aria-checked="true"] { background: var(--matte-balance); color: var(--matte-ink); }
+#root :is(.home-notice-popover, .home-notice-popover::before) { background: var(--paper-grain), var(--matte-record); border-color: var(--matte-edge); }
+#root .home-sheet { color: var(--matte-ink); }
+#root .home-sheet-backdrop {
+  --home-card: var(--matte-record); --home-text: var(--matte-ink);
+  --home-muted: var(--matte-secondary); --home-line: var(--matte-edge);
+  --home-in: var(--matte-green); --home-out: var(--matte-red);
+}
+#root .home-sheet::before { content: none; }
+#root .home-sheet .home-sheet-option { background: var(--paper-grain), var(--matte-record); }
+#root .home-sheet .home-sheet-option[aria-current="true"] { background-color: var(--matte-balance); }
+
+/* Account, date and split panels also use solid paper while open. */
+#root .qa-main .qa-panel, #root .qa-panel.qa-panel { background: var(--paper-grain), var(--matte-record); border-color: var(--matte-edge); color: var(--matte-ink); }
+#root .qa-main .qa-icon-tile { background: var(--paper-grain), var(--matte-balance); border-color: var(--matte-edge); }
+#root .qa-main :is(.qa-account-row, .qa-person-choice, .qa-split-person) { background: var(--paper-grain), var(--matte-record); border-color: var(--matte-edge); }
+#root .qa-main :is(.qa-account-row.is-selected, .qa-person-choice[data-selected="true"]) { background-color: #f6d8cc; border-color: var(--matte-red); }
+#root .qa-main .qa-primary { background: var(--paper-grain), var(--matte-red); color: #fff9ef; border-color: #94352e; }
+#root .qa-main :is(.qa-account-row small, .qa-helper, .qa-stack > label) { color: var(--matte-secondary); }
+#root .qa-main :is(.qa-segment, .qa-split-summary, .qa-avatar, .qa-add-row) { background: var(--matte-debt); border-color: var(--matte-edge); }
+#root .qa-main input[type="checkbox"] { accent-color: var(--matte-red); }
+
+/* Navigation uses the same solid stock as the catalogue, without embossing. */
+#root .tt-nav-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 64px minmax(0, 1fr) minmax(0, 1fr); min-height: 74px; padding-block: 8px; }
+#root .tt-nav-item { color: var(--matte-secondary); }
+#root .tt-nav-item[aria-current="page"] { color: var(--matte-red); background: transparent; }
+#root .tt-icon-plate svg { width: 24px; height: 24px; stroke: none; filter: none; }
+#root .tt-seal { width: 64px; height: 64px; filter: drop-shadow(0 3px 3px #59432925); }
+#root .tt-center-layer { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 22px); }
+#root .tt-seal-plus svg { width: 28px; height: 28px; filter: none; }
+#root .tt-seal:active, #root .tt-seal[data-pressed="true"] { transform: translateY(2px) scale(.98); filter: drop-shadow(0 1px 1px #59432918); }
+#root .tt-nav-surface::before { filter: drop-shadow(0 3px 3px #59432914) drop-shadow(0 6px 8px #59432912); }
+
+@media (max-width: 359px) { #root .home-shell .home-balance-card { padding-inline: 14px; } }

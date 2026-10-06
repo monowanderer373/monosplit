@@ -1,15 +1,15 @@
 /* The material layer is decorative; the existing capture and panel layouts own sizing. */
 #root .qa-backdrop .qa-main.qa-stationery {
-  --qa-bg: #fbf3e5;
-  --qa-card: #fff8ec;
+  --qa-bg: #f4efe6;
+  --qa-card: #fff9ef;
   --qa-ink: #38200e;
-  --qa-orange: #d73336;
-  --qa-peach: #f7e5df;
-  background: var(--paper-grain), linear-gradient(125deg, #fff9ef, #f6e8d2);
+  --qa-orange: #ad3e35;
+  --qa-peach: #f6d8cc;
+  background: var(--paper-grain), #f4efe6;
 }
 #root .qa-stationery .qa-header { position: relative; }
-#root .qa-stationery .qa-header h1 { color: #382516; font-weight: 700; }
-#root .qa-stationery .qa-header p { color: #8a7057; }
+#root .qa-stationery .qa-header h1 { color: #38281c; font-weight: 700; }
+#root .qa-stationery .qa-header p { color: #76624f; }
 #root .qa-stationery .qa-category,
 #root .qa-stationery .qa-keypad button,
 #root .qa-stationery .qa-actions > button,
@@ -39,7 +39,7 @@
 }
 #root .qa-stationery .qa-category { font-weight: 550; padding-right: 15px; }
 #root .qa-stationery .qa-category.is-selected {
-  color: #c53032;
+  color: #ad3e35;
   background: transparent;
   border: 0;
   box-shadow: none;
@@ -54,18 +54,18 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #d73336;
+  background: #ad3e35;
   color: #fffaf1;
   box-shadow: 0 1px 1px #9d302020;
   pointer-events: none;
 }
 #root .qa-stationery .qa-category-check svg { width: 10px; height: 10px; }
-#root .qa-stationery .qa-edit { color: #8a7057; }
+#root .qa-stationery .qa-edit { color: #76624f; }
 #root .qa-stationery .qa-entry-zone {
   position: relative;
   isolation: isolate;
   border: 0;
-  background: var(--paper-grain), #fbf3e5;
+  background: var(--paper-grain), #f4efe6;
   box-shadow: 0 -5px 12px #87613d0c;
 }
 #root .qa-stationery .qa-entry-zone::before {
@@ -80,20 +80,20 @@
   pointer-events: none;
 }
 #root .qa-stationery .qa-inputs > label { padding: 10px 12px; }
-#root .qa-stationery .qa-inputs > label > span { color: #8a7057; }
+#root .qa-stationery .qa-inputs > label > span { color: #76624f; }
 #root .qa-stationery .qa-inputs :is(input, select) { background: transparent; background-image: none; }
-#root .qa-stationery .qa-inputs .qa-amount input { font-weight: 600; color: #382516; }
-#root .qa-stationery .qa-amount input::placeholder { opacity: 1; color: #725b44; }
+#root .qa-stationery .qa-inputs .qa-amount input { font-weight: 600; color: #38281c; }
+#root .qa-stationery .qa-amount input::placeholder { opacity: 1; color: #38281c; }
 #root .qa-stationery .qa-inputs .qa-description input { font-weight: 550; }
 #root .qa-stationery .qa-keypad button::before,
 #root .qa-stationery .qa-icon-button::before { background-image: url('../assets/quick-add/paper-key.svg'); }
 #root .qa-stationery .qa-keypad button { font-weight: 600; color: #38200e; }
 #root .qa-stationery .qa-keypad button.qa-operator { background: transparent; }
 #root .qa-stationery .qa-keypad .qa-operator::before { background-image: url('../assets/quick-add/operator-key.svg'); }
-#root .qa-stationery .qa-keypad button.qa-equals { color: #c53032; }
+#root .qa-stationery .qa-keypad button.qa-equals { color: #ad3e35; }
 #root .qa-stationery .qa-keypad .qa-equals::before { background-image: url('../assets/quick-add/selected-tile.svg'); }
 #root .qa-stationery .qa-actions > button svg { color: #38200e; }
-#root .qa-stationery .qa-actions small { color: #8a7057; }
+#root .qa-stationery .qa-actions small { color: #76624f; }
 #root .qa-stationery .qa-actions > button.is-selected { background: transparent; box-shadow: none; }
 #root .qa-stationery .qa-actions > button.is-selected::before { background-image: url('../assets/quick-add/selected-tile.svg'); }
 #root .qa-stationery .qa-save-buttons > button { color: #38200e; }
@@ -113,7 +113,7 @@
 #root .qa-stationery .qa-save-buttons > button span { font-weight: 550; }
 #root .qa-stationery :is(.qa-category, .qa-keypad button, .qa-actions > button, .qa-save-buttons > button, .qa-icon-button):active:not(:disabled) { transform: translateY(2px) scale(.99); box-shadow: none; }
 #root .qa-stationery :is(.qa-category, .qa-keypad button, .qa-actions > button, .qa-save-buttons > button, .qa-icon-button):active:not(:disabled)::before { filter: drop-shadow(0 1px 1px #79593218); }
-#root .qa-stationery button:focus-visible { outline-color: #be3335; }
+#root .qa-stationery button:focus-visible { outline-color: #ad3e35; }
 @media (max-width: 370px) {
   #root .qa-stationery .qa-category { padding-right: 13px; }
   #root .qa-stationery .qa-entry-zone::before { left: -12px; right: -12px; }
