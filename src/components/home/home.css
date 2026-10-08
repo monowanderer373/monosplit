@@ -29,7 +29,18 @@
 #root .home-shell .home-balance-figure .tt-money-currency { font-size: inherit; font-weight: inherit; }
 .home-icon-button { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; flex-shrink: 0; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--tt-ink); font: inherit; cursor: pointer; }
 .home-icon-button:hover { background: var(--tt-primary-soft); }
-#root .home-shell .home-account-target { display: flex; align-items: center; min-height: 44px; margin-block: -6px; max-width: 100%; }
+#root .home-shell .home-account-target { position: relative; display: flex; align-items: center; min-height: 44px; margin-block: -6px; max-width: 100%; }
+#root .home-shell .home-balance-card[data-account-menu-open="true"] { z-index: 50; }
+#root .home-shell .home-account-button[aria-expanded="true"] > svg { transform: rotate(180deg); }
+#root .home-shell .home-account-button > svg { transition: transform 180ms ease-out; }
+.home-account-paper-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; isolation: isolate; display: grid; grid-template-rows: auto minmax(0,1fr) auto; width: min(100%,360px); max-height: min(420px,calc(100dvh - 240px)); box-sizing: border-box; padding: 10px 12px 12px; border: 1px solid var(--tt-wallet-edge); border-radius: 4px 4px 12px 12px; background: var(--tt-surface); color: var(--tt-ink); box-shadow: 0 8px 24px rgb(36 55 74 / .13),0 2px 4px rgb(36 55 74 / .05); transform-origin: top left; animation: home-paper-menu-in 180ms ease-out; }
+.home-account-paper-menu::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; background: url('/denim-paper/paper-grain.svg') repeat; background-size: 128px; opacity: .10; }
+.home-account-paper-menu > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--tt-border); }
+.home-account-paper-menu h2 { margin: 0; font: inherit; font-size: 14px; font-weight: 650; }
+.home-account-paper-menu .home-account-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.home-account-paper-menu .home-account-option { min-height: 48px; }
+.home-account-paper-menu .home-add-account-button { margin-top: 10px; }
+@keyframes home-paper-menu-in { from { opacity: 0; transform: translateY(-4px) scaleY(.90); } to { opacity: 1; transform: translateY(0) scaleY(1); } }
 #root .home-shell .home-account-button { position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; height: 28px; padding: 0 10px; border: 1px solid var(--tt-leather-edge); border-radius: 8px; background: var(--tt-leather); color: var(--tt-leather-ink); box-shadow: var(--tt-shadow-button); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
 #root .home-shell .home-account-button::before { content: ''; position: absolute; inset: -8px 0; border-radius: inherit; }
 #root .home-shell .home-account-button::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; background: url('/denim-paper/leather-grain.svg') repeat; background-size: 96px; opacity: .18; }
@@ -136,6 +147,19 @@
 .home-sheet > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; }
 .home-sheet h2 { margin: 0; font-size: 20px; font-weight: 700; }
 .home-sheet h3 { font-size: 14px; font-weight: 650; margin: 16px 0 4px; }
+/* Review appears as a quiet paper window in the center, with a fixed header. */
+.home-sheet-backdrop.is-paper-dialog { align-items: center; padding: 16px; box-sizing: border-box; }
+.home-sheet-backdrop.is-paper-dialog .home-sheet-scrim { background: rgb(36 55 74 / .22); }
+#root .home-sheet.home-paper-dialog { display: grid; grid-template-rows: auto minmax(0,1fr); width: min(100%,440px); max-height: min(78dvh,640px); padding: 16px 20px 20px; border: 1px solid var(--tt-border); border-radius: 16px; overflow: hidden; box-shadow: 0 12px 36px rgb(36 55 74 / .16),0 2px 5px rgb(36 55 74 / .05); animation: home-paper-dialog-in 180ms ease-out; }
+.home-paper-dialog::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: url('/denim-paper/paper-grain.svg') repeat; background-size: 128px; opacity: .07; }
+.home-paper-dialog-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.home-paper-dialog-content > .home-meta { margin: 4px 0 12px; line-height: 1.5; }
+.home-paper-dialog .home-split-preview-section { margin-top: 16px; }
+.home-paper-dialog .home-preview-lines { min-width: 0; max-width: 50%; overflow-wrap: anywhere; }
+#root .home-sheet-backdrop.is-closing .home-sheet.home-paper-dialog { animation: home-paper-dialog-out 160ms ease-out forwards; }
+@keyframes home-paper-dialog-in { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes home-paper-dialog-out { to { opacity: 0; transform: translateY(3px) scale(.98); } }
+@media(prefers-reduced-motion:reduce) { .home-account-paper-menu,#root .home-sheet.home-paper-dialog,#root .home-sheet-backdrop.is-closing .home-sheet.home-paper-dialog { animation: none !important; } #root .home-shell .home-account-button > svg { transition: none; } }
 .home-sheet-option { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 56px; padding: 10px 0; border: 0; border-bottom: 1.4px dotted var(--tt-dots); border-radius: 0; background: transparent; color: var(--tt-ink); font: inherit; font-size: 14px; text-align: left; }
 button.home-sheet-option { cursor: pointer; }
 button.home-sheet-option:hover { background: var(--tt-primary-soft); }

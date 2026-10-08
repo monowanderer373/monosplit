@@ -1,6 +1,6 @@
 import { capitalizeDescription } from '../../lib/description'
 import MoneyText from '../MoneyText'
-import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import { cloneElement, isValidElement, useEffect, useEffectEvent, useId, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useAccessibleDialog } from '../../hooks/useAccessibleDialog'
 import QuickIcon from '../QuickIcon'
@@ -102,7 +102,7 @@ export default function HomeScreen(props: HomeScreenProps) {
   const swipeIds = ['all', ...assetAccounts.map((account) => account.id)]
   const swipeStart = useRef<number | null>(null)
   const onSwipeDown = (event: PointerEvent<HTMLElement>) => {
-    if ((event.target as HTMLElement).closest('button')) return
+    if ((event.target as HTMLElement).closest('button, [role="dialog"]')) return
     swipeStart.current = event.clientX
   }
   const onSwipeUp = (event: PointerEvent<HTMLElement>) => {
@@ -130,6 +130,7 @@ export default function HomeScreen(props: HomeScreenProps) {
         <section
           className="home-card home-balance-card"
           aria-labelledby="home-balance-title"
+          data-account-menu-open={sheet === 'accounts'}
           onPointerDown={onSwipeDown}
           onPointerUp={onSwipeUp}
         >
@@ -159,9 +160,31 @@ export default function HomeScreen(props: HomeScreenProps) {
           </div>
           <div className="home-account-target">
             <button ref={accountTrigger} type="button" className="home-account-button" data-testid="home-account-selector"
-              aria-haspopup="dialog" aria-expanded={sheet === 'accounts'} onClick={() => setSheet('accounts')}>
+              aria-haspopup="dialog" aria-controls={sheet === 'accounts' ? 'home-account-sheet' : undefined} aria-expanded={sheet === 'accounts'} onClick={() => setSheet(value => value === 'accounts' ? null : 'accounts')}>
               <span>{selected?.name ?? t('home.allAccounts')}</span><Chevron />
             </button>
+            {sheet === 'accounts' ? (
+              <AccountPaperMenu title={t('home.accountSheet')} onClose={closeSheet} testId="home-account-sheet" triggerRef={accountTrigger}>
+                <div className="home-account-list">
+                  <AccountOption name={t('home.allAccounts')} type="all" selected={props.selectedAccountId === 'all'}
+                    onSelect={() => { props.onSelectAccount('all'); closeSheet() }}>
+                    {props.accountsStatus !== 'ready' ? t(props.accountsStatus === 'loading' ? 'home.loading' : 'home.unavailable')
+                      : <span className="home-money-lines">{allAccountBalances(assetAccounts, 'all').map(balance => <span key={balance.currency}>
+                        {balance.amountMinor == null ? t('home.balanceIncomplete') : formatMoney(balance.amountMinor, balance.currency, lang, t)}
+                        {balance.knownOnly ? ` · ${t('home.knownBalance')}` : ''}
+                      </span>)}</span>}
+                  </AccountOption>
+                  {props.accountsStatus === 'ready' ? assetAccounts.map(account => <AccountOption key={account.id} name={account.name}
+                    type={account.accountType} selected={account.id === props.selectedAccountId}
+                    onSelect={() => { props.onSelectAccount(account.id); closeSheet() }}>
+                    {accountBalanceLabel(account, lang, t)}
+                  </AccountOption>) : null}
+                </div>
+                <button type="button" className="home-add-account-button" data-testid="home-add-account" onClick={() => setSheet('create')}>
+                  <PlusIcon /><span>{t('home.addAccount')}</span>
+                </button>
+              </AccountPaperMenu>
+            ) : null}
           </div>
         </section>
         <div className="home-stat-row">
@@ -246,31 +269,8 @@ export default function HomeScreen(props: HomeScreenProps) {
 
       </section>
 
-      {sheet === 'accounts' ? (
-        <HomeSheet title={t('home.accountSheet')} onClose={closeSheet} testId="home-account-sheet" returnFocusRef={accountTrigger}>
-          <div className="home-account-list">
-            <AccountOption name={t('home.allAccounts')} type="all" selected={props.selectedAccountId === 'all'}
-              onSelect={() => { props.onSelectAccount('all'); closeSheet() }}>
-              {props.accountsStatus !== 'ready' ? t(props.accountsStatus === 'loading' ? 'home.loading' : 'home.unavailable')
-                : <span className="home-money-lines">{allAccountBalances(assetAccounts, 'all').map(balance => <span key={balance.currency}>
-                  {balance.amountMinor == null ? t('home.balanceIncomplete') : formatMoney(balance.amountMinor, balance.currency, lang, t)}
-                  {balance.knownOnly ? ` · ${t('home.knownBalance')}` : ''}
-                </span>)}</span>}
-            </AccountOption>
-            {props.accountsStatus === 'ready' ? assetAccounts.map(account => <AccountOption key={account.id} name={account.name}
-              type={account.accountType} selected={account.id === props.selectedAccountId}
-              onSelect={() => { props.onSelectAccount(account.id); closeSheet() }}>
-              {accountBalanceLabel(account, lang, t)}
-            </AccountOption>) : null}
-          </div>
-          <button type="button" className="home-add-account-button" data-testid="home-add-account" onClick={() => setSheet('create')}>
-            <PlusIcon /><span>{t('home.addAccount')}</span>
-          </button>
-        </HomeSheet>
-      ) : null}
-
       {sheet === 'review' ? (
-        <HomeSheet title={t('home.unconfirmed')} onClose={closeSheet} testId="home-review-sheet">
+        <HomeSheet title={t('home.unconfirmed')} onClose={closeSheet} testId="home-review-sheet" presentation="dialog">
           <p className="home-meta">{t('home.previewExcluded')}</p>
           {(['pending', 'manual'] as const).map(status => {
             const contexts = (props.sharedPreviews ?? []).filter(context => context.status === status)
@@ -347,6 +347,69 @@ function ModeBookmark({ mode, onChange }: { mode: 'daily' | 'travel'; onChange: 
     {(['daily', 'travel'] as const).map(choice => <button type="button" key={choice} aria-pressed={choice === mode}
       onClick={() => { if (choice !== mode) onChange(choice) }}><span>{t(choice === 'daily' ? 'home.modeDaily' : 'home.modeTravel')}</span></button>)}
   </div>
+}
+
+function AccountPaperMenu({ title, onClose, testId, triggerRef, children }: {
+  title: string
+  onClose: () => void
+  testId: string
+  triggerRef: RefObject<HTMLElement | null>
+  children: ReactNode
+}) {
+  const t = useT()
+  const panel = useRef<HTMLElement>(null)
+  const restoreFocus = useRef(true)
+  const dismiss = useEffectEvent((restore: boolean) => {
+    restoreFocus.current = restore
+    onClose()
+  })
+  useEffect(() => {
+    const trigger = triggerRef.current
+    const frame = requestAnimationFrame(() => {
+      const selected = panel.current?.querySelector<HTMLButtonElement>('.home-account-option[aria-pressed="true"]')
+      ;(selected ?? panel.current)?.focus({ preventScroll: true })
+      selected?.scrollIntoView?.({ block: 'nearest' })
+    })
+    const outside = (event: Event) => {
+      const target = event.target
+      if (target instanceof Node && !panel.current?.contains(target) && !trigger?.contains(target)) dismiss(false)
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      const dialog = event.target instanceof Element ? event.target.closest('[role="dialog"]') : null
+      if (dialog && dialog !== panel.current) return
+      event.preventDefault()
+      dismiss(true)
+    }
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('focusin', outside)
+    document.addEventListener('keydown', escape)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('focusin', outside)
+      document.removeEventListener('keydown', escape)
+      if (restoreFocus.current) trigger?.focus({ preventScroll: true })
+    }
+  }, [triggerRef])
+  return <section ref={panel} id={testId} role="dialog" aria-modal="false" aria-labelledby={`${testId}-title`}
+    tabIndex={-1} className="home-account-paper-menu" data-testid={testId}
+    onKeyDown={event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); return }
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+      const options = Array.from(panel.current?.querySelectorAll<HTMLButtonElement>('.home-account-option') ?? [])
+      if (!options.length) return
+      event.preventDefault()
+      const current = options.indexOf(document.activeElement as HTMLButtonElement)
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
+        : current < 0 ? 0 : (current + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length
+      options[next]?.focus({ preventScroll: true })
+      options[next]?.scrollIntoView?.({ block: 'nearest' })
+    }}>
+    <header><h2 id={`${testId}-title`}>{title}</h2><button type="button" className="home-icon-button"
+      aria-label={t('home.close')} onClick={onClose}>×</button></header>
+    {children}
+  </section>
 }
 
 function AccountOption({ name, type, selected, onSelect, children }: {
@@ -653,12 +716,14 @@ function HomeSheet({
   children,
   dismissible = true,
   returnFocusRef,
+  presentation = 'sheet',
 }: {
   title: string
   onClose: () => void
   testId: string
   children: ReactNode
   dismissible?: boolean
+  presentation?: 'sheet' | 'dialog'
   returnFocusRef?: RefObject<HTMLElement | null>
 }) {
   const t = useT()
@@ -679,25 +744,25 @@ function HomeSheet({
     }
   }, [])
   return createPortal(
-    <div className={`home-sheet-backdrop${closing ? ' is-closing' : ''}`} data-testid={`${testId}-backdrop`}>
+    <div className={`home-sheet-backdrop${presentation === 'dialog' ? ' is-paper-dialog' : ''}${closing ? ' is-closing' : ''}`} data-testid={`${testId}-backdrop`}>
       <div className="home-sheet-scrim" aria-hidden="true" data-testid={`${testId}-scrim`} onClick={requestClose} />
       <section
         ref={ref}
-        className="home-sheet"
+        className={`home-sheet${presentation === 'dialog' ? ' home-paper-dialog' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${testId}-title`}
         tabIndex={-1}
         data-testid={testId}
       >
-        <span className="home-sheet-handle" aria-hidden="true" />
+        {presentation === 'sheet' ? <span className="home-sheet-handle" aria-hidden="true" /> : null}
         <header>
           <h2 id={`${testId}-title`}>{title}</h2>
           <button type="button" className="home-icon-button" aria-label={t('home.close')} onClick={requestClose} disabled={!dismissible}>
             ×
           </button>
         </header>
-        {children}
+        {presentation === 'dialog' ? <div className="home-paper-dialog-content">{children}</div> : children}
       </section>
     </div>,
     document.getElementById('root') ?? document.body,

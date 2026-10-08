@@ -49,7 +49,16 @@ for (const width of [320, 360, 390, 430]) {
     await noHorizontalOverflow(page)
     await page.screenshot({ path: `test-results/home-ui/compact-${width}.png`, fullPage: true })
     await page.getByTestId('home-account-selector').click()
-    await expect(page.getByTestId('home-account-sheet')).toBeVisible()
+    const accountMenu = page.getByTestId('home-account-sheet')
+    await expect(accountMenu).toBeVisible()
+    await expect(accountMenu).toHaveAttribute('aria-modal', 'false')
+    await expect(page.getByTestId('home-account-sheet-scrim')).toHaveCount(0)
+    await expect.poll(async () => {
+      const menu = await accountMenu.boundingBox()
+      const trigger = await page.getByTestId('home-account-selector').boundingBox()
+      return menu!.y - (trigger!.y + trigger!.height)
+    }).toBeGreaterThan(0)
+    await noHorizontalOverflow(page)
     await page.screenshot({ path: `test-results/home-ui/account-sheet-${width}.png`, fullPage: true })
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('home-account-sheet')).toHaveCount(0)
@@ -57,7 +66,7 @@ for (const width of [320, 360, 390, 430]) {
   })
 }
 
-test('selects accounts, enters the existing add form, and traps and restores focus', async ({ page }) => {
+test('selects accounts from the paper menu and enters the existing accessible add form', async ({ page }) => {
   await openCase(page, 390)
   await page.getByTestId('home-account-selector').click()
   const sheet = page.getByTestId('home-account-sheet')
@@ -65,10 +74,11 @@ test('selects accounts, enters the existing add form, and traps and restores foc
   await expect(page.getByTestId('home-account-selector')).toContainText('CIMB')
   await expect(page.getByTestId('home-balance-values')).toContainText('1,250.00')
   await page.getByTestId('home-account-selector').click()
-  await page.keyboard.press('Shift+Tab')
-  await expect(page.getByTestId('home-add-account')).toBeFocused()
-  await page.keyboard.press('Tab')
-  await expect(sheet.getByRole('button', { name: 'Close' })).toBeFocused()
+  await expect(sheet.getByRole('button', { name: /^CIMB/ })).toBeFocused()
+  await page.keyboard.press('Home')
+  await expect(sheet.getByRole('button', { name: /^All accounts/ })).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(sheet.getByRole('button', { name: /^Touch/ })).toBeFocused()
   await page.getByTestId('home-add-account').click()
   await expect(page.getByTestId('home-create-account-sheet')).toBeVisible()
   await page.getByLabel('Account name', { exact: true }).fill('New wallet')
@@ -109,6 +119,28 @@ test('preserves notification content, zero pending and error states', async ({ p
   await expect(page.getByTestId('home-balance-values')).toHaveCount(0)
   await expect(page.getByTestId('home-unconfirmed-notice')).toHaveCount(0)
   await expect(page.getByTestId('home-receivable')).not.toContainText('0.00')
+})
+
+test('review opens a centered paper dialog and keeps dismissal and focus accessible', async ({ page }) => {
+  await openCase(page, 390, 'pending')
+  const trigger = page.getByTestId('home-unconfirmed-notice')
+  await trigger.click()
+  const dialog = page.getByTestId('home-review-sheet')
+  await expect(dialog).toHaveAttribute('aria-modal', 'true')
+  await expect(dialog.locator('.home-sheet-handle')).toHaveCount(0)
+  await expect(dialog).toContainText('Pending confirmation')
+  await expect.poll(async () => {
+    const bounds = await dialog.boundingBox()
+    return Math.abs(bounds!.y + bounds!.height / 2 - 844 / 2)
+  }).toBeLessThan(1)
+  await dialog.getByRole('button', { name: 'Close' }).focus()
+  await page.keyboard.press('Shift+Tab')
+  await expect(dialog.getByRole('button').last()).toBeFocused()
+  await noHorizontalOverflow(page)
+  await page.screenshot({ path: 'test-results/home-ui/review-dialog-390.png', fullPage: true })
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(trigger).toBeFocused()
 })
 
 test('long content and enlarged text remain within a 320px viewport', async ({ page }) => {

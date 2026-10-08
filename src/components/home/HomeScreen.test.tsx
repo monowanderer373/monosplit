@@ -1,7 +1,6 @@
 /** @vitest-environment jsdom */
-import { readFileSync } from 'node:fs'
 import { useState } from 'react'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { HomeAccount, HomeDateGroup } from '../../lib/homeView'
@@ -9,8 +8,6 @@ import { formatMinorAmount } from '../../lib/money'
 import { useStore } from '../../store/useStore'
 import GlobalMoneyAction from '../GlobalMoneyAction'
 import HomeScreen, { type HomeScreenProps } from './HomeScreen'
-
-const homeCss = readFileSync('src/components/home/home.css', 'utf8')
 
 afterEach(() => {
   cleanup()
@@ -314,7 +311,7 @@ describe('HomeScreen', () => {
     expect(screen.getByRole('button', { name: 'Travel' }).getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('opens the account sheet and offers the existing add account form', async () => {
+  it('opens an anchored nonmodal account menu and offers the existing add account form', async () => {
     const user = userEvent.setup()
     render(
       <div id="root">
@@ -325,15 +322,15 @@ describe('HomeScreen', () => {
     await user.click(screen.getByTestId('home-account-selector'))
     const sheet = screen.getByTestId('home-account-sheet')
     expect(sheet.getAttribute('role')).toBe('dialog')
+    expect(sheet.getAttribute('aria-modal')).toBe('false')
     expect(screen.getByTestId('home-add-account').textContent).toContain('Add account')
     expect(document.body.textContent).not.toContain('MYR · MYR')
     const action = screen.getByTestId('global-money-action-layer')
-    expect(action.closest('[inert], [aria-hidden="true"]') ?? (action.inert ? action : null)).toBeTruthy()
+    expect(action.closest('[inert], [aria-hidden="true"]') ?? (action.inert ? action : null)).toBeNull()
     expect(action.className).toContain('z-[45]')
-    const backdrop = sheet.parentElement as HTMLElement
-    expect(backdrop.className).toContain('home-sheet-backdrop')
-    expect(homeCss).toContain('.home-sheet-backdrop')
-    expect(homeCss).toContain('z-index: 100')
+    expect(sheet.parentElement?.className).toContain('home-account-target')
+    expect(screen.queryByTestId('home-account-sheet-backdrop')).toBeNull()
+    expect(document.body.style.overflow).toBe('')
     await user.click(screen.getByRole('button', { name: 'Close' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     const selector = screen.getByTestId('home-account-selector')
@@ -344,7 +341,7 @@ describe('HomeScreen', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
-  it('dismisses the picker by scrim and Escape and restores focus and scrolling', async () => {
+  it('dismisses the account menu outside without stealing focus and restores the trigger on Escape', async () => {
     const user = userEvent.setup()
     render(<div id="root"><HomeScreen {...props()} /></div>)
     const trigger = screen.getByTestId('home-account-selector')
@@ -352,13 +349,57 @@ describe('HomeScreen', () => {
     const dialog = screen.getByTestId('home-account-sheet')
     await user.click(dialog.querySelector('h2')!)
     expect(screen.getByTestId('home-account-sheet')).toBeTruthy()
-    await user.click(screen.getByTestId('home-account-sheet-scrim'))
+    const outside = screen.getByTestId('home-balance-eye')
+    await user.click(outside)
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(document.activeElement).toBe(trigger)
+    expect(document.activeElement).toBe(outside)
     expect(document.body.style.overflow).toBe('')
     await user.click(trigger); await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(document.activeElement).toBe(trigger)
+  })
+
+  it('moves between account options with arrow keys and lets focus leave the menu', async () => {
+    const user = userEvent.setup()
+    render(<HomeScreen {...props()} />)
+    const trigger = screen.getByTestId('home-account-selector')
+    await user.click(trigger)
+    const all = within(screen.getByTestId('home-account-sheet')).getByRole('button', { name: /^All accounts/ })
+    const cimbOption = screen.getByRole('button', { name: /^CIMB Savings/ })
+    await waitFor(() => expect(document.activeElement).toBe(all))
+    await user.keyboard('{ArrowDown}')
+    expect(document.activeElement).toBe(cimbOption)
+    await user.keyboard('{Home}')
+    expect(document.activeElement).toBe(all)
+    await user.keyboard('{End}')
+    expect(document.activeElement).toBe(cimbOption)
+    await user.keyboard('{Tab}')
+    expect(document.activeElement).toBe(screen.getByTestId('home-add-account'))
+    await user.keyboard('{Tab}')
+    expect(screen.queryByTestId('home-account-sheet')).toBeNull()
+    expect(document.activeElement).not.toBe(trigger)
+  })
+
+  it('opens all unconfirmed details in a centered modal and restores the review trigger', async () => {
+    const user = userEvent.setup()
+    const base = props().sharedContexts[0]!
+    render(<div id="root"><HomeScreen {...props({ sharedPreviews: [
+      { ...base, id: 'pending', status: 'pending', description: 'Dinner pending' },
+      { ...base, id: 'manual', status: 'manual', description: 'Manual lunch', lines: [] },
+    ] })} /></div>)
+    const trigger = screen.getByTestId('home-unconfirmed-notice')
+    await user.click(trigger)
+    const dialog = screen.getByTestId('home-review-sheet')
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    expect(dialog.classList.contains('home-paper-dialog')).toBe(true)
+    expect(dialog.querySelector('.home-sheet-handle')).toBeNull()
+    expect(screen.getByText('Dinner pending')).toBeTruthy()
+    expect(screen.getByText('Manual lunch')).toBeTruthy()
+    expect(document.body.style.overflow).toBe('hidden')
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByTestId('home-review-sheet')).toBeNull())
+    expect(document.activeElement).toBe(trigger)
+    expect(document.body.style.overflow).toBe('')
   })
 
   it('hides only the balance value and remembers the eye through local state', async () => {
