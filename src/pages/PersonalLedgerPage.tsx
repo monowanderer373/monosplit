@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
 import HomeScreen from '../components/home/HomeScreen'
@@ -39,6 +39,7 @@ import { useStore } from '../store/useStore'
 export default function PersonalLedgerPage() {
   const t = useT()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { authUser, loading, sessionError, retrySession } = useAuth()
   const ledger = usePersonalLedger()
   const changeState = useExpenseChanges(Boolean(ledger.participantId), ledger.refresh)
@@ -51,6 +52,7 @@ export default function PersonalLedgerPage() {
     participantId: ledger.participantId,
     timezone: authUser?.timezone ?? 'Asia/Kuala_Lumpur',
     expenses: ledger.expenses,
+    expensesStatus: ledger.expensesStatus,
     rows: ledger.rows,
     home,
     homeUi,
@@ -150,6 +152,9 @@ export default function PersonalLedgerPage() {
   return (
     <main className="ms-page home-shell">
       <HomeScreen
+        timezone={authUser?.timezone ?? 'Asia/Kuala_Lumpur'}
+        initialAccountPanel={searchParams.get('accountPanel') === 'manage' ? 'manage' : undefined}
+        onCloseAccountPanel={() => { if (searchParams.has('accountPanel')) setSearchParams({}, { replace: true }) }}
         mode={homeUi.mode}
         onModeChange={(mode) => setHomeUi({ mode })}
         density={homeUi.density}
@@ -203,6 +208,7 @@ export default function PersonalLedgerPage() {
 function useHomeModel(input: {
   participantId: string | null
   timezone: string
+  expensesStatus: 'loading' | 'error' | 'ready'
   expenses: ReturnType<typeof usePersonalLedger>['expenses']
   rows: ReturnType<typeof usePersonalLedger>['rows']
   home: ReturnType<typeof useHomeData>
@@ -270,7 +276,7 @@ function useHomeModel(input: {
       archived: affiliation.archivedAt != null,
     }))
     const sharedStatus = combineStatus(
-      input.home.people.status,
+      input.expensesStatus,      input.home.people.status,
       input.home.settlements.status,
       input.home.spaces.status,
     )

@@ -154,7 +154,7 @@ describe('HomeScreen', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     expect(screen.queryByTestId('home-task-sheet-backdrop')).toBeNull()
     expect(document.body.style.overflow).not.toBe('hidden')
-    await user.click(screen.getByRole('heading', { name: 'Daily' }))
+    await user.click(screen.getByRole('heading', { name: 'My day' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
   })
@@ -197,20 +197,13 @@ describe('HomeScreen', () => {
     expect(screen.getByTestId('home-day-total').textContent).not.toContain('123,456,789.01')
   })
 
-  it('keeps zero debt clickable and opens a settled empty state', async () => {
-    const user = userEvent.setup()
-    render(<div id="root"><HomeScreen {...props({receivables:[],sharedContexts:[]})} /></div>)
-    const collect = screen.getByTestId('home-receivable')
-    expect(collect.textContent).toContain('0.00')
-    expect(collect.getAttribute('data-empty')).toBe('true')
-    expect(collect.getAttribute('aria-expanded')).toBe('false')
-    await user.click(collect)
-    expect(screen.getByRole('dialog', {name:'To collect'})).toBeTruthy()
-    expect(screen.getByText('All settled')).toBeTruthy()
-    expect(collect.getAttribute('aria-expanded')).toBe('true')
-    await user.click(screen.getByTestId('home-shared-sheet-scrim'))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(collect.getAttribute('aria-expanded')).toBe('false')
+  it('shows zero confirmed totals as noninteractive summaries', () => {
+    render(<HomeScreen {...props({receivables:[],sharedContexts:[]})} />)
+    expect(screen.getByTestId('home-receivable').textContent).toContain('0.00')
+    expect(screen.getByTestId('home-payable').textContent).toContain('0.00')
+    expect(screen.getByTestId('home-receivable').tagName).toBe('SECTION')
+    expect(screen.getByTestId('home-receivable').hasAttribute('aria-expanded')).toBe(false)
+    expect(screen.queryByTestId('home-unconfirmed-notice')).toBeNull()
   })
 
   it('makes manual splits discoverable without calling them settled or adding them to confirmed totals', async () => {
@@ -220,11 +213,10 @@ describe('HomeScreen', () => {
     render(<HomeScreen {...props({ receivables: [], sharedContexts: [], sharedPreviews: [preview], onOpenSharedContext: onOpen })} />)
     const collect = screen.getByTestId('home-receivable')
     expect(collect.textContent).toContain('0.00')
-    expect(screen.getByTestId('home-receivable-unconfirmed').textContent).toContain('Unconfirmed')
+    expect(screen.getByTestId('home-unconfirmed-notice').textContent).toContain('Unconfirmed')
     expect(screen.getByTestId('home-receivable-unconfirmed').textContent).toContain('5.00')
-    await user.click(collect)
+    await user.click(screen.getByTestId('home-unconfirmed-notice'))
     expect(screen.queryByText('All settled')).toBeNull()
-    expect(screen.getByText('No confirmed balance')).toBeTruthy()
     expect(screen.getByText('Your records')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /Test friend.*Test split/ }))
     expect(onOpen).toHaveBeenCalledWith(preview)
@@ -246,57 +238,39 @@ describe('HomeScreen', () => {
     expect(hint).toContain('7.00')
     expect(hint).not.toContain('9.00')
     expect(screen.getByTestId('home-payable-unconfirmed').textContent).toContain('9.00')
-    await user.click(collect)
-    expect(screen.getByText('Confirmed to collect')).toBeTruthy()
+    await user.click(screen.getByTestId('home-unconfirmed-notice'))
+    expect(screen.getByText('These records are excluded from confirmed balances.')).toBeTruthy()
     expect(screen.getByText('Your records')).toBeTruthy()
     expect(screen.getByText('Pending confirmation')).toBeTruthy()
-    const sections = screen.getByTestId('home-shared-sheet').querySelectorAll('.home-split-preview-section')
-    expect(sections[0]!.querySelector('.home-preview-total')!.textContent).toContain('10.00')
-    expect(sections[1]!.querySelector('.home-preview-total')!.textContent).toContain('25.00')
+    const sections = screen.getByTestId('home-review-sheet').querySelectorAll('.home-split-preview-section')
+    expect(sections[0]!.textContent).toContain('10.00')
+    expect(sections[1]!.textContent).toContain('25.00')
     view.unmount()
     render(<HomeScreen {...props({ sharedPreviews: [manual], sharedStatus: 'error' })} />)
     expect(screen.queryByTestId('home-receivable-unconfirmed')).toBeNull()
   })
 
-  it('opens mode choices, selects Travel and restores trigger focus', async () => {
+  it('selects Daily and Travel directly while preserving the mode handler', async () => {
     const user = userEvent.setup()
     const change = vi.fn()
-    render(<HomeScreen {...props({onModeChange:change})} />)
-    const trigger = screen.getByRole('button', {name:'Daily'})
-    expect(screen.queryByRole('menu')).toBeNull()
-    await user.click(trigger)
-    expect(screen.getByRole('menuitemradio', {name:'Daily'}).getAttribute('aria-checked')).toBe('true')
-    await user.keyboard('{ArrowDown}{Enter}')
+    const {rerender} = render(<HomeScreen {...props({onModeChange:change})} />)
+    expect(screen.getByRole('button',{name:'Daily'}).getAttribute('aria-pressed')).toBe('true')
+    await user.click(screen.getByRole('button',{name:'Travel'}))
     expect(change).toHaveBeenCalledWith('travel')
-    expect(screen.queryByRole('menu')).toBeNull()
-    expect(document.activeElement).toBe(trigger)
-    await user.click(trigger)
-    await user.keyboard('{Escape}')
-    expect(screen.queryByRole('menu')).toBeNull()
-    await user.click(trigger)
-    await user.click(screen.getByRole('heading', {name:'Recent records'}))
-    expect(screen.queryByRole('menu')).toBeNull()
+    rerender(<HomeScreen {...props({mode:'travel',onModeChange:change})} />)
+    expect(screen.getByRole('button',{name:'Travel'}).getAttribute('aria-pressed')).toBe('true')
+    await user.click(screen.getByRole('button',{name:'Daily'}))
+    expect(change).toHaveBeenLastCalledWith('daily')
   })
 
-  it('separates collection and payment totals and opens only the selected direction', async () => {
-    const user = userEvent.setup()
-    const onOpenSharedContext = vi.fn()
+  it('keeps confirmed collection and payment totals separate without negative payment signs', () => {
     const contexts = [...props().sharedContexts, {id:'group:owes',source:'group' as const,label:'Travel group',personId:null,spaceId:'owes',lines:[{currency:'MYR',direction:'payable' as const,amountMinor:1200},{currency:'USD',direction:'payable' as const,amountMinor:300}]}]
-    render(<div id="root"><HomeScreen {...props({sharedContexts:contexts,onOpenSharedContext})} /></div>)
+    render(<HomeScreen {...props({sharedContexts:contexts})} />)
     expect(screen.getByTestId('home-receivable').textContent).toContain('5.00')
-    expect(screen.getByTestId('home-payable').textContent).toContain('12.00')
-    expect(screen.getByTestId('home-payable').textContent).toContain('3.00')
-    expect(screen.queryByRole('button',{name:/To collect and pay/})).toBeNull()
-    await user.click(screen.getByTestId('home-payable'))
-    expect(screen.getByRole('dialog',{name:'To pay'})).toBeTruthy()
-    expect(screen.queryByRole('button',{name:/Lan/})).toBeNull()
-    await user.click(screen.getByRole('button',{name:/Travel group/}))
-    expect(onOpenSharedContext).toHaveBeenCalledWith(expect.objectContaining({spaceId:'owes'}))
-    await user.click(screen.getByTestId('home-receivable'))
-    expect(screen.getByRole('dialog',{name:'To collect'})).toBeTruthy()
-    expect(screen.queryByRole('button',{name:/Travel group/})).toBeNull()
-    expect(screen.getByRole('button',{name:/Lan/})).toBeTruthy()
+    const pay = screen.getByTestId('home-payable').textContent!
+    expect(pay).toContain('12.00'); expect(pay).toContain('3.00'); expect(pay).not.toContain('−')
   })
+
   it('keeps the daily and travel switch in the upper-right header', () => {
     const { rerender } = render(<HomeScreen {...props()} />)
     expect(screen.getByTestId('home-mode-switch').parentElement).toBe(screen.getByTestId('home-header'))
@@ -313,10 +287,10 @@ describe('HomeScreen', () => {
       },
     } })} />)
     expect(screen.getByTestId('home-mode-switch').parentElement).toBe(screen.getByTestId('home-header'))
-    expect(screen.getByRole('button', { name: 'Travel' }).getAttribute('aria-haspopup')).toBe('menu')
+    expect(screen.getByRole('button', { name: 'Travel' }).getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('opens the account sheet and offers manage accounts', async () => {
+  it('opens the account sheet and offers the existing add account form', async () => {
     const user = userEvent.setup()
     render(
       <div id="root">
@@ -327,7 +301,7 @@ describe('HomeScreen', () => {
     await user.click(screen.getByTestId('home-account-selector'))
     const sheet = screen.getByTestId('home-account-sheet')
     expect(sheet.getAttribute('role')).toBe('dialog')
-    expect(screen.getByTestId('home-manage-accounts').textContent).toContain('Manage accounts')
+    expect(screen.getByTestId('home-add-account').textContent).toContain('Add account')
     expect(document.body.textContent).not.toContain('MYR · MYR')
     const action = screen.getByTestId('global-money-action-layer')
     expect(action.closest('[inert], [aria-hidden="true"]') ?? (action.inert ? action : null)).toBeTruthy()
@@ -335,7 +309,7 @@ describe('HomeScreen', () => {
     const backdrop = sheet.parentElement as HTMLElement
     expect(backdrop.className).toContain('home-sheet-backdrop')
     expect(homeCss).toContain('.home-sheet-backdrop')
-    expect(homeCss).toContain('z-index: 220')
+    expect(homeCss).toContain('z-index: 100')
     await user.click(screen.getByRole('button', { name: 'Close' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     const selector = screen.getByTestId('home-account-selector')
@@ -346,26 +320,21 @@ describe('HomeScreen', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
-  it('dismisses each home window from outside, keeps inside clicks open, and restores the trigger', async () => {
+  it('dismisses the picker by scrim and Escape and restores focus and scrolling', async () => {
     const user = userEvent.setup()
     render(<div id="root"><HomeScreen {...props()} /></div>)
-    for (const [triggerId, sheetId] of [['home-account-selector','home-account-sheet'],['home-manage','home-manage-sheet']] as const) {
-      const trigger = screen.getByTestId(triggerId)
-      await user.click(trigger)
-      const dialog = screen.getByTestId(sheetId)
-      expect((screen.getByTestId(`${sheetId}-scrim`) as HTMLElement).inert).not.toBe(true)
-      await user.click(dialog.querySelector('h2')!)
-      expect(screen.getByTestId(sheetId)).toBeTruthy()
-      await user.click(screen.getByTestId(`${sheetId}-scrim`))
-      await waitFor(() => expect(screen.queryByTestId(sheetId)).toBeNull())
-      expect(document.activeElement).toBe(trigger)
-      expect(document.body.style.overflow).toBe('')
-    }
-    const sharedTrigger = screen.getByTestId('home-receivable')
-    await user.click(sharedTrigger)
-    await user.click(screen.getByTestId('home-shared-sheet-scrim'))
-    await waitFor(() => expect(screen.queryByTestId('home-shared-sheet')).toBeNull())
-    expect(document.activeElement).toBe(sharedTrigger)
+    const trigger = screen.getByTestId('home-account-selector')
+    await user.click(trigger)
+    const dialog = screen.getByTestId('home-account-sheet')
+    await user.click(dialog.querySelector('h2')!)
+    expect(screen.getByTestId('home-account-sheet')).toBeTruthy()
+    await user.click(screen.getByTestId('home-account-sheet-scrim'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.activeElement).toBe(trigger)
+    expect(document.body.style.overflow).toBe('')
+    await user.click(trigger); await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.activeElement).toBe(trigger)
   })
 
   it('hides only the balance value and remembers the eye through local state', async () => {
@@ -399,18 +368,14 @@ describe('HomeScreen', () => {
     expect(useStore.getState().homeUi.balanceHidden).toBe(true)
   })
 
-  it('opens summary destinations without a separate All history action', async () => {
+  it('opens the existing pending person destination through Review', async () => {
     const user = userEvent.setup()
     const onOpenSharedContext = vi.fn()
-    render(<HomeScreen {...props({ onOpenSharedContext })} />)
-    await user.click(screen.getByRole('button', { name: /Account tasks/ }))
-    expect(screen.getByRole('dialog', { name: 'Account tasks' })).toBeTruthy()
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    await user.click(screen.getByTestId('home-receivable'))
-    await user.click(screen.getByRole('button', { name: /Lan/ }))
-    expect(onOpenSharedContext).toHaveBeenCalledWith(expect.objectContaining({ personId: 'person-lan' }))
-    expect(screen.queryByRole('button', { name: 'All ›' })).toBeNull()
+    const preview = {...props().sharedContexts[0]!, status:'pending' as const, description:'Dinner'}
+    render(<HomeScreen {...props({onOpenSharedContext,sharedPreviews:[preview]})} />)
+    await user.click(screen.getByTestId('home-unconfirmed-notice'))
+    await user.click(screen.getByRole('button',{name:/Lan.*Dinner/}))
+    expect(onOpenSharedContext).toHaveBeenCalledWith(preview)
   })
 
   it('keeps long labels and large amounts in the document', () => {
@@ -492,16 +457,16 @@ describe('HomeScreen', () => {
     expect(screen.queryByTestId('home-tiles')).toBeNull()
   })
 
-  it('uses a wallet icon for account tasks and hides it when there are none', () => {
+  it('keeps the bell by the title and hides the dot when there are no account tasks', () => {
     const { rerender } = render(<HomeScreen {...props({
       tileLayout: 'account',
       sharedContexts: [],
     })} />)
-    expect(screen.getByTestId('home-account-notice').closest('.home-balance-card')).toBeTruthy()
+    expect(screen.getByTestId('home-account-notice').closest('.home-title-row')).toBeTruthy()
     expect(screen.queryByTestId('home-tiles')).toBeNull()
     expect(screen.queryByRole('button', { name: /To collect and pay/ })).toBeNull()
     rerender(<HomeScreen {...props({ tileLayout: 'hidden', accountTasks: [], sharedContexts: [] })} />)
-    expect(screen.queryByTestId('home-account-notice')).toBeNull()
+    expect(screen.getByTestId('home-account-notice').querySelector('.home-account-notice-dot')).toBeNull()
     expect(screen.queryByTestId('home-tiles')).toBeNull()
   })
 
@@ -610,4 +575,67 @@ describe('HomeScreen', () => {
     expect(screen.getAllByText('Updating…').length).toBeGreaterThan(0)
     expect(screen.queryByText('Amount unavailable')).toBeNull()
   })
+  it.each([0,-500])('preserves a %s unconfirmed amount without adding it to confirmed totals', async amountMinor => {
+    const preview = {...props().sharedContexts[0]!,status:'pending' as const,description:'Refund',lines:[{currency:'MYR',direction:'receivable' as const,amountMinor}]}
+    render(<HomeScreen {...props({sharedPreviews:[preview]})} />)
+    expect(screen.getByTestId('home-unconfirmed-notice')).toBeTruthy()
+    expect(screen.getByTestId('home-receivable').textContent).toContain('5.00')
+    expect(screen.getByTestId('home-receivable').querySelector('.home-unconfirmed-amount')).toBeNull()
+    await userEvent.click(screen.getByTestId('home-unconfirmed-notice'))
+    expect(screen.getByText('Pending confirmation')).toBeTruthy()
+  })
+
+  it('shows a real pending count when the preview has no debt amount', () => {
+    const preview = {...props().sharedContexts[0]!,status:'pending' as const,description:'Zero balance split',lines:[]}
+    render(<HomeScreen {...props({sharedPreviews:[preview]})} />)
+    const text = screen.getByTestId('home-unconfirmed-notice').textContent!
+    expect(text).toContain('1 records'); expect(text).not.toContain('0.00')
+  })
+
+  it.each(['loading','error'] as const)('does not present pending totals or false zeros during %s', sharedStatus => {
+    const preview = {...props().sharedContexts[0]!,status:'pending' as const,description:'Dinner'}
+    render(<HomeScreen {...props({sharedStatus,sharedPreviews:[preview]})} />)
+    expect(screen.queryByTestId('home-unconfirmed-notice')).toBeNull()
+    expect(screen.getByTestId('home-receivable').textContent).not.toContain('0.00')
+  })
+
+  it('keeps the existing card-only privacy scope when the picker is explicitly opened', async () => {
+    render(<HomeScreen {...props({balanceHidden:true})} />)
+    await userEvent.click(screen.getByTestId('home-account-selector'))
+    const sheet = screen.getByTestId('home-account-sheet')
+    expect(sheet.textContent).toContain('123,456,789.01')
+    expect(screen.getAllByTestId('home-balance-values')[0]!.innerHTML).not.toContain('123,456,789.01')
+    expect(screen.getByRole('button',{name:/CIMB Savings/})).toBeTruthy()
+  })
+
+  it('selects an account, closes the picker and restores its trigger', async () => {
+    const select = vi.fn()
+    render(<HomeScreen {...props({onSelectAccount:select})} />)
+    await userEvent.click(screen.getByTestId('home-account-selector'))
+    await userEvent.click(screen.getByRole('button',{name:/CIMB Savings/}))
+    expect(select).toHaveBeenCalledWith('cimb')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByTestId('home-account-selector'))
+  })
+
+  it('enters the real account form from the picker and returns focus after closing it', async () => {
+    render(<div id="root"><HomeScreen {...props()} /></div>)
+    await userEvent.click(screen.getByTestId('home-account-selector'))
+    await userEvent.click(screen.getByTestId('home-add-account'))
+    await userEvent.click(screen.getByRole('button',{name:'Close'}))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.activeElement).toBe(screen.getByTestId('home-account-selector'))
+  })
+
+  it('presents transfers and settlements as neutral money movements', () => {
+    const base = groups[0]!.records[0]!
+    render(<HomeScreen {...props({recordGroups:[{...groups[0]!,records:[
+      {...base,id:'transfer',journalKind:'transfer',description:'Move money'},
+      {...base,id:'settlement',journalKind:'settlement_in',direction:'in',description:'Settlement received'},
+    ]}]})} />)
+    const rows = screen.getAllByTestId('home-record')
+    expect(rows[0]!.querySelector('.home-amount.movement')!.textContent).not.toContain('−')
+    expect(rows[1]!.querySelector('.home-amount.movement')).toBeTruthy()
+  })
+
 })

@@ -34,20 +34,7 @@
 #root .ms-input { font-size: 16px; }
 #root .ms-card-hero { border: 1px solid var(--ms-border-light); box-shadow: 0 1px 0 #ffffff inset, 0 7px 22px #5c48300c; }
 #root .ms-label { font-size: 12px; letter-spacing: .02em; text-transform: none; font-weight: 500; }
-#root .home-shell {
-  --home-bg: #f8f4ed; --home-surface: #fffdf9; --home-card: #fffdf9;
-  --home-text: #342f29; --home-muted: #746a5f; --home-line: #e6d9c9;
-  --home-accent: #ae693c; --home-in: #16716e; --home-out: #b9473d;
-}
-#root .home-balance-card { background: linear-gradient(160deg,#fffdf9,#f3e6d5); box-shadow: 0 1px 0 #ffffff inset,0 7px 22px #5c483010; padding: 20px; }
-#root .home-mode button { border: 0; border-radius: 10px; font-size: 14px; text-transform: none; letter-spacing: 0; background: #f1e7d9; min-height: 36px; font-weight: 500; }
-#root .home-mode button[aria-pressed="true"] { background: #eac09a; color: #493222; }
-#root .home-section { margin-top: 24px; }
-#root .home-section-head h2 { font-size: 18.4px; font-weight: 700; }
-#root .home-record-title { font-size: 16px; font-weight: 500; }
-#root .home-amount { font-size: 15px; font-weight: 600; }
-#root .home-frame[data-density="detailed"] .home-day { box-shadow: 0 3px 10px #5c483007; }
-#root .home-stat p { font-size: 13px; font-weight: 400; }
+
 #root .tt-context-tabs { padding: 4px; border-radius: 14px; background: var(--ms-bg-warm); }
 #root .tt-context-tabs button { flex: 1; border: 0; box-shadow: none; background: transparent; }
 #root .tt-context-tabs button[aria-selected="true"] { background: var(--ms-surface); color: var(--ms-text); box-shadow: 0 2px 5px #76543912; }
@@ -62,7 +49,6 @@
 .tt-quick-footer { position: sticky; bottom: -20px; margin: 20px -20px -20px; padding: 12px 20px max(20px,env(safe-area-inset-bottom)); background: #fffdf9; border-top: 1px solid #f0e7dc; z-index: 2; }
 .tt-quick-footer .ms-btn-primary { width: 100%; min-height: 48px; }
 @media (min-width:640px) { #root .ms-page { padding-inline:24px; } }
-@media (max-width:359px) { #root .home-section-head { flex-wrap:wrap; row-gap:8px; } }
 
 #root .ms-brand { font-family: Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
 .tt-insights-filters { display:grid; grid-template-columns:1.3fr 1fr .8fr; gap:12px; margin-top:24px; }
@@ -79,118 +65,3 @@
 .tt-trend { display:flex; align-items:flex-end; height:140px; gap:4px; margin:28px 0 12px; border-bottom:1px solid var(--ms-border); }
 .tt-trend > div { flex:1; background:#dfac84; border-radius:4px 4px 0 0; max-width:32px; }
 @media(max-width:420px) { .tt-insights-filters { grid-template-columns:1fr 1fr; } .tt-insights-filters label:first-child { grid-column:1/-1; } }
-
-/* Detailed records: date rail with individual warm paper cards. */
-#root .home-frame[data-density="detailed"] .home-day {
-  position: relative;
-  margin: 24px 0 0 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  --timeline-paper: #fffdf9;
-}
-#root .home-frame[data-density="detailed"] .home-day:nth-of-type(even) { --timeline-paper: #fcf7ef; }
-#root .home-frame[data-density="detailed"] .home-day::before {
-  content: "";
-  position: absolute;
-  left: -24px;
-  top: 20px;
-  bottom: -26px;
-  width: 1px;
-  background: #d7b49e;
-  pointer-events: none;
-}
-#root .home-frame[data-density="detailed"] .home-day:last-child::before { bottom: 14px; }
-#root .home-frame[data-density="detailed"] .home-date {
-  position: relative;
-  margin: 0 0 12px;
-  padding: 0;
-  min-height: 24px;
-  display: flex;
-  align-items: center;
-}
-#root .home-frame[data-density="detailed"] .home-date::before {
-  content: "";
-  position: absolute;
-  left: -33px;
-  top: 2px;
-  width: 19px;
-  height: 19px;
-  border: 1.5px solid #bc8d71;
-  border-radius: 50%;
-  background: var(--home-bg);
-  box-sizing: border-box;
-}
-#root .home-frame[data-density="detailed"] .home-record {
-  padding: 16px;
-  margin: 0 0 10px;
-  border: 1px solid #e6d9c9;
-  border-radius: 16px;
-  background: var(--timeline-paper);
-  box-shadow: 0 1px 0 #ffffff inset, 0 4px 12px #5c48300b;
-}
-#root .home-frame[data-density="detailed"] .home-record:last-child { margin-bottom: 0; border-bottom: 1px solid #e6d9c9; }
-#root .home-frame[data-density="detailed"] .home-record-main { gap: 12px; align-items: start; }
-#root .home-frame[data-density="detailed"] .home-record-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #f2dfce;
-  font-size: 18px;
-}
-#root .home-frame[data-density="detailed"] .home-record-copy { padding-top: 2px; }
-#root .home-frame[data-density="detailed"] .home-chip { margin-top: 7px; background: #f1e7d9; font-size: 12px; }
-#root .home-frame[data-density="detailed"] .home-amount-button { margin-top: -9px; }
-#root .home-frame[data-density="detailed"] .home-wallet { margin-top: 3px; font-size: 12px; font-weight: 400; }
-@media (max-width: 420px) {
-  #root .home-frame[data-density="detailed"] .home-day { margin-left: 26px; }
-  #root .home-frame[data-density="detailed"] .home-day::before { left: -19px; }
-  #root .home-frame[data-density="detailed"] .home-date::before { left: -28px; }
-  #root .home-frame[data-density="detailed"] .home-record { padding: 12px; }
-  #root .home-frame[data-density="detailed"] .home-record-main { gap: 8px; }
-  #root .home-frame[data-density="detailed"] .home-record-icon { width: 30px; height: 30px; font-size: 16px; }
-}
-#root .tt-sheet-expanded { height: min(92dvh,900px); max-height:92dvh; display:flex; flex-direction:column; }
-#root .tt-sheet-expanded > * { flex-shrink:0; }
-#root .tt-sheet-expanded .tt-quick-footer { margin-top:auto; }
-.tt-calculator-keys button:focus-visible { outline:2px solid #ae693c; outline-offset:2px; }
-.tt-calculator { margin-top:16px; padding:16px; border-radius:16px; border:1px solid #e6d9c9; background:#f7f0e6; }
-.tt-calculator-expression { display:block; width:100%; min-width:0; padding:12px 0; border:0; background:transparent; text-align:right; font-size:24px; font-weight:500; color:#342f29; }
-.tt-calculator-keys { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
-.tt-calculator-keys button { min-height:44px; border:1px solid #eadfce; border-radius:12px; background:#fffdf9; font-size:18px; font-weight:500; box-shadow:0 2px 3px #7654390c; cursor:pointer; }
-.tt-calculator-keys button:active { transform:translateY(1px); box-shadow:inset 0 2px 4px #7654391a; }
-.tt-calculator-keys .is-operator { background:#f1dfcd; }
-.tt-calculator-keys .is-equals { grid-column:1/-1; background:#eac09a; color:#493222; }
-.tt-calculator-error { margin:0 0 10px; color:#b9473d; font-size:12px; }
-
-/* Soft wallet: pale peach clasp, a quiet account label, unchanged balance scale. */
-#root .home-balance-card {
-  position:relative;
-  border-radius:26px;
-  border:1px solid #e5d7c5;
-  background:#fffaf2;
-  padding:20px;
-  box-shadow:0 1px 0 #ffffff inset,0 5px 16px #7654390c;
-  margin-right:6px;
-}
-#root .home-balance-card::after {
-  content:"";
-  position:absolute;
-  top:24px;
-  right:-9px;
-  width:33px;
-  height:26px;
-  border-radius:10px 5px 5px 10px;
-  border:1px solid #deb18b;
-  background:radial-gradient(circle at 13px 13px,#fffaf2 0 5px,transparent 5.5px),#eac09a;
-  box-shadow:0 2px 4px #76543914;
-  pointer-events:none;
-}
-#root .home-balance-card .home-account-button { min-height:36px; margin-top:-6px; padding-left:0; }
-#root .home-balance-card .home-account-button span { font-size:14px; font-weight:400; color:#746a5f; }
-#root .home-balance-card .home-account-button svg { width:12px; height:12px; color:#746a5f; }
-.home-wallet-manage { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:36px; height:36px; margin:-6px 24px 0 0; border:0; border-radius:10px; background:transparent; color:#746a5f; cursor:pointer; }
-.home-wallet-manage:hover { background:#f1e7d9; }
-.home-wallet-manage:focus-visible { outline:2px solid #ae693c; outline-offset:2px; }

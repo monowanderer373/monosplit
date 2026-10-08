@@ -1,78 +1,107 @@
 import { mkdir } from 'node:fs/promises'
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
-const forbidden = [
-  'PERSONAL LEDGER',
-  'Smart capture',
-  'FASTER NEXT TIME',
-  'Recent details',
-  'Your activity',
-  'Tracked receivable',
-  'Untracked',
-]
-
-async function openCase(page: import('@playwright/test').Page, name: string, width: number, query: string) {
+async function openCase(page: Page, width: number, scenario = 'both', lang = 'en') {
   await page.setViewportSize({ width, height: 844 })
-  await page.goto(`/__home-visual?${query}`)
+  await page.goto(`/__home-visual?case=${scenario}&lang=${lang}`)
   await expect(page.getByTestId('home-mode-switch')).toBeVisible()
-  const body = await page.locator('body').innerText()
-  for (const label of forbidden) expect(body).not.toContain(label)
-  await page.screenshot({ path: `test-results/home-ui/${name}.png`, fullPage: true })
 }
 
-test.beforeAll(async () => {
-  await mkdir('test-results/home-ui', { recursive: true })
+async function noHorizontalOverflow(page: Page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+}
+
+test.beforeAll(async () => { await mkdir('test-results/home-ui', { recursive: true }) })
+
+for (const width of [320, 360, 390, 430]) {
+  test(`Denim & Paper home at ${width}px`, async ({ page }) => {
+    await openCase(page, width)
+    await expect(page.getByRole('heading', { name: 'My day', exact: true })).toBeVisible()
+    await expect(page.getByTestId('home-manage')).toHaveCount(0)
+    await expect(page.getByTestId('home-unconfirmed-notice')).toBeVisible()
+    await noHorizontalOverflow(page)
+    const track = await page.locator('.home-density-track').boundingBox()
+    expect(track?.width).toBe(48); expect(track?.height).toBe(22)
+    const tray = await page.locator('.tt-nav-surface').boundingBox()
+    const add = await page.locator('.tt-seal').boundingBox()
+    expect(add?.width).toBe(52); expect(add?.height).toBe(52)
+    expect(Math.abs((tray!.x + tray!.width / 2) - (add!.x + add!.width / 2))).toBeLessThan(1)
+    await page.screenshot({ path: `test-results/home-ui/detailed-${width}.png`, fullPage: true })
+    await page.getByRole('switch', { name: 'Record detail' }).click()
+    await expect(page.locator('.home-frame')).toHaveAttribute('data-density', 'compact')
+    await expect(page.locator('.home-wallet').first()).not.toBeVisible()
+    expect(await page.locator('.home-day').first().evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
+    await noHorizontalOverflow(page)
+    await page.screenshot({ path: `test-results/home-ui/compact-${width}.png`, fullPage: true })
+    await page.getByTestId('home-account-selector').click()
+    await expect(page.getByTestId('home-account-sheet')).toBeVisible()
+    await page.screenshot({ path: `test-results/home-ui/account-sheet-${width}.png`, fullPage: true })
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('home-account-sheet')).toHaveCount(0)
+    await expect(page.getByTestId('home-account-selector')).toBeFocused()
+  })
+}
+
+test('selects accounts, enters the existing add form, and traps and restores focus', async ({ page }) => {
+  await openCase(page, 390)
+  await page.getByTestId('home-account-selector').click()
+  const sheet = page.getByTestId('home-account-sheet')
+  await sheet.getByRole('button', { name: /^CIMB/ }).click()
+  await expect(page.getByTestId('home-account-selector')).toContainText('CIMB')
+  await expect(page.getByTestId('home-balance-values')).toContainText('1,250.00')
+  await page.getByTestId('home-account-selector').click()
+  await page.keyboard.press('Shift+Tab')
+  await expect(page.getByTestId('home-add-account')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(sheet.getByRole('button', { name: 'Close' })).toBeFocused()
+  await page.getByTestId('home-add-account').click()
+  await expect(page.getByTestId('home-create-account-sheet')).toBeVisible()
+  await page.getByLabel('Account name', { exact: true }).fill('New wallet')
+  await page.getByTestId('home-create-account').click()
+  await expect(page.getByTestId('home-create-account-sheet')).toHaveCount(0)
+  await expect(page.getByTestId('home-account-selector')).toBeFocused()
+  await page.getByTestId('home-account-selector').click()
+  await expect(page.getByRole('button', { name: /^New wallet/ })).toBeVisible()
 })
 
-test('renders the real home composition at phone widths', async ({ page }) => {
-  await openCase(page, 'daily-two-tiles-390', 390, 'case=both')
-  await expect(page.getByTestId('home-mode-switch')).toBeVisible()
-  const header = await page.getByTestId('home-header').boundingBox()
-  const mode = await page.getByTestId('home-mode-switch').boundingBox()
-  expect(header && mode && mode.x > header.x + header.width / 2).toBeTruthy()
-  await expect(page.getByText('Direct split with Lan')).toBeVisible()
-  const dailyText = await page.locator('body').innerText()
-  expect(dailyText).toContain('40.00')
-  expect(dailyText).not.toContain('80.00')
-  await expect(page.getByText('Hanoi Days · Trip')).toBeVisible()
-  await expect(page.getByText('Today', { exact: false })).toBeVisible()
-  await expect(page.getByText('Yesterday', { exact: false })).toBeVisible()
-  await expect(page.locator('.home-amount.outgoing').first()).toBeVisible()
-  await expect(page.locator('.home-amount.incoming').first()).toBeVisible()
-  await expect(page.getByText('CIMB').first()).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Daily' })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Insights' })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Shared' })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Me' })).toBeVisible()
-
-  await openCase(page, 'daily-two-tiles-360', 360, 'case=both')
-  await openCase(page, 'daily-two-tiles-430', 430, 'case=both')
-  await openCase(page, 'daily-one-tile-390', 390, 'case=account-only')
-  await openCase(page, 'daily-zero-tiles-390', 390, 'case=none')
-  await openCase(page, 'hidden-balance-390', 390, 'case=hidden')
+test('keeps the original privacy range and preserves unknown opening balances', async ({ page }) => {
+  await openCase(page, 390, 'hidden')
   await expect(page.getByTestId('home-balance-values')).toContainText('••••')
+  await expect(page.getByTestId('home-balance-values')).not.toContainText('1,290.00')
+  await expect(page.getByTestId('home-receivable')).toContainText('24.00')
   await page.getByTestId('home-account-selector').click()
-  await expect(page.getByTestId('home-account-sheet')).toBeVisible()
-  await expect(page.getByTestId('home-manage-accounts')).toBeVisible()
-  await expect(page.locator('body')).not.toContainText('MYR · MYR')
-  await expect(page.locator('.home-money-line').first()).toBeVisible()
-  await page.screenshot({ path: 'test-results/home-ui/account-sheet-390.png', fullPage: true })
+  // The existing privacy preference only masks the home balance card.
+  await expect(page.getByTestId('home-account-sheet')).toContainText('1,250.00')
   await page.keyboard.press('Escape')
-  await openCase(page, 'account-selected-390', 390, 'case=account')
-  await expect(page.getByTestId('home-account-selector')).toContainText('CIMB')
-  await openCase(page, 'compact-records-390', 390, 'case=compact')
-  await expect(page.locator('.home-record.is-compact').first()).toBeVisible()
-  await expect(page.locator('.home-record.is-compact .home-record-icon')).toHaveCount(0)
-  await expect(page.locator('.home-record.is-compact .home-wallet').first()).toBeVisible()
-  await page.goto('/__home-visual?case=both')
-  await expect(page.locator('.home-record-icon').first()).toBeVisible()
-  await openCase(page, 'travel-active-390', 390, 'case=travel-active')
-  const travelMode = await page.getByTestId('home-mode-switch').boundingBox()
-  const travelHeader = await page.getByTestId('home-header').boundingBox()
-  expect(travelHeader && travelMode && travelMode.x > travelHeader.x + travelHeader.width / 2).toBeTruthy()
-  await openCase(page, 'travel-ended-390', 390, 'case=travel-ended')
-  await openCase(page, 'travel-empty-390', 390, 'case=travel-empty')
-  await openCase(page, 'account-error-390', 390, 'case=error')
-  await expect(page.getByRole('alert').getByText('These figures could not be loaded.')).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Daily' })).toHaveAttribute('aria-current', 'page')
+  await page.getByTestId('home-balance-eye').click()
+  await expect(page.getByTestId('home-balance-values')).toContainText('1,290.00')
+})
+
+test('preserves notification content, zero pending and error states', async ({ page }) => {
+  await openCase(page, 390, 'zero-pending')
+  await expect(page.getByTestId('home-unconfirmed-notice')).toContainText('1 records')
+  await page.getByTestId('home-unconfirmed-notice').click()
+  await expect(page.getByTestId('home-review-sheet')).toContainText('Pending confirmation')
+  await page.keyboard.press('Escape')
+  await page.getByTestId('home-account-notice').click()
+  await expect(page.getByTestId('home-notice-popover')).toContainText('Account tasks')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('home-account-notice')).toBeFocused()
+  await openCase(page, 390, 'none')
+  await expect(page.locator('.home-account-notice-dot')).toHaveCount(0)
+  await expect(page.getByTestId('home-unconfirmed-notice')).toHaveCount(0)
+  await openCase(page, 390, 'error')
+  await expect(page.getByTestId('home-balance-values')).toHaveCount(0)
+  await expect(page.getByTestId('home-unconfirmed-notice')).toHaveCount(0)
+  await expect(page.getByTestId('home-receivable')).not.toContainText('0.00')
+})
+
+test('long content and enlarged text remain within a 320px viewport', async ({ page }) => {
+  await openCase(page, 320, 'long', 'zh')
+  // This is deliberately a test-only text enlargement, never production CSS.
+  await page.addStyleTag({ content: '.home-title{font-size:30px!important}.home-section-head h2{font-size:22.5px!important}.home-record-title,.home-amount{font-size:17.5px!important}.home-mode button{font-size:16.25px!important}.home-account-button span{font-size:15px!important}' })
+  await noHorizontalOverflow(page)
+  await page.screenshot({ path: 'test-results/home-ui/long-text-320.png', fullPage: true })
+  await page.getByTestId('home-account-selector').click()
+  await noHorizontalOverflow(page)
 })

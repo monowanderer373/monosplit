@@ -168,6 +168,21 @@ describe('unconfirmed split previews', () => {
   })
 })
 
+describe('zero debt pending preview', () => {
+  it('keeps an awaiting participation discoverable without inventing debt or confirming it', () => {
+    const split = expense({id:'balanced-pending',totalMinor:1000,ownerPaidMinor:500,otherPaidMinor:500,ownerShareMinor:500})
+    split.participations[1]!.state = 'pending'
+    const before = JSON.stringify(split)
+    const input = {ownerParticipantId:'owner',expenses:[split],people:[]}
+    const previews = deriveSharedPreviewContexts(input)
+    expect(previews).toHaveLength(1)
+    expect(previews[0]!.status).toBe('pending')
+    expect(previews[0]!.lines).toEqual([])
+    expect(deriveOutstandingSharedContexts({...input,settlements:[],spaces:[]})).toEqual([])
+    expect(JSON.stringify(split)).toBe(before)
+  })
+})
+
 describe('available money', () => {
   const accounts: HomeAccount[] = [
     account({ id: 'cimb', name: 'CIMB', currency: 'MYR', entrySumMinor: 10_000, unpostedInstallmentMinor: 50_000 }),

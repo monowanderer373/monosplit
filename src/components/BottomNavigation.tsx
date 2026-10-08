@@ -28,9 +28,9 @@ export default function BottomNavigation() {
       <PaperSurface className="tt-nav-surface">
         <div className="tt-nav-grid">
           {item(daily)}
-          {item(insights)}
-          <span aria-hidden="true" />
           {item(shared)}
+          <span aria-hidden="true" />
+          {item(insights)}
           {item(me)}
         </div>
       </PaperSurface>

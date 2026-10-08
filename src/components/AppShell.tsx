@@ -105,7 +105,7 @@ function ShellContents() {
       <GlobalMoneyActionHost />
       {quickAdd.feedback ? (
         <div
-          className="fixed bottom-24 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[var(--ms-text)] px-4 py-3 text-sm font-bold text-[var(--ms-surface)] shadow-xl"
+          className="fixed bottom-24 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-[var(--ms-text)] px-4 py-3 text-sm font-bold text-[var(--ms-surface)] shadow-xl"
           role="status"
           onClick={quickAdd.clearFeedback}
         >

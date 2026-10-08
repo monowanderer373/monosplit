@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import BottomNavigation from '../components/BottomNavigation'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
@@ -7,6 +7,7 @@ import HomeScreen from '../components/home/HomeScreen'
 import '../components/home/home.css'
 import {
   availableMoney,
+  localCalendarDate,
   buildHomeRecords,
   groupHomeRecords,
   presentHomeRecords,
@@ -18,6 +19,8 @@ import { useStore } from '../store/useStore'
 import type { CanonicalExpense } from '../types'
 
 const owner = 'owner'
+const today = localCalendarDate(new Date(), 'Asia/Kuala_Lumpur')
+const yesterday = new Date(new Date(today + 'T12:00:00Z').getTime() - 86400000).toISOString().slice(0,10)
 const accounts: HomeAccount[] = [
   {
     id: 'cimb',
@@ -52,7 +55,7 @@ function expense(input: {
   occurredOn?: string
   createdAt?: string
 }): CanonicalExpense {
-  const occurredOn = input.occurredOn ?? '2026-09-16'
+  const occurredOn = input.occurredOn ?? today
   const participations = input.scope === 'personal'
     ? [{
       id: `${input.id}-owner`,
@@ -132,10 +135,11 @@ function expense(input: {
 function HarnessBody() {
   const [params] = useSearchParams()
   const scenario = params.get('case') ?? 'both'
-  const density = scenario === 'compact' ? 'compact' : 'detailed'
-  const mode = scenario.startsWith('travel') ? 'travel' : 'daily'
-  const hidden = scenario === 'hidden'
-  const selectedAccountId = scenario === 'account' ? 'cimb' : 'all'
+  const [density,setDensity] = useState<'compact'|'detailed'>(scenario === 'compact' ? 'compact' : 'detailed')
+  const [mode,setMode] = useState<'daily'|'travel'>(scenario.startsWith('travel') ? 'travel' : 'daily')
+  const [hidden,setHidden] = useState(scenario === 'hidden')
+  const [selectedAccountId,setSelectedAccount] = useState(scenario === 'account' ? 'cimb' : 'all')
+  const [fixtureAccounts,setAccounts] = useState<HomeAccount[]>(scenario === 'empty-accounts' ? [] : accounts.map(account => scenario === 'long' ? {...account,name:account.name+' Savings account with an unusually long name',entrySumMinor:12345678901} : account))
   const accountTasks = scenario === 'none' || scenario === 'shared-only' || scenario === 'empty-accounts'
     ? []
     : [{ id: 'funding:1', kind: 'pending_funding' as const, actionable: true as const }]
@@ -151,15 +155,15 @@ function HarnessBody() {
     }]
   const model = useMemo(() => {
     const expenses = [
-      expense({ id: 'today-personal', scope: 'personal', totalMinor: 1_200, ownerPaidMinor: 1_200, description: 'Coffee', occurredOn: '2026-09-16' }),
-      expense({ id: 'today-direct', scope: 'direct', totalMinor: 5_680, ownerPaidMinor: 5_680, description: '河粉', occurredOn: '2026-09-16', createdAt: '2026-09-16T04:00:00.000Z' }),
-      expense({ id: 'yesterday-trip', scope: 'space', spaceId: 'hanoi', totalMinor: 8_000, ownerPaidMinor: 4_000, description: 'Train', category: 'Transport', occurredOn: '2026-09-15' }),
+      expense({ id: 'today-personal', scope: 'personal', totalMinor: 1_200, ownerPaidMinor: 1_200, description: scenario === 'long' ? 'Coffee with a very long description that must remain readable when fonts are enlarged' : 'Morning coffee', category:'Coffee', occurredOn: today }),
+      expense({ id: 'today-direct', scope: 'direct', totalMinor: 5_680, ownerPaidMinor: 5_680, description: '河粉', occurredOn: today, createdAt: `${today}T04:00:00.000Z` }),
+      expense({ id: 'yesterday-trip', scope: 'space', spaceId: 'hanoi', totalMinor: 8_000, ownerPaidMinor: 4_000, description: 'Train', category: 'Transport', occurredOn: yesterday }),
     ]
     const records = buildHomeRecords({
       ownerParticipantId: owner,
       expenses,
-      funding: [],
-      accounts: scenario === 'empty-accounts' ? [] : accounts,
+      funding: [{expenseId:'today-personal',status:'posted',accountId:'cimb',accountAmountMinor:1200,accountCurrency:'MYR'}],
+      accounts: fixtureAccounts,
       people: [{ id: 'person-lan', displayName: 'Lan', participantIds: ['lan'] }],
       spaces: [{
         id: 'hanoi',
@@ -174,8 +178,8 @@ function HarnessBody() {
       journals: scenario === 'empty-accounts' ? [] : [{
         id: 'refund-1',
         kind: 'refund',
-        occurredOn: '2026-09-16',
-        createdAt: '2026-09-16T05:00:00.000Z',
+        occurredOn: today,
+        createdAt: `${today}T05:00:00.000Z`,
         amountMinor: 2_000,
         currency: 'MYR',
         accountId: 'cimb',
@@ -187,8 +191,8 @@ function HarnessBody() {
       limit: null,
       fundingKnown: scenario !== 'error',
     })
-    return groupHomeRecords(presentHomeRecords(records, density), '2026-09-16')
-  }, [density, scenario, selectedAccountId])
+    return groupHomeRecords(presentHomeRecords(records, density), today)
+  }, [density, scenario, selectedAccountId, fixtureAccounts])
   const trip = scenario === 'travel-empty'
     ? null
     : selectHomeTrip(scenario === 'travel-ended'
@@ -209,25 +213,31 @@ function HarnessBody() {
         startDate: '2026-09-01',
         endDate: '2026-09-20',
         updatedAt: '2026-09-01T00:00:00.000Z',
-      }], '2026-09-16')
+      }], today)
 
   return (
     <main className="ms-page home-shell">
       <HomeScreen
+        timezone="Asia/Kuala_Lumpur"
+        initialAccountPanel={params.get('accountPanel') === 'manage' ? 'manage' : undefined}
         mode={mode}
-        onModeChange={() => undefined}
+        onModeChange={setMode}
         density={density}
-        onDensityChange={() => undefined}
+        onDensityChange={setDensity}
         balanceHidden={hidden}
-        onToggleBalanceHidden={() => undefined}
+        onToggleBalanceHidden={() => setHidden(value => !value)}
         selectedAccountId={selectedAccountId}
-        onSelectAccount={() => undefined}
+        onSelectAccount={setSelectedAccount}
         monthlySpending={[{ currency: 'MYR', amountMinor: 8_640 }]}
         receivables={[{ currency: 'MYR', amountMinor: 2_400 }]}
         tileLayout={summaryTileLayout(accountTasks.length, sharedContexts.length)}
         accountTasks={accountTasks}
         sharedContexts={sharedContexts}
-        sharedStatus="ready"
+        sharedPreviews={scenario === 'none' || scenario === 'empty-accounts' ? [] : [{
+          id:'fixture-preview',source:'friend',label:'Lan',personId:'person-lan',spaceId:null,status:'pending',description:'Dinner with friends',
+          lines: scenario === 'zero-pending' ? [] : [{currency:'MYR',direction:'receivable',amountMinor:scenario === 'negative-pending' ? -2500 : 2500}],
+        }]}
+        sharedStatus={scenario === 'error' ? 'error' : 'ready'}
         recordGroups={scenario.startsWith('travel-empty') ? [] : model}
         trip={trip}
         trips={trip ? [trip.trip] : []}
@@ -236,10 +246,13 @@ function HarnessBody() {
         onSelectTrip={() => undefined}
         onCreateTrip={() => undefined}
         onOpenSharedContext={() => undefined}
-        onCreateAccount={async () => undefined}
-        accounts={scenario === 'empty-accounts' ? [] : accounts}
+        onCreateAccount={async input => {setAccounts(current => [...current, {
+          id:'fixture-created-'+current.length, name:input.name,accountClass:'asset',accountType:input.accountType,currency:input.currency,
+          archived:false,openingStatus:input.openingBalanceMinor == null ? 'unknown' : 'posted',entrySumMinor:input.openingBalanceMinor ?? 0,
+        }])}}
+        accounts={fixtureAccounts}
         accountsStatus={scenario === 'error' ? 'error' : 'ready'}
-        balances={scenario === 'error' || scenario === 'empty-accounts' ? [] : availableMoney(accounts, selectedAccountId)}
+        balances={scenario === 'error' || scenario === 'empty-accounts' ? [] : availableMoney(fixtureAccounts, selectedAccountId)}
       />
     </main>
   )
@@ -252,6 +265,11 @@ export default function HomeVisualHarness() {
   useEffect(() => {
     if (requestedLang === 'en' || requestedLang === 'zh') setLang(requestedLang)
   }, [requestedLang, setLang])
+  const viewport = Number(params.get('viewport'))
+  if ([320,360,390,430].includes(viewport)) {
+    const query = new URLSearchParams(params); query.delete('viewport')
+    return <iframe title={`Tabby Tally at ${viewport}px`} src={`/__home-visual?${query}`} style={{display:'block',width:viewport,height:844,maxWidth:'100%',border:0,margin:'0 auto'}} />
+  }
   const showActions = params.get('case') === 'expense-actions'
   const sample = expense({
     id: 'sheet-expense',

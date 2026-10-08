@@ -1,0 +1,117 @@
+/* Denim & Paper / 2026-10-09 / v2 FOLD. Integrate into the existing theme layer. */
+:root:root, #root {
+  --tt-paper: #F7F5EF;
+  --tt-surface: #FFFCF7;
+  --tt-ink: #24374A;
+  --tt-secondary: #576779;
+  --tt-muted: #7D8790;
+  --tt-primary: #35678B;
+  --tt-primary-hover: #2E5C7E;
+  --tt-primary-pressed: #274F6D;
+  --tt-primary-soft: #DDEAF1;
+  --tt-primary-soft-hover: #D2E2EC;
+  --tt-primary-soft-pressed: #C6D9E5;
+  --tt-wallet: #E1EDF3;
+  --tt-wallet-edge: #C9DCE6;
+  --tt-collect: #FBEADB;
+  --tt-collect-edge: #EBD8C7;
+  --tt-pay: #E9F0F3;
+  --tt-pay-edge: #D3DFE5;
+  --tt-day-warm: #FCF0E6;
+  --tt-day-cool: #EDF3F5;
+  --tt-notice: #F0F0EA;
+  --tt-expense: #AD412E;
+  --tt-income: #236C62;
+  --tt-leather: #D6A57C;
+  --tt-leather-ink: #473226;
+  --tt-leather-edge: #B98259;
+  --tt-leather-hover: #CFA075;
+  --tt-leather-pressed: #C79469;
+  --tt-border: #D7DEDF;
+  --tt-dots: #B4BBC0;
+  --tt-stitch: #F4F0E5;
+  --tt-switch-track: #E4EDF2;
+  --tt-switch-knob: #FFFCF7;
+  --tt-unread: #B54E37;
+  --tt-focus: #35678B;
+  --tt-mascot-denim-light: #5F8CAA;
+  --tt-mascot-receipt-fold: #E3A073;
+  --tt-mascot-paper-shade: #EFE5D7;
+  --tt-overlay: rgb(36 55 74 / .34);
+  --tt-white: #FFFFFF;
+  --tt-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+  --tt-space-1: 4px;
+  --tt-space-2: 8px;
+  --tt-space-3: 12px;
+  --tt-space-4: 16px;
+  --tt-space-5: 20px;
+  --tt-space-6: 24px;
+  --tt-radius-wallet: 16px;
+  --tt-radius-day: 14px;
+  --tt-radius-summary: 12px;
+  --tt-radius-tag: 8px;
+  --tt-radius-button: 10px;
+  --tt-radius-nav: 16px;
+  --tt-radius-add: 15px;
+  --tt-radius-sheet: 24px;
+  --tt-view-width: 48px;
+  --tt-view-height: 22px;
+  --tt-view-thumb: 18px;
+  --tt-touch-min: 44px;
+  --tt-nav-height: 62px;
+  --tt-add-size: 52px;
+  --tt-shadow-card: 0 2px 5px rgb(36 55 74 / .05), 0 1px 1px rgb(36 55 74 / .03);
+  --tt-shadow-button: 0 2px 3px rgb(36 55 74 / .12);
+  --tt-shadow-thumb: 0 1px 3px rgb(36 55 74 / .14);
+  --tt-shadow-nav: 0 5px 16px rgb(36 55 74 / .10), 0 1px 3px rgb(36 55 74 / .05);
+  --tt-shadow-sheet: 0 -8px 24px rgb(36 55 74 / .10);
+  --tt-shadow-pressed: 0 1px 1px rgb(36 55 74 / .09);
+  --tt-duration-control: 140ms;
+  --tt-duration-switch: 160ms;
+  --tt-duration-sheet: 200ms;
+}
+
+
+/* Alias existing infrastructure to the approved semantic palette. */
+:root:root, #root {
+  --paper-grain: url('/denim-paper/paper-grain.svg');
+  --ms-bg: var(--tt-paper); --ms-bg-warm: var(--tt-wallet); --ms-surface: var(--tt-surface);
+  --ms-surface-dim: var(--tt-pay); --ms-border: var(--tt-border); --ms-border-light: var(--tt-border);
+  --ms-hairline: var(--tt-border); --ms-text: var(--tt-ink); --ms-text-secondary: var(--tt-secondary);
+  --ms-text-muted: var(--tt-secondary); --ms-sketch-line: var(--tt-border);
+  --ms-accent: var(--tt-primary); --ms-accent-hover: var(--tt-primary-hover); --ms-accent-bg: var(--tt-primary-soft);
+  --ms-success: var(--tt-income); --ms-success-bg: var(--tt-pay); --ms-danger: var(--tt-expense); --ms-danger-bg: var(--tt-collect);
+  --ms-elev-accent: var(--tt-shadow-button); --ms-info: var(--tt-primary); --ms-info-bg: var(--tt-primary-soft);
+  --tt-coral: var(--tt-primary); --tt-coral-pressed: var(--tt-primary-pressed); --tt-taupe: var(--tt-secondary);
+  --tt-text-primary: var(--tt-ink); --tt-text-secondary: var(--tt-secondary); --tt-paper-raised: var(--tt-pay);
+  --tt-paper-edge: var(--tt-border); --tt-shadow-paper: var(--tt-shadow-card); --tt-shadow-raised: var(--tt-shadow-sheet);
+  --tt-shadow-floating: var(--tt-shadow-button); --paper-lift: var(--tt-shadow-card); --paper-pressed: var(--tt-shadow-pressed);
+}
+body, #root { background: var(--tt-paper); color: var(--tt-ink); }
+body::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: url('/denim-paper/paper-grain.svg') repeat; background-size: 128px; opacity: .07; }
+#root { position: relative; isolation: isolate; background: transparent; }
+#root .ms-page { background: transparent; color: var(--tt-ink); font-family: Inter, system-ui, sans-serif; }
+#root :is(.ms-card,.ms-card-soft,.ms-card-hero,.tt-paper:not(.tt-nav-surface),.tt-sheet-panel) {
+  background: var(--tt-surface); color: var(--tt-ink); border-color: var(--tt-border); box-shadow: var(--tt-shadow-card);
+}
+#root :is(.ms-btn-primary,.tt-sheet-panel .ms-btn-primary) { background: var(--tt-primary) !important; color: var(--tt-white); border-color: var(--tt-primary); box-shadow: var(--tt-shadow-button) !important; border-radius: 10px; }
+#root :is(.ms-btn-primary,.tt-sheet-panel .ms-btn-primary):hover { background: var(--tt-primary-hover) !important; }
+#root :is(.ms-btn-primary,.tt-sheet-panel .ms-btn-primary):active:not(:disabled) { background: var(--tt-primary-pressed) !important; }
+#root :is(.ms-btn-ghost,.tt-sheet-panel .ms-btn-ghost) { background: var(--tt-primary-soft) !important; color: var(--tt-primary) !important; border-color: var(--tt-border); border-radius: 10px; box-shadow: var(--tt-shadow-button); }
+#root .ms-btn-ghost:hover { background: var(--tt-primary-soft-hover) !important; }
+#root .ms-btn-ghost:active:not(:disabled) { background: var(--tt-primary-soft-pressed) !important; }
+#root :is(.ms-btn-primary,.ms-btn-ghost,.tt-icon-button) { transition: background-color 140ms ease-out, transform 140ms ease-out, box-shadow 140ms ease-out; }
+#root :is(.ms-btn-primary,.ms-btn-ghost,.tt-icon-button):active:not(:disabled) { transform: translateY(1px); box-shadow: var(--tt-shadow-pressed) !important; }
+#root .ms-input { background: var(--tt-surface); border-color: var(--tt-border); color: var(--tt-ink); }
+#root :is(button,input,select,textarea):focus-visible { outline: 2px solid var(--tt-focus); outline-offset: 2px; }
+#root :is(.tt-money-currency,.tt-money-number) { color: inherit; font-variant-numeric: tabular-nums; }
+#root :is(.tt-sheet-backdrop,.qa-backdrop) { background-color: var(--tt-overlay); }
+/* Retain the existing opt-in dark theme capability. */
+:root[data-tt-theme="paper-dark"], [data-tt-theme="paper-dark"] #root {
+  --tt-paper: #202D38; --tt-surface: #293A48; --tt-ink: #EDF3F5; --tt-secondary: #C6D9E5;
+  --tt-wallet: #304B5E; --tt-wallet-edge: #47667B; --tt-collect: #4A3E34; --tt-collect-edge: #725B48;
+  --tt-pay: #344751; --tt-pay-edge: #4A626E; --tt-day-warm: #3D3935; --tt-day-cool: #2E414C;
+  --tt-notice: #34424A; --tt-border: #546772; --tt-dots: #71848E; --tt-income: #86CABC; --tt-expense: #F2AA97;
+  --tt-switch-track: #3A5364; --tt-switch-knob: #536D7E; --tt-focus: #A9CCDF;
+}
+@media(prefers-reduced-motion:reduce) { #root :is(.ms-btn-primary,.ms-btn-ghost,.tt-icon-button) { transition: none; } }

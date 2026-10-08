@@ -120,7 +120,6 @@ export function deriveSharedPreviewContexts(input: {
       const lines = linesFromDebt(input.ownerParticipantId, deriveRelationalDebtLines([projected], [], {
         scope: 'direct', participantIds: [input.ownerParticipantId, participation.participantId],
       }))
-      if (!lines.length) continue
       const person = input.people.find(p => p.participantIds.includes(participation.participantId))
       contexts.push({
         id: `preview:${expense.id}:${participation.participantId}`,
@@ -207,6 +206,7 @@ export type HomeRecord = {
   category: string
   chip: HomeContextChip
   direction: 'in' | 'out'
+  journalKind?: HomeJournalKind
   amountMinor: number
   currency: string
   accountId: string | null
@@ -659,6 +659,7 @@ export function buildHomeRecords(input: {
       createdAt: entry.createdAt,
       description: entry.memo?.trim() || entry.kind,
       category: entry.kind === 'transfer' ? 'transfer' : 'Other',
+      journalKind: entry.kind,
       chip: { kind: 'personal' },
       direction,
       amountMinor: Math.abs(entry.amountMinor),

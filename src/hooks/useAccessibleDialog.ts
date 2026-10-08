@@ -56,6 +56,7 @@ function setBackgroundInert(dialog: HTMLElement): () => void {
 export function useAccessibleDialog<T extends HTMLElement>(
   onClose: () => void,
   initialFocusRef?: RefObject<HTMLElement | null>,
+  returnFocusRef?: RefObject<HTMLElement | null>,
 ) {
   const dialogRef = useRef<T>(null)
   const closeDialog = useEffectEvent(onClose)
@@ -66,6 +67,7 @@ export function useAccessibleDialog<T extends HTMLElement>(
     const previouslyFocused = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null
+    const returnTarget = returnFocusRef?.current
     const restoreBackground = setBackgroundInert(dialog)
     const frame = window.requestAnimationFrame(() => {
       const fallback = dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
@@ -107,9 +109,10 @@ export function useAccessibleDialog<T extends HTMLElement>(
       window.cancelAnimationFrame(frame)
       document.removeEventListener('keydown', handleKeyDown, true)
       restoreBackground()
-      previouslyFocused?.focus()
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+      else returnTarget?.focus()
     }
-  }, [initialFocusRef])
+  }, [initialFocusRef, returnFocusRef])
 
   return dialogRef
 }

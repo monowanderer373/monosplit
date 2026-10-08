@@ -31,8 +31,8 @@ export default defineConfig(({ mode }) => {
           description: 'Split travel costs with friends, then settle everything in one clear statement.',
           start_url: '/',
           display: 'standalone',
-          background_color: '#fff7ed',
-          theme_color: '#d9782d',
+          background_color: '#F7F5EF',
+          theme_color: '#35678B',
           icons: [
             { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
             { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },

@@ -116,6 +116,10 @@ export default function ProfilePage() {
     <main className="ms-page pb-28">
       <header className="mb-6"><h1>{t('nav.me')}</h1><p className="mt-2 text-sm text-[var(--ms-text-secondary)]">{authUser.displayName}</p></header>
 
+      <section className="ms-card-soft mb-5 p-5">
+        <button type="button" className="ms-btn-ghost w-full" onClick={() => navigate('/?accountPanel=manage')}>{t('home.manageAccounts')}</button>
+      </section>
+
       {showGuestSignOutWarning ? (
         <section className="ms-card-hero mb-5 border border-[var(--ms-danger)] p-5">
           <p className="ms-label text-[var(--ms-danger)]">{t('auth.profile.signOutWarningTitle')}</p>
