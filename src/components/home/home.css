@@ -58,11 +58,11 @@
 #root .home-shell .home-section-head h2 { font-size: 18px; line-height: 24px; font-weight: 700; margin: 0; }
 #root .home-shell .home-density-toggle { display: grid; place-items: center; width: 48px; height: 44px; min-width: 48px; min-height: 44px; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 10px; }
 #root .home-shell .home-density-track { position: relative; width: 48px; height: 22px; border: 1px solid var(--tt-border); border-radius: 12px; background: var(--tt-switch-track); box-sizing: border-box; }
-#root .home-shell .home-density-thumb { position: absolute; top: 1px; left: 1px; width: 18px; height: 18px; border-radius: 50%; background: var(--tt-switch-knob); box-shadow: var(--tt-shadow-thumb); transform: translateX(26px); transition: transform 160ms ease-out; }
-#root .home-shell .home-density-toggle[aria-checked="true"] .home-density-thumb { transform: translateX(0); }
+#root .home-shell .home-density-thumb { position: absolute; top: 1px; left: 1px; width: 18px; height: 18px; border-radius: 50%; background: var(--tt-switch-knob); box-shadow: var(--tt-shadow-thumb); transform: translateX(0); transition: transform 160ms ease-out; }
+#root .home-shell .home-density-toggle[aria-checked="true"] .home-density-thumb { transform: translateX(26px); }
 #root .home-shell .home-density-option { position: absolute; top: 0; display: grid; place-items: center; width: 20px; height: 20px; color: var(--tt-primary); pointer-events: none; }
-#root .home-shell .home-density-option.is-compact { left: 0; }
-#root .home-shell .home-density-option.is-detailed { right: 0; }
+#root .home-shell .home-density-option.is-detailed { left: 0; }
+#root .home-shell .home-density-option.is-compact { right: 0; }
 #root .home-shell .home-density-option svg { width: 10px; height: 10px; }
 #root .home-shell .home-day { position: relative; isolation: isolate; min-width: 0; margin: 0 0 12px; padding: 12px; background: var(--tt-day-warm); border: 1px solid var(--tt-collect-edge); border-radius: 14px; box-shadow: var(--tt-shadow-card); }
 #root .home-shell .home-day[data-tone="cool"] { background: var(--tt-day-cool); border-color: var(--tt-pay-edge); }
@@ -86,18 +86,33 @@
 #root .home-shell .home-dots { display: none; }
 #root .home-shell .home-record-trigger { position: absolute; inset: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 #root .home-shell .home-record-trigger:hover { background: rgb(53 103 139 / .04); }
-#root .home-shell .home-frame[data-density="compact"] .home-day { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; margin: 0 0 16px; }
+/* Restore the original compact date rail and receipt rows using the current palette. */
+#root .home-shell .home-frame[data-density="compact"] .home-day { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; margin: 24px 0 0 22px; }
+#root .home-shell .home-frame[data-density="compact"] .home-day::before { content: ''; position: absolute; left: -16px; top: 12px; bottom: -36px; width: 1.5px; background: var(--tt-wallet-edge); pointer-events: none; }
+#root .home-shell .home-frame[data-density="compact"] .home-day:has(+ .home-records-end)::before { bottom: 12px; }
 #root .home-shell .home-frame[data-density="compact"] .home-day::after { content: none; }
-#root .home-shell .home-frame[data-density="compact"] .home-date { padding: 0 0 8px; }
-#root .home-shell .home-frame[data-density="compact"] .home-date strong { color: var(--tt-ink); font-size: 12px; }
-#root .home-shell .home-frame[data-density="compact"] .home-date-year { font-size: 11px; color: var(--tt-secondary); }
-#root .home-shell .home-frame[data-density="compact"] .home-record { min-height: 38px; padding: 9px 0; border-bottom: 1px dotted var(--tt-dots); }
+#root .home-shell .home-frame[data-density="compact"] .home-date { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 3; isolation: isolate; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); align-items: center; gap: 10px; min-height: 62px; margin-bottom: 8px; padding: 10px 14px; box-sizing: border-box; background: var(--tt-paper); }
+#root .home-shell .home-frame[data-density="compact"] .home-date::before { content: ''; position: absolute; top: 26px; left: -21px; width: 11px; height: 11px; box-sizing: border-box; border: 2px solid var(--tt-primary); border-radius: 50%; background: var(--tt-paper); pointer-events: none; }
+#root .home-shell .home-frame[data-density="compact"] .home-date::after { content: ''; position: absolute; inset: 0; z-index: -1; background: url('/denim-paper/paper-grain.svg') repeat, var(--tt-wallet); background-size: 128px; clip-path: polygon(0 7%,2% 2%,13% 4%,25% 1%,38% 3%,52% 0,67% 3%,81% 1%,97% 3%,100% 8%,99% 34%,100% 63%,99% 94%,96% 98%,79% 96%,62% 100%,44% 97%,28% 99%,12% 96%,1% 98%,0 72%,1% 43%); pointer-events: none; }
+#root .home-shell .home-frame[data-density="compact"] .home-compact-date { min-width: 0; }
+#root .home-shell .home-frame[data-density="compact"] .home-date strong { display: block; color: var(--tt-ink); font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: normal; overflow-wrap: anywhere; }
+#root .home-shell .home-frame[data-density="compact"] .home-date-year { display: block; margin-top: 3px; font-size: 12px; line-height: 1.25; color: var(--tt-secondary); }
+#root .home-shell .home-frame[data-density="compact"] .home-record { min-height: 44px; padding: 10px 12px; border-bottom: 1px solid var(--tt-border); box-sizing: border-box; }
+#root .home-shell .home-frame[data-density="compact"] .home-record:last-child { border-bottom: 0; }
 #root .home-shell .home-frame[data-density="compact"] .home-record + .home-record::before { content: none; }
-#root .home-shell .home-frame[data-density="compact"] .home-record-main { grid-template-columns: minmax(0,1fr) minmax(0,auto); gap: 8px; }
-#root .home-shell .home-frame[data-density="compact"] :is(.home-record-icon,.home-wallet,.home-chip) { display: none; }
-#root .home-shell .home-day-total { text-align: right; min-width: 0; max-width: 48%; }
-#root .home-shell .home-day-total-label { display: none; }
-#root .home-shell .home-day-total-value { color: var(--tt-secondary); font-size: 12px; font-weight: 600; }
+#root .home-shell .home-frame[data-density="compact"] .home-record-main { grid-template-columns: minmax(0,1fr) minmax(0,auto); align-items: baseline; gap: 12px; }
+#root .home-shell .home-frame[data-density="compact"] .home-record-title { font-size: 16px; line-height: 1.45; font-weight: 400; }
+#root .home-shell .home-frame[data-density="compact"] .home-amount { font-size: 15px; line-height: 1.45; font-weight: 500; }
+#root .home-shell .home-frame[data-density="compact"] :is(.home-record-icon,.home-wallet) { display: none; }
+#root .home-shell .home-frame[data-density="compact"] .home-chip { display: flex; align-items: flex-start; gap: 5px; font-size: 11px; line-height: 1.5; }
+.home-shared-mark { flex-shrink: 0; width: 14px; height: 14px; margin-top: 1px; }
+#root .home-shell .home-day-total { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin: 0; text-align: right; min-width: 0; max-width: 100%; }
+#root .home-shell .home-day-total-label { color: var(--tt-secondary); font-size: 11px; line-height: 1.3; }
+#root .home-shell .home-day-total-value { color: var(--tt-ink); font-size: 19px; line-height: 1.3; font-weight: 700; max-width: 100%; overflow-wrap: anywhere; }
+#root .home-shell .home-day-total :is(.tt-money-currency,.tt-money-number) { font-size: inherit; font-weight: inherit; color: inherit; }
+#root .home-shell .home-day-total .home-money-lines { align-items: flex-end; }
+#root .home-shell .home-day-total .home-money-line { white-space: normal; }
+@media(max-width:359px) { #root .home-shell .home-frame[data-density="compact"] .home-date { padding-inline: 10px; gap: 8px; } #root .home-shell .home-frame[data-density="compact"] .home-date strong { font-size: 18px; } #root .home-shell .home-frame[data-density="compact"] .home-day-total-value { font-size: 17px; } #root .home-shell .home-frame[data-density="compact"] .home-record { padding-inline: 10px; } #root .home-shell .home-frame[data-density="compact"] .home-record-main { gap: 8px; } }
 .home-records-end { padding: 12px 0; color: var(--tt-secondary); font-size: 12px; text-align: center; }
 .home-text-button { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--tt-primary); font: inherit; font-size: 13px; cursor: pointer; }
 .home-status { margin: 8px 0; font-size: 13px; line-height: 18px; color: var(--tt-secondary); }

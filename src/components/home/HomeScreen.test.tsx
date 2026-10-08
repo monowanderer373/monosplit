@@ -94,6 +94,30 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
 }
 
 describe('HomeScreen', () => {
+  it('maps the grid to overall and the list to compact while keeping the selected view accessible', async () => {
+    const user = userEvent.setup()
+    const onDensityChange = vi.fn()
+    const { rerender } = render(<HomeScreen {...props({ onDensityChange })} />)
+    const toggle = screen.getByRole('switch', { name: 'Record detail' })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(document.getElementById(toggle.getAttribute('aria-describedby')!)?.textContent).toBe('Overall')
+    expect(toggle.querySelector('[data-icon="grid"]')?.classList.contains('is-detailed')).toBe(true)
+    expect(toggle.querySelector('[data-icon="list"]')?.classList.contains('is-compact')).toBe(true)
+    await user.click(toggle)
+    expect(onDensityChange).toHaveBeenLastCalledWith('compact')
+    rerender(<HomeScreen {...props({ onDensityChange, density: 'compact', recordGroups: groups.map(group => ({
+      ...group, records: group.records.map(record => ({ ...record, compact: true, showIcon: false })),
+    })) })} />)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    expect(document.getElementById(toggle.getAttribute('aria-describedby')!)?.textContent).toBe('Compact')
+    expect(screen.getByTestId('home-record').querySelector('.home-shared-mark')).toBeTruthy()
+    expect(screen.getByTestId('home-record').querySelector('.home-chip')?.textContent).toContain('Lan')
+    expect(screen.getByTestId('home-record').querySelector('.home-record-icon')).toBeNull()
+    toggle.focus()
+    await user.keyboard(' ')
+    expect(onDensityChange).toHaveBeenLastCalledWith('detailed')
+  })
+
   it.each(['detailed', 'compact'] as const)('shows whole days and automatically appends older records in %s mode', async density => {
     let onIntersect!: IntersectionObserverCallback
     const disconnect = vi.fn()

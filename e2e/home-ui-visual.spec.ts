@@ -11,6 +11,14 @@ async function noHorizontalOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 }
 
+async function selectedViewIcon(page: Page, icon: 'grid' | 'list') {
+  await expect.poll(async () => {
+    const thumb = await page.locator('.home-density-thumb').boundingBox()
+    const selected = await page.locator(`.home-density-option[data-icon="${icon}"]`).boundingBox()
+    return Math.abs((thumb!.x + thumb!.width / 2) - (selected!.x + selected!.width / 2))
+  }).toBeLessThan(1)
+}
+
 test.beforeAll(async () => { await mkdir('test-results/home-ui', { recursive: true }) })
 
 for (const width of [320, 360, 390, 430]) {
@@ -22,6 +30,10 @@ for (const width of [320, 360, 390, 430]) {
     await noHorizontalOverflow(page)
     const track = await page.locator('.home-density-track').boundingBox()
     expect(track?.width).toBe(48); expect(track?.height).toBe(22)
+    const grid = await page.locator('.home-density-option[data-icon="grid"]').boundingBox()
+    const list = await page.locator('.home-density-option[data-icon="list"]').boundingBox()
+    expect(grid!.x).toBeLessThan(list!.x)
+    await selectedViewIcon(page, 'grid')
     const tray = await page.locator('.tt-nav-surface').boundingBox()
     const add = await page.locator('.tt-seal').boundingBox()
     expect(add?.width).toBe(52); expect(add?.height).toBe(52)
@@ -29,7 +41,10 @@ for (const width of [320, 360, 390, 430]) {
     await page.screenshot({ path: `test-results/home-ui/detailed-${width}.png`, fullPage: true })
     await page.getByRole('switch', { name: 'Record detail' }).click()
     await expect(page.locator('.home-frame')).toHaveAttribute('data-density', 'compact')
+    await selectedViewIcon(page, 'list')
     await expect(page.locator('.home-wallet').first()).not.toBeVisible()
+    await expect(page.locator('.home-day-total-label').first()).toBeVisible()
+    await expect(page.locator('.home-chip').first()).toBeVisible()
     expect(await page.locator('.home-day').first().evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
     await noHorizontalOverflow(page)
     await page.screenshot({ path: `test-results/home-ui/compact-${width}.png`, fullPage: true })

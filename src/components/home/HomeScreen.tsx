@@ -195,7 +195,7 @@ export default function HomeScreen(props: HomeScreenProps) {
             {props.mode === 'travel' ? t('home.travelRecords') : t('home.recent')}
           </h2>
           <div className="home-section-actions">
-            <span id={densityDescriptionId} className="home-sr">{t(props.density === 'detailed' ? 'home.detailed' : 'home.compact')}</span>
+            <span id={densityDescriptionId} className="home-sr">{t(props.density === 'detailed' ? 'home.overall' : 'home.compact')}</span>
             <button
               type="button"
               className="home-density-toggle"
@@ -203,15 +203,15 @@ export default function HomeScreen(props: HomeScreenProps) {
               aria-label={t('home.densityLabel')}
               aria-describedby={densityDescriptionId}
               aria-checked={props.density === 'compact'}
-              title={t(props.density === 'detailed' ? 'home.compact' : 'home.detailed')}
+              title={t(props.density === 'detailed' ? 'home.compact' : 'home.overall')}
               onClick={() => props.onDensityChange(props.density === 'detailed' ? 'compact' : 'detailed')}
             >
               <span className="home-density-track" aria-hidden="true">
                 <span className="home-density-thumb" />
-                <span className="home-density-option is-detailed" data-icon="list">
+                <span className="home-density-option is-compact" data-icon="list">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M4 4h8M4 8h8M4 12h8" /></svg>
                 </span>
-                <span className="home-density-option is-compact" data-icon="grid">
+                <span className="home-density-option is-detailed" data-icon="grid">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M3 3h3v3H3ZM10 3h3v3h-3ZM3 10h3v3H3ZM10 10h3v3h-3Z" /></svg>
                 </span>
               </span>

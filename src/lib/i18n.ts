@@ -684,6 +684,7 @@ const translations = {
   'home.travelRecords': { en: 'Travel records', zh: '旅行记录' },
   'home.viewAll': { en: 'All', zh: '全部' },
   'home.detailed': { en: 'Detailed', zh: '详细' },
+  'home.overall': { en: 'Overall', zh: '完整视图' },
   'home.compact': { en: 'Compact', zh: '紧凑' },
   'home.densityLabel': { en: 'Record detail', zh: '记录显示' },
   'home.today': { en: 'Today', zh: '今天' },
