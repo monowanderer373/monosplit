@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <pattern id="account-weave" width="6" height="6" patternUnits="userSpaceOnUse">
+      <path d="M1 .5v2.5M4 3.5V6M.5 4h2.5M3.5 1H6" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-opacity=".56"/>
+      <path d="M1.8 1.3v2.2M4.8 4.3V6M1.3 4.8h2.2M4.3 1.8H6" fill="none" stroke="#7197AF" stroke-width=".65" stroke-linecap="round" stroke-opacity=".29"/>
+      <path d="M0 3h6M3 0v6" fill="none" stroke="#C0D7E3" stroke-width=".35" stroke-opacity=".40"/>
+    </pattern>
+  </defs>
+  <rect width="24" height="24" fill="url(#account-weave)"/>
+</svg>

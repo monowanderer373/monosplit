@@ -135,29 +135,6 @@ export default function HomeScreen(props: HomeScreenProps) {
           onPointerUp={onSwipeUp}
         >
           <span className="home-fold" aria-hidden="true" />
-          <p id="home-balance-title" className="home-balance-label">{t('home.accountBalance')}</p>
-          <div className="home-balance-line">
-            <BalanceValues
-              status={props.accountsStatus}
-              balances={props.balances}
-              hidden={props.balanceHidden}
-              emptyLabel={t('home.noAccounts')}
-              refreshing={props.accountsRefreshing}
-              onAddAccount={assetAccounts.length === 0 && props.accountsStatus === 'ready'
-                ? () => setSheet('create')
-                : undefined}
-            />
-            <button
-              type="button"
-              className="home-icon-button"
-              data-testid="home-balance-eye"
-              aria-pressed={props.balanceHidden}
-              aria-label={props.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
-              onClick={props.onToggleBalanceHidden}
-            >
-              {props.balanceHidden ? <EyeOffIcon /> : <EyeIcon />}
-            </button>
-          </div>
           <div className="home-account-target">
             <button ref={accountTrigger} type="button" className="home-account-button" data-testid="home-account-selector"
               aria-haspopup="dialog" aria-controls={sheet === 'accounts' ? 'home-account-sheet' : undefined} aria-expanded={sheet === 'accounts'} onClick={() => setSheet(value => value === 'accounts' ? null : 'accounts')}>
@@ -185,6 +162,31 @@ export default function HomeScreen(props: HomeScreenProps) {
                 </button>
               </AccountPaperMenu>
             ) : null}
+          </div>
+          <div className="home-balance-panel">
+            <p id="home-balance-title" className="home-balance-label">{t('home.accountBalance')}</p>
+            <div className="home-balance-line">
+              <BalanceValues
+                status={props.accountsStatus}
+                balances={props.balances}
+                hidden={props.balanceHidden}
+                emptyLabel={t('home.noAccounts')}
+                refreshing={props.accountsRefreshing}
+                onAddAccount={assetAccounts.length === 0 && props.accountsStatus === 'ready'
+                  ? () => setSheet('create')
+                  : undefined}
+              />
+              <button
+                type="button"
+                className="home-icon-button"
+                data-testid="home-balance-eye"
+                aria-pressed={props.balanceHidden}
+                aria-label={props.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
+                onClick={props.onToggleBalanceHidden}
+              >
+                {props.balanceHidden ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            </div>
           </div>
         </section>
         <div className="home-stat-row">

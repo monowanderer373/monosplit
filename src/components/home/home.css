@@ -17,19 +17,24 @@
 #root .home-shell .home-mode button { min-height: 44px; margin-block: -6px; min-width: 60px; padding: 6px 0; border: 0; background: transparent; font: inherit; font-size: 13px; cursor: pointer; color: var(--tt-secondary); }
 #root .home-shell .home-mode button span { display: flex; align-items: center; justify-content: center; min-height: 32px; padding-inline: 10px; border-radius: 9px; }
 #root .home-shell .home-mode button[aria-pressed="true"] span { background: var(--tt-primary); color: var(--tt-white); }
-#root .home-shell .home-balance-card { position: relative; isolation: isolate; min-height: 136px; margin: 0; padding: 16px; border: 1px solid var(--tt-wallet-edge); border-radius: 16px; background: var(--tt-wallet); box-shadow: var(--tt-shadow-card); }
-#root .home-shell .home-balance-card::before, #root .home-shell .home-day::after { content: ''; position: absolute; inset: 0; border: 0; border-radius: inherit; z-index: -1; pointer-events: none; background: url('/denim-paper/paper-grain.svg') repeat; background-size: 128px; opacity: .10; }
+/* Approved tactile account card: woven shell, quiet amount surface and lower-edge lift. */
+#root .home-shell .home-balance-card { position: relative; isolation: isolate; box-sizing: border-box; min-height: 156px; margin: 0 0 3px; padding: 12px; border: 1px solid var(--tt-wallet-edge); border-radius: 18px; background: var(--tt-wallet); box-shadow: inset 0 1px 0 rgb(255 255 255 / .65), 0 3px 0 #BCD3DF, 0 5px 5px rgb(36 55 74 / .10), 0 12px 18px -9px rgb(36 55 74 / .22); }
+#root .home-shell .home-balance-card::before { content: ''; position: absolute; inset: 0; border: 0; border-radius: inherit; z-index: -1; pointer-events: none; background: url('/denim-paper/account-weave.svg') repeat; background-size: 24px; opacity: .72; }
+#root .home-shell .home-day::after { content: ''; position: absolute; inset: 0; border: 0; border-radius: inherit; z-index: -1; pointer-events: none; background: url('/denim-paper/paper-grain.svg') repeat; background-size: 128px; opacity: .10; }
 #root .home-shell .home-balance-card::after { content: none; }
-#root .home-shell .home-fold { position: absolute; right: 0; top: 0; width: 14px; height: 14px; background: var(--tt-surface); border-bottom: 1px solid var(--tt-wallet-edge); border-left: 1px solid var(--tt-wallet-edge); border-radius: 0 14px 0 4px; box-shadow: -1px 1px 2px rgb(36 55 74 / .05); pointer-events: none; }
+#root .home-shell .home-fold { position: absolute; right: -1px; top: -1px; z-index: 1; width: 20px; height: 20px; background: var(--tt-surface); border: 1px solid var(--tt-wallet-edge); border-top: 0; border-right: 0; border-radius: 0 17px 0 5px; box-shadow: -2px 3px 3px rgb(36 55 74 / .14); pointer-events: none; }
+#root .home-shell .home-fold::after { content: ''; position: absolute; inset: 0; background: var(--tt-paper); clip-path: polygon(0 0,100% 0,100% 100%); border-radius: 0 17px 0 0; }
+#root .home-shell .home-balance-panel { position: relative; isolation: isolate; min-width: 0; margin-top: 6px; padding: 12px 14px; border: 1px solid rgb(201 220 230 / .7); border-radius: 14px; background: #F0F6F8; box-shadow: inset 0 1px 2px rgb(36 55 74 / .06), 0 1px 0 rgb(255 255 255 / .6); }
+#root .home-shell .home-balance-panel::before { content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none; background: url('/denim-paper/account-weave.svg') repeat; background-size: 24px; opacity: .10; }
 #root .home-shell .home-balance-label { margin: 0; color: var(--tt-secondary); font-size: 13px; line-height: 18px; font-weight: 500; }
-#root .home-shell .home-balance-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+#root .home-shell .home-balance-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
 #root .home-shell .home-balance-line > div { min-width: 0; flex: 1; }
 #root .home-shell .home-balance-values { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 #root .home-shell .home-balance-figure { margin: 0; font-size: clamp(26px, 8vw, 32px); line-height: 38px; font-weight: 700; letter-spacing: -.02em; color: var(--tt-ink); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 #root .home-shell .home-balance-figure .tt-money-currency { font-size: inherit; font-weight: inherit; }
 .home-icon-button { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; flex-shrink: 0; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--tt-ink); font: inherit; cursor: pointer; }
 .home-icon-button:hover { background: var(--tt-primary-soft); }
-#root .home-shell .home-account-target { position: relative; display: flex; align-items: center; min-height: 44px; margin-block: -6px; max-width: 100%; }
+#root .home-shell .home-account-target { position: relative; display: flex; align-items: center; min-height: 44px; margin: 0 10px; max-width: calc(100% - 20px); z-index: 2; }
 #root .home-shell .home-balance-card[data-account-menu-open="true"] { z-index: 50; }
 #root .home-shell .home-account-button[aria-expanded="true"] > svg { transform: rotate(180deg); }
 #root .home-shell .home-account-button > svg { transition: transform 180ms ease-out; }
@@ -41,9 +46,9 @@
 .home-account-paper-menu .home-account-option { min-height: 48px; }
 .home-account-paper-menu .home-add-account-button { margin-top: 10px; }
 @keyframes home-paper-menu-in { from { opacity: 0; transform: translateY(-4px) scaleY(.90); } to { opacity: 1; transform: translateY(0) scaleY(1); } }
-#root .home-shell .home-account-button { position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; height: 28px; padding: 0 10px; border: 1px solid var(--tt-leather-edge); border-radius: 8px; background: var(--tt-leather); color: var(--tt-leather-ink); box-shadow: var(--tt-shadow-button); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
-#root .home-shell .home-account-button::before { content: ''; position: absolute; inset: -8px 0; border-radius: inherit; }
-#root .home-shell .home-account-button::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; background: url('/denim-paper/leather-grain.svg') repeat; background-size: 96px; opacity: .18; }
+#root .home-shell .home-account-button { position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; height: 32px; padding: 0 14px; border: 1px solid var(--tt-leather-edge); border-radius: 9px; background: var(--tt-leather); color: var(--tt-leather-ink); box-shadow: inset 0 1px 0 rgb(244 240 229 / .45), 0 2px 0 #B98259, 0 4px 5px rgb(36 55 74 / .16); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+#root .home-shell .home-account-button::before { content: ''; position: absolute; inset: -6px 0; border-radius: inherit; }
+#root .home-shell .home-account-button::after { content: ''; position: absolute; z-index: -1; pointer-events: none; border: 1px dashed rgb(244 240 229 / .58); box-sizing: border-box; inset: 3px; border-radius: 6px; background: url('/denim-paper/leather-grain.svg') repeat; background-size: 96px; opacity: .65; }
 #root .home-shell .home-account-button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #root .home-shell .home-account-button svg { width: 12px; height: 12px; flex: none; }
 #root .home-shell .home-account-button:hover { background-color: var(--tt-leather-hover); }
@@ -199,6 +204,6 @@ button.home-sheet-option:hover { background: var(--tt-primary-soft); }
 .home-debt-skeleton { display: block; width: 80px; height: 24px; border-radius: 4px; background: var(--tt-border); }
 .home-account-option { position: relative; border-bottom: 0; }
 .home-account-option + .home-account-option::before { content: ''; position: absolute; top: 0; inset-inline: 0; height: 2px; background: var(--tt-dots); mask: url('/denim-paper/dot-divider.svg') repeat-x left center; pointer-events: none; }
-#root .home-shell .home-account-button { min-height: 28px; margin-top: 0; }
+#root .home-shell .home-account-button { min-height: 32px; margin-top: 0; }
 #root .home-shell .home-account-button span { color: var(--tt-leather-ink); font-size: 12px; font-weight: 600; }
 #root .home-shell .home-account-button svg { color: var(--tt-leather-ink); }
