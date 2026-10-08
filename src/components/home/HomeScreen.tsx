@@ -135,33 +135,36 @@ export default function HomeScreen(props: HomeScreenProps) {
           onPointerUp={onSwipeUp}
         >
           <span className="home-fold" aria-hidden="true" />
-          <div className="home-account-target">
-            <button ref={accountTrigger} type="button" className="home-account-button" data-testid="home-account-selector"
-              aria-haspopup="dialog" aria-controls={sheet === 'accounts' ? 'home-account-sheet' : undefined} aria-expanded={sheet === 'accounts'} onClick={() => setSheet(value => value === 'accounts' ? null : 'accounts')}>
-              <span>{selected?.name ?? t('home.allAccounts')}</span><Chevron />
-            </button>
-            {sheet === 'accounts' ? (
-              <AccountPaperMenu title={t('home.accountSheet')} onClose={closeSheet} testId="home-account-sheet" triggerRef={accountTrigger}>
-                <div className="home-account-list">
-                  <AccountOption name={t('home.allAccounts')} type="all" selected={props.selectedAccountId === 'all'}
-                    onSelect={() => { props.onSelectAccount('all'); closeSheet() }}>
-                    {props.accountsStatus !== 'ready' ? t(props.accountsStatus === 'loading' ? 'home.loading' : 'home.unavailable')
-                      : <span className="home-money-lines">{allAccountBalances(assetAccounts, 'all').map(balance => <span key={balance.currency}>
-                        {balance.amountMinor == null ? t('home.balanceIncomplete') : formatMoney(balance.amountMinor, balance.currency, lang, t)}
-                        {balance.knownOnly ? ` · ${t('home.knownBalance')}` : ''}
-                      </span>)}</span>}
-                  </AccountOption>
-                  {props.accountsStatus === 'ready' ? assetAccounts.map(account => <AccountOption key={account.id} name={account.name}
-                    type={account.accountType} selected={account.id === props.selectedAccountId}
-                    onSelect={() => { props.onSelectAccount(account.id); closeSheet() }}>
-                    {accountBalanceLabel(account, lang, t)}
-                  </AccountOption>) : null}
-                </div>
-                <button type="button" className="home-add-account-button" data-testid="home-add-account" onClick={() => setSheet('create')}>
-                  <PlusIcon /><span>{t('home.addAccount')}</span>
-                </button>
-              </AccountPaperMenu>
-            ) : null}
+          <div className="home-account-header">
+            <div className="home-account-target">
+              <button ref={accountTrigger} type="button" className="home-account-button" data-testid="home-account-selector"
+                aria-haspopup="dialog" aria-controls={sheet === 'accounts' ? 'home-account-sheet' : undefined} aria-expanded={sheet === 'accounts'} onClick={() => setSheet(value => value === 'accounts' ? null : 'accounts')}>
+                <span>{selected?.name ?? t('home.allAccounts')}</span><Chevron />
+              </button>
+              {sheet === 'accounts' ? (
+                <AccountPaperMenu title={t('home.accountSheet')} onClose={closeSheet} testId="home-account-sheet" triggerRef={accountTrigger}>
+                  <div className="home-account-list">
+                    <AccountOption name={t('home.allAccounts')} type="all" selected={props.selectedAccountId === 'all'}
+                      onSelect={() => { props.onSelectAccount('all'); closeSheet() }}>
+                      {props.accountsStatus !== 'ready' ? t(props.accountsStatus === 'loading' ? 'home.loading' : 'home.unavailable')
+                        : <span className="home-money-lines">{allAccountBalances(assetAccounts, 'all').map(balance => <span key={balance.currency}>
+                          {balance.amountMinor == null ? t('home.balanceIncomplete') : formatMoney(balance.amountMinor, balance.currency, lang, t)}
+                          {balance.knownOnly ? ` · ${t('home.knownBalance')}` : ''}
+                        </span>)}</span>}
+                    </AccountOption>
+                    {props.accountsStatus === 'ready' ? assetAccounts.map(account => <AccountOption key={account.id} name={account.name}
+                      type={account.accountType} selected={account.id === props.selectedAccountId}
+                      onSelect={() => { props.onSelectAccount(account.id); closeSheet() }}>
+                      {accountBalanceLabel(account, lang, t)}
+                    </AccountOption>) : null}
+                  </div>
+                  <button type="button" className="home-add-account-button" data-testid="home-add-account" onClick={() => setSheet('create')}>
+                    <PlusIcon /><span>{t('home.addAccount')}</span>
+                  </button>
+                </AccountPaperMenu>
+              ) : null}
+            </div>
+            <img className="home-balance-mascot" src="/denim-paper/pocket-clear.png" width="64" height="64" alt="" aria-hidden="true" draggable={false} />
           </div>
           <div className="home-balance-panel">
             <p id="home-balance-title" className="home-balance-label">{t('home.accountBalance')}</p>
