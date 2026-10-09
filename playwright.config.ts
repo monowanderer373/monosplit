@@ -10,7 +10,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI
+    ? [['github'], ['json', { outputFile: 'test-results/browser-results.json' }]]
+    : 'list',
   use: {
     baseURL: 'http://127.0.0.1:5173',
     // Traces, screenshots, and video can retain authenticated URLs, request

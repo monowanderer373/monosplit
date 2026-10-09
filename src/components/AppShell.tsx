@@ -35,9 +35,12 @@ function ShellContents() {
     : null, [authUser, t])
 
   useEffect(() => {
+    if (location.pathname !== '/quick-add') {
+      directQuickAddArmed.current = false
+      return
+    }
     if (
-      location.pathname !== '/quick-add'
-      || quickAdd.action
+      quickAdd.action
       || !authUser?.participantId
       || authUser.isAnonymous
       || directQuickAddArmed.current

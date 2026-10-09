@@ -1,3 +1,4 @@
+import { enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -57,7 +58,7 @@ test.describe('Phase 5C state-aware expense changes', () => {
     await betaPending.getByRole('button', { name: 'Accept correction' }).click()
 
     await expect(betaPending.getByText('Current corrected expense · RM 80.00')).toBeVisible()
-    await alphaBrowser.page.goto('/')
+    await alphaBrowser.page.goto('/friends')
     await expect(changeCard(alphaBrowser.page, 'Correction dinner', 'RM 80.00')
       .getByText('Original expense · superseded · RM 100.00')).toBeVisible()
 
@@ -144,6 +145,7 @@ test.describe('Phase 5C state-aware expense changes', () => {
 
 async function connectFriends(owner: Page, invitee: Page): Promise<void> {
   await owner.goto('/friends')
+  await openFriendTools(owner)
   await owner.getByRole('button', { name: 'Copy friend invite' }).click()
   await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
   const invite = await copyInviteUrl(owner)
@@ -163,13 +165,14 @@ async function createDirectExpense(
   await owner.goto('/friends')
   await openPersonDetail(owner, personName)
   await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
-  const dialog = owner.getByRole('dialog', { name: 'Add Expense' })
-  await dialog.getByRole('textbox', { name: /^Amount/ }).fill(amount)
-  await dialog.getByPlaceholder('What was this for?').fill(description)
+  const dialog = owner.getByRole('dialog', { name: 'Quick Add' })
+  await enterQuickAmount(dialog, amount)
+  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
   if (extraParticipant) {
     await dialog.getByRole('button', { name: extraParticipant, exact: true }).click()
   }
-  await dialog.getByRole('button', { name: 'Save expense' }).click()
+  await dialog.getByRole('button', { name: 'Food', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)
 }
 
@@ -205,12 +208,12 @@ async function proposeCorrection(
   await owner.getByRole('button', { name: `Edit ${description}` }).click()
   const dialog = owner.getByRole('dialog')
   await dialog.getByLabel('Total amount').fill(nextAmount)
-  await dialog.getByRole('button', { name: 'Review changes' }).click()
   await expect(dialog.getByText(
     'This correction will not affect the balance until everyone required has approved it.',
   )).toBeVisible()
-  await dialog.getByRole('button', { name: 'Propose correction' }).click()
+  await dialog.getByRole('button', { name: 'Save changes' }).click()
   await expect(dialog).toHaveCount(0)
+  await owner.goto('/friends')
 }
 
 async function requestCancellation(owner: Page, description: string): Promise<void> {
@@ -220,6 +223,7 @@ async function requestCancellation(owner: Page, description: string): Promise<vo
   await dialog.getByRole('button', { name: 'Request cancellation' }).click()
   await dialog.getByRole('button', { name: 'Send cancellation request' }).click()
   await expect(dialog).toHaveCount(0)
+  await owner.goto('/friends')
 }
 
 function changeCard(page: Page, description: string, proposedAmount: string) {

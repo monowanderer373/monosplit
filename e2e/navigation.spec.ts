@@ -1,3 +1,4 @@
+import { enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
 import { writeFileSync } from 'node:fs'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
@@ -29,11 +30,10 @@ test('keeps four destinations and a usable global money action at 320px', async 
   expect(box?.height).toBeGreaterThanOrEqual(44)
 
   await addButton.click()
-  const gate = page.getByRole('dialog', { name: 'Where should this go?' })
-  await expect(gate).toBeVisible()
-  await expect(page.getByRole('dialog', { name: 'Quick tally' })).toHaveCount(0)
-  await gate.getByRole('button', { name: 'Personal', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Quick tally' })).toBeVisible()
+  const capture = page.getByRole('dialog', { name: 'Quick Add' })
+  await expect(capture.getByRole('button', { name: /^Split/ })).toContainText('Personal')
+  await expect(page.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
+  await expect(page.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL(/\/friends$/)
   await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -52,20 +52,20 @@ test('direct Quick Add Back and Close both land safely on Personal', async ({ pa
 
   await page.goto('about:blank')
   await page.goto('/quick-add?source=pwa-shortcut')
-  await expect(page.getByRole('dialog', { name: 'Quick tally' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: 'My day', exact: true })).toBeVisible()
+  await expect(page.getByTestId('home-header')).toBeVisible()
 
   await page.goto('about:blank')
   await page.goto('/quick-add?source=pwa-shortcut')
-  const dialog = page.getByRole('dialog', { name: 'Quick tally' })
+  const dialog = page.getByRole('dialog', { name: 'Quick Add' })
   await expect(dialog).toBeVisible()
-  await dialog.getByRole('button', { name: 'Close' }).click()
+  await dialog.getByRole('button', { name: 'Close Quick Add' }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: 'My day', exact: true })).toBeVisible()
+  await expect(page.getByTestId('home-header')).toBeVisible()
 })
 
 test('keeps the global money action above mobile form controls', async ({
@@ -85,12 +85,14 @@ test('keeps the global money action above mobile form controls', async ({
     const owner = ownerBrowser.page
     const target = targetBrowser.page
     await owner.goto('/friends')
+    await openFriendTools(owner)
     await owner.getByRole('button', { name: 'Copy friend invite' }).click()
     await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
     await target.goto(await copyInviteUrl(owner))
     await target.getByRole('button', { name: 'Accept friend invite' }).click()
 
     await owner.reload()
+    await openFriendTools(owner)
     await owner.getByPlaceholder('Person’s name').fill('Pointer Manual')
     await owner.getByRole('button', { name: 'Add person' }).click()
 
@@ -98,10 +100,11 @@ test('keeps the global money action above mobile form controls', async ({
     const personNavigation = owner.getByRole('navigation', { name: 'Primary navigation' })
     await expect(personNavigation.getByRole('button', { name: 'Shared', exact: true })).toHaveAttribute('aria-current', 'page')
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
-    const capture = owner.getByRole('dialog', { name: 'Add Expense' })
-    await capture.getByRole('textbox', { name: /^Amount/ }).fill('1.01')
-    await capture.getByPlaceholder('What was this for?').fill('Pointer overlap')
-    await capture.getByRole('button', { name: 'Save expense' }).click()
+    const capture = owner.getByRole('dialog', { name: 'Quick Add' })
+    await enterQuickAmount(capture, '1.01')
+    await capture.getByRole('textbox', { name: 'Description', exact: true }).fill('Pointer overlap')
+    await capture.getByRole('button', { name: 'Food', exact: true }).click()
+    await capture.getByRole('button', { name: 'Save and close' }).click()
     await expect(owner.getByRole('status')).toContainText('Expense recorded')
     await owner.getByRole('status').click()
 
@@ -139,14 +142,13 @@ test('keeps the global money action above mobile form controls', async ({
     expect(hitTestEvidence.hitTest.topIsGlobalAction).toBe(true)
 
     await add.click()
-    const captureDialog = owner.getByRole('dialog', { name: 'Add Expense' })
+    const captureDialog = owner.getByRole('dialog', { name: 'Quick Add' })
     await expect(captureDialog).toBeVisible()
     await expect(owner.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
-    await expect(
-      captureDialog.getByRole('button', {
-        name: 'Current context: Pointer Manual. Change context',
-      }),
-    ).toBeVisible()
+    await captureDialog.getByRole('button', { name: /^Split/ }).click()
+    const split = owner.getByRole('dialog', { name: 'Split expense' })
+    await expect(split.getByText('Pointer Manual', { exact: true }).first()).toBeVisible()
+    await split.getByRole('button', { name: 'Close panel' }).click()
     const modalHitTestEvidence = await collectHitTestEvidence(
       owner,
       owner.getByTestId('global-money-action-layer').locator('button'),
@@ -158,18 +160,15 @@ test('keeps the global money action above mobile form controls', async ({
         (element) => element?.role === 'dialog',
       ),
     ).toBe(true)
-    await captureDialog.getByRole('button', { name: 'Close' }).click()
+    await captureDialog.getByRole('button', { name: 'Close Quick Add' }).click()
 
     await expect(select.locator('option:checked')).toHaveText('Pointer Target')
     await owner.getByRole('button', { name: 'Back to Friends' }).click()
     await expect(owner).toHaveURL(/\/friends$/)
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
-    const friendsGate = owner.getByRole('dialog', { name: 'Where should this go?' })
-    await expect(friendsGate).toBeVisible()
-    await expect(
-      friendsGate.getByRole('button', { name: 'Pointer Manual', exact: true }),
-    ).toHaveCount(1)
-    await friendsGate.getByRole('button', { name: 'Close' }).click()
+    const friendsCapture = owner.getByRole('dialog', { name: 'Quick Add' })
+    await expect(friendsCapture.getByRole('button', { name: /^Split/ })).toContainText('Personal')
+    await friendsCapture.getByRole('button', { name: 'Close Quick Add' }).click()
     await owner
       .getByRole('navigation', { name: 'Primary navigation' })
       .getByRole('button', { name: 'Daily', exact: true })

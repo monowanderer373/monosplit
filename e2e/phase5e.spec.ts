@@ -1,3 +1,4 @@
+import { enterQuickAmount, openFriendTools, openCreateSpace } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   acceptSpaceInvite,
@@ -61,7 +62,8 @@ test.describe('Phase 5E audit and history presentation', () => {
       .getByRole('button', { name: 'Accept correction' })
       .click()
 
-    await owner.goto('/')
+    await owner.goto('/friends')
+    await openPersonDetail(owner, 'Beta')
     let history = owner.getByTestId('expense-history')
     await expect(history.getByText('Original expense', { exact: true })).toBeVisible()
     await expect(history.getByText('Corrected by Audit chain dinner')).toBeVisible()
@@ -78,7 +80,8 @@ test.describe('Phase 5E audit and history presentation', () => {
       .getByRole('button', { name: 'Accept correction' })
       .click()
 
-    await owner.goto('/')
+    await owner.goto('/friends')
+    await openPersonDetail(owner, 'Beta')
     history = owner.getByTestId('expense-history')
     await expect(history.getByText('Original expense', { exact: true })).toHaveCount(1)
     await expect(history.getByText('Corrected expense', { exact: true })).toHaveCount(1)
@@ -169,6 +172,7 @@ test.describe('Phase 5E audit and history presentation', () => {
     const owner = alphaBrowser.page
     const debtor = gammaBrowser.page
     await owner.goto('/spaces')
+    await openCreateSpace(owner)
     await owner.getByLabel('Name').fill('Audit Group')
     await owner.getByLabel('Type').selectOption('group')
     await owner.getByRole('button', { name: 'Create', exact: true }).click()
@@ -178,10 +182,11 @@ test.describe('Phase 5E audit and history presentation', () => {
     await acceptSpaceInvite(debtor, inviteUrl)
     await owner.goto(groupUrl)
     await owner.getByRole('button', { name: '+ Add expense' }).press('Enter')
-    const dialog = owner.getByRole('dialog', { name: 'Add Expense' })
-    await dialog.getByRole('textbox', { name: /^Amount/ }).fill('20.00')
-    await dialog.getByPlaceholder('What was this for?').fill('Group audit lunch')
-    await dialog.getByRole('button', { name: 'Save expense' }).click()
+    const dialog = owner.getByRole('dialog', { name: 'Quick Add' })
+    await enterQuickAmount(dialog, '20.00')
+    await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill('Group audit lunch')
+    await dialog.getByRole('button', { name: 'Food', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Save and close' }).click()
     await expect(dialog).toHaveCount(0)
 
     await debtor.goto(groupUrl)
@@ -202,6 +207,7 @@ test.describe('Phase 5E audit and history presentation', () => {
 
 async function connectFriends(owner: Page, invitee: Page): Promise<void> {
   await owner.goto('/friends')
+  await openFriendTools(owner)
   await owner.getByRole('button', { name: 'Copy friend invite' }).click()
   await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
   await invitee.goto(await copyInviteUrl(owner))
@@ -219,10 +225,11 @@ async function createDirectExpense(
   await owner.goto('/friends')
   await openPersonDetail(owner, personName)
   await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
-  const dialog = owner.getByRole('dialog', { name: 'Add Expense' })
-  await dialog.getByRole('textbox', { name: /^Amount/ }).fill(amount)
-  await dialog.getByPlaceholder('What was this for?').fill(description)
-  await dialog.getByRole('button', { name: 'Save expense' }).click()
+  const dialog = owner.getByRole('dialog', { name: 'Quick Add' })
+  await enterQuickAmount(dialog, amount)
+  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await dialog.getByRole('button', { name: 'Food', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)
 }
 
@@ -257,9 +264,9 @@ async function proposeCorrection(
   await owner.getByRole('button', { name: `Edit ${description}` }).click()
   const dialog = owner.getByRole('dialog')
   await dialog.getByLabel('Total amount').fill(nextAmount)
-  await dialog.getByRole('button', { name: 'Review changes' }).click()
-  await dialog.getByRole('button', { name: 'Propose correction' }).click()
+  await dialog.getByRole('button', { name: 'Save changes' }).click()
   await expect(dialog).toHaveCount(0)
+  await owner.goto('/friends')
 }
 
 async function requestCancellation(owner: Page, description: string): Promise<void> {
@@ -268,6 +275,7 @@ async function requestCancellation(owner: Page, description: string): Promise<vo
   await dialog.getByRole('button', { name: 'Request cancellation' }).click()
   await dialog.getByRole('button', { name: 'Send cancellation request' }).click()
   await expect(dialog).toHaveCount(0)
+  await owner.goto('/friends')
 }
 
 function changeCard(page: Page, description: string, proposedAmount: string) {

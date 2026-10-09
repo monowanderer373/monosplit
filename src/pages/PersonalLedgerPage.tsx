@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
+import PendingExpenseRecoveryActions from '../components/PendingExpenseRecoveryActions'
 import HomeScreen from '../components/home/HomeScreen'
 import '../components/home/home.css'
 import { useRouteScroll } from '../hooks/useRouteScroll'
@@ -123,9 +124,18 @@ export default function PersonalLedgerPage() {
     model.flatRecords.flatMap((record) => {
       if (!record.expenseId || !ledger.participantId) return []
       const expense = ledger.expenses.find((item) => item.id === record.expenseId)
-      if (!expense || changeState.loading || changeState.error) return []
+      if (!expense) return []
       const pending = ledger.outbox.find((item) => item.command.requestId === expense.clientRequestId)
-      if (pending) return []
+      if (pending) return [[record.id, (
+        <PendingExpenseRecoveryActions
+          key={pending.command.requestId}
+          item={pending}
+          onUndoAdd={ledger.discardLocalCreate}
+          onRetry={ledger.retryCommand}
+          onDiscardFailed={ledger.discardFailedCreate}
+        />
+      )]]
+      if (changeState.loading || changeState.error) return []
       return [[record.id, (
         <ExpenseActionSheet
           key={expense.id}
