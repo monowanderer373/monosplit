@@ -78,7 +78,7 @@ test('selects accounts from the paper menu and enters the existing accessible ad
   await page.keyboard.press('Home')
   await expect(sheet.getByRole('button', { name: /^All accounts/ })).toBeFocused()
   await page.keyboard.press('End')
-  await expect(sheet.getByRole('button', { name: /^Touch/ })).toBeFocused()
+  await expect(sheet.getByRole('button', { name: /^现金/ })).toBeFocused()
   await page.getByTestId('home-add-account').click()
   await expect(page.getByTestId('home-create-account-sheet')).toBeVisible()
   await page.getByLabel('Account name', { exact: true }).fill('New wallet')
