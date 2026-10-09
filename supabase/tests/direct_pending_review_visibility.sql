@@ -46,6 +46,8 @@ select is((select count(*) from public.expense_participations where participant_
   2::bigint,'read visibility does not confirm pending shares');
 select is((public.get_direct_outstanding('95000000-0000-4000-8000-000000000001','MYR')->>'signed_outstanding_minor')::bigint,
   0::bigint,'pending shares remain outside the confirmed net balance');
+select throws_ok($$select public.upsert_personal_expense_affiliation(pg_temp.review_id(1),'Not confirmed',null)$$,
+  'P0001','expense_not_visible','review visibility does not grant authority to classify pending money');
 
 select pg_temp.review_login(3);
 select is((select count(*) from public.expenses),0::bigint,'outsider cannot read pending expenses');

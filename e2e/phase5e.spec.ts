@@ -145,6 +145,10 @@ test.describe('Phase 5E audit and history presentation', () => {
       hasText: 'Gamma says they paid you RM 100.00',
     })
     await receipt.getByRole('button', { name: 'Confirm received' }).click()
+    await expect(owner.getByTestId('settlement-history').getByText(
+      'Settlement accepted', { exact: true },
+    )).toBeVisible()
+    await expect(owner.getByText('No confirmed amount is outstanding.')).toBeVisible()
 
     await proposeCorrection(owner, 'Residual audit dinner', '160.00')
     await debtor.goto('/friends')
