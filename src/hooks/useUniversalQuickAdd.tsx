@@ -185,6 +185,7 @@ export function UniversalQuickAddProvider({
       }
       const next = {
         ...active,
+        clientRequestId: active.originalContext && !sameContext(active.originalContext, resolved.ref) ? generateId() : active.clientRequestId,
         context: resolved,
         originalContext: active.originalContext ?? resolved.ref,
         values: active.context
@@ -438,7 +439,7 @@ export function UniversalQuickAddProvider({
         })
         return
       }
-      const switched = switchUniversalQuickAddContext(active, resolved)
+      const switched = { ...switchUniversalQuickAddContext(active, resolved), clientRequestId: generateId() }
       const next = active.followPageContext && resolved.ref.kind === 'space' ? { ...switched, values: { ...switched.values, selectedParticipantIds: [resolved.currentParticipantId] } } : switched
       installSession(next)
       setPendingSwitch(null)
@@ -489,7 +490,7 @@ export function UniversalQuickAddProvider({
     if (!resolved || sessionRef.current?.sessionId !== active.sessionId) return false
     if (selectedIds?.some(id => !resolved.availableParticipants.some(p => p.id === id))) return false
     const next = switchUniversalQuickAddContext(active, resolved)
-    installSession({ ...next, values: { ...next.values,
+    installSession({ ...next, clientRequestId: active.context && !sameContext(active.context.ref, resolved.ref) ? generateId() : active.clientRequestId, values: { ...next.values,
       currency: active.values.currency,
       category: active.values.category,
       categorySource: active.values.categorySource,
