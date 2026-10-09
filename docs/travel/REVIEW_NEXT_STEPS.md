@@ -1,8 +1,6 @@
-# Travel 浏览器验收下一步
+# Travel 浏览器验证与发布检查
 
-状态：脚本已编写并通过 TypeScript 检查；尚未运行，无真实截图。
-
-在具备 Docker / Supabase 与 Chromium 的隔离开发机或 GitHub Actions 中：
+真实浏览器验证已经执行。首次验证发现并修复旅程选择被旧缓存覆盖的问题；Quality #80 六项作业全部通过，真实截图已对照提供的设计板。本文件保留可重放步骤，最终证据与发布记录见 PR #6。
 
 ```sh
 npm ci
@@ -13,12 +11,10 @@ npx playwright test e2e/travel.spec.ts --workers=1
 npx supabase stop --no-backup
 ```
 
-`db reset` 仅用于一次性本地测试栈，不可针对生产数据库执行。Playwright 配置已经锁定 `127.0.0.1:54321`，fixture 中的密钥也是本地演示 anon key。
+上述 reset 仅用于一次性本地测试栈。Playwright 与 fixture 锁定 `127.0.0.1:54321`，不得针对生产运行这些 fixture。
 
-1. 先确认所有真实流程断言通过；失败时修复后重新执行受影响流程。
-2. 取 `test-results/travel/` 中真实 PNG 和尺寸 JSON，分别比较无旅程、已选旅程、弹层、详情与零记录状态；不能用 handoff PNG 或组件测试代替实际截图。
-3. 人工验收 320/390/430 px、桌面、长文字/金额、200% 文字以及设备安全区。脚本的 CSS 文字放大只是一项压力检查，仍须实际浏览器文字缩放验证。
-4. 运行已有 Daily、收付款与权限相关浏览器回归；记录实际执行结果及剩余问题。
-5. 更新实施报告并提供截图，保持审阅状态。没有授权合并或部署。
+脚本检查 320/360/390/430/768 px、1024 桌面，四个批准状态及已有 Trip 零记录，真实创建、切换、分摊金额、详情、成员/信息、Quick Add 旅程预填、返回选择与密度、只读和无权限。另取得中文、长名称/金额和 CSS 200% 文字截图。`test-results/travel/` 包含 PNG 与尺寸 JSON；CI 的 `travel-browser-evidence` artifact 同时保留断言结果和失败上下文。
 
-GitHub workflow 的 `travel-browser` 作业已配置截图、尺寸和失败上下文 artifact；尚未有本轮 CI 执行结果。已有通用 browser 作业也会发现 Travel spec，完整回归运行时间可能增加。
+发布前：最新代码的六项 Quality 作业全部通过，检查最终截图没有溢出或遮挡，将 PR #6 合并 main，等 Vercel Production 成功，再核验正式域名资源与登录入口。用户已授权 live 部署，无需重复要求批准。
+
+系统文字缩放、实体设备安全区以及登录后的生产真实账户只读抽查需对应设备/会话。测试环境真实账户与 RPC 的通过结果不冒充这些人工检查。
