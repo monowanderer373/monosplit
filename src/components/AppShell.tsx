@@ -89,9 +89,9 @@ function ShellContents() {
     quickAdd,
   ])
 
-  const showNavigation = Boolean(authUser?.participantId)
+  const showNavigation = Boolean(authUser?.participantId) && !location.pathname.startsWith('/travel/trip/')
   const homeMode = useStore((state) => state.homeUi.mode)
-  const place = location.pathname === '/' && homeMode === 'travel' ? 'bali' : 'home'
+  const place = (location.pathname === '/' && homeMode === 'travel') || location.pathname.startsWith('/travel/') ? 'bali' : 'home'
   useEffect(() => {
     document.documentElement.dataset.place = place
   }, [place])

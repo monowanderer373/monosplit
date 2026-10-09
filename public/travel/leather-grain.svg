@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <filter id="leather" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency=".30" numOctaves="2" seed="17" stitchTiles="stitch"/>
+    <feColorMatrix type="saturate" values="0"/>
+    <feColorMatrix type="matrix" values="0 0 0 0 .28  0 0 0 0 .20  0 0 0 0 .15  0 0 0 .24 0"/>
+  </filter>
+  <rect width="96" height="96" filter="url(#leather)"/>
+</svg>

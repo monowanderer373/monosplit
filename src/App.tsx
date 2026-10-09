@@ -77,6 +77,8 @@ function AppRoutes() {
             <Route path="/collect-pay/:direction" element={<CollectPayPage />} />
             <Route path="/shared" element={<SharedPage />} />
             <Route path="/quick-add" element={<PersonalLedgerRoute />} />
+            <Route path="/travel/trip/:tripId" element={<PersonalLedgerRoute />} />
+            <Route path="/travel/manage" element={<SpacesPage preferredType="trip" />} />
             <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/space/:spaceId" element={<SpacePage />} />
             <Route path="/friends" element={<FriendsPage />} />

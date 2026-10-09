@@ -1,0 +1,101 @@
+/* Integration overrides are restricted to Travel; Daily record behavior stays intact. */
+#root .home-shell[data-home-mode='travel'] { padding-inline: 16px !important; background: #F7F5EF !important; }
+#root .home-shell .tt-travel.home-frame { max-width: 480px; width: 100%; }
+#root .tt-travel { --tt-primary: #35678B; --tt-income: #236C62; }
+#root .tt-travel .tt-home-header { align-items: flex-start; }
+#root .tt-travel .tt-title-bell { min-height: 44px; }
+#root .tt-travel .tt-date { margin-top: 6px; margin-bottom: 14px; }
+#root .tt-travel .home-mode { margin-top: 4px; border-radius: 12px; }
+#root .tt-travel .home-mode button { min-width: 54px; }
+#root .tt-travel .home-mode button span { min-height: 36px; border-radius: 11px; }
+#root .tt-travel .home-mode button[aria-pressed='true'] span { background: #35678B; }
+.tt-travel .tt-trip-label { min-height: 44px; }
+.tt-travel .tt-guide-step p { margin: 0; font-size: 14px; line-height: 20px; }
+.tt-travel .tt-guide-step .tt-guide-step-meta { font-size: 12px; line-height: 17px; color: var(--tt-secondary); }
+.tt-travel .tt-empty-copy { max-width: calc(100% - 100px); }
+.tt-travel .tt-empty-add { margin-top: 16px; }
+.tt-travel .tt-amount-line { display: block; }
+.tt-travel .tt-amount-state { font-size: 14px; line-height: 20px; font-weight: 400; }
+.tt-travel .tt-summary-date:empty { min-height: 0; }
+.tt-travel .tt-state-message { margin: 8px 0; font-size: 13px; line-height: 20px; color: var(--tt-secondary); }
+.tt-travel .tt-skeleton { margin-top: 16px; height: 72px; border-radius: 12px; background: var(--tt-blue-surface); }
+.tt-travel.tt-popover { display: flex; flex-direction: column; z-index: 80; }
+.tt-travel.tt-popover .tt-trip-options { min-height: 0; flex: 1 1 auto; max-height: none; }
+.tt-travel.tt-popover .tt-popover-footer { flex: 0 0 auto; }
+.tt-travel.tt-popover .tt-popover-heading { flex: 0 0 auto; text-transform: uppercase; }
+.tt-travel .tt-popover-arrow { position: absolute; top: -5px; }
+.tt-travel[data-flipped='true'] .tt-popover-arrow { top: auto; bottom: -5px; rotate: 180deg; }
+.tt-travel .tt-trip-option { border: 0; background: transparent; color: var(--tt-ink); width: 100%; text-align: left; }
+.tt-travel .tt-option-title { white-space: normal; }
+.tt-travel .tt-option-icon .tt-icon { width: 16px; height: 16px; }
+.tt-travel .tt-empty-title { max-width: 210px; }
+#root .tt-travel .tt-primary, #root .tt-travel .tt-trip-label { background-image: none; }
+#root .tt-travel .tt-link, #root .tt-travel .tt-icon-button { box-shadow: none; background: transparent; }
+#root .tt-travel .tt-page { padding-top: max(12px, env(safe-area-inset-top)); }
+#root .tt-travel .tt-detail-action { z-index: 40; }
+#root .tt-travel .tt-members-row { flex-wrap: wrap; }
+#root .tt-travel .tt-avatars { flex-wrap: wrap; }
+#root .tt-travel .tt-avatar-item { max-width: 72px; overflow-wrap: anywhere; }
+#root .tt-travel .tt-detail-title { min-width: 0; }
+/* Reuse the current record components and their paginator with the approved density. */
+#root#root .tt-travel .home-day { margin: 0 0 8px; padding: 0; border-radius: 12px; border: 1px solid var(--tt-peach-edge); background: var(--tt-peach-surface); box-shadow: none; }
+#root#root .tt-travel .home-day[data-tone='cool'] { border-color: var(--tt-blue-edge); background: var(--tt-blue-surface); }
+#root#root .tt-travel .home-day::before, #root#root .tt-travel .home-day::after, #root#root .tt-travel .home-record::after { content: none; }
+#root#root .tt-travel .home-date { padding: 10px 12px; margin: 0; background: transparent; border: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+#root#root .tt-travel .home-date strong { font-size: 11px; line-height: 16px; font-weight: 700; letter-spacing: .6px; color: var(--tt-orange-ink); }
+#root#root .tt-travel .home-day[data-tone='cool'] .home-date strong { color: var(--tt-denim); }
+#root#root .tt-travel .home-record { margin: 0; padding: 10px 12px; min-height: 56px; border: 0; background: transparent; box-shadow: none; }
+#root#root .tt-travel .home-record + .home-record::before { content: ''; position: absolute; top: 0; left: 12px; right: 12px; height: 0; border-top: 1px dotted var(--tt-dots); background: none; mask: none; }
+#root#root .tt-travel .home-record-main { display: grid; grid-template-columns: 32px minmax(0,1fr) minmax(0,auto); gap: 10px; align-items: center; padding: 0; }
+#root#root .tt-travel .home-record-icon { display: grid; width: 32px; height: 32px; border-radius: 50%; color: var(--tt-orange-ink); background: var(--tt-apricot); }
+#root#root .tt-travel .home-record-icon svg { width: 18px; height: 18px; }
+#root#root .tt-travel .home-day[data-tone='cool'] .home-record-icon { color: var(--tt-denim); background: var(--tt-denim-soft); }
+#root#root .tt-travel .home-record-title { font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
+#root#root .tt-travel .home-chip, #root#root .tt-travel .home-wallet { font-size: 12px; line-height: 17px; background: none; padding: 0; border: 0; border-radius: 0; color: var(--tt-secondary); }
+#root#root .tt-travel .home-wallet { display: none; }
+#root#root .tt-travel .home-amount { font-size: 14px; line-height: 20px; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
+#root#root .tt-travel .home-record-money { min-width: 0; max-width: 140px; }
+#root#root .tt-travel .home-dots { display: none; }
+#root#root .tt-travel[data-density='compact'] .home-record-main { grid-template-columns: minmax(0,1fr) minmax(0,auto); }
+#root#root .tt-travel[data-density='compact'] .home-record-icon { display: none; }
+#root#root .tt-travel .home-day-total-value { font-size: 14px; line-height: 20px; }
+#root#root .tt-travel .home-day-total-label, #root#root .tt-travel .home-date-year { font-size: 11px; line-height: 16px; }
+#root#root .tt-travel .home-record-trigger { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; border-radius: 8px; }
+@media (max-width: 340px) {
+  #root .home-shell[data-home-mode='travel'] { padding-inline: 12px !important; }
+  .tt-travel .tt-empty-copy { max-width: calc(100% - 74px); }
+  #root#root .tt-travel .home-record-main { grid-template-columns: 32px minmax(0,1fr); }
+  #root#root .tt-travel .home-record-money { grid-column: 2; justify-self: end; max-width: 100%; }
+  #root#root .tt-travel[data-density='compact'] .home-record-main { grid-template-columns: minmax(0,1fr); }
+  #root#root .tt-travel[data-density='compact'] .home-record-money { grid-column: 1; }
+  #root#root .tt-travel .home-amount { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { .tt-travel * { scroll-behavior: auto; } }
+/* Scoped resets prevent global stationery rules from resizing Travel controls. */
+.tt-travel.tt-popover { font-family: inherit; }
+.tt-travel .tt-popover-footer-control, .tt-travel .tt-trip-option { box-shadow: none; background-image: none; }
+#root .tt-travel .tt-section-head { flex-wrap: wrap; }
+#root .tt-travel .tt-trip-label { min-height: 34px; margin-block: 5px; }
+#root .tt-travel .tt-trip-label:active { transform: translateY(1px); }
+#root .tt-trip-detail { min-height: 100dvh; }
+#root .tt-trip-detail .tt-page { padding-top: max(12px, env(safe-area-inset-top)); }
+#root#root .tt-travel .home-record-copy, #root#root .tt-travel .home-record-figures { min-width: 0; }
+#root#root .tt-travel .home-record-title { white-space: normal; overflow: visible; display: block; -webkit-line-clamp: unset; }
+#root#root .tt-travel .home-amount.outgoing { color: var(--tt-expense); }
+#root#root .tt-travel .home-amount.incoming { color: var(--tt-status); }
+#root#root .tt-travel .home-amount :is(.tt-money-currency,.tt-money-number), .tt-travel .tt-amount :is(.tt-money-currency,.tt-money-number) { font-size: inherit; font-weight: inherit; color: inherit; white-space: normal; }
+#root .tt-travel-home { position: relative; isolation: isolate; }
+#root .tt-travel-home::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--tt-paper-texture) repeat; background-size: 128px; opacity: .28; }
+#root .tt-travel-home .home-account-notice { width: 44px; height: 44px; }
+#root .tt-travel-home .home-account-notice svg { width: 20px; height: 20px; }
+#root .tt-travel-home .home-account-notice-dot { width: 5px; height: 5px; }
+#root .tt-travel :is(.tt-primary,.tt-trip-label) { font-family: inherit; }
+#root .tt-travel .tt-detail-action { --tt-primary: #35678B; }
+@media (prefers-reduced-motion: reduce) { #root .tt-travel button:active { transform: none; } }
+/* The leather artwork stays 34px tall inside a separate 44px button hit area. */
+#root .tt-travel .tt-trip-label { min-height: 44px; margin: 0; border: 0; background: transparent; box-shadow: none; }
+#root .tt-travel .tt-trip-label::before { inset: 5px 0; border: 1px solid var(--tt-leather-edge); opacity: 1; background: var(--tt-leather); box-shadow: 0 2px 0 rgba(174,129,94,.4), 0 3px 4px rgba(36,55,74,.08); z-index: -1; }
+#root .tt-travel .tt-trip-label { isolation: isolate; }
+#root .tt-travel .tt-trip-label::after { inset: 9px 4px; background: var(--tt-leather-texture); }
+#root .tt-travel .tt-detail-page { padding-bottom: calc(var(--tt-detail-action-height, 84px) + 16px); }
+#root .tt-travel .tt-primary::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: var(--tt-denim-texture) repeat; opacity: .12; }

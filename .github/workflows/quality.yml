@@ -173,3 +173,31 @@ jobs:
           retention-days: 14
       - if: always()
         run: npx supabase stop --no-backup
+
+  travel-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx supabase start
+      - run: npx supabase db reset
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test e2e/travel.spec.ts --workers=1
+      - name: Save real Travel screenshots and DOM measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: travel-browser-evidence
+          path: |
+            test-results/travel/
+            test-results/browser-results.json
+            test-results/**/error-context.md
+          if-no-files-found: ignore
+          retention-days: 14
+      - if: always()
+        run: npx supabase stop --no-backup

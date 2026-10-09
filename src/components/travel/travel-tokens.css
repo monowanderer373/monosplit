@@ -1,0 +1,43 @@
+/* Travel-only tokens. Keep existing global Daily / finance tokens unchanged. */
+.tt-travel {
+  --tt-paper: #F7F5EF;
+  --tt-surface: #FFFCF7;
+  --tt-ink: #24374A;
+  --tt-secondary: #576779;
+  --tt-denim: #35678B;
+  --tt-denim-hover: #2E5C7E;
+  --tt-denim-pressed: #274F6D;
+  --tt-denim-soft: #DDEAF1;
+  --tt-blue-surface: #E9F2F6;
+  --tt-blue-edge: #D3E2E9;
+  --tt-apricot: #FBEADB;
+  --tt-peach-surface: #FFF3E8;
+  --tt-peach-edge: #EBD8C7;
+  --tt-leather: #C99B78;
+  --tt-leather-ink: #3F3028;
+  --tt-leather-edge: #AE815E;
+  --tt-stitch: #F1D7BD;
+  --tt-expense: #AD412E;
+  --tt-orange-ink: #A84D27;
+  --tt-status: #236C62;
+  --tt-status-soft: #E5F0E9;
+  --tt-notification: #B7563F;
+  --tt-border: #D7DEDF;
+  --tt-dots: #B4BBC0;
+  --tt-white: #FFFFFF;
+  --tt-font: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --tt-page-padding: 16px;
+  --tt-content-max: 480px;
+  --tt-radius-card: 16px;
+  --tt-radius-record: 12px;
+  --tt-shadow-paper: 0 2px 4px rgba(36,55,74,.07);
+  --tt-shadow-button: 0 3px 0 rgba(36,55,74,.16), 0 3px 5px rgba(36,55,74,.07);
+  --tt-shadow-popover: 0 6px 18px rgba(36,55,74,.16);
+  --tt-motion: 140ms;
+  --tt-paper-texture: url('/travel/paper-grain.svg');
+  --tt-leather-texture: url('/travel/leather-grain.svg');
+  --tt-denim-texture: url('/travel/denim-weave.svg');
+}
+@media (max-width: 340px) {
+  .tt-travel { --tt-page-padding: 12px; }
+}

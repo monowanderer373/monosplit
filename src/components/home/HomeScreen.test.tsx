@@ -598,11 +598,11 @@ describe('HomeScreen', () => {
       },
       trips: [],
     })} />)
-    expect(screen.getByText('Ended')).toBeTruthy()
+    expect(screen.getByText('Archived')).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Travel records' })).toBeTruthy()
     rerender(<HomeScreen {...props({ mode: 'travel', trip: null, onCreateTrip, recordGroups: [] })} />)
-    expect(screen.getByTestId('home-trip-empty').textContent).toContain('No trip yet')
-    await user.click(screen.getByRole('button', { name: 'View trips' }))
+    expect(screen.getByTestId('home-trip-empty').textContent).toContain('A little room for your next trip')
+    await user.click(screen.getByRole('button', { name: 'Create a trip' }))
     expect(onCreateTrip).toHaveBeenCalled()
   })
 
@@ -635,7 +635,7 @@ describe('HomeScreen', () => {
       },
     })} />)
     expect(screen.getByText('Hanoi Days')).toBeTruthy()
-    expect(screen.getByText(/Private trip labels could not be loaded/)).toBeTruthy()
+    expect(screen.getByText(/Could not update. Showing the last verified details/)).toBeTruthy()
     expect(screen.queryByText('These figures could not be loaded.')).toBeNull()
   })
 
