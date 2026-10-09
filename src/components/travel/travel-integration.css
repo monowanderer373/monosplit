@@ -2,7 +2,7 @@
 #root .home-shell[data-home-mode='travel'] { padding-inline: 16px !important; background: #F7F5EF !important; }
 #root .home-shell .tt-travel.home-frame { max-width: 480px; width: 100%; }
 #root .tt-travel { --tt-primary: #35678B; --tt-income: #236C62; }
-#root .tt-travel .tt-home-header { align-items: flex-start; }
+#root .tt-travel .tt-home-header { align-items: flex-start; flex-wrap: wrap; }
 #root .tt-travel .tt-title-bell { min-height: 44px; }
 #root .tt-travel .tt-date { margin-top: 6px; margin-bottom: 14px; }
 #root .tt-travel .home-mode { margin-top: 4px; border-radius: 12px; }
@@ -99,3 +99,8 @@
 #root .tt-travel .tt-trip-label::after { inset: 9px 4px; background: var(--tt-leather-texture); }
 #root .tt-travel .tt-detail-page { padding-bottom: calc(var(--tt-detail-action-height, 84px) + 16px); }
 #root .tt-travel .tt-primary::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: var(--tt-denim-texture) repeat; opacity: .12; }
+/* Fit the supplied artwork's transparent canvas into the specified visible boxes. */
+.tt-travel :is(.tt-empty-map,.tt-pocket) { overflow: hidden; }
+.tt-travel .tt-pocket img { position: absolute; width: 212.66%; height: 164.71%; max-width: none; left: -58.23%; top: -38.24%; }
+.tt-travel .tt-empty-map img { position: absolute; width: 129.87%; height: auto; max-width: none; left: -14.29%; top: 0; }
+.tt-travel .tt-guide-intro > .tt-icon { margin-inline: auto; }

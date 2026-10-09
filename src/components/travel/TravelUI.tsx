@@ -150,7 +150,8 @@ export function TravelSummary({ props }: { props: HomeScreenProps }) {
     </> : <>
       <div className="tt-empty-copy"><h2 className="tt-empty-title">{t('travel.emptyTitle')}</h2><p className="tt-empty-subtitle">{t('travel.emptySubtitle')}</p>
         <button type="button" className="tt-primary" onClick={props.onCreateTrip}><TravelIcon name="plus" />{t('travel.create')}</button></div>
-      <img className="tt-empty-map" src="/travel/travel-map-ticket.png" alt="" /><img className="tt-pocket" src="/travel/pocket-travel.png" alt="" />
+      <span className="tt-empty-map" aria-hidden="true"><img src="/travel/travel-map-ticket.png" alt="" /></span>
+      <span className="tt-pocket" aria-hidden="true"><img src="/travel/pocket-travel.png" alt="" /></span>
     </>}
   </section>
 }

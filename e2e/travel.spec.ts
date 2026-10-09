@@ -18,7 +18,7 @@ async function rpc(client: SupabaseClient, name: string, args: Record<string, un
 }
 async function capture(page: Page, name: string) {
   await mkdir('test-results/travel', { recursive: true })
-  await page.screenshot({ path: `test-results/travel/${name}.png`, fullPage: true })
+  await page.screenshot({ path: `test-results/travel/${name}.png`, fullPage: true, animations: 'disabled' })
   const dimensions = await page.locator('.tt-travel').first().evaluate(root => ({
     viewport: window.innerWidth, scrollWidth: document.documentElement.scrollWidth,
     elements: [...root.querySelectorAll('.tt-summary,.tt-trip-label,.tt-section-head,.tt-view-switch,.home-day,.home-record,.tt-detail-summary,.tt-detail-action,.tt-empty-map,.tt-pocket')].map(el => {
@@ -29,7 +29,7 @@ async function capture(page: Page, name: string) {
   await writeFile(`test-results/travel/${name}.json`, JSON.stringify(dimensions, null, 2))
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport + 1)
 }
-for (const width of [320, 390, 430]) test(`Travel real RPC flows and approved states at ${width}px`, async ({ browser }, info) => {
+for (const width of [320, 360, 390, 430, 768]) test(`Travel real RPC flows and approved states at ${width}px`, async ({ browser }, info) => {
   test.setTimeout(180_000)
   const account = await createConfirmedAccount('travel', 'Travel Tester', `${Date.now()}-${info.parallelIndex}-${width}`)
   const client = await clientFor(account)
@@ -91,7 +91,10 @@ for (const width of [320, 390, 430]) test(`Travel real RPC flows and approved st
     await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toHaveCount(0)
     await expect(page.getByTestId('trip-detail-summary')).toContainText('3 records')
     await expect(page.getByTestId('trip-detail-summary')).toContainText('2 people')
+    await capture(page, `04-trip-details-compact-${width}`)
+    await page.getByRole('button', { name: 'Overall', exact: true }).click()
     await capture(page, `04-trip-details-${width}`)
+    await page.getByRole('button', { name: 'Compact', exact: true }).click()
     await page.getByRole('button', { name: 'Trip info', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/space/${id}\\?section=info$`))
     await expect(page.getByTestId('space-manage')).toBeInViewport()
@@ -119,6 +122,23 @@ for (const width of [320, 390, 430]) test(`Travel real RPC flows and approved st
       await page.setViewportSize({ width: 1024, height: 900 })
       await capture(page, 'desktop-1024')
       await page.setViewportSize({ width: 390, height: 844 })
+      await page.goto('/profile')
+      await page.getByRole('button', { name: '简中', exact: true }).click()
+      await page.goto('/')
+      await expect(page.getByTestId('home-trip-selector')).toHaveText('Mountain weekend')
+      await capture(page, 'zh-has-trip-390')
+      await page.getByTestId('home-trip-selector').click()
+      await expect(page.getByRole('dialog', { name: '切换旅程' })).toBeVisible()
+      await capture(page, 'zh-dropdown-390')
+      await page.keyboard.press('Escape')
+      await expect(page.getByTestId('home-trip-selector')).toBeFocused()
+      await page.getByRole('button', { name: '查看旅程', exact: true }).click()
+      await expect(page.getByTestId('trip-detail-summary')).toContainText('4 条记录')
+      await capture(page, 'zh-trip-details-390')
+      await page.goto('/profile')
+      await page.getByRole('button', { name: 'EN', exact: true }).click()
+      await page.goto('/')
+      await expect(page.getByTestId('home-trip-selector')).toHaveText('Mountain weekend')
     }
     await rpc(client, 'update_space', { target_space_id: id, space_name: 'A very long travel name with enough text to wrap on small screens', start_date: yesterday, end_date: today, default_currency: 'VND', expected_version: 2 })
     await rpc(client, 'create_expense', { request_id: randomUUID(), expense_scope: 'space', target_space_id: id,
