@@ -1,4 +1,4 @@
-import { enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
+import { enterQuickAmount, openFriendTools, openQuickSplit } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -169,7 +169,9 @@ async function createDirectExpense(
   await enterQuickAmount(dialog, amount)
   await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
   if (extraParticipant) {
-    await dialog.getByRole('button', { name: extraParticipant, exact: true }).click()
+    const split = await openQuickSplit(dialog, owner)
+    await split.getByRole('checkbox', { name: extraParticipant, exact: true }).check()
+    await split.getByRole('button', { name: 'Apply split' }).click()
   }
   await dialog.getByRole('button', { name: 'Food', exact: true }).click()
   await dialog.getByRole('button', { name: 'Save and close' }).click()

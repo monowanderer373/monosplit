@@ -100,5 +100,5 @@ test('provisions a confirmed account and completes the manifest Quick Add shortc
 
   const reviewDialog = page.getByRole('dialog', { name: 'Quick Add' })
   await expect(reviewDialog).toBeVisible()
-  await expect(reviewDialog.getByLabel('Amount')).toHaveValue('8.50')
+  await expect(reviewDialog.getByRole('textbox', { name: 'Amount', exact: true })).toHaveValue('8.50')
 })

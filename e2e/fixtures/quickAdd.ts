@@ -16,14 +16,16 @@ export async function fillQuickExpense(dialog: Locator, amount: string, descript
 }
 
 export async function openFriendTools(page: Page): Promise<void> {
-  const toggle = page.getByRole('button', { name: '+ Add person', exact: true })
-  if (await toggle.isVisible()) await toggle.click()
+  const toggle = page.locator('main > header button[aria-expanded]')
+  await expect(toggle).toBeVisible()
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
   await expect(page.getByRole('button', { name: 'Copy friend invite' })).toBeVisible()
 }
 
 export async function openCreateSpace(page: Page): Promise<void> {
-  const toggle = page.getByRole('button', { name: '+ Create', exact: true })
-  if (await toggle.isVisible()) await toggle.click()
+  const toggle = page.locator('main > header button[aria-expanded]')
+  await expect(toggle).toBeVisible()
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
   await expect(page.getByLabel('Name', { exact: true })).toBeVisible()
 }
 

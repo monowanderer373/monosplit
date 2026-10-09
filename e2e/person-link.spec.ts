@@ -83,6 +83,7 @@ test('links a Person without rewriting old Manual money', async ({
       owner.getByRole('button', { name: 'Split with Target cash' }),
     ).toHaveCount(0)
 
+    await openPersonDetail(owner, 'Target cash')
     await expect(owner.getByTestId('person-position')).toContainText('RM 4.00 in recorded shares · not a confirmed balance')
 
     await owner.goto('/friends')

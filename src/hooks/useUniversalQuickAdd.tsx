@@ -229,19 +229,27 @@ export function UniversalQuickAddProvider({
     setPendingSwitch(null)
     installSession(next)
 
-    if (request.directDeepLink && resolved) {
+    if (request.directDeepLink && (resolved || unresolved)) {
       const directUrl = `${location.pathname}${location.search}${location.hash}`
       navigate('/', { replace: true })
       navigate(directUrl, {
         state: {
-          moneyAction: {
+          moneyAction: resolved ? {
             step: 'capture',
             context: resolved.ref,
             startedAtMs,
             directDeepLink: true,
+          } : {
+            step: 'resolve-context',
+            context: unresolved!,
+            mode: 'entry',
+            startedAtMs,
           } satisfies MoneyActionState,
         },
       })
+      // Restored drafts contain a ref which must be revalidated. Keep the
+      // shortcut's safe Daily history entry and close behavior during that path.
+      if (unresolved) void resolveEntryContext(unresolved, true)
       return
     }
     if (resolved) {

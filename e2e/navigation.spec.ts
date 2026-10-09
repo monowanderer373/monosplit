@@ -167,7 +167,10 @@ test('keeps the global money action above mobile form controls', async ({
     await expect(owner).toHaveURL(/\/friends$/)
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
     const friendsCapture = owner.getByRole('dialog', { name: 'Quick Add' })
-    await expect(friendsCapture.getByRole('button', { name: /^Split/ })).toContainText('Personal')
+    await friendsCapture.getByRole('button', { name: /^Split/ }).click()
+    const restoredSplit = owner.getByRole('dialog', { name: 'Split expense' })
+    await expect(restoredSplit.getByText('Pointer Manual', { exact: true }).first()).toBeVisible()
+    await restoredSplit.getByRole('button', { name: 'Close panel' }).click()
     await friendsCapture.getByRole('button', { name: 'Close Quick Add' }).click()
     await owner
       .getByRole('navigation', { name: 'Primary navigation' })
