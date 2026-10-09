@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { readAllPages } from './personalAccountReadRepository'
 
 export type SettlementScope = 'direct' | 'space'
 export type SettlementAllocationState =
@@ -253,13 +254,19 @@ export const settlementRepository: SettlementRepository = {
 
   async listSettlements() {
     if (!supabase) throw new SettlementRepositoryError('not_configured')
-    const { data, error } = await supabase
-      .from('settlement_payments')
-      .select(settlementSelect)
-      .order('payment_date', { ascending: false })
-      .order('created_at', { ascending: false })
-    if (error) throw serverRejected(error.message)
-    return ((data ?? []) as unknown as SettlementPaymentRow[]).map(mapSettlement)
+    const client = supabase
+    const rows = await readAllPages(async (from, to) => {
+      const { data, error } = await client
+        .from('settlement_payments')
+        .select(settlementSelect)
+        .order('payment_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to)
+      if (error) throw serverRejected(error.message)
+      return (data ?? []) as unknown as SettlementPaymentRow[]
+    })
+    return rows.map(mapSettlement)
   },
 
   async respondToAllocation(allocationId, response, expectedPaymentVersion) {

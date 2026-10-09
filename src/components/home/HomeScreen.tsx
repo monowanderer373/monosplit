@@ -84,6 +84,7 @@ export type HomeScreenProps = {
   onSelectTrip: (tripId: string) => void
   onCreateTrip: () => void
   onOpenSharedContext: (context: SharedContext) => void
+  onOpenCollectPay?: (direction: 'collect' | 'pay') => void
   emptyRecordsLabel?: TranslationKey
 }
 
@@ -194,14 +195,16 @@ export default function HomeScreen(props: HomeScreenProps) {
         </section>
         <div className="home-stat-row">
           {(['receivable', 'payable'] as const).map(direction => (
-            <section key={direction} className={`home-stat home-debt-stat is-${direction}`} data-testid={`home-${direction}`} data-state={props.sharedStatus} data-empty={props.sharedStatus === 'ready' && (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).every(line => line.amountMinor === 0)}>
+            <button type="button" key={direction} aria-label={t(direction === 'receivable' ? 'cp.openCollect' : 'cp.openPay')} onClick={() => props.onOpenCollectPay?.(direction === 'receivable' ? 'collect' : 'pay')} className={`home-stat home-debt-stat cp-summary-material is-${direction}`} data-testid={`home-${direction}`} data-state={props.sharedStatus} data-empty={props.sharedStatus === 'ready' && (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).every(line => line.amountMinor === 0)}>
               <span className="home-meta">{t(direction === 'receivable' ? 'home.toCollect' : 'home.payable')}</span>
               <span className="home-debt-value">
                 {props.sharedStatus === 'error' ? t('home.unavailable')
                   : props.sharedStatus === 'loading' ? <><span className="home-sr">{t('home.loading')}</span><span className="home-debt-skeleton" aria-hidden="true" /></>
                   : <MoneyLines lines={(direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).length > 0 ? (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)) : [{currency:props.defaultCurrency ?? 'MYR',amountMinor:0}]} lang={lang} t={t} />}
               </span>
-            </section>
+              <span className="cp-summary-corner" aria-hidden="true" />
+              <span className="cp-summary-fold" aria-hidden="true" />
+            </button>
           ))}
         </div>
         {props.sharedStatus === 'ready' && (props.sharedPreviews?.length ?? 0) > 0 ?

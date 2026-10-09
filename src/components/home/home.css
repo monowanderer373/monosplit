@@ -212,3 +212,11 @@ button.home-sheet-option:hover { background: var(--tt-primary-soft); }
 #root .home-shell .home-account-button { min-height: 32px; margin-top: 0; }
 #root .home-shell .home-account-button span { color: var(--tt-leather-ink); font-size: 12px; font-weight: 600; }
 #root .home-shell .home-account-button svg { color: var(--tt-leather-ink); }
+
+/* CollectPay decor only: all existing summary geometry and typography remain above. */
+#root .home-shell button.cp-summary-material { position: relative; isolation: isolate; appearance: none; margin: 0; font: inherit; letter-spacing: inherit; cursor: pointer; box-shadow: 0 3px 5px rgb(36 55 74 / .08),0 1px 1px rgb(36 55 74 / .05); }
+#root .home-shell .cp-summary-material::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: url('/collect-pay/paper-grain.svg') repeat; background-size: 128px; opacity: .07; pointer-events: none; }
+#root .home-shell .cp-summary-corner { position: absolute; top: 1px; right: 1px; width: 20px; height: 20px; background: url('/collect-pay/denim-corner.svg') center / contain no-repeat; opacity: .35; pointer-events: none; border-top-right-radius: 10px; }
+#root .home-shell .cp-summary-fold { position: absolute; right: 3px; bottom: 3px; width: 10px; height: 10px; background: url('/collect-pay/paper-fold.svg') center / contain no-repeat; filter: drop-shadow(-1px 1px 1px rgb(36 55 74 / .10)); pointer-events: none; }
+#root .home-shell .cp-summary-material:focus-visible { outline: 2px solid var(--tt-focus); outline-offset: 2px; }
+@media(prefers-reduced-motion:reduce) { #root .home-shell button.cp-summary-material:active { transform: none; } }

@@ -1,0 +1,35 @@
+/* Local token reference for NEW CollectPay pages. Does not size or recolor home cards. */
+.cp-scope {
+  --cp-paper: #F7F5EF;
+  --cp-surface: #FFFCF7;
+  --cp-ink: #24374A;
+  --cp-secondary: #576779;
+  --cp-denim: #35678B;
+  --cp-denim-hover: #2E5C7E;
+  --cp-denim-pressed: #274F6D;
+  --cp-denim-soft: #DDEAF1;
+  --cp-collect: #FBEADB;
+  --cp-collect-edge: #EBD8C7;
+  --cp-pay: #E9F0F3;
+  --cp-pay-edge: #D3DFE5;
+  --cp-income: #236C62;
+  --cp-expense: #AD412E;
+  --cp-success-soft: #E5F0E9;
+  --cp-pending-soft: #FBEDD9;
+  --cp-pending-ink: #875126;
+  --cp-border: #D7DEDF;
+  --cp-dots: #B4BBC0;
+  --cp-white: #FFFFFF;
+  --cp-radius-panel: 12px;
+  --cp-radius-control: 10px;
+  --cp-touch-min: 44px;
+  --cp-space-1: 4px;
+  --cp-space-2: 8px;
+  --cp-space-3: 12px;
+  --cp-space-4: 16px;
+  --cp-space-6: 24px;
+  --cp-shadow-panel: 0 2px 5px rgb(36 55 74 / .05), 0 1px 1px rgb(36 55 74 / .03);
+  --cp-shadow-button: 0 2px 3px rgb(36 55 74 / .12);
+  --cp-control-duration: 140ms;
+}
+/* Map these to the existing theme instead of globally overriding it. */
