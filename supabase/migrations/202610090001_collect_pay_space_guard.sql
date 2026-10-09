@@ -102,9 +102,14 @@ alter function public.propose_settlement(uuid,text,uuid,text,bigint,date,uuid[],
 -- old label as a missing table instead of the original argument variables.
 do $$
 begin
-  execute pg_catalog.replace(pg_catalog.pg_get_functiondef(
+  execute pg_catalog.replace(pg_catalog.replace(pg_catalog.pg_get_functiondef(
     'public.phase6_propose_settlement_without_space_guard(uuid,text,uuid,text,bigint,date,uuid[],bigint[],text,text,bigint,uuid[],bigint[],uuid)'::regprocedure
-  ), 'propose_settlement.', 'phase6_propose_settlement_without_space_guard.');
+  ), 'propose_settlement.', 'phase6_propose_settlement_without_space_guard.'), '  item_index integer;', '');
+  -- Integer FOR loops declare their own variables. Remove the redundant
+  -- declaration in the existing installment helper too, preserving its body.
+  execute pg_catalog.replace(pg_catalog.pg_get_functiondef(
+    'private.generate_personal_installments(uuid)'::regprocedure
+  ), '  item_number integer;', '');
 end;
 $$;
 revoke all on function public.phase6_propose_settlement_without_space_guard(uuid,text,uuid,text,bigint,date,uuid[],bigint[],text,text,bigint,uuid[],bigint[],uuid)
@@ -122,7 +127,6 @@ declare
   actor uuid := private.require_personal_actor();
   current_minor bigint;
   total_outstanding numeric := 0;
-  item_index integer;
   exceeds_outstanding boolean := false;
 begin
   if settlement_scope = 'space' and expected_outstanding_minor is not null then
