@@ -195,7 +195,7 @@ async function collectHitTestEvidence(
   const layerHandle = await page
     .getByTestId('global-money-action-layer')
     .elementHandle()
-  const mainHandle = await page.locator('main').elementHandle()
+  const mainHandle = await page.locator('main.ms-page').first().elementHandle()
   if (
     !actionHandle
     || !selectHandle

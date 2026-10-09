@@ -103,7 +103,7 @@ test('preserves an explicit category and currency while adding and removing a sp
   await expect(capture.getByRole('textbox', { name: 'Amount' })).toHaveValue('9.99')
   split = await openQuickSplit(capture, page)
   await split.getByRole('button', { name: 'Trips', exact: true }).click()
-  await split.getByRole('button', { name: 'Category Trip', exact: true }).click()
+  await split.getByRole('button', { name: /^Category Trip(?: ›)?$/ }).click()
   await split.getByRole('button', { name: 'Apply split', exact: true }).click()
   await expect(capture.getByRole('button', { name: 'Shopping', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(capture.getByLabel('Currency', { exact: true })).toHaveValue('USD')
