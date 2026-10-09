@@ -12,6 +12,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 const PersonalLedgerPage = lazy(() => import('./pages/PersonalLedgerPage'))
 const InsightsPage = lazy(() => import('./pages/InsightsPage'))
+const CollectPayPage = lazy(() => import('./pages/CollectPayPage'))
 const SharedPage = lazy(() => import('./pages/SharedPage'))
 const SpacesPage = lazy(() => import('./pages/SpacesPage'))
 const SpacePage = lazy(() => import('./pages/SpacePage'))
@@ -73,6 +74,7 @@ function AppRoutes() {
           <Route element={<AppShell />}>
             <Route path="/" element={<PersonalLedgerRoute />} />
             <Route path="/insights" element={<InsightsPage />} />
+            <Route path="/collect-pay/:direction" element={<CollectPayPage />} />
             <Route path="/shared" element={<SharedPage />} />
             <Route path="/quick-add" element={<PersonalLedgerRoute />} />
             <Route path="/spaces" element={<SpacesPage />} />

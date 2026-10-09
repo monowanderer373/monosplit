@@ -91,6 +91,19 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
 }
 
 describe('HomeScreen', () => {
+  it('opens both real summary buttons with keyboard, including zero, without putting amounts in their accessible names', async () => {
+    const onOpenCollectPay = vi.fn()
+    render(<HomeScreen {...props({ onOpenCollectPay, receivables: [], sharedContexts: [], balanceHidden: true })} />)
+    const collect = screen.getByRole('button', { name: 'Open amounts to collect' })
+    const pay = screen.getByRole('button', { name: 'Open amounts to pay' })
+    expect(collect.textContent).toContain('0.00')
+    expect(collect.querySelectorAll('.cp-summary-corner[aria-hidden="true"],.cp-summary-fold[aria-hidden="true"]')).toHaveLength(2)
+    collect.focus(); await userEvent.keyboard('{Enter}')
+    pay.focus(); await userEvent.keyboard(' ')
+    expect(onOpenCollectPay.mock.calls).toEqual([['collect'], ['pay']])
+    expect(collect.getAttribute('aria-label')).not.toMatch(/[0-9]/)
+  })
+
   it('maps the grid to overall and the list to compact while keeping the selected view accessible', async () => {
     const user = userEvent.setup()
     const onDensityChange = vi.fn()
@@ -218,11 +231,11 @@ describe('HomeScreen', () => {
     expect(screen.getByTestId('home-day-total').textContent).not.toContain('123,456,789.01')
   })
 
-  it('shows zero confirmed totals as noninteractive summaries', () => {
+  it('shows zero confirmed totals as accessible navigation buttons', () => {
     render(<HomeScreen {...props({receivables:[],sharedContexts:[]})} />)
     expect(screen.getByTestId('home-receivable').textContent).toContain('0.00')
     expect(screen.getByTestId('home-payable').textContent).toContain('0.00')
-    expect(screen.getByTestId('home-receivable').tagName).toBe('SECTION')
+    expect(screen.getByTestId('home-receivable').tagName).toBe('BUTTON')
     expect(screen.getByTestId('home-receivable').hasAttribute('aria-expanded')).toBe(false)
     expect(screen.queryByTestId('home-unconfirmed-notice')).toBeNull()
   })

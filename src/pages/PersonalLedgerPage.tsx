@@ -4,6 +4,7 @@ import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
 import HomeScreen from '../components/home/HomeScreen'
 import '../components/home/home.css'
+import { useRouteScroll } from '../hooks/useRouteScroll'
 import { useAuth } from '../hooks/useAuth'
 import { useExpenseChanges } from '../hooks/useExpenseChanges'
 import { useHomeData } from '../hooks/useHomeData'
@@ -57,6 +58,8 @@ export default function PersonalLedgerPage() {
     home,
     homeUi,
   })
+
+  useRouteScroll(model.sharedStatus === 'ready' && ledger.expensesStatus === 'ready', ledger.participantId ?? '')
 
   if (loading) {
     return (
@@ -192,6 +195,7 @@ export default function PersonalLedgerPage() {
         tripSpending={model.tripSpending}
         onSelectTrip={(selectedTripId) => setHomeUi({ selectedTripId })}
         onCreateTrip={() => navigate('/spaces')}
+        onOpenCollectPay={(direction) => navigate(`/collect-pay/${direction}`, { state: { cpBack: true } })}
         onOpenSharedContext={(context) => {
           if (context.personId) navigate(`/person/${context.personId}`)
           else if (context.spaceId) navigate(`/space/${context.spaceId}`)

@@ -1,8 +1,10 @@
 import { useStore } from '../store/useStore'
+import { collectPayTranslations } from './collectPayTranslations'
 
 export type Lang = 'en' | 'zh'
 
 const translations = {
+  ...collectPayTranslations,
   // ── Bottom Tabs ──
   'tab.summary': { en: 'SUMMARY', zh: '摘要' },
   'tab.settle': { en: 'SETTLE UP', zh: '结算' },

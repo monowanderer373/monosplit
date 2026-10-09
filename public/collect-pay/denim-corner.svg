@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs><clipPath id="triangle"><path d="M0 0H24V24Z"/></clipPath></defs>
+  <g clip-path="url(#triangle)" fill="none" stroke="#35678B" stroke-width="1.1" opacity=".65">
+    <path d="M-4 8L8-4M-4 16L16-4M-4 24L24-4M0 28L28 0M8 28L28 8M16 28L28 16"/>
+  </g>
+</svg>

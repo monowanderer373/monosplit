@@ -38,6 +38,13 @@ jobs:
       - run: npx supabase db reset
       - run: npx supabase db lint --fail-on warning
       - run: npx supabase test db
+      - name: Verify collect/pay write exclusion with two sessions
+        env:
+          COLLECT_PAY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python3 supabase/tests/collect_pay_lock_concurrency.py
       - if: always()
         run: npx supabase stop --no-backup
 
@@ -82,6 +89,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -90,6 +99,67 @@ jobs:
       - run: npx supabase start
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
+      - name: Build and serve approved homepage baseline
+        env:
+          VITE_HOME_VISUAL: '1'
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+        run: |
+          git worktree add --detach ../collect-pay-baseline b36045d273ba86d42cb7cb4950ea2f2bc5cdede3
+          ln -s "$GITHUB_WORKSPACE/node_modules" ../collect-pay-baseline/node_modules
+          cd ../collect-pay-baseline
+          npm run build
+          nohup npm run preview -- --host 127.0.0.1 --port 5174 >/tmp/collect-pay-baseline-preview.log 2>&1 &
       - run: npm run test:e2e
+        env:
+          COLLECT_PAY_BASELINE_URL: http://127.0.0.1:5174
+      - name: Save collect/pay screenshots and DOM measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collect-pay-browser-evidence
+          path: test-results/collect-pay/
+          if-no-files-found: ignore
+          retention-days: 14
+      - if: always()
+        run: npx supabase stop --no-backup
+
+  collect-pay-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx supabase start
+      - run: npx supabase db reset
+      - run: npx playwright install --with-deps chromium
+      - name: Build and serve approved homepage baseline
+        env:
+          VITE_HOME_VISUAL: '1'
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+        run: |
+          git worktree add --detach ../collect-pay-baseline b36045d273ba86d42cb7cb4950ea2f2bc5cdede3
+          ln -s "$GITHUB_WORKSPACE/node_modules" ../collect-pay-baseline/node_modules
+          cd ../collect-pay-baseline
+          npm run build
+          nohup npm run preview -- --host 127.0.0.1 --port 5174 >/tmp/collect-pay-baseline-preview.log 2>&1 &
+      - run: npx playwright test e2e/collect-pay.spec.ts e2e/collect-pay-geometry.spec.ts
+        env:
+          COLLECT_PAY_BASELINE_URL: http://127.0.0.1:5174
+      - name: Save collect/pay screenshots and DOM measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collect-pay-release-evidence
+          path: test-results/collect-pay/
+          if-no-files-found: ignore
+          retention-days: 14
       - if: always()
         run: npx supabase stop --no-backup

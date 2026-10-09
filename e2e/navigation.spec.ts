@@ -56,7 +56,7 @@ test('direct Quick Add Back and Close both land safely on Personal', async ({ pa
   await page.goBack()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: 'Daily', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'My day', exact: true })).toBeVisible()
 
   await page.goto('about:blank')
   await page.goto('/quick-add?source=pwa-shortcut')
@@ -65,7 +65,7 @@ test('direct Quick Add Back and Close both land safely on Personal', async ({ pa
   await dialog.getByRole('button', { name: 'Close' }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: 'Daily', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'My day', exact: true })).toBeVisible()
 })
 
 test('keeps the global money action above mobile form controls', async ({

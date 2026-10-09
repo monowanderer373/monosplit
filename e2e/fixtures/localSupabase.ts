@@ -130,7 +130,8 @@ export async function signIn(
   await page.getByLabel('Password').fill(account.password)
   await page.getByRole('button', { name: 'Sign In' }).click()
   await expect(page).toHaveURL(new RegExp(`${redirect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`))
-  await expect(page.getByText(`Hello, ${account.displayName}.`)).toBeVisible()
+  await expect(page.getByTestId('home-header')).toBeVisible()
+  await expect(page.getByTestId('home-account-selector')).toBeVisible()
 }
 
 export async function openAuthenticatedBrowser(
