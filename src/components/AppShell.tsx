@@ -61,16 +61,23 @@ function ShellContents() {
     quickAdd,
   ])
 
+  const homeMode = useStore((state) => state.homeUi.mode)
+  const travelHome = location.pathname === '/' && homeMode === 'travel'
+  const pageTarget = quickAdd.pageTarget?.pathname === location.pathname ? quickAdd.pageTarget : null
+  const targetPending = travelHome && !pageTarget?.ready
+
   const openGlobalAdd = useCallback(() => {
-    const resolved = resolveRouteMoneyContext(location.pathname)
+    if (targetPending) return
+    const resolved = travelHome && pageTarget ? pageTarget.target : resolveRouteMoneyContext(location.pathname)
     if (resolved.kind === 'personal' && !authUser?.isAnonymous && personalContext) {
-      quickAdd.open({ entryPoint: 'global', context: personalContext })
+      quickAdd.open({ entryPoint: 'global', context: personalContext, followPageContext: true })
       return
     }
     if (resolved.kind === 'space-candidate') {
       quickAdd.open({
         entryPoint: 'global',
         spaceCandidateId: resolved.spaceId,
+        followPageContext: true,
       })
       return
     }
@@ -78,19 +85,22 @@ function ShellContents() {
       quickAdd.open({
         entryPoint: 'global',
         personCandidateId: resolved.personId,
+        followPageContext: true,
       })
       return
     }
-    quickAdd.open({ entryPoint: 'global', context: personalContext })
+    quickAdd.open({ entryPoint: 'global', context: personalContext, followPageContext: true })
   }, [
     authUser?.isAnonymous,
     location.pathname,
     personalContext,
     quickAdd,
+    targetPending,
+    travelHome,
+    pageTarget,
   ])
 
   const showNavigation = Boolean(authUser?.participantId) && !location.pathname.startsWith('/travel/trip/')
-  const homeMode = useStore((state) => state.homeUi.mode)
   const place = (location.pathname === '/' && homeMode === 'travel') || location.pathname.startsWith('/travel/') ? 'bali' : 'home'
   useEffect(() => {
     document.documentElement.dataset.place = place
@@ -102,9 +112,9 @@ function ShellContents() {
       {showNavigation ? (
         <>
           <BottomNavigation />
-          <GlobalMoneyAction onAdd={openGlobalAdd} composerOpen={Boolean(quickAdd.action)} />
         </>
       ) : null}
+      {authUser?.participantId ? <GlobalMoneyAction onAdd={openGlobalAdd} composerOpen={Boolean(quickAdd.action)} disabled={targetPending} standalone={!showNavigation} /> : null}
       <GlobalMoneyActionHost />
       {quickAdd.feedback ? (
         <div

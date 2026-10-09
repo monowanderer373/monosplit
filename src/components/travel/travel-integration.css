@@ -97,7 +97,7 @@
 #root .tt-travel .tt-trip-label::before { inset: 5px 0; border: 1px solid var(--tt-leather-edge); opacity: 1; background: var(--tt-leather); box-shadow: 0 2px 0 rgba(174,129,94,.4), 0 3px 4px rgba(36,55,74,.08); z-index: -1; }
 #root .tt-travel .tt-trip-label { isolation: isolate; }
 #root .tt-travel .tt-trip-label::after { inset: 9px 4px; background: var(--tt-leather-texture); }
-#root .tt-travel .tt-detail-page { padding-bottom: calc(var(--tt-detail-action-height, 84px) + 16px); }
+#root .tt-travel .tt-detail-page { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
 #root .tt-travel .tt-primary::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: var(--tt-denim-texture) repeat; opacity: .12; }
 /* Fit the supplied artwork's transparent canvas into the specified visible boxes. */
 .tt-travel :is(.tt-empty-map,.tt-pocket) { overflow: hidden; }

@@ -8,7 +8,6 @@ import TripDetails from '../components/travel/TripDetails'
 import { useTravelMembers } from '../hooks/useTravelMembers'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import { isSpaceExpenseEligible } from '../lib/moneyContext'
-import { travelQuickAddRequest } from '../lib/travelQuickAdd'
 import '../components/home/home.css'
 import { useRouteScroll } from '../hooks/useRouteScroll'
 import { useAuth } from '../hooks/useAuth'
@@ -25,7 +24,7 @@ export default function PersonalLedgerPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { tripId } = useParams()
-  const quickAdd = useUniversalQuickAdd()
+  const { setPageTarget } = useUniversalQuickAdd()
   const [searchParams, setSearchParams] = useSearchParams()
   const { authUser, loading, sessionError, retrySession } = useAuth()
   const ledger = usePersonalLedger()
@@ -61,10 +60,12 @@ export default function PersonalLedgerPage() {
   const members = useTravelMembers(ledger.participantId, tripId ? detailTrip?.trip.id ?? null : null, homeRefreshKey)
   const canWrite = Boolean(detailTrip && (!detailTrip.trip.id.startsWith('affiliation:') && isSpaceExpenseEligible(detailTrip.trip, detailTrip.trip.role ?? 'view')))
   const retryTravel = () => { setAccountReload(n => n + 1); void ledger.refresh() }
-  const addTripExpense = () => {
-    if (!detailTrip || !canWrite) return
-    quickAdd.open(travelQuickAddRequest(detailTrip.trip, authUser!.id))
-  }
+  const displayedTripId = detailTrip?.trip.id
+  useEffect(() => {
+    setPageTarget({ pathname: location.pathname, ready: model.travelStatus === 'ready', target: displayedTripId
+      ? { kind: 'space-candidate', spaceId: displayedTripId } : { kind: 'personal' } })
+    return () => setPageTarget(null)
+  }, [setPageTarget, location.pathname, model.travelStatus, displayedTripId])
   useRouteScroll((tripId || homeUi.mode === 'travel' ? model.travelStatus === 'ready' : model.sharedStatus === 'ready') && ledger.expensesStatus === 'ready', ledger.participantId ?? '')
 
   if (loading) {
@@ -193,7 +194,7 @@ export default function PersonalLedgerPage() {
     onCreateTrip: () => navigate('/travel/manage?create=1&return=travel'),
     onManageTrips: () => navigate('/travel/manage'),
     onViewTrip: id => { setTravelTrip(authUser.id, id); navigate(`/travel/trip/${encodeURIComponent(id)}`, { state: { travelBack: true } }) },
-    onAddTripExpense: canWrite ? addTripExpense : undefined, onRetryTravel: retryTravel,
+    onRetryTravel: retryTravel,
     onOpenCollectPay: direction => navigate(`/collect-pay/${direction}`, { state: { cpBack: true } }),
     onOpenSharedContext: context => {
       if (context.personId) navigate(`/person/${context.personId}`)

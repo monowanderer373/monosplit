@@ -87,7 +87,6 @@ export type HomeScreenProps = {
   onCreateTrip: () => void
   onManageTrips?: () => void
   onViewTrip?: (id: string) => void
-  onAddTripExpense?: () => void
   onRetryTravel?: () => void
   tripSpendingStatus?: 'loading' | 'error' | 'ready'
   travelPaginationKey?: string

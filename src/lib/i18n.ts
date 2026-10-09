@@ -809,8 +809,8 @@ const translations = {
   'contextPicker.continueSwitch': { en: 'Switch context', zh: '继续切换' },
   'common.cancel': { en: 'Cancel', zh: '取消' },
   'contextPicker.ineligible': {
-    en: 'That context is no longer eligible for a new expense.',
-    zh: '该对象目前不能新增支出。',
+    en: 'This ledger is unavailable or cannot accept expenses. Choose another ledger.',
+    zh: '该账本不可用或没有新增支出权限，请选择其他账本。',
   },
   'contextPicker.noResults': { en: 'No matching contexts', zh: '没有匹配的记账对象' },
 

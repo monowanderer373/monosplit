@@ -6,13 +6,14 @@ type Props = {
   onAdd: () => void
   composerOpen?: boolean
   disabled?: boolean
+  standalone?: boolean
 }
 
-export default function GlobalMoneyAction({ onAdd, composerOpen = false, disabled = false }: Props) {
+export default function GlobalMoneyAction({ onAdd, composerOpen = false, disabled = false, standalone = false }: Props) {
   const t = useT()
 
   return (
-    <div className="tt-center-layer z-[45]" data-testid="global-money-action-layer">
+    <div className={`tt-center-layer z-[45]${standalone ? " tt-center-layer--standalone" : ""}`} data-testid="global-money-action-layer">
       <CenterActionButton
         label={t('ledger.quickAddLabel')}
         onClick={onAdd}
