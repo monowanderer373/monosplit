@@ -48,9 +48,15 @@ export default function PersonalLedgerPage() {
   })
 
   useEffect(() => {
-    if (tripId || !authUser?.id || model.travelStatus !== 'ready' || !selectedTripId) return
-    if (!model.trips.some(trip => trip.id === selectedTripId)) setTravelTrip(authUser.id, model.trip?.trip.id ?? null)
-  }, [authUser?.id, tripId, model.travelStatus, model.trips, model.trip, selectedTripId, setTravelTrip])
+    // A cached list can predate trip creation or permission changes. Wait for
+    // the fresh list before replacing a stored choice, and persist the initial
+    // fallback so adding another trip does not silently change the selection.
+    if (tripId || !authUser?.id || model.travelStatus !== 'ready' || home.refreshing) return
+    if (!model.trips.some(trip => trip.id === selectedTripId)) {
+      const nextId = model.trip?.trip.id ?? null
+      if (nextId !== selectedTripId) setTravelTrip(authUser.id, nextId)
+    }
+  }, [authUser?.id, tripId, model.travelStatus, model.trips, model.trip, home.refreshing, selectedTripId, setTravelTrip])
   const detailTrip = tripId && model.trip?.trip.id !== tripId ? null : model.trip
   const members = useTravelMembers(ledger.participantId, tripId ? detailTrip?.trip.id ?? null : null, homeRefreshKey)
   const canWrite = Boolean(detailTrip && (!detailTrip.trip.id.startsWith('affiliation:') && isSpaceExpenseEligible(detailTrip.trip, detailTrip.trip.role ?? 'view')))
