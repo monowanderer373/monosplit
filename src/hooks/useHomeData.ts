@@ -9,7 +9,7 @@ import { settlementRepository, type SettlementPayment } from '../lib/settlementR
 import { spaceRepository, type SpaceWithRole } from '../lib/spaceRepository'
 import type { PersonRelationship } from '../types'
 
-type Ready<T> = { status: 'loading' | 'error' | 'ready'; data: T | null }
+type Ready<T> = { status: 'loading' | 'error' | 'ready'; data: T | null; previous?: T | null }
 
 type VerifiedHomeCache = {
   accounts?: PersonalAccountHomeSnapshot
@@ -148,6 +148,7 @@ function applySlice<K extends keyof VerifiedHomeCache>(
     setSlice(next)
     return
   }
+  const previous = verifiedHomeCache.get(participantId)?.[key] ?? null
   forgetSlice(participantId, key)
-  setSlice({ status: 'error', data: null })
+  setSlice({ status: 'error', data: null, previous })
 }

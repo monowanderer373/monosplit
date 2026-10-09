@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { spaceRepository, type SpaceWithRole } from '../lib/spaceRepository'
 import type { SpaceType } from '../types'
@@ -17,11 +17,14 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
   const t = useT()
   const lang = useStore((state) => state.lang)
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const setHomeUi = useStore(state => state.setHomeUi)
+  const setTravelTrip = useStore(state => state.setTravelTrip)
   const { authUser, loading: authLoading } = useAuth()
   const [spaces, setSpaces] = useState<SpaceWithRole[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [showCreate, setShowCreate] = useState(false)
+  const [showCreate, setShowCreate] = useState(params.get('create') === '1')
   const [name, setName] = useState('')
   const [type, setType] = useState<SpaceType>(preferredType ?? 'trip')
   const [currency, setCurrency] = useState(authUser?.defaultCurrency ?? 'MYR')
@@ -48,7 +51,7 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
   }, [refresh])
 
   const createSpace = async () => {
-    if (!name.trim() || creating) return
+    if (!name.trim() || creating || !authUser) return
     setCreating(true)
     setError('')
     try {
@@ -59,7 +62,9 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
         endDate: null,
         defaultCurrency: currency,
       })
-      navigate(`/space/${id}`)
+      if (preferredType === 'trip' && params.get('return') === 'travel') {
+        setHomeUi({ mode: 'travel' }); setTravelTrip(authUser.id, id); navigate('/')
+      } else navigate(`/space/${id}`)
     } catch (cause) {
       setError(friendlyErrorKey(cause))
       setCreating(false)
@@ -88,6 +93,7 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
 
   return (
     <main className="ms-page pb-28">
+      {preferredType === 'trip' ? <button type="button" className="ms-btn-ghost mb-4" onClick={() => { setHomeUi({ mode: 'travel' }); navigate('/') }}>← {t('home.modeTravel')}</button> : null}
       <header className="mx-auto flex max-w-4xl items-start justify-between gap-4">
         <div>
           <p className="ms-label">{t('app.title')}</p>
@@ -168,7 +174,7 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
               <button
                 key={space.id}
                 className="ms-card text-left transition-transform hover:-translate-y-0.5"
-                onClick={() => navigate(`/space/${space.id}`)}
+                onClick={() => navigate(preferredType === 'trip' ? `/travel/trip/${space.id}` : `/space/${space.id}`)}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

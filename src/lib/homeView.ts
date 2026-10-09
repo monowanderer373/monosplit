@@ -139,6 +139,8 @@ export type HomePerson = {
 }
 
 export type HomeSpaceRef = {
+  defaultCurrency?: string
+  role?: 'owner' | 'full_access' | 'view'
   id: string
   type: 'group' | 'trip'
   name: string
@@ -213,6 +215,7 @@ export type HomeRecord = {
   walletName: string | null
   fundingPending: boolean
   amountKnown: boolean
+  travelMeta?: { myPaidMinor: number; participantCount: number }
   affectsPersonalSpending: boolean
 }
 
@@ -636,6 +639,7 @@ export function buildHomeRecords(input: {
       walletName: input.fundingKnown ? cash.walletName : null,
       fundingPending: input.fundingKnown && cash.fundingPending,
       amountKnown: input.fundingKnown,
+      travelMeta: { myPaidMinor: paidMinor, participantCount: expense.participations.length },
       affectsPersonalSpending: true,
     }
     return [record]

@@ -45,6 +45,8 @@ type AppState = {
   setThemeId: (id: string) => void
   ledgerByIdentity: Record<string, LedgerPartition>
   homeUi: HomeUiPrefs
+  travelTripByIdentity: Record<string, string | null>
+  setTravelTrip: (identityId: string, tripId: string | null) => void
   setHomeUi: (patch: Partial<HomeUiPrefs>) => void
   setLedgerExpenses: (identityId: string, expenses: CanonicalExpense[]) => void
   queueLedgerCommand: (identityId: string, item: PendingLedgerCommand) => void
@@ -95,6 +97,9 @@ export function migratePersistedState(persisted: unknown): Record<string, unknow
       : 'all',
     selectedTripId: typeof homeUi.selectedTripId === 'string' ? homeUi.selectedTripId : null,
   }
+  state.travelTripByIdentity = state.travelTripByIdentity && typeof state.travelTripByIdentity === 'object'
+    ? Object.fromEntries(Object.entries(state.travelTripByIdentity).filter(([, id]) => id === null || typeof id === 'string'))
+    : {}
   return state
 }
 
@@ -124,6 +129,8 @@ export const useStore = create<AppState>()(
       themeId: DEFAULT_THEME_ID,
       setThemeId: (id: string) => set({ themeId: resolveThemeId(id) }),
       homeUi: defaultHomeUi,
+      travelTripByIdentity: {},
+      setTravelTrip: (identityId, tripId) => set(state => ({ travelTripByIdentity: { ...state.travelTripByIdentity, [identityId]: tripId } })),
       setHomeUi: (patch) => set((state) => ({ homeUi: { ...state.homeUi, ...patch } })),
       ledgerByIdentity: {},
       setLedgerExpenses: (identityId, expenses) => {
@@ -374,18 +381,21 @@ export const useStore = create<AppState>()(
         set((state) => {
           const ledgerByIdentity = { ...state.ledgerByIdentity }
           delete ledgerByIdentity[identityId]
-          return { ledgerByIdentity }
+          const travelTripByIdentity = { ...state.travelTripByIdentity }
+          delete travelTripByIdentity[identityId]
+          return { ledgerByIdentity, travelTripByIdentity }
         })
       },
     }),
     {
       name: 'monosplit-storage',
-      version: 8,
+      version: 9,
       migrate: migratePersistedState,
       partialize: (state) => ({
         lang: state.lang,
         themeId: state.themeId,
         homeUi: state.homeUi,
+        travelTripByIdentity: state.travelTripByIdentity,
         ledgerByIdentity: state.ledgerByIdentity,
       }),
     },

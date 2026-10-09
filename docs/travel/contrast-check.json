@@ -1,0 +1,44 @@
+[
+  {
+    "name": "body",
+    "foreground": "#24374A",
+    "background": "#F7F5EF",
+    "ratio": 11.2
+  },
+  {
+    "name": "meta",
+    "foreground": "#576779",
+    "background": "#FFFCF7",
+    "ratio": 5.67
+  },
+  {
+    "name": "button",
+    "foreground": "#FFFFFF",
+    "background": "#35678B",
+    "ratio": 6.06
+  },
+  {
+    "name": "leather label",
+    "foreground": "#3F3028",
+    "background": "#C99B78",
+    "ratio": 5.07
+  },
+  {
+    "name": "expense peach",
+    "foreground": "#AD412E",
+    "background": "#FFF3E8",
+    "ratio": 5.39
+  },
+  {
+    "name": "expense blue",
+    "foreground": "#AD412E",
+    "background": "#E9F2F6",
+    "ratio": 5.18
+  },
+  {
+    "name": "link",
+    "foreground": "#35678B",
+    "background": "#DDEAF1",
+    "ratio": 4.94
+  }
+]

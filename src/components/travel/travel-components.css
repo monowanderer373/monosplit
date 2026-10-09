@@ -1,0 +1,183 @@
+/* Integration starting point, not a replacement for the project's routed pages.
+   Import travel-tokens.css first. Attach .tt-travel to the page AND portal surface.
+   Preserve existing app navigation / notification / QuickAdd behavior.
+   Backgrounds and decorative images never intercept events. */
+.tt-travel {
+  color: var(--tt-ink);
+  font-family: var(--tt-font);
+  background-color: var(--tt-paper);
+  font-variant-numeric: tabular-nums;
+}
+.tt-travel *, .tt-travel *::before, .tt-travel *::after { box-sizing: border-box; }
+.tt-travel .tt-page {
+  position: relative; isolation: isolate;
+  width: 100%; max-width: var(--tt-content-max); margin-inline: auto;
+  padding-inline: var(--tt-page-padding);
+  padding-bottom: calc(var(--existing-nav-height, 76px) + env(safe-area-inset-bottom, 0px) + 16px);
+}
+.tt-travel .tt-page::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: var(--tt-paper-texture); opacity: .28; }
+.tt-travel .tt-icon { width: 18px; height: 18px; flex: 0 0 auto; }
+.tt-travel :is(button, a, [role='option']):focus-visible {
+  outline: 2px solid var(--tt-denim); outline-offset: 2px;
+}
+.tt-travel button { font: inherit; cursor: pointer; }
+.tt-travel .tt-home-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tt-travel .tt-title-bell { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.tt-travel .tt-home-title { margin: 0; font-size: 28px; line-height: 34px; font-weight: 700; }
+.tt-travel .tt-icon-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; padding: 0; border: 0;
+  color: var(--tt-ink); background: transparent; border-radius: 8px;
+}
+.tt-travel .tt-notification { position: relative; }
+.tt-travel .tt-notification-dot { position: absolute; top: 9px; right: 9px; width: 5px; height: 5px; border-radius: 50%; background: var(--tt-notification); }
+.tt-travel .tt-date { margin: 6px 0 14px; font-size: 14px; line-height: 20px; color: var(--tt-secondary); }
+.tt-travel .tt-mode-switch { display: inline-flex; border: 1px solid var(--tt-border); border-radius: 12px; background: var(--tt-surface); }
+.tt-travel .tt-mode-switch button { min-width: 54px; min-height: 36px; padding: 7px 10px; color: var(--tt-secondary); font-size: 13px; line-height: 20px; border: 0; border-radius: 11px; background: transparent; }
+.tt-travel .tt-mode-switch [aria-pressed='true'] { color: var(--tt-white); background: var(--tt-denim); box-shadow: 0 2px 3px rgba(36,55,74,.08); }
+/* 44px hit wrapper for 36px mode-switch controls can be supplied by existing app. */
+.tt-travel .tt-paper-card { position: relative; isolation: isolate; border-radius: var(--tt-radius-card); box-shadow: var(--tt-shadow-paper); }
+.tt-travel .tt-paper-card::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border-radius: inherit; background-image: var(--tt-paper-texture); opacity: .35;
+}
+.tt-travel .tt-summary { min-height: 190px; padding: 16px; border: 1px solid var(--tt-blue-edge); background-color: var(--tt-denim-soft); }
+.tt-travel .tt-paper-fold { position: absolute; top: 0; right: 0; width: 16px; height: 16px; pointer-events: none; }
+.tt-travel .tt-map-wash { position: absolute; inset-block: 0; right: 0; width: 48%; height: 100%; opacity: .10; object-fit: cover; pointer-events: none; z-index: -1; }
+.tt-travel .tt-route { position: absolute; right: 10px; bottom: 18px; width: 106px; height: 112px; opacity: .32; pointer-events: none; z-index: -1; }
+.tt-travel .tt-summary-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tt-travel .tt-trip-label {
+  position: relative; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 34px; max-width: 62%; padding: 6px 12px;
+  border: 1px solid var(--tt-leather-edge); border-radius: 10px;
+  color: var(--tt-leather-ink); background-color: var(--tt-leather);
+  font-size: 14px; line-height: 20px; font-weight: 600;
+  box-shadow: 0 2px 0 rgba(174,129,94,.40), 0 3px 4px rgba(36,55,74,.08);
+}
+.tt-travel .tt-trip-label::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background-image: var(--tt-leather-texture); opacity: .18; }
+.tt-travel .tt-trip-label::after { content: ''; position: absolute; inset: 4px; border: 1px dashed var(--tt-stitch); border-radius: 6px; pointer-events: none; }
+.tt-travel .tt-trip-label-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-travel .tt-trip-label .tt-icon { width: 14px; height: 14px; }
+.tt-travel .tt-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 17px; color: var(--tt-secondary); }
+.tt-travel .tt-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tt-status); }
+.tt-travel .tt-summary-date { margin: 10px 0 12px; color: var(--tt-secondary); font-size: 12px; line-height: 18px; }
+.tt-travel .tt-amount-label { margin: 0 0 4px; font-size: 14px; line-height: 20px; }
+.tt-travel .tt-amount { margin: 0; font-size: 32px; line-height: 38px; font-weight: 700; overflow-wrap: anywhere; }
+.tt-travel .tt-link { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0; border: 0; color: var(--tt-denim); background: transparent; text-decoration: none; font-size: 13px; line-height: 18px; font-weight: 600; }
+.tt-travel .tt-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tt-travel .tt-summary-link { display: flex; justify-content: flex-end; margin-top: -6px; }
+.tt-travel .tt-primary {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 10px 16px; border: 0; border-radius: 12px;
+  color: var(--tt-white); background-color: var(--tt-denim); box-shadow: var(--tt-shadow-button);
+  font-size: 14px; line-height: 20px; font-weight: 600;
+  transition: transform var(--tt-motion), background-color var(--tt-motion), box-shadow var(--tt-motion);
+}
+.tt-travel .tt-primary::after { content: ''; position: absolute; inset: 4px; border: 1px dashed rgba(255,255,255,.42); border-radius: 8px; pointer-events: none; }
+.tt-travel .tt-primary:hover:not(:disabled) { background-color: var(--tt-denim-hover); }
+.tt-travel .tt-primary:active:not(:disabled) { background-color: var(--tt-denim-pressed); transform: translateY(1px); box-shadow: 0 1px 0 rgba(36,55,74,.16); }
+.tt-travel .tt-primary:disabled { cursor: default; opacity: .55; }
+.tt-travel .tt-empty-copy { position: relative; z-index: 1; max-width: calc(100% - 88px); }
+.tt-travel .tt-empty-title { margin: 0; font-size: 24px; line-height: 29px; font-weight: 700; }
+.tt-travel .tt-empty-subtitle { margin: 8px 0 16px; font-size: 14px; line-height: 20px; color: var(--tt-secondary); }
+.tt-travel .tt-empty-map { position: absolute; right: 12px; top: 30px; width: 100px; height: 86px; object-fit: contain; pointer-events: none; }
+.tt-travel .tt-pocket { position: absolute; right: 18px; bottom: 12px; width: 56px; height: 48px; object-fit: contain; pointer-events: none; }
+.tt-travel .tt-section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 20px 0 10px; }
+.tt-travel .tt-section-title { margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; }
+.tt-travel .tt-view-switch { display: flex; align-items: center; width: 88px; height: 44px; flex-shrink: 0; position: relative; }
+.tt-travel .tt-view-switch::before { content: ''; position: absolute; left: 10px; right: 10px; top: 8px; height: 28px; border: 1px solid var(--tt-blue-edge); border-radius: 14px; background: var(--tt-blue-surface); }
+.tt-travel .tt-view-switch button { position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--tt-denim); border-radius: 10px; }
+.tt-travel .tt-view-switch button::before { content: ''; position: absolute; border-radius: 14px; z-index: 0; }
+.tt-travel .tt-view-switch button:first-child::before { inset: 8px 0 8px 10px; }
+.tt-travel .tt-view-switch button:last-child::before { inset: 8px 10px 8px 0; }
+.tt-travel .tt-view-switch [aria-pressed='true']::before { background: var(--tt-surface); box-shadow: 0 1px 3px rgba(36,55,74,.12); }
+.tt-travel .tt-view-switch .tt-icon { position: relative; width: 14px; height: 14px; }
+.tt-travel .tt-view-switch button:first-child .tt-icon { transform: translateX(5px); }
+.tt-travel .tt-view-switch button:last-child .tt-icon { transform: translateX(-5px); }
+.tt-travel .tt-record-group { border: 1px solid var(--tt-peach-edge); border-radius: 12px; background-color: var(--tt-peach-surface); }
+.tt-travel .tt-record-group + .tt-record-group { margin-top: 8px; }
+.tt-travel .tt-record-group--blue { border-color: var(--tt-blue-edge); background-color: var(--tt-blue-surface); }
+.tt-travel .tt-day-heading { margin: 0; padding: 10px 12px; color: var(--tt-orange-ink); font-size: 11px; line-height: 16px; font-weight: 700; letter-spacing: .6px; }
+.tt-travel .tt-record-group--blue .tt-day-heading { color: var(--tt-denim); }
+.tt-travel .tt-record-row { position: relative; display: grid; grid-template-columns: 32px minmax(0,1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 10px 12px; border: 0; background: transparent; color: var(--tt-ink); text-align: left; border-radius: 8px; }
+.tt-travel .tt-record-row + .tt-record-row::before { content: ''; position: absolute; top: 0; left: 12px; right: 12px; border-top: 1px dotted var(--tt-dots); pointer-events: none; }
+.tt-travel .tt-category-icon { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; color: var(--tt-orange-ink); background: var(--tt-apricot); }
+.tt-travel .tt-record-group--blue .tt-category-icon { color: var(--tt-denim); background: var(--tt-denim-soft); }
+.tt-travel .tt-record-title { display: block; font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
+.tt-travel .tt-record-meta { display: block; font-size: 12px; line-height: 17px; color: var(--tt-secondary); overflow-wrap: anywhere; }
+.tt-travel .tt-record-amount { white-space: nowrap; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--tt-expense); }
+.tt-travel .tt-guide { padding: 16px; background-color: var(--tt-surface); }
+.tt-travel .tt-guide-intro { text-align: center; }
+.tt-travel .tt-guide-intro .tt-icon { width: 36px; height: 36px; color: var(--tt-denim); }
+.tt-travel .tt-guide-title { margin: 10px 0 4px; font-size: 16px; line-height: 22px; font-weight: 700; }
+.tt-travel .tt-guide-description { max-width: 290px; margin: 0 auto; font-size: 13px; line-height: 19px; color: var(--tt-secondary); }
+.tt-travel .tt-divider { border: 0; border-top: 1px dotted var(--tt-dots); margin: 14px 0; }
+.tt-travel .tt-guide-step { display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.tt-travel .tt-guide-step + .tt-guide-step { margin-top: 8px; }
+.tt-travel .tt-step-number { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; color: var(--tt-secondary); background: var(--tt-apricot); font-size: 12px; }
+.tt-travel .tt-ticket { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; margin-top: 12px; padding: 8px 14px; background: url('/travel/ticket-edge.svg') center / 100% 100% no-repeat; color: var(--tt-secondary); font-size: 12px; line-height: 18px; }
+.tt-travel .tt-ticket .tt-icon { width: 16px; height: 16px; color: var(--tt-notification); }
+.tt-travel .tt-shared-strip { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 10px 12px; margin-top: 12px; border-radius: 10px; background: var(--tt-apricot); font-size: 12px; line-height: 18px; color: var(--tt-secondary); }
+/* Popover position belongs to the existing positioning library, not this CSS. */
+.tt-travel.tt-popover, .tt-travel .tt-popover {
+  position: relative; width: 280px; max-width: calc(100vw - 32px); padding: 10px;
+  border: 1px solid rgba(53,103,139,.55); border-radius: 12px;
+  background-color: var(--tt-surface); background-image: var(--tt-paper-texture);
+  box-shadow: var(--tt-shadow-popover); z-index: var(--app-popover-z, 40);
+}
+.tt-travel .tt-popover-arrow { width: 8px; height: 8px; background: var(--tt-surface); border-top: 1px solid rgba(53,103,139,.55); border-left: 1px solid rgba(53,103,139,.55); transform: rotate(45deg); }
+.tt-travel .tt-popover-heading { margin: 2px 2px 8px; font-size: 10px; line-height: 14px; font-weight: 600; letter-spacing: 1px; color: var(--tt-secondary); }
+.tt-travel .tt-trip-options { max-height: var(--trip-options-available-height, 230px); overflow-y: auto; padding: 2px; }
+.tt-travel .tt-trip-option { display: grid; grid-template-columns: 32px minmax(0,1fr) 18px; align-items: center; gap: 10px; min-height: 56px; padding: 8px; border-radius: 8px; cursor: pointer; }
+.tt-travel .tt-trip-option[aria-selected='true'], .tt-travel .tt-trip-option:hover { background: var(--tt-blue-surface); }
+.tt-travel .tt-option-icon { width: 32px; height: 32px; padding: 7px; border: 1px solid var(--tt-border); border-radius: 8px; color: var(--tt-denim); }
+.tt-travel .tt-option-title { display: block; font-size: 14px; line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.tt-travel .tt-option-meta { display: block; font-size: 11px; line-height: 16px; color: var(--tt-secondary); }
+.tt-travel .tt-option-check { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: var(--tt-denim); color: var(--tt-white); border-radius: 50%; }
+.tt-travel .tt-option-check .tt-icon { width: 12px; height: 12px; }
+.tt-travel .tt-option-unselected { width: 16px; height: 16px; border: 1px solid var(--tt-border); border-radius: 50%; }
+.tt-travel .tt-popover-footer { margin-top: 8px; padding-top: 4px; border-top: 1px dotted var(--tt-dots); }
+.tt-travel .tt-popover-footer-control { display: flex; align-items: center; gap: 10px; min-height: 44px; width: 100%; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--tt-ink); font-size: 14px; text-align: left; text-decoration: none; }
+.tt-travel .tt-popover-footer-control:hover { background: var(--tt-blue-surface); }
+.tt-travel .tt-detail-page { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+.tt-travel .tt-detail-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.tt-travel .tt-detail-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--tt-denim); text-decoration: none; font-size: 14px; }
+.tt-travel .tt-detail-heading { position: relative; padding-right: 64px; }
+.tt-travel .tt-detail-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.tt-travel .tt-detail-title { margin: 0; font-size: 28px; line-height: 34px; font-weight: 700; overflow-wrap: anywhere; }
+.tt-travel .tt-detail-date { margin: 8px 0 16px; font-size: 14px; line-height: 20px; color: var(--tt-secondary); }
+.tt-travel .tt-detail-map { position: absolute; right: 0; top: 0; width: 56px; height: 48px; object-fit: contain; pointer-events: none; }
+.tt-travel .tt-detail-summary { min-height: 130px; padding: 16px; border-radius: 14px; border: 1px solid var(--tt-blue-edge); background-color: var(--tt-denim-soft); }
+.tt-travel .tt-detail-facts { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 8px; margin-top: 10px; border-top: 1px dotted var(--tt-dots); font-size: 12px; line-height: 18px; }
+.tt-travel .tt-detail-fact { display: inline-flex; align-items: center; gap: 6px; }
+.tt-travel .tt-detail-fact .tt-icon { width: 16px; height: 16px; color: var(--tt-denim); }
+.tt-travel .tt-members { position: relative; padding: 12px; margin-top: 12px; border-radius: 12px; background-color: var(--tt-surface); border: 1px solid rgba(215,222,223,.55); }
+.tt-travel .tt-members-title { margin: 0 0 8px; font-size: 12px; line-height: 18px; font-weight: 600; }
+.tt-travel .tt-members-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tt-travel .tt-avatars { display: flex; gap: 24px; }
+.tt-travel .tt-avatar-item { text-align: center; font-size: 11px; line-height: 16px; color: var(--tt-secondary); }
+.tt-travel .tt-avatar { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--tt-blue-surface); color: var(--tt-denim); margin-bottom: 3px; font-size: 14px; }
+.tt-travel .tt-avatar--peach { background: var(--tt-apricot); color: var(--tt-orange-ink); }
+.tt-travel .tt-avatar--green { background: var(--tt-status-soft); color: var(--tt-status); }
+.tt-travel .tt-currency-note { display: flex; align-items: flex-start; gap: 6px; margin: 12px 0; color: var(--tt-secondary); font-size: 12px; line-height: 18px; }
+.tt-travel .tt-currency-note .tt-icon { width: 14px; height: 14px; }
+.tt-travel .tt-detail-action { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: var(--tt-content-max); padding: 12px var(--tt-page-padding) calc(12px + env(safe-area-inset-bottom,0px)); background-color: var(--tt-surface); z-index: var(--app-action-z, 20); }
+.tt-travel .tt-detail-action .tt-primary { width: 100%; }
+.tt-travel.tt-popover[data-state='open'], .tt-travel .tt-popover[data-state='open'] { animation: tt-travel-popover-in 140ms ease-out; }
+@keyframes tt-travel-popover-in { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: 0 0; } }
+@media (max-width: 340px) {
+  .tt-travel .tt-empty-title { font-size: 20px; line-height: 25px; }
+  .tt-travel .tt-empty-copy { max-width: calc(100% - 64px); }
+  .tt-travel .tt-empty-map { width: 72px; height: 66px; }
+  .tt-travel .tt-pocket { width: 44px; height: 38px; right: 12px; }
+  .tt-travel .tt-primary { padding-inline: 12px; }
+  .tt-travel .tt-record-row { grid-template-columns: 32px minmax(0,1fr); }
+  .tt-travel .tt-record-amount { grid-column: 2; justify-self: end; font-size: 13px; }
+  .tt-travel .tt-avatars { gap: 12px; }
+  .tt-travel .tt-amount { font-size: 28px; line-height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tt-travel .tt-primary { transition: none; }
+  .tt-travel .tt-primary:active:not(:disabled) { transform: none; }
+  .tt-travel.tt-popover[data-state='open'], .tt-travel .tt-popover[data-state='open'] { animation: none; }
+}

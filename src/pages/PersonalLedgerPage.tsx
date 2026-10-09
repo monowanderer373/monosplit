@@ -1,51 +1,38 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
 import PendingExpenseRecoveryActions from '../components/PendingExpenseRecoveryActions'
-import HomeScreen from '../components/home/HomeScreen'
+import HomeScreen, { RecentRecordList, type HomeScreenProps } from '../components/home/HomeScreen'
+import TripDetails from '../components/travel/TripDetails'
+import { useTravelMembers } from '../hooks/useTravelMembers'
+import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
+import { isSpaceExpenseEligible } from '../lib/moneyContext'
+import { travelQuickAddRequest } from '../lib/travelQuickAdd'
 import '../components/home/home.css'
 import { useRouteScroll } from '../hooks/useRouteScroll'
 import { useAuth } from '../hooks/useAuth'
 import { useExpenseChanges } from '../hooks/useExpenseChanges'
 import { useHomeData } from '../hooks/useHomeData'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
-import {
-  accountAttentionSources,
-  addMinor,
-  availableMoney,
-  buildHomeRecords,
-  deriveOutstandingSharedContexts,
-  deriveSharedPreviewContexts,
-  groupHomeRecords,
-  homeRecordAccountFilter,
-  isAvailableMoneyAccount,
-  isBookedHomeExpense,
-  listActionableAccountTasks,
-  localCalendarDate,
-  monthlyPersonalSpending,
-  presentHomeRecords,
-  receivableTotals,
-  selectHomeTrip,
-  summaryTileLayout,
-  travelReadableExpenseIds,
-  tripsFromAffiliations,
-  type HomeSpaceRef,
-} from '../lib/homeView'
+import useHomeModel from '../hooks/useHomeModel'
 import { useT } from '../lib/i18n'
 import { createPersonalAccount } from '../lib/personalAccountRepository'
-import { personPrincipalIds } from '../lib/personMoney'
-import type { ConfirmedSettlement } from '../lib/relationalBalance'
 import { useStore } from '../store/useStore'
 
 export default function PersonalLedgerPage() {
   const t = useT()
   const navigate = useNavigate()
+  const location = useLocation()
+  const { tripId } = useParams()
+  const quickAdd = useUniversalQuickAdd()
   const [searchParams, setSearchParams] = useSearchParams()
   const { authUser, loading, sessionError, retrySession } = useAuth()
   const ledger = usePersonalLedger()
   const changeState = useExpenseChanges(Boolean(ledger.participantId), ledger.refresh)
   const homeUi = useStore((state) => state.homeUi)
+  const selectedTripId = useStore(state => state.travelTripByIdentity[authUser?.id ?? ''] ?? null)
+  const setTravelTrip = useStore(state => state.setTravelTrip)
   const setHomeUi = useStore((state) => state.setHomeUi)
   const [accountReload, setAccountReload] = useState(0)
   const homeRefreshKey = `${ledger.expenses.map((expense) => `${expense.id}:${expense.updatedAt}`).join('|')}:${accountReload}`
@@ -57,10 +44,28 @@ export default function PersonalLedgerPage() {
     expensesStatus: ledger.expensesStatus,
     rows: ledger.rows,
     home,
-    homeUi,
+    homeUi: { ...homeUi, ...(tripId ? { mode: 'travel' as const } : {}), selectedTripId: tripId ?? selectedTripId },
   })
 
-  useRouteScroll(model.sharedStatus === 'ready' && ledger.expensesStatus === 'ready', ledger.participantId ?? '')
+  useEffect(() => {
+    // A cached list can predate trip creation or permission changes. Wait for
+    // the fresh list before replacing a stored choice, and persist the initial
+    // fallback so adding another trip does not silently change the selection.
+    if (tripId || !authUser?.id || model.travelStatus !== 'ready' || home.refreshing) return
+    if (!model.trips.some(trip => trip.id === selectedTripId)) {
+      const nextId = model.trip?.trip.id ?? null
+      if (nextId !== selectedTripId) setTravelTrip(authUser.id, nextId)
+    }
+  }, [authUser?.id, tripId, model.travelStatus, model.trips, model.trip, home.refreshing, selectedTripId, setTravelTrip])
+  const detailTrip = tripId && model.trip?.trip.id !== tripId ? null : model.trip
+  const members = useTravelMembers(ledger.participantId, tripId ? detailTrip?.trip.id ?? null : null, homeRefreshKey)
+  const canWrite = Boolean(detailTrip && (!detailTrip.trip.id.startsWith('affiliation:') && isSpaceExpenseEligible(detailTrip.trip, detailTrip.trip.role ?? 'view')))
+  const retryTravel = () => { setAccountReload(n => n + 1); void ledger.refresh() }
+  const addTripExpense = () => {
+    if (!detailTrip || !canWrite) return
+    quickAdd.open(travelQuickAddRequest(detailTrip.trip, authUser!.id))
+  }
+  useRouteScroll((tripId || homeUi.mode === 'travel' ? model.travelStatus === 'ready' : model.sharedStatus === 'ready') && ledger.expensesStatus === 'ready', ledger.participantId ?? '')
 
   if (loading) {
     return (
@@ -162,241 +167,53 @@ export default function PersonalLedgerPage() {
     }),
   )
 
-  return (
-    <main className="ms-page home-shell">
-      <HomeScreen
-        timezone={authUser?.timezone ?? 'Asia/Kuala_Lumpur'}
-        initialAccountPanel={searchParams.get('accountPanel') === 'manage' ? 'manage' : undefined}
-        onCloseAccountPanel={() => { if (searchParams.has('accountPanel')) setSearchParams({}, { replace: true }) }}
-        mode={homeUi.mode}
-        onModeChange={(mode) => setHomeUi({ mode })}
-        density={homeUi.density}
-        onDensityChange={(density) => setHomeUi({ density })}
-        balanceHidden={homeUi.balanceHidden}
-        onToggleBalanceHidden={() => setHomeUi({ balanceHidden: !homeUi.balanceHidden })}
-        selectedAccountId={model.selectedAccountId}
-        onSelectAccount={(selectedAccountId) => setHomeUi({ selectedAccountId })}
-        accounts={model.accounts}
-        accountsStatus={home.accounts.status}
-        accountsRefreshing={home.refreshing && home.accounts.status === 'ready'}
-        defaultCurrency={authUser.defaultCurrency ?? 'MYR'}
-        onCreateAccount={async (input) => {
-          await createPersonalAccount(input)
-          setAccountReload((current) => current + 1)
-        }}
-        balances={model.balances}
-        monthlySpending={model.monthlySpending}
-        receivables={model.receivables}
-        tileLayout={model.tileLayout}
-        accountTasks={model.accountTasks}
-        sharedContexts={model.sharedContexts}
-        sharedPreviews={model.sharedPreviews}
-        sharedStatus={model.sharedStatus}
-        recordGroups={model.recordGroups}
-        recordsStatus={ledger.expensesStatus}
-        onRetryRecords={() => void ledger.refresh()}
-        affiliationsStatus={home.affiliations.status}
-        recordActions={recordActions}
-        recordStatuses={recordStatuses}
-        recordsViewKey={`${ledger.participantId}:${homeUi.mode}:${model.selectedAccountId}:${model.trip?.trip?.id ?? ''}`}
-        trip={model.trip}
-        trips={model.trips}
-        travelStatus={model.travelStatus}
-        tripSpending={model.tripSpending}
-        onSelectTrip={(selectedTripId) => setHomeUi({ selectedTripId })}
-        onCreateTrip={() => navigate('/spaces')}
-        onOpenCollectPay={(direction) => navigate(`/collect-pay/${direction}`, { state: { cpBack: true } })}
-        onOpenSharedContext={(context) => {
-          if (context.personId) navigate(`/person/${context.personId}`)
-          else if (context.spaceId) navigate(`/space/${context.spaceId}`)
-          else navigate('/shared')
-        }}
-        emptyRecordsLabel={model.emptyRecordsLabel}
-      />
-
-      <ExpenseRecoveryNotices />
-    </main>
-  )
-}
-
-function useHomeModel(input: {
-  participantId: string | null
-  timezone: string
-  expensesStatus: 'loading' | 'error' | 'ready'
-  expenses: ReturnType<typeof usePersonalLedger>['expenses']
-  rows: ReturnType<typeof usePersonalLedger>['rows']
-  home: ReturnType<typeof useHomeData>
-  homeUi: ReturnType<typeof useStore.getState>['homeUi']
-}) {
-  return useMemo(() => {
-    const accounts = input.home.accounts.data?.accounts ?? []
-    const chosen = accounts.find((account) => account.id === input.homeUi.selectedAccountId)
-    const selectedAccountId = input.home.accounts.status === 'ready'
-      && chosen
-      && isAvailableMoneyAccount(chosen)
-      ? chosen.id
-      : 'all'
-    const balances = input.home.accounts.status === 'ready'
-      ? availableMoney(accounts, selectedAccountId)
-      : []
-    const spaces: HomeSpaceRef[] = (input.home.spaces.data ?? []).map(({ space }) => ({
-      id: space.id,
-      type: space.type,
-      name: space.name,
-      status: space.status,
-      startDate: space.startDate,
-      endDate: space.endDate,
-      updatedAt: space.updatedAt,
-    }))
-    const knownSpaceIds = new Set(spaces.map((space) => space.id))
-    for (const expense of input.expenses) {
-      if (expense.scope !== 'space' || !expense.spaceId || knownSpaceIds.has(expense.spaceId)) continue
-      knownSpaceIds.add(expense.spaceId)
-      spaces.push({
-        id: expense.spaceId,
-        type: 'group',
-        name: '',
-        status: 'active',
-        startDate: null,
-        endDate: null,
-        updatedAt: expense.updatedAt,
-      })
-    }
-    const people = (input.home.people.data ?? []).map((person) => ({
-      id: person.id,
-      displayName: person.displayName,
-      participantIds: personPrincipalIds(person),
-    }))
-    const settlements: ConfirmedSettlement[] = (input.home.settlements.data ?? []).map((payment) => ({
-      id: payment.id,
-      scope: payment.scope,
-      spaceId: payment.spaceId,
-      debtorParticipantId: payment.debtorParticipantId,
-      currency: payment.currency,
-      status: payment.status,
-      paymentDate: payment.paymentDate,
-      createdAt: payment.createdAt,
-      allocations: payment.allocations.map((allocation) => ({
-        id: allocation.id,
-        creditorParticipantId: allocation.creditorParticipantId,
-        amountMinor: allocation.amountMinor,
-        state: allocation.state,
-        reversalMinor: allocation.reversalMinor,
-      })),
-    }))
-    const affiliations = (input.home.affiliations.data ?? []).map((affiliation) => ({
-      expenseId: affiliation.expenseId,
-      label: affiliation.label,
-      archived: affiliation.archivedAt != null,
-    }))
-    const sharedStatus = combineStatus(
-      input.expensesStatus,      input.home.people.status,
-      input.home.settlements.status,
-      input.home.spaces.status,
-    )
-    const travelStatus = input.home.spaces.status
-    const sharedContexts = sharedStatus === 'ready' && input.participantId
-      ? deriveOutstandingSharedContexts({
-        ownerParticipantId: input.participantId,
-        expenses: input.expenses,
-        settlements,
-        people,
-        spaces,
-      })
-      : []
-    const sharedPreviews = sharedStatus === 'ready' && input.participantId
-      ? deriveSharedPreviewContexts({ ownerParticipantId: input.participantId, expenses: input.expenses, people })
-      : []
-    const accountTasks = input.home.accounts.status === 'ready' && input.home.accounts.data
-      ? listActionableAccountTasks(accountAttentionSources({
-        pendingFundingIds: input.home.accounts.data.pendingFundingIds,
-        recurring: input.home.accounts.data.recurring,
-        installments: input.home.accounts.data.installments,
-        pendingPrincipalPlanIds: input.home.accounts.data.pendingPrincipalPlanIds,
-      }), accounts)
-      : []
-    const accountCount = input.home.accounts.status === 'ready' ? accountTasks.length : 0
-    const sharedCount = sharedStatus === 'ready' ? sharedContexts.length : 0
-    const today = localCalendarDate(new Date(), input.timezone)
-    const trips = [
-      ...spaces.filter((space) => space.type === 'trip' && space.status !== 'voided'),
-      ...(input.home.affiliations.status === 'ready'
-        ? tripsFromAffiliations(affiliations, spaces)
-        : []),
-    ]
-    const trip = travelStatus === 'ready'
-      ? selectHomeTrip(trips, today, input.homeUi.selectedTripId)
-      : null
-    const travelIds = trip
-      ? new Set(travelReadableExpenseIds({
-        readableExpenseIds: input.expenses.map((expense) => expense.id),
-        affiliations,
-        trip: trip.trip,
-        expenses: input.expenses,
-      }))
-      : new Set<string>()
-    const records = input.participantId
-      ? buildHomeRecords({
-        ownerParticipantId: input.participantId,
-        expenses: input.expenses,
-        funding: input.home.accounts.data?.funding ?? [],
-        accounts,
-        people,
-        spaces,
-        affiliations,
-        journals: input.home.accounts.data?.journals ?? [],
-        selectedAccountId: homeRecordAccountFilter(input.homeUi.mode, selectedAccountId),
-        limit: null,
-        fundingKnown: input.home.accounts.status === 'ready',
-      })
-      : []
-    const filtered = input.homeUi.mode === 'travel'
-      ? records.filter((record) => record.expenseId != null && travelIds.has(record.expenseId))
-      : records
-    const bookedRows = input.participantId
-      ? input.rows.filter((row) => isBookedHomeExpense(row.expense, input.participantId!))
-      : []
-    const tripRows = bookedRows.filter((row) => travelIds.has(row.expense.id))
-    const tripSpending = sumSpending(tripRows)
-    return {
-      accounts,
-      selectedAccountId,
-      balances,
-      monthlySpending: monthlyPersonalSpending(bookedRows, today.slice(0, 7)),
-      receivables: sharedStatus === 'ready' ? receivableTotals(sharedContexts) : [],
-      tileLayout: summaryTileLayout(accountCount, sharedCount),
-      accountTasks,
-      sharedContexts,
-      sharedPreviews,
-      sharedStatus,
-      recordGroups: groupHomeRecords(presentHomeRecords(filtered, input.homeUi.density), today),
-      flatRecords: filtered,
-      trip,
-      trips,
-      travelStatus,
-      tripSpending,
-      emptyRecordsLabel: selectedAccountId === 'all'
-        ? undefined
-        : 'home.emptyRecordsFiltered' as const,
-    }
-  }, [input])
-}
-
-function combineStatus(
-  ...statuses: Array<'loading' | 'error' | 'ready'>
-): 'loading' | 'error' | 'ready' {
-  if (statuses.some((status) => status === 'error')) return 'error'
-  if (statuses.some((status) => status === 'loading')) return 'loading'
-  return 'ready'
-}
-
-function sumSpending(rows: ReturnType<typeof usePersonalLedger>['rows']) {
-  const totals = new Map<string, number>()
-  for (const row of rows) {
-    const currency = row.expense.currency.toUpperCase()
-    totals.set(currency, addMinor(totals.get(currency) ?? 0, row.personalSpendingMinor))
+  const props: HomeScreenProps = {
+    timezone: authUser.timezone ?? 'Asia/Kuala_Lumpur',
+    initialAccountPanel: searchParams.get('accountPanel') === 'manage' ? 'manage' : undefined,
+    onCloseAccountPanel: () => { if (searchParams.has('accountPanel')) setSearchParams({}, { replace: true }) },
+    mode: tripId ? 'travel' : homeUi.mode,
+    onModeChange: mode => setHomeUi({ mode }), density: homeUi.density,
+    onDensityChange: density => setHomeUi({ density }), balanceHidden: homeUi.balanceHidden,
+    onToggleBalanceHidden: () => setHomeUi({ balanceHidden: !homeUi.balanceHidden }),
+    selectedAccountId: model.selectedAccountId, onSelectAccount: selectedAccountId => setHomeUi({ selectedAccountId }),
+    accounts: model.accounts, accountsStatus: home.accounts.status,
+    accountsRefreshing: home.refreshing && home.accounts.status === 'ready', defaultCurrency: authUser.defaultCurrency ?? 'MYR',
+    onCreateAccount: async input => { await createPersonalAccount(input); setAccountReload(n => n + 1) },
+    balances: model.balances, monthlySpending: model.monthlySpending, receivables: model.receivables,
+    tileLayout: model.tileLayout, accountTasks: model.accountTasks, sharedContexts: model.sharedContexts,
+    sharedPreviews: model.sharedPreviews, sharedStatus: model.sharedStatus,
+    recordGroups: tripId && !detailTrip ? [] : model.recordGroups, recordsStatus: ledger.expensesStatus,
+    onRetryRecords: () => void ledger.refresh(), affiliationsStatus: home.affiliations.status,
+    recordActions, recordStatuses,
+    travelPaginationKey: `${ledger.participantId}:${location.key}:${model.trip?.trip.id ?? ''}`,
+    recordsViewKey: `${ledger.participantId}:${tripId ?? homeUi.mode}:${model.selectedAccountId}:${model.trip?.trip.id ?? ''}`,
+    trip: detailTrip, trips: model.trips, travelStatus: model.travelStatus, tripSpending: detailTrip ? model.tripSpending : [],
+    tripSpendingStatus: model.tripSpendingStatus,
+    onSelectTrip: selectedTripId => setTravelTrip(authUser.id, selectedTripId),
+    onCreateTrip: () => navigate('/travel/manage?create=1&return=travel'),
+    onManageTrips: () => navigate('/travel/manage'),
+    onViewTrip: id => { setTravelTrip(authUser.id, id); navigate(`/travel/trip/${encodeURIComponent(id)}`, { state: { travelBack: true } }) },
+    onAddTripExpense: canWrite ? addTripExpense : undefined, onRetryTravel: retryTravel,
+    onOpenCollectPay: direction => navigate(`/collect-pay/${direction}`, { state: { cpBack: true } }),
+    onOpenSharedContext: context => {
+      if (context.personId) navigate(`/person/${context.personId}`)
+      else if (context.spaceId) navigate(`/space/${context.spaceId}`)
+      else navigate('/shared')
+    }, emptyRecordsLabel: model.emptyRecordsLabel,
   }
-  return [...totals.entries()]
-    .map(([currency, amountMinor]) => ({ currency, amountMinor }))
-    .sort((left, right) => left.currency.localeCompare(right.currency))
+  if (tripId) return <>
+    <TripDetails props={props} participantId={ledger.participantId} members={members.data} membersStatus={members.status}
+      canWrite={canWrite} onBack={() => {
+        setHomeUi({ mode: 'travel' })
+        if (detailTrip) setTravelTrip(authUser.id, detailTrip.trip.id)
+        if (location.state?.travelBack) navigate(-1); else navigate('/', { replace: true })
+      }}
+      onInfo={() => navigate(detailTrip?.trip.id.startsWith('affiliation:') ? '/travel/manage' : `/space/${tripId}?section=info`)}
+      onMembers={() => navigate(`/space/${tripId}?section=members`)} onManage={() => navigate('/travel/manage')}
+      records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
+    <ExpenseRecoveryNotices />
+  </>
+  return <main className="ms-page home-shell" data-home-mode={homeUi.mode}>
+    <HomeScreen {...props} /><ExpenseRecoveryNotices />
+  </main>
 }

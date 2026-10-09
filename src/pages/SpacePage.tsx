@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import SettlementPanel from '../components/SettlementPanel'
 import ActivityFeed from '../components/ActivityFeed'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
@@ -41,6 +41,8 @@ export default function SpacePage() {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const { spaceId = '' } = useParams()
+  const [params] = useSearchParams()
+  const section = params.get('section')
   const navigate = useNavigate()
   const { authUser } = useAuth()
   const ledger = usePersonalLedger()
@@ -182,6 +184,12 @@ export default function SpacePage() {
       setMemberAction('')
     }
   }
+
+  useEffect(() => {
+    if (!entry || !section) return
+    const frame = requestAnimationFrame(() => document.getElementById(`trip-${section}`)?.scrollIntoView({ block: 'start' }))
+    return () => cancelAnimationFrame(frame)
+  }, [entry, section])
 
   if (loading) {
     return <main className="ms-page flex min-h-dvh items-center justify-center">{t('space.opening')}</main>
@@ -396,7 +404,7 @@ export default function SpacePage() {
         )}
       </section>
 
-      <section className="mx-auto mt-8 max-w-4xl" data-testid="space-manage">
+      <section className="mx-auto mt-8 max-w-4xl" data-testid="space-manage" id="trip-info">
         <p className="ms-label">{t('space.manage')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('space.manage')}</h2>
         {entry.space.type === 'trip' ? (
@@ -410,7 +418,7 @@ export default function SpacePage() {
         <div className="ms-card mt-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="ms-label">{t('space.people')}</p>
+              <p id="trip-members" className="ms-label">{t('space.people')}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {members.map(({ member, participant }) => (
                   <div key={participant.id} className="flex min-h-11 items-center gap-2 rounded-2xl bg-[var(--ms-bg-warm)] px-3 py-1.5 text-sm">

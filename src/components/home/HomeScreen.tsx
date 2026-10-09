@@ -1,5 +1,6 @@
 import { capitalizeDescription } from '../../lib/description'
 import MoneyText from '../MoneyText'
+import { TravelHome } from '../travel/TravelUI'
 import { cloneElement, isValidElement, useEffect, useEffectEvent, useId, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useAccessibleDialog } from '../../hooks/useAccessibleDialog'
@@ -20,7 +21,7 @@ import type {
 import { availableMoney as allAccountBalances, addMinor, homeRecordAmountState, isAvailableMoneyAccount, localCalendarDate, payableTotals } from '../../lib/homeView'
 import { parseMajorAmount } from '../../lib/money'
 import type { CashAccountType } from '../../lib/personalAccountRepository'
-import { useT, type TranslationKey } from '../../lib/i18n'
+import { categoryKey, useT, type TranslationKey } from '../../lib/i18n'
 import { formatDate, localeForLang } from '../../lib/locale'
 import { formatMinorAmount } from '../../lib/money'
 import { useStore } from '../../store/useStore'
@@ -40,6 +41,7 @@ type DisplayRecord = HomeRecordPresentation & {
 }
 
 export type HomeScreenProps = {
+  localToday?: string
   timezone?: string
   initialAccountPanel?: 'manage'
   onCloseAccountPanel?: () => void
@@ -83,6 +85,12 @@ export type HomeScreenProps = {
   tripSpending: readonly CurrencyAmount[]
   onSelectTrip: (tripId: string) => void
   onCreateTrip: () => void
+  onManageTrips?: () => void
+  onViewTrip?: (id: string) => void
+  onAddTripExpense?: () => void
+  onRetryTravel?: () => void
+  tripSpendingStatus?: 'loading' | 'error' | 'ready'
+  travelPaginationKey?: string
   onOpenSharedContext: (context: SharedContext) => void
   onOpenCollectPay?: (direction: 'collect' | 'pay') => void
   emptyRecordsLabel?: TranslationKey
@@ -92,7 +100,7 @@ export default function HomeScreen(props: HomeScreenProps) {
   const t = useT()
   const densityDescriptionId = useId()
   const lang = useStore((state) => state.lang)
-  const [sheet, setSheet] = useState<null | 'accounts' | 'manage' | 'trips' | 'create' | 'review'>(props.initialAccountPanel ?? null)
+  const [sheet, setSheet] = useState<null | 'accounts' | 'manage' | 'create' | 'review'>(props.initialAccountPanel ?? null)
   const accountTrigger = useRef<HTMLButtonElement>(null)
   const closeSheet = () => { setSheet(null); props.onCloseAccountPanel?.() }
   const assetAccounts = props.accounts.filter(isAvailableMoneyAccount)
@@ -115,6 +123,10 @@ export default function HomeScreen(props: HomeScreenProps) {
     const next = swipeIds[delta < 0 ? index + 1 : index - 1]
     if (next) props.onSelectAccount(next)
   }
+
+  if (props.mode === 'travel') return <TravelHome props={{ ...props, localToday: today }}
+    notice={<AccountNotice tasks={props.accountTasks} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
+    records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
 
   return (
     <div className="home-frame" data-density={props.density}>
@@ -210,20 +222,12 @@ export default function HomeScreen(props: HomeScreenProps) {
         {props.sharedStatus === 'ready' && (props.sharedPreviews?.length ?? 0) > 0 ?
           <UnconfirmedNotice contexts={props.sharedPreviews!} onReview={() => setSheet('review')} /> : null}
         </>
-      ) : (
-        <TripCard
-          trip={props.trip}
-          status={props.travelStatus}
-          spending={props.tripSpending}
-          onOpen={() => setSheet('trips')}
-          onCreate={props.onCreateTrip}
-        />
-      )}
+      ) : null}
 
       <section className="home-section" aria-labelledby="home-records-title">
         <div className="home-section-head">
           <h2 id="home-records-title">
-            {props.mode === 'travel' ? t('home.travelRecords') : t('home.recent')}
+            {t('home.recent')}
           </h2>
           <div className="home-section-actions">
             <span id={densityDescriptionId} className="home-sr">{t(props.density === 'detailed' ? 'home.overall' : 'home.compact')}</span>
@@ -261,14 +265,7 @@ export default function HomeScreen(props: HomeScreenProps) {
             </button>
           </p>
         ) : null}
-        {props.mode === 'travel' && props.affiliationsStatus === 'error' && props.travelStatus !== 'error' ? (
-          <p className="home-status" role="status">{t('home.affiliationsUnavailable')}</p>
-        ) : null}
-        {props.mode === 'travel' && props.travelStatus === 'error' ? (
-          <p className="home-status" role="alert">{t('home.unavailable')}</p>
-        ) : props.mode === 'travel' && props.travelStatus === 'loading' ? (
-          <p className="home-status">{t('home.loading')}</p>
-        ) : props.recordsStatus === 'loading' && props.recordGroups.length === 0 ? (
+        {props.recordsStatus === 'loading' && props.recordGroups.length === 0 ? (
           <p className="home-status">{t('home.loading')}</p>
         ) : props.recordsStatus === 'error' && props.recordGroups.length === 0 ? null
         : props.recordGroups.length === 0 ? (
@@ -324,27 +321,7 @@ export default function HomeScreen(props: HomeScreenProps) {
         />
       ) : null}
 
-      {sheet === 'trips' ? (
-        <HomeSheet title={t('home.tripSheet')} onClose={closeSheet} testId="home-trip-sheet">
-          {props.trips.map((trip) => (
-            <button
-              key={trip.id}
-              type="button"
-              className="home-sheet-option"
-              aria-current={trip.id === props.trip?.trip.id}
-              onClick={() => {
-                props.onSelectTrip(trip.id)
-                setSheet(null)
-              }}
-            >
-              <span>{trip.name}</span>
-            </button>
-          ))}
-          <button type="button" className="home-sheet-option" onClick={props.onCreateTrip}>
-            <span>{t('home.openTrips')}</span>
-          </button>
-        </HomeSheet>
-      ) : null}
+
     </div>
   )
 }
@@ -497,53 +474,8 @@ function BalanceValues({
   )
 }
 
-function TripCard({
-  trip,
-  status,
-  spending,
-  onOpen,
-  onCreate,
-}: {
-  trip: HomeTripSelection | null
-  status: 'loading' | 'error' | 'ready'
-  spending: readonly CurrencyAmount[]
-  onOpen: () => void
-  onCreate: () => void
-}) {
-  const t = useT()
-  const lang = useStore((state) => state.lang)
-  if (status === 'loading') {
-    return <section className="home-trip-card"><p className="home-status">{t('home.loading')}</p></section>
-  }
-  if (status === 'error') {
-    return <section className="home-trip-card" role="alert"><p className="home-status">{t('home.unavailable')}</p></section>
-  }
-  if (!trip) {
-    return (
-      <section className="home-trip-card" data-testid="home-trip-empty">
-        <h2 className="home-trip-name">{t('home.noTripTitle')}</h2>
-        <p className="home-note">{t('home.noTripHelp')}</p>
-        <button type="button" className="home-text-button" onClick={onCreate}>{t('home.openTrips')}</button>
-      </section>
-    )
-  }
-  const range = [trip.trip.startDate, trip.trip.endDate].filter(Boolean).join(' – ')
-  return (
-    <section className="home-trip-card">
-      <button type="button" className="home-account-button" data-testid="home-trip-selector" onClick={onOpen}>
-        <span className="home-trip-name">{trip.trip.name}</span>
-        <span className="home-trip-status">{trip.phase === 'active' ? t('home.tripActive') : t('home.tripEnded')}</span>
-        <Chevron className="home-trip-chevron" />
-      </button>
-      <p className="home-meta">{t('home.mySpending')}</p>
-      <p className="home-balance-figure"><MoneyLines lines={spending} lang={lang} t={t} /></p>
-      {range ? <p className="home-note">{range}</p> : null}
-    </section>
-  )
-}
-
 /** Total of the outgoing records displayed in this date group; currencies stay separate. */
-function DayTotal({ records }: { records: readonly HomeRecordPresentation[] }) {
+function DayTotal({ records, hidden = false }: { records: readonly HomeRecordPresentation[]; hidden?: boolean }) {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const outgoing = records.filter((record) => record.direction === 'out')
@@ -554,7 +486,7 @@ function DayTotal({ records }: { records: readonly HomeRecordPresentation[] }) {
   }
   return <span className="home-day-total" data-testid="home-day-total">
     <span className="home-day-total-label">{t('home.dayTotal')}</span>
-    <span className="home-day-total-value">{incomplete ? t('home.amountUnavailable') : <MoneyLines
+    <span className="home-day-total-value">{hidden ? '••••' : incomplete ? t('home.amountUnavailable') : <MoneyLines
       lines={Array.from(totals, ([currency, amountMinor]) => ({ currency, amountMinor }))}
       lang={lang} t={t}
     />}</span>
@@ -574,10 +506,17 @@ function CompactDate({ date, kind }: { date: string; kind: HomeDateGroup['kind']
   </time>
 }
 
-function RecentRecordList({ props }: { props: HomeScreenProps }) {
+const travelPagination = new Map<string, number>()
+
+export function RecentRecordList({ props, paginationKey }: { paginationKey?: string; props: Pick<HomeScreenProps, 'recordGroups' | 'recordsStatus' | 'accountsStatus' | 'mode' | 'travelStatus' | 'affiliationsStatus' | 'accountsRefreshing' | 'density' | 'recordStatuses' | 'recordActions' | 'balanceHidden'> }) {
   const t = useT()
   const lang = useStore(state => state.lang)
-  const [visibleDays, setVisibleDays] = useState(1)
+  const [visibleDays, setVisibleDays] = useState(() => paginationKey ? travelPagination.get(paginationKey) ?? 1 : 1)
+  useEffect(() => {
+    if (!paginationKey) return
+    travelPagination.set(paginationKey, visibleDays)
+    if (travelPagination.size > 80) travelPagination.delete(travelPagination.keys().next().value!)
+  }, [paginationKey, visibleDays])
   const sentinel = useRef<HTMLButtonElement>(null)
   const hasMore = visibleDays < props.recordGroups.length
   useEffect(() => {
@@ -597,16 +536,16 @@ function RecentRecordList({ props }: { props: HomeScreenProps }) {
   const loading = props.recordsStatus === 'loading' || props.accountsStatus === 'loading' || props.accountsRefreshing
     || (props.mode === 'travel' && (props.travelStatus === 'loading' || props.affiliationsStatus === 'loading'))
   return <>
-    {props.recordGroups.slice(0, visibleDays).map((group, index) => <div className="home-day" data-tone={index % 2 ? 'cool' : 'warm'} key={group.date}>
+    {props.recordGroups.slice(0, visibleDays).map((group, index) => <div className="home-day" data-tone={props.mode === 'travel' ? group.kind === 'today' ? 'warm' : 'cool' : index % 2 ? 'cool' : 'warm'} key={group.date}>
       <div className="home-date">
         {props.density === 'compact' ? <CompactDate date={group.date} kind={group.kind} /> : <strong>{group.kind === 'today'
           ? `${t('home.today')} · ${formatDate(group.date, lang)}`
           : group.kind === 'yesterday'
             ? `${t('home.yesterday')} · ${formatDate(group.date, lang)}`
             : formatDate(group.date, lang)}</strong>}
-        {props.density === 'compact' ? <DayTotal records={group.records} /> : null}
+        {props.density === 'compact' ? <DayTotal records={group.records} hidden={props.mode === 'travel' && props.balanceHidden} /> : null}
       </div>
-      {group.records.map(record => <RecordRow key={record.id} accountsStatus={props.accountsStatus}
+      {group.records.map(record => <RecordRow key={record.id} travel={props.mode === 'travel'} hidden={props.mode === 'travel' && props.balanceHidden} accountsStatus={props.accountsStatus}
         record={{ ...record, statusLabel: props.recordStatuses?.[record.id] ?? null, action: props.recordActions?.[record.id] }} />)}
     </div>)}
     <div className="home-records-end" data-testid="home-records-end">
@@ -620,7 +559,11 @@ function RecentRecordList({ props }: { props: HomeScreenProps }) {
 function RecordRow({
   record,
   accountsStatus,
+  hidden = false,
+  travel = false,
 }: {
+  travel?: boolean
+  hidden?: boolean
   record: DisplayRecord
   accountsStatus: 'loading' | 'error' | 'ready'
 }) {
@@ -633,7 +576,7 @@ function RecordRow({
     ? { sign: '+', tone: 'incoming', label: t('home.incoming') }
     : { sign: '−', tone: 'outgoing', label: t('home.outgoing') }
   const amountContent = (<>
-              {homeRecordAmountState(record.amountKnown, accountsStatus) === 'unavailable'
+              {hidden ? '••••' : homeRecordAmountState(record.amountKnown, accountsStatus) === 'unavailable'
                 ? t('home.amountUnavailable')
                 : homeRecordAmountState(record.amountKnown, accountsStatus) === 'pending'
                   ? t('home.loading')
@@ -652,11 +595,11 @@ function RecordRow({
         ) : null}
         <div className="home-record-copy">
           <p className="home-record-title">{capitalizeDescription(record.description)}</p>
-          {record.showChip ? <span className="home-chip">
+          {travel || record.showChip ? <span className="home-chip">
             {record.compact && (record.chip.kind === 'direct' || record.chip.kind === 'space') ? <svg className="home-shared-mark" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="7" r="3" /><path d="M2 21v-2a7 7 0 0 1 14 0v2H2Z M16 4a3 3 0 0 1 0 6 M19 21h3v-2a7 7 0 0 0-5-6" />
             </svg> : null}
-            {chipText(record, t)}
+            {travel ? <>{t(categoryKey(record.category))} · {record.travelMeta?.myPaidMinor ? t('travel.youPaid') : record.travelMeta && record.travelMeta.participantCount > 1 ? t('travel.sharedWith', { count: record.travelMeta.participantCount - 1 }) : t('travel.yourShare')}</> : chipText(record, t)}
           </span> : null}
           {record.statusLabel ? <p className="home-note">{record.statusLabel}</p> : null}
         </div>
