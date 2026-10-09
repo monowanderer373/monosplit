@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { enterQuickAmount } from './fixtures/quickAdd'
 import { createConfirmedAccount, signIn } from './fixtures/localSupabase'
 
 test('keeps a signed-out personal ledger private', async ({ page }) => {
@@ -69,11 +70,12 @@ test('provisions a confirmed account and completes the manifest Quick Add shortc
   await signIn(page, account)
 
   await page.goto('/quick-add?source=pwa-shortcut')
-  const dialog = page.getByRole('dialog', { name: 'Quick tally' })
+  const dialog = page.getByRole('dialog', { name: 'Quick Add' })
   await expect(dialog).toBeVisible()
   const quickAddStartedAt = performance.now()
-  await dialog.getByLabel('Amount').fill('12.34')
-  await dialog.getByRole('button', { name: 'Save expense' }).click()
+  await enterQuickAmount(dialog, '12.34')
+  await dialog.getByRole('button', { name: 'Food', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Save and close' }).click()
 
   await expect(dialog).toHaveCount(0)
   await expect(page.getByText(/12\.34/).first()).toBeVisible()
@@ -96,7 +98,7 @@ test('provisions a confirmed account and completes the manifest Quick Add shortc
   await parseButton.click()
   await page.getByRole('button', { name: 'Continue to final review' }).click()
 
-  const reviewDialog = page.getByRole('dialog', { name: 'Quick tally' })
+  const reviewDialog = page.getByRole('dialog', { name: 'Quick Add' })
   await expect(reviewDialog).toBeVisible()
-  await expect(reviewDialog.getByLabel('Amount')).toHaveValue('8.50')
+  await expect(reviewDialog.getByRole('textbox', { name: 'Amount', exact: true })).toHaveValue('8.50')
 })

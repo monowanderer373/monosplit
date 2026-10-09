@@ -1,3 +1,4 @@
+import { enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -27,6 +28,7 @@ test('links a Person without rewriting old Manual money', async ({
     const target = targetBrowser.page
 
     await owner.goto('/friends')
+    await openFriendTools(owner)
     await owner.getByRole('button', { name: 'Copy friend invite' }).click()
     await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
     const inviteUrl = await copyInviteUrl(owner)
@@ -35,6 +37,7 @@ test('links a Person without rewriting old Manual money', async ({
     await expect(target).toHaveURL(/\/friends$/)
 
     await owner.reload()
+    await openFriendTools(owner)
     await owner.getByPlaceholder('Person’s name').fill('Target cash')
     await owner.getByRole('button', { name: 'Add person' }).click()
     await openPersonDetail(owner, 'Target cash')
@@ -80,8 +83,8 @@ test('links a Person without rewriting old Manual money', async ({
       owner.getByRole('button', { name: 'Split with Target cash' }),
     ).toHaveCount(0)
 
-    await owner.goto('/')
-    await expect(summaryValue(owner, 'Untracked')).toHaveText('RM 4.00')
+    await openPersonDetail(owner, 'Target cash')
+    await expect(owner.getByTestId('person-position')).toContainText('RM 4.00 in recorded shares · not a confirmed balance')
 
     await owner.goto('/friends')
     await openPersonDetail(owner, 'Target cash')
@@ -109,13 +112,10 @@ async function saveCapture(
   description: string,
   amount: string,
 ): Promise<void> {
-  const dialog = page.getByRole('dialog', { name: 'Add Expense' })
-  await dialog.getByRole('textbox', { name: /^Amount/ }).fill(amount)
-  await dialog.getByPlaceholder('What was this for?').fill(description)
-  await dialog.getByRole('button', { name: 'Save expense' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Quick Add' })
+  await enterQuickAmount(dialog, amount)
+  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await dialog.getByRole('button', { name: 'Food', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)
-}
-
-function summaryValue(page: Page, label: string) {
-  return page.getByText(label, { exact: true }).locator('..').locator('p').nth(1)
 }

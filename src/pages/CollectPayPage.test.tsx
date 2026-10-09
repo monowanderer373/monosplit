@@ -29,9 +29,31 @@ function setup(s = snapshot(), direction: 'pay' | 'collect' = 'pay', detail = tr
     <CollectPayScreen snapshot={s} status={readStatus} timezone="Asia/Kuala_Lumpur" onRefresh={refresh} service={service} />
   } /></Routes></MemoryRouter>
   const view = render(tree(status))
-  return { refresh, service, item, setReadStatus: (status: 'ready' | 'error') => view.rerender(tree(status)) }
+  return { refresh, service, item, setReadStatus: (status: 'ready' | 'error') => view.rerender(tree(status)),
+    setSnapshot: (next: typeof s) => { s = next; view.rerender(tree(status)) } }
 }
 describe('collect/pay navigable flows', () => {
+  it('updates the saved payment notice from its authoritative allocation after confirmation or reversal', async () => {
+    const user = userEvent.setup(); const { service, setSnapshot } = setup()
+    service.save.mockResolvedValueOnce({ kind: 'pending', id: 'payment' })
+    await user.click(screen.getByRole('button', { name: 'Record repayment' }))
+    const form = screen.getByTestId('collect-pay-form')
+    await user.click(within(form).getByRole('button', { name: 'Partial' }))
+    await user.type(form.querySelector('input[inputmode="decimal"]') as HTMLInputElement, '20')
+    await user.selectOptions(within(form).getByLabelText('Paid from'), 'wallet')
+    await user.click(within(form).getByRole('button', { name: 'Review this payment' }))
+    await user.click(within(form).getByRole('button', { name: 'Confirm repayment record' }))
+    expect(screen.getByRole('status').textContent).toContain('Awaiting the other person’s confirmation')
+    const confirmed = snapshot(); confirmed.payments = [payment(2000, 'pay', 'accepted')]
+    act(() => setSnapshot(confirmed))
+    expect(screen.getByRole('status').textContent).toBe('Payment confirmed.')
+    expect(screen.getByText('RM 28.00', { selector: '.cp-total' })).toBeTruthy()
+    const reversed = snapshot(); reversed.payments = [payment(2000, 'pay', 'accepted')]
+    reversed.payments[0].allocations[0].state = 'reversed'
+    act(() => setSnapshot(reversed))
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByText('RM 48.00', { selector: '.cp-total' })).toBeTruthy()
+  })
   it('retains the same attempt if balance_changed follows an already committed proposal', async () => {
     const user = userEvent.setup(); const { service } = setup()
     service.save.mockRejectedValueOnce(new CollectPaySaveError('balance_changed', true))

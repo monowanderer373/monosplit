@@ -1,3 +1,4 @@
+import { enterQuickAmount, openFriendTools, openCreateSpace } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -31,11 +32,12 @@ test('keeps Person Detail money-first and inherits that Person', async ({
     await expect(owner.getByRole('heading', { name: 'Friends' })).toBeVisible()
     await expect(owner.getByRole('heading', { name: 'Direct splits' })).toHaveCount(0)
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
-    await expect(owner.getByRole('dialog', { name: 'Where should this go?' })).toBeVisible()
-    await owner.getByRole('dialog', { name: 'Where should this go?' })
-      .getByRole('button', { name: 'Close' })
+    await expect(owner.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
+    await owner.getByRole('dialog', { name: 'Quick Add' })
+      .getByRole('button', { name: 'Close Quick Add' })
       .click()
 
+    await openFriendTools(owner)
     await owner.getByRole('button', { name: 'Copy friend invite' }).click()
     await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
     await target.goto(await copyInviteUrl(owner))
@@ -43,6 +45,7 @@ test('keeps Person Detail money-first and inherits that Person', async ({
     await expect(target).toHaveURL(/\/friends$/)
 
     await owner.reload()
+    await openFriendTools(owner)
     await owner.getByPlaceholder('Person’s name').fill('Lan cash')
     await owner.getByRole('button', { name: 'Add person' }).click()
     await expect(personCard(owner, 'Lan cash')).toBeVisible()
@@ -61,22 +64,22 @@ test('keeps Person Detail money-first and inherits that Person', async ({
     await expectSectionOrder(owner, ['person-position', 'person-recent', 'person-manage'])
 
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
-    const inherited = owner.getByRole('dialog', { name: 'Add Expense' })
+    const inherited = owner.getByRole('dialog', { name: 'Quick Add' })
     await expect(inherited).toBeVisible()
-    await expect(
-      inherited.getByRole('button', {
-        name: 'Current context: Lan cash. Change context',
-      }),
-    ).toBeVisible()
-    await inherited.getByRole('button', { name: 'Close' }).click()
+    await inherited.getByRole('button', { name: /^Split/ }).click()
+    const split = owner.getByRole('dialog', { name: 'Split expense' })
+    await expect(split.getByText('Lan cash', { exact: true }).first()).toBeVisible()
+    await split.getByRole('button', { name: 'Close panel' }).click()
+    await inherited.getByRole('button', { name: 'Close Quick Add' }).click()
 
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
-    const globalCapture = owner.getByRole('dialog', { name: 'Add Expense' })
+    const globalCapture = owner.getByRole('dialog', { name: 'Quick Add' })
     await expect(globalCapture).toBeVisible()
     await expect(owner.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
-    await globalCapture.getByRole('textbox', { name: /^Amount/ }).fill('6.00')
-    await globalCapture.getByPlaceholder('What was this for?').fill('Untracked lunch')
-    await globalCapture.getByRole('button', { name: 'Save expense' }).click()
+    await enterQuickAmount(globalCapture, '6.00')
+    await globalCapture.getByRole('textbox', { name: 'Description', exact: true }).fill('Untracked lunch')
+    await globalCapture.getByRole('button', { name: 'Food', exact: true }).click()
+    await globalCapture.getByRole('button', { name: 'Save and close' }).click()
     await expect(owner.getByTestId('person-untracked')).toContainText('Untracked lunch')
 
     await owner.getByRole('button', { name: 'Back to Friends' }).click()
@@ -99,11 +102,12 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
   await page.goto('/spaces')
   await expect(page.getByRole('heading', { name: 'Groups / Trips' })).toBeVisible()
   await page.getByRole('button', { name: 'Quick add expense' }).click()
-  await expect(page.getByRole('dialog', { name: 'Where should this go?' })).toBeVisible()
-  await page.getByRole('dialog', { name: 'Where should this go?' })
-    .getByRole('button', { name: 'Close' })
+  await expect(page.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
+  await page.getByRole('dialog', { name: 'Quick Add' })
+    .getByRole('button', { name: 'Close Quick Add' })
     .click()
 
+  await openCreateSpace(page)
   await page.getByLabel('Name').fill('Penang Trip')
   await page.getByLabel('Type').selectOption('trip')
   await page.getByRole('button', { name: 'Create', exact: true }).click()
@@ -122,13 +126,14 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
   await expect(page.getByTestId('space-recap')).toContainText('Trip spending')
   await expect(page.getByTestId('space-manage')).toContainText('Dates')
   await page.getByRole('button', { name: 'Quick add expense' }).click()
-  await expect(page.getByRole('dialog', { name: 'Add Expense' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
-  await page.getByRole('dialog', { name: 'Add Expense' }).getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('dialog', { name: 'Quick Add' }).getByRole('button', { name: 'Close Quick Add' }).click()
 
   await page.getByRole('button', { name: 'Back to Groups / Trips' }).click()
   await expect(page).toHaveURL(/\/spaces$/)
 
+  await openCreateSpace(page)
   await page.getByLabel('Name').fill('House Group')
   await page.getByLabel('Type').selectOption('group')
   await page.getByRole('button', { name: 'Create', exact: true }).click()

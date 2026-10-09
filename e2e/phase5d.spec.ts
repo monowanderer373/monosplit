@@ -1,3 +1,4 @@
+import { enterQuickAmount } from './fixtures/quickAdd'
 import { expect, test } from '@playwright/test'
 import {
   closeBrowsers,
@@ -26,10 +27,11 @@ test('discards a never-dispatched offline create before reconnect', async ({
     await signIn(page, account)
     await context.setOffline(true)
     await page.getByRole('button', { name: 'Quick add expense' }).click()
-    const capture = page.getByRole('dialog', { name: 'Quick tally' })
-    await capture.getByRole('textbox', { name: /^Amount/ }).fill('12.34')
-    await capture.getByPlaceholder('What was this for?').fill(description)
-    await capture.getByRole('button', { name: 'Save expense' }).click()
+    const capture = page.getByRole('dialog', { name: 'Quick Add' })
+    await enterQuickAmount(capture, '12.34')
+    await capture.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+    await capture.getByRole('button', { name: 'Food', exact: true }).click()
+    await capture.getByRole('button', { name: 'Save and close' }).click()
 
     const optimistic = page.getByRole('article').filter({ hasText: description })
     await expect(optimistic).toContainText('Pending locally · Not yet synced')
@@ -65,10 +67,11 @@ test('committed create uses server cancellation and owner-local restore', async 
   await signIn(page, account)
 
   await page.getByRole('button', { name: 'Quick add expense' }).click()
-  const capture = page.getByRole('dialog', { name: 'Quick tally' })
-  await capture.getByRole('textbox', { name: /^Amount/ }).fill('23.45')
-  await capture.getByPlaceholder('What was this for?').fill(description)
-  await capture.getByRole('button', { name: 'Save expense' }).click()
+  const capture = page.getByRole('dialog', { name: 'Quick Add' })
+  await enterQuickAmount(capture, '23.45')
+  await capture.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await capture.getByRole('button', { name: 'Food', exact: true }).click()
+  await capture.getByRole('button', { name: 'Save and close' }).click()
 
   const expense = page.getByRole('article').filter({ hasText: description })
   const currentExpenseAction = page.getByRole('button', {

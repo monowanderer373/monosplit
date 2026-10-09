@@ -75,6 +75,7 @@ for (const scenario of [{ initial: 4800, partial: '20', after: '28.00' }, { init
       await shot(receiver.page, `confirmed-history-${scenario.initial}`)
       await payer.page.getByRole('button', { name: 'Retry', exact: true }).click()
       await amount(payer.page, scenario.after)
+      await expect(payer.page.locator('.cp-feedback[role="status"]')).toHaveText('Payment confirmed.')
       if (scenario.initial === 500) {
         await receiver.page.getByRole('button', { name: 'Back', exact: true }).click()
         await expect(receiver.page.getByText('No confirmed amounts to collect.').first()).toBeVisible()

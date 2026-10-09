@@ -17,6 +17,8 @@ import { resetVerifiedHomeCache } from '../hooks/useHomeData'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
 import { useRouteScroll } from '../hooks/useRouteScroll'
 
+type CollectPayResult = Awaited<ReturnType<typeof collectPayService.save>>
+
 export default function CollectPayPage() {
   const { authUser, loading } = useAuth()
   const t = useT()
@@ -60,12 +62,22 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
   const selectedKey = params.get('item')
   const [action, setAction] = useState('')
   const mutationLock = useRef(false)
-  const [feedback, setFeedback] = useState<'pending' | 'confirmed' | 'requested' | ''>('')
+  const [result, setResult] = useState<(CollectPayResult & { itemKey: string }) | null>(null)
   const [error, setError] = useState('')
   const [drafts, setDrafts] = useState<Record<string, CollectPayFormInput>>({})
   const allItems = snapshot ? buildCollectPayItems(snapshot).filter(i => i.direction === direction) : []
   const items = allItems.filter(i => filter === 'all' || i.source === filter)
   const selected = allItems.find(i => i.key === selectedKey)
+  const resultPayment = snapshot?.payments.find(payment => payment.id === result?.id)
+  let feedback: CollectPayResult['kind'] | '' = result?.itemKey === selectedKey ? result.kind : ''
+  if (feedback && resultPayment?.allocations.length) {
+    feedback = resultPayment.allocations.every(allocation => allocation.state === 'accepted') ? 'confirmed'
+      : resultPayment.allocations.some(allocation => allocation.state === 'pending') ? feedback : ''
+  }
+  if (feedback === 'requested' && snapshot?.requests.some(request => request.id === result?.id && request.status !== 'open')) feedback = ''
+  const onResult = (saved: CollectPayResult) => {
+    if (selectedKey) setResult({ ...saved, itemKey: selectedKey })
+  }
   const money = (amount: number, currency: string) => formatMinorAmount(amount, currency, localeForLang(lang))
   const names = new Map(snapshot?.expenses.flatMap(e => e.participations.map(p => [p.participantId, p.nameSnapshot] as const)))
   const openOriginal = (item: CollectPayItem) => navigate(item.context.scope === 'space' ? `/space/${item.context.spaceId}`
@@ -111,7 +123,7 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
             document.querySelector<HTMLSelectElement>('#cp-payment-history select')?.focus({ preventScroll: true })
           }}>{t('cp.recordCollect')}</button> : selected.canPay ? <PaymentForm key={selected.key} item={selected} snapshot={snapshot} timezone={timezone} service={service}
           draft={drafts[selected.key]} onDraft={draft => setDrafts(old => { const next = { ...old }; if (draft) next[selected.key] = draft; else delete next[selected.key]; return next })}
-          onRefresh={onRefresh} onResult={setFeedback} /> : selected.remainingMinor > 0 ? <p className="cp-help">{t('cp.unsupported')}</p> : null}
+          onRefresh={onRefresh} onResult={onResult} /> : selected.remainingMinor > 0 ? <p className="cp-help">{t('cp.unsupported')}</p> : null}
         <section className="cp-sources"><h2>{t('cp.sources')}</h2>
           {selected.expenses.map(expense => <article className="cp-panel cp-source" key={expense.id}>
             <h3>{expense.description || t('expense.receiptUntitled')}</h3><p>{formatDate(expense.occurredOn, lang)} · {money(expense.totalMinor, expense.currency)}</p>
@@ -128,7 +140,7 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
           </article>)}
         </section>
         <button type="button" className="cp-secondary" onClick={() => openOriginal(selected)}>{t('cp.openOriginal')}</button>
-        <PaymentHistory item={selected} snapshot={snapshot} service={service} timezone={timezone} action={action} mutate={mutate} onRefresh={onRefresh} onResult={setFeedback} />
+        <PaymentHistory item={selected} snapshot={snapshot} service={service} timezone={timezone} action={action} mutate={mutate} onRefresh={onRefresh} onResult={onResult} />
         <SettlementHistoryList context={selected.context} currentParticipantId={snapshot.owner} participantNames={names}
           expenses={selected.expenses} settlements={selected.balancePayments} />
       </> : <>
@@ -157,7 +169,7 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
             }}><span className="cp-avatar" aria-hidden="true">{(group[0].otherName || '?').slice(0, 1)}</span><span>{group[0].otherName || t('common.member')}</span>
               <span className="cp-group-money">{collectPayTotals(group).map(total => <span key={total.currency}>{money(total.amountMinor, total.currency)}</span>)}</span><span aria-hidden="true">{collapsed ? '⌄' : '⌃'}</span></button>
               {!collapsed ? group.map(item => <button type="button" className={`cp-panel cp-item is-${direction}`} key={item.key} onClick={() => {
-                const next = new URLSearchParams(params); next.set('item', item.key); setFeedback(''); setParams(next, { state: { cpBack: true } })
+                const next = new URLSearchParams(params); next.set('item', item.key); setResult(null); setParams(next, { state: { cpBack: true } })
               }}><span><strong>{item.label || t('cp.direct')}</strong><small>{item.expenses[0]?.description || t('cp.history')} · {item.expenses[0] ? formatDate(item.expenses[0].occurredOn, lang) : item.currency}</small>
                 {item.payments.some(p => p.allocations.some(a => a.state === 'pending')) || item.requests.some(r => r.status === 'open') ? <small className="cp-badge">{t('cp.pending')}</small> : null}</span>
                 <span className="cp-item-amount">{money(item.remainingMinor, item.currency)} <span aria-hidden="true">›</span></span></button>) : null}
@@ -178,7 +190,7 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
 function PaymentForm({ item, snapshot, timezone, service, onRefresh, onResult, draft, onDraft }: {
   item: CollectPayItem; snapshot: CollectPaySnapshot; timezone: string; service: typeof collectPayService
   draft?: CollectPayFormInput; onDraft: (draft: CollectPayFormInput | null) => void
-  onRefresh: () => Promise<void>; onResult: (kind: 'pending' | 'confirmed' | 'requested') => void
+  onRefresh: () => Promise<void>; onResult: (result: CollectPayResult) => void
 }) {
   const t = useT(), lang = useStore(s => s.lang)
   const [open, setOpen] = useState(Boolean(draft))
@@ -204,7 +216,7 @@ function PaymentForm({ item, snapshot, timezone, service, onRefresh, onResult, d
     attempt.current ??= { requestId: generateId(), cashRequestId: generateId() }
     try {
       const result = await service.save(snapshot.owner, preview, attempt.current)
-      onResult(result.kind); await onRefresh(); onDraft(null); setOpen(false); setPreview(null); setAttempted(false); attempt.current = null
+      onResult(result); await onRefresh(); onDraft(null); setOpen(false); setPreview(null); setAttempted(false); attempt.current = null
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'unknown_error'; setError(message)
       if (cause instanceof CollectPaySaveError && !cause.retrySameInput) { setPreview(null); setAttempted(false); attempt.current = null }
@@ -246,7 +258,7 @@ function PaymentForm({ item, snapshot, timezone, service, onRefresh, onResult, d
 function PaymentHistory({ item, snapshot, service, timezone, action, mutate, onRefresh, onResult }: {
   item: CollectPayItem; snapshot: CollectPaySnapshot; service: typeof collectPayService; timezone: string; action: string
   mutate: (id: string, work: () => Promise<unknown>) => Promise<void>; onRefresh: () => Promise<void>
-  onResult: (kind: 'pending' | 'confirmed' | 'requested') => void
+  onResult: (result: CollectPayResult) => void
 }) {
   const t = useT(), lang = useStore(s => s.lang)
   const [receivingAccount, setReceivingAccount] = useState<Record<string, string>>({})
@@ -278,7 +290,7 @@ function PaymentHistory({ item, snapshot, service, timezone, action, mutate, onR
           <button type="button" className="cp-primary" disabled={Boolean(action) || Boolean(receiptError) || tracked && !receivingAccount[allocation.id] && leg?.role !== 'receiver'} onClick={() => void mutate(allocation.id, async () => {
             let requestId = receiveIds.current.get(allocation.id); if (!requestId) { requestId = generateId(); receiveIds.current.set(allocation.id, requestId) }
             await service.confirmReceived(snapshot.owner, payment, allocation.id, receivingAccount[allocation.id] ?? (leg?.role === 'receiver' ? leg.accountId : ''), requestId, financialFingerprint(snapshot, item))
-            onResult('confirmed'); await onRefresh()
+            onResult({ kind: 'confirmed', id: payment.id }); await onRefresh()
           })}>{t('cp.confirmReceipt')}</button>
           <button type="button" className="cp-secondary" disabled={Boolean(action)} onClick={() => void mutate(allocation.id, () => service.repository.respond(allocation.id, 'declined', payment.version))}>{t('common.decline')}</button>
         </> : null}

@@ -7,6 +7,9 @@ import type { HomeAccount, HomeDateGroup } from '../../lib/homeView'
 import { formatMinorAmount } from '../../lib/money'
 import { useStore } from '../../store/useStore'
 import GlobalMoneyAction from '../GlobalMoneyAction'
+import PendingExpenseRecoveryActions from '../PendingExpenseRecoveryActions'
+import { compileLedgerExpense, type LedgerExpenseDraft } from '../../lib/compileExpense'
+import { createPendingLedgerCommand } from '../../lib/ledgerOutbox'
 import HomeScreen, { type HomeScreenProps } from './HomeScreen'
 
 afterEach(() => {
@@ -91,6 +94,34 @@ function props(overrides: Partial<HomeScreenProps> = {}): HomeScreenProps {
 }
 
 describe('HomeScreen', () => {
+  it.each(['detailed', 'compact'] as const)('keeps an unstarted offline record undoable in the %s view', async (density) => {
+    const draft: LedgerExpenseDraft = {
+      clientRequestId: '11111111-1111-4111-8111-111111111111', scope: 'personal', spaceId: null,
+      currentParticipantId: 'dav', amount: '12.34', currency: 'MYR', description: 'Offline expense',
+      category: 'Food', occurredOn: '2026-10-09', participants: [{ id: 'dav', displayName: 'Dav', kind: 'account' }],
+      payerAmounts: {}, splitMode: 'equal', exactShareAmounts: {},
+    }
+    const compiled = compileLedgerExpense(draft)
+    if (!compiled.ok) throw new Error(compiled.error)
+    const item = createPendingLedgerCommand(draft, compiled.command)
+    const undo = vi.fn(() => true)
+    const retry = vi.fn(async () => undefined)
+    const discard = vi.fn(() => true)
+    const { rerender } = render(<HomeScreen {...props({ density, recordActions: {
+      'expense:1': <PendingExpenseRecoveryActions item={item} onUndoAdd={undo} onRetry={retry} onDiscardFailed={discard} />,
+    } })} />)
+    await userEvent.click(within(screen.getByTestId('home-record')).getByRole('button', { name: 'Undo add' }))
+    expect(undo).toHaveBeenCalledWith(compiled.command.requestId)
+    // Once the outcome is unknown, the same surface must not offer destructive local removal.
+    rerender(<HomeScreen {...props({ density, recordActions: {
+      'expense:1': <PendingExpenseRecoveryActions item={{ ...item, attempts: 1, commitState: 'unknown', status: 'rejected' }} onUndoAdd={undo} onRetry={retry} onDiscardFailed={discard} />,
+    } })} />)
+    expect(screen.queryByRole('button', { name: 'Undo add' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Discard failed draft' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(retry).toHaveBeenCalledWith(compiled.command.requestId)
+    expect(discard).not.toHaveBeenCalled()
+  })
   it('opens both real summary buttons with keyboard, including zero, without putting amounts in their accessible names', async () => {
     const onOpenCollectPay = vi.fn()
     render(<HomeScreen {...props({ onOpenCollectPay, receivables: [], sharedContexts: [], balanceHidden: true })} />)
@@ -693,7 +724,7 @@ describe('HomeScreen', () => {
     await userEvent.click(screen.getByRole('button',{name:/CIMB Savings/}))
     expect(select).toHaveBeenCalledWith('cimb')
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(document.activeElement).toBe(screen.getByTestId('home-account-selector'))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('home-account-selector')))
   })
 
   it('enters the real account form from the picker and returns focus after closing it', async () => {
@@ -702,7 +733,7 @@ describe('HomeScreen', () => {
     await userEvent.click(screen.getByTestId('home-add-account'))
     await userEvent.click(screen.getByRole('button',{name:'Close'}))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(document.activeElement).toBe(screen.getByTestId('home-account-selector'))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('home-account-selector')))
   })
 
   it('presents transfers and settlements as neutral money movements', () => {

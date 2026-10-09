@@ -1,3 +1,4 @@
+import { enterQuickAmount, openFriendTools, openCreateSpace, openQuickSplit } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   acceptSpaceInvite,
@@ -14,7 +15,7 @@ import {
 } from './fixtures/localSupabase'
 
 test.describe.configure({ mode: 'serial' })
-test.setTimeout(90_000)
+test.setTimeout(180_000)
 
 test.describe('local relational multi-user journey', () => {
   let alpha: FixtureAccount
@@ -51,6 +52,7 @@ test.describe('local relational multi-user journey', () => {
     await test.step('create a Trip and enforce full, view, and guest access', async () => {
     const owner = alphaBrowser.page
     await owner.goto('/spaces')
+    await openCreateSpace(owner)
     await owner.getByLabel('Name').fill('Sabah E2E Trip')
     await owner.getByLabel('Type').selectOption('trip')
     await owner.getByRole('button', { name: 'Create', exact: true }).click()
@@ -68,9 +70,9 @@ test.describe('local relational multi-user journey', () => {
       'space-manage',
     ])
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
-    const inheritedCapture = owner.getByRole('dialog', { name: 'Add Expense' })
+    const inheritedCapture = owner.getByRole('dialog', { name: 'Quick Add' })
     await expect(inheritedCapture).toBeVisible()
-    await inheritedCapture.getByRole('button', { name: 'Close' }).click()
+    await inheritedCapture.getByRole('button', { name: 'Close Quick Add' }).click()
 
     const fullAccessInvite = await createSpaceInvite(owner, 'full_access')
     await acceptSpaceInvite(betaBrowser.page, fullAccessInvite)
@@ -179,6 +181,7 @@ test.describe('local relational multi-user journey', () => {
     const owner = alphaBrowser.page
     const friend = betaBrowser.page
     await owner.goto('/friends')
+    await openFriendTools(owner)
     await owner.getByRole('button', { name: 'Copy friend invite' }).click()
     await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
     const friendInvite = await copyInviteUrl(owner)
@@ -210,6 +213,7 @@ test.describe('local relational multi-user journey', () => {
     await expectDebt(friend, 'You owe Alpha', 'RM 4.99')
 
     await owner.goto('/friends')
+    await openFriendTools(owner)
     await owner.getByPlaceholder('Person’s name').fill('Cash Guest')
     await owner.getByRole('button', { name: 'Add person' }).click()
     await openPersonDetail(owner, 'Cash Guest')
@@ -217,8 +221,7 @@ test.describe('local relational multi-user journey', () => {
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Cash taxi', '8.00')
 
-    await owner.goto('/')
-    await expect(summaryValue(owner, 'Untracked')).toHaveText('RM 4.00')
+    await expect(owner.getByTestId('person-position')).toContainText('RM 4.00 in recorded shares · not a confirmed balance')
     await owner.goto('/friends')
     await openFriendBalance(owner, 'Beta')
     await expectDebt(owner, 'Beta owes You', 'RM 4.99')
@@ -257,12 +260,13 @@ test.describe('local relational multi-user journey', () => {
     const member = betaBrowser.page
 
     await owner.goto('/quick-add?source=pwa-shortcut')
-    const quickAdd = owner.getByRole('dialog', { name: 'Quick tally' })
+    const quickAdd = owner.getByRole('dialog', { name: 'Quick Add' })
     await expect(quickAdd).toBeVisible()
     await alphaBrowser.context.setOffline(true)
-    await quickAdd.getByRole('textbox', { name: /^Amount/ }).fill('7.77')
-    await quickAdd.getByPlaceholder('What was this for?').fill('Offline once')
-    await quickAdd.getByRole('button', { name: 'Save expense' }).click()
+    await enterQuickAmount(quickAdd, '7.77')
+    await quickAdd.getByRole('textbox', { name: 'Description', exact: true }).fill('Offline once')
+    await quickAdd.getByRole('button', { name: 'Food', exact: true }).click()
+    await quickAdd.getByRole('button', { name: 'Save and close' }).click()
     await expect(owner.getByRole('status')).toHaveText('Saved on this device · pending sync')
     const offlineExpense = owner.getByRole('article').filter({ hasText: 'Offline once' })
     await expect(
@@ -278,9 +282,9 @@ test.describe('local relational multi-user journey', () => {
 
     await member.goto(spaceUrl)
     await member.getByRole('button', { name: '+ Add expense' }).click()
-    const staleDialog = member.getByRole('dialog', { name: 'Add Expense' })
-    await staleDialog.getByRole('textbox', { name: /^Amount/ }).fill('3.33')
-    await staleDialog.getByPlaceholder('What was this for?').fill('Rejected stale role')
+    const staleDialog = member.getByRole('dialog', { name: 'Quick Add' })
+    await enterQuickAmount(staleDialog, '3.33')
+    await staleDialog.getByRole('textbox', { name: 'Description', exact: true }).fill('Rejected stale role')
 
     await owner.goto(spaceUrl)
     await owner.getByLabel('Access for Beta').selectOption('view')
@@ -289,7 +293,8 @@ test.describe('local relational multi-user journey', () => {
     if (!spaceId) throw new Error('Could not resolve the local Space id.')
     await waitForSpaceRole(beta, spaceId, 'view')
 
-    await staleDialog.getByRole('button', { name: 'Save expense' }).click()
+    await staleDialog.getByRole('button', { name: 'Food', exact: true }).click()
+    await staleDialog.getByRole('button', { name: 'Save and close' }).click()
     const rejected = member.getByRole('article').filter({ hasText: 'Rejected stale role' })
     await expect(rejected.getByText('Needs attention')).toBeVisible()
     await expect(rejected.getByRole('button', { name: 'Retry' })).toBeVisible()
@@ -328,34 +333,46 @@ async function addExpense(
   },
 ): Promise<void> {
   await page.getByRole('button', { name: '+ Add expense' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Add Expense' })
-  await dialog.getByRole('textbox', { name: /^Amount/ }).fill(input.amount)
-  await dialog.getByPlaceholder('What was this for?').fill(input.description)
+  const dialog = page.getByRole('dialog', { name: 'Quick Add' })
+  await enterQuickAmount(dialog, input.amount)
+  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(input.description)
 
-  if (input.exactShares) {
-    await dialog.getByLabel('Split').selectOption('exact')
-    for (const [name, amount] of Object.entries(input.exactShares)) {
-      await dialog.getByLabel(`Share for ${name}`).fill(amount)
+  if (input.exactShares || input.payers) {
+    const split = await openQuickSplit(dialog, page)
+    if (input.exactShares) {
+      await split.getByRole('button', { name: 'Amounts', exact: true }).click()
+      for (const [name, amount] of Object.entries(input.exactShares)) {
+        const input = name === 'You'
+          ? split.locator('.qa-split-person').filter({ has: page.getByRole('checkbox', { name: 'You', exact: true }) }).getByRole('textbox')
+          : split.getByRole('textbox', { name: `Share for ${name}`, exact: true })
+        await input.fill(amount)
+      }
     }
+    if (input.payers) {
+      await split.getByRole('button', { name: /^Paid by You/ }).click()
+      for (const [name, amount] of Object.entries(input.payers)) {
+        const input = name === 'You'
+          ? split.locator('.qa-stack label').filter({ hasText: /^You$/ }).getByRole('textbox')
+          : split.getByRole('textbox', { name: `Paid by ${name}`, exact: true })
+        await input.fill(amount)
+      }
+    }
+    await split.getByRole('button', { name: 'Apply split', exact: true }).click()
+    await expect(split).toHaveCount(0)
   }
 
-  if (input.payers) {
-    await dialog.getByRole('button', { name: 'Multiple payers' }).click()
-    for (const [name, amount] of Object.entries(input.payers)) {
-      await dialog.getByLabel(`Paid by ${name}`).fill(amount)
-    }
-  }
-
-  await dialog.getByRole('button', { name: 'Save expense' }).click()
+  await dialog.getByRole('button', { name: 'Food', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)
   await expect(page.getByText(input.description)).toBeVisible()
 }
 
 async function saveCapture(page: Page, description: string, amount: string): Promise<void> {
-  const dialog = page.getByRole('dialog', { name: 'Add Expense' })
-  await dialog.getByRole('textbox', { name: /^Amount/ }).fill(amount)
-  await dialog.getByPlaceholder('What was this for?').fill(description)
-  await dialog.getByRole('button', { name: 'Save expense' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Quick Add' })
+  await enterQuickAmount(dialog, amount)
+  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await dialog.getByRole('button', { name: 'Food', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)
 }
 
@@ -390,8 +407,4 @@ async function expectSectionOrder(page: Page, testIds: string[]): Promise<void> 
       `${boxes[index].testId} should follow ${boxes[index - 1].testId}`,
     ).toBeGreaterThan(boxes[index - 1].y)
   }
-}
-
-function summaryValue(page: Page, label: string) {
-  return page.getByText(label, { exact: true }).locator('..').locator('p').nth(1)
 }
