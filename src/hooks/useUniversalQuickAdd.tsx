@@ -175,17 +175,25 @@ export function UniversalQuickAddProvider({
         })
         return
       }
+      const entryValues = ref.kind === 'person' && resolved.ref.kind === 'person'
+        ? remapQuickAddParticipant(active.values, ref.participantId, resolved.ref.participantId)
+        : active.values
+      if (entryValues.selectedParticipantIds.some(id => !resolved.availableParticipants.some(p => p.id === id))) {
+        setContextError(true)
+        history.replace({ step: 'gate', startedAtMs: active.startedAtMs })
+        return
+      }
       const next = {
         ...active,
         context: resolved,
         originalContext: active.originalContext ?? resolved.ref,
         values: active.context
-          ? active.values
+          ? entryValues
           : {
-              ...active.values,
-              currency: active.values.selectedParticipantIds.length ? active.values.currency : resolved.defaultCurrency,
-              selectedParticipantIds: active.values.selectedParticipantIds.length
-                ? [...new Set([resolved.currentParticipantId, ...active.values.selectedParticipantIds.filter(id => resolved.availableParticipants.some(p => p.id === id))])]
+              ...entryValues,
+              currency: entryValues.selectedParticipantIds.length ? entryValues.currency : resolved.defaultCurrency,
+              selectedParticipantIds: entryValues.selectedParticipantIds.length
+                ? [...new Set([resolved.currentParticipantId, ...entryValues.selectedParticipantIds.filter(id => resolved.availableParticipants.some(p => p.id === id))])]
                 : resolved.ref.kind === 'person'
                   ? [resolved.currentParticipantId, resolved.ref.participantId]
                   : active.followPageContext ? [resolved.currentParticipantId] : resolved.availableParticipants.map((participant) => participant.id),
@@ -384,8 +392,14 @@ export function UniversalQuickAddProvider({
   ])
 
   const selectEntryContext = useCallback((context: MoneyContextRef) => {
+    const active = sessionRef.current
+    // An explicit gate choice starts a reviewed split, preserving the amount
+    // and note while discarding an unavailable draft's financial allocation.
+    if (active && !active.context) installSession({ ...active, values: {
+      ...active.values, selectedParticipantIds: [], splitMode: 'equal', exactShareAmounts: {}, payerAmounts: {}, items: [],
+    } })
     void resolveEntryContext(context)
-  }, [resolveEntryContext])
+  }, [installSession, resolveEntryContext])
 
   const openSwitchPicker = useCallback(() => {
     const active = sessionRef.current
