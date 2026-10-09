@@ -16,7 +16,7 @@ import { usePersonalLedger } from './usePersonalLedger'
 import type { LedgerExpenseDraft } from '../lib/compileExpense'
 import { generateId } from '../lib/id'
 import { readQuickDraft, writeQuickDraft } from '../lib/quickDraft'
-import type { MoneyContextRef } from '../lib/moneyContext'
+import type { MoneyContextRef, RouteMoneyContext } from '../lib/moneyContext'
 import { resolveMoneyContext } from '../lib/moneyContextCatalog'
 import {
   createUniversalQuickAddSession,
@@ -47,6 +47,7 @@ type OpenRequest = Readonly<{
   captureSource?: UniversalQuickAddSession['captureSource']
   initialValues?: Partial<UniversalQuickAddValues>
   clientRequestId?: string
+  followPageContext?: boolean
   directDeepLink?: boolean
   onSave?: (
     draft: LedgerExpenseDraft,
@@ -58,6 +59,8 @@ type OpenRequest = Readonly<{
 type SessionCallbacks = Pick<OpenRequest, 'onSave' | 'onSaved'>
 
 type UniversalQuickAddContextValue = Readonly<{
+  pageTarget: { pathname: string; target: RouteMoneyContext; ready: boolean } | null
+  setPageTarget: (target: { pathname: string; target: RouteMoneyContext; ready: boolean } | null) => void
   action: MoneyActionState | null
   session: UniversalQuickAddSession | null
   feedback: SaveFeedbackState | null
@@ -110,6 +113,7 @@ export function UniversalQuickAddProvider({
   const history = useMoneyActionHistory()
   const location = useLocation()
   const navigate = useNavigate()
+  const [pageTarget, setPageTarget] = useState<UniversalQuickAddContextValue['pageTarget']>(null)
   const [session, setSessionState] = useState<UniversalQuickAddSession | null>(null)
   const sessionRef = useRef<UniversalQuickAddSession | null>(null)
   const callbacksRef = useRef<SessionCallbacks>({})
@@ -184,7 +188,7 @@ export function UniversalQuickAddProvider({
                 ? [...new Set([resolved.currentParticipantId, ...active.values.selectedParticipantIds.filter(id => resolved.availableParticipants.some(p => p.id === id))])]
                 : resolved.ref.kind === 'person'
                   ? [resolved.currentParticipantId, resolved.ref.participantId]
-                  : resolved.availableParticipants.map((participant) => participant.id),
+                  : active.followPageContext ? [resolved.currentParticipantId] : resolved.availableParticipants.map((participant) => participant.id),
             },
       }
       installSession(next)
@@ -194,6 +198,10 @@ export function UniversalQuickAddProvider({
         startedAtMs: active.startedAtMs,
         directDeepLink,
       })
+    } catch {
+      if (generation !== resolutionGenerationRef.current || sessionRef.current?.sessionId !== active.sessionId) return
+      setContextError(true)
+      history.replace({ step: 'gate', excludedSpaceId: ref.kind === 'space' ? ref.spaceId : undefined, startedAtMs: active.startedAtMs })
     } finally {
       if (generation === resolutionGenerationRef.current) {
         setResolving(false)
@@ -203,8 +211,14 @@ export function UniversalQuickAddProvider({
 
   const open = useCallback((request: OpenRequest) => {
     resolutionGenerationRef.current += 1
+    setResolving(false)
     const startedAtMs = Date.now()
-    const restore = !request.initialValues && !request.onSave && !request.onSaved && !request.spaceCandidateId && !request.personCandidateId && (request.entryPoint === 'global' || request.entryPoint === 'personal') ? readQuickDraft(identityKey) : null
+    const requestedContext = request.context && isResolvedMoneyContext(request.context) ? request.context.ref : request.context
+    const target = request.spaceCandidateId ? { kind: 'space' as const, spaceId: request.spaceCandidateId }
+      : request.personCandidateId ? { kind: 'person' as const, personId: request.personCandidateId }
+      : requestedContext ?? { kind: 'personal' as const }
+    const restore = !request.initialValues && !request.onSave && !request.onSaved && (!request.captureSource || request.captureSource === 'manual') && request.contextPolicy !== 'locked'
+      && (request.entryPoint === 'global' || request.entryPoint === 'personal') ? readQuickDraft(identityKey, target) : null
     const provided = restore?.context?.ref ?? request.context ?? null
     const resolved = provided && isResolvedMoneyContext(provided) ? provided : null
     const unresolved = provided && !isResolvedMoneyContext(provided) ? provided : null
@@ -216,9 +230,10 @@ export function UniversalQuickAddProvider({
       entryPoint: request.entryPoint,
       captureSource: request.captureSource,
       contextPolicy: request.contextPolicy,
+      followPageContext: request.followPageContext,
       context: resolved,
       originalContext: resolved?.ref ?? unresolved,
-      initialValues: request.initialValues ?? restore?.values,
+      initialValues: request.initialValues ?? restore?.values ?? (request.followPageContext && resolved?.ref.kind === 'space' ? { selectedParticipantIds: [resolved.currentParticipantId] } : undefined),
     })
     callbacksRef.current = {
       onSave: request.onSave,
@@ -287,6 +302,7 @@ export function UniversalQuickAddProvider({
             || sessionRef.current?.sessionId !== next.sessionId
           ) return
           if (!entry) {
+            setContextError(true)
             history.replace({
               step: 'gate',
               excludedSpaceId: request.spaceCandidateId,
@@ -305,6 +321,7 @@ export function UniversalQuickAddProvider({
             candidateGeneration !== resolutionGenerationRef.current
             || sessionRef.current?.sessionId !== next.sessionId
           ) return
+          setContextError(true)
           history.replace({
             step: 'gate',
             excludedSpaceId: request.spaceCandidateId,
@@ -332,6 +349,7 @@ export function UniversalQuickAddProvider({
           ) return
           const personRef = person ? personToMoneyContext(person) : null
           if (!personRef) {
+            setContextError(true)
             history.replace({
               step: 'gate',
               startedAtMs,
@@ -344,6 +362,7 @@ export function UniversalQuickAddProvider({
             candidateGeneration !== resolutionGenerationRef.current
             || sessionRef.current?.sessionId !== next.sessionId
           ) return
+          setContextError(true)
           history.replace({
             step: 'gate',
             startedAtMs,
@@ -405,7 +424,8 @@ export function UniversalQuickAddProvider({
         })
         return
       }
-      const next = switchUniversalQuickAddContext(active, resolved)
+      const switched = switchUniversalQuickAddContext(active, resolved)
+      const next = active.followPageContext && resolved.ref.kind === 'space' ? { ...switched, values: { ...switched.values, selectedParticipantIds: [resolved.currentParticipantId] } } : switched
       installSession(next)
       setPendingSwitch(null)
       history.collapseSwitchToCapture({
@@ -413,6 +433,10 @@ export function UniversalQuickAddProvider({
         context: resolved.ref,
         startedAtMs: active.startedAtMs,
       })
+    } catch {
+      if (generation !== resolutionGenerationRef.current || sessionRef.current?.sessionId !== active.sessionId) return
+      setContextError(true)
+      history.replace({ step: 'switch-picker', startedAtMs: active.startedAtMs })
     } finally {
       if (generation === resolutionGenerationRef.current) {
         setResolving(false)
@@ -526,18 +550,19 @@ export function UniversalQuickAddProvider({
     }
     const saveState = result.saveState ?? 'recorded'
     setFeedback({ kind: saveState })
-    writeQuickDraft(identityKey, null)
+    writeQuickDraft(identityKey, null, context.ref)
     if (options?.continueAdding && active.captureSource === 'manual' ) {
       const personal = context.availableParticipants.find(p => p.id === context.currentParticipantId)!
-      const nextContext: ResolvedMoneyContext = active.contextPolicy === 'locked' ? context : {
+      const nextContext: ResolvedMoneyContext = active.contextPolicy === 'locked' || active.followPageContext ? context : {
         ref: { kind: 'personal' }, currentParticipantId: personal.id,
         availableParticipants: [personal], defaultCurrency: values.currency,
       }
       const next = createUniversalQuickAddSession({
         identityKey, sessionId: generateId(), clientRequestId: generateId(), startedAtMs: Date.now(),
-        entryPoint: active.entryPoint, contextPolicy: active.contextPolicy, context: nextContext,
+        entryPoint: active.entryPoint, contextPolicy: active.contextPolicy, context: nextContext, followPageContext: active.followPageContext,
         initialValues: { category: values.category, categorySource: values.categorySource,
-          occurredOn: values.occurredOn, currency: values.currency, accountId: values.accountId },
+          occurredOn: values.occurredOn, currency: values.currency, accountId: values.accountId,
+          ...(active.followPageContext && nextContext.ref.kind === 'space' ? { selectedParticipantIds: [nextContext.currentParticipantId] } : {}) },
       })
       callbacksRef.current = {}
       window.dispatchEvent(new Event('tt:accounts-changed'))
@@ -556,6 +581,7 @@ export function UniversalQuickAddProvider({
 
   const close = useCallback(() => {
     resolutionGenerationRef.current += 1
+    setResolving(false)
     history.close()
     installSession(null)
     callbacksRef.current = {}
@@ -564,12 +590,15 @@ export function UniversalQuickAddProvider({
 
   const cancelPicker = useCallback(() => {
     resolutionGenerationRef.current += 1
+    setResolving(false)
     setPendingSwitch(null)
     setContextError(false)
     history.close()
   }, [history])
 
   const value: UniversalQuickAddContextValue = {
+    pageTarget,
+    setPageTarget,
     action: history.action,
     session,
     feedback,

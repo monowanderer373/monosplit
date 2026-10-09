@@ -18,13 +18,29 @@ function Capture(){const value=useUniversalQuickAdd();useEffect(()=>{quick=value
 beforeEach(()=>{localStorage.clear();vi.clearAllMocks();mocks.save.mockResolvedValue({ok:true,saveState:'recorded'});render(<MemoryRouter><UniversalQuickAddProvider identityKey="u"><Capture/></UniversalQuickAddProvider></MemoryRouter>)})
 afterEach(cleanup)
 describe('Quick Add save lifecycle',()=>{
- it('keeps direct shortcut close semantics when resolving a restored shared draft',async()=>{
+ it('keeps the page ledger for Save and next, and resets its split to self',async()=>{
+  act(()=>{quick.open({entryPoint:'global',context:shared,followPageContext:true});quick.updateValues({amount:'20',selectedParticipantIds:['self','friend'],splitMode:'exact',exactShareAmounts:{self:'10',friend:'10'}})})
+  await act(async()=>{await quick.submit({continueAdding:true})})
+  expect(quick.session!.context!.ref).toEqual(shared.ref)
+  expect(quick.session!.values).toMatchObject({amount:'',selectedParticipantIds:['self'],splitMode:'equal',exactShareAmounts:{},payerAmounts:{}})
+ })
+ it('restores each ledger independently and only clears the saved ledger',async()=>{
+  const personal:ResolvedMoneyContext={...shared,ref:{kind:'personal'},availableParticipants:[self]}
+  act(()=>{quick.open({entryPoint:'global',context:shared,followPageContext:true});quick.updateValues({amount:'88'});quick.close()})
+  act(()=>{quick.open({entryPoint:'global',context:personal,followPageContext:true});quick.updateValues({amount:'12'});quick.close()})
+  await act(async()=>{quick.open({entryPoint:'global',context:shared,followPageContext:true})})
+  expect(quick.session!.values.amount).toBe('88')
+  await act(async()=>{await quick.submit()})
+  await act(async()=>{quick.open({entryPoint:'global',context:personal,followPageContext:true})})
+  expect(quick.session!.values.amount).toBe('12')
+ })
+
+ it('opens a personal shortcut without borrowing a shared draft',async()=>{
   act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'8',category:'Food'});quick.close()})
   mocks.replace.mockClear()
   await act(async()=>{quick.open({entryPoint:'global',directDeepLink:true,context:{...shared,ref:{kind:'personal'},availableParticipants:[self]}})})
-  expect(quick.session!.values.amount).toBe('8')
-  expect(quick.session!.context!.ref).toEqual(shared.ref)
-  expect(mocks.replace).toHaveBeenLastCalledWith(expect.objectContaining({step:'capture',directDeepLink:true,context:shared.ref}))
+  expect(quick.session!.values.amount).toBe('')
+  expect(quick.session!.context!.ref).toEqual({kind:'personal'})
  })
  it('saves the evaluated amount atomically, resets Split, and gives the next expense a new request',async()=>{
   act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'12+8',calculation:'12+8',description:'Coffee',category:'Coffee',categorySource:'USER',accountId:'wallet',splitMode:'exact',exactShareAmounts:{self:'10',friend:'10'},payerAmounts:{self:'20'}})})
@@ -49,7 +65,7 @@ describe('Quick Add save lifecycle',()=>{
  it('restores today’s draft but clears it after save and close',async()=>{
   act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'8',category:'Food'});quick.close()})
   expect(quick.session).toBeNull()
-  await act(async()=>{quick.open({entryPoint:'global',context:{...shared,ref:{kind:'personal'},availableParticipants:[self]}})})
+  await act(async()=>{quick.open({entryPoint:'global',context:shared})})
   expect(quick.session!.values.amount).toBe('8')
   await act(async()=>{await quick.submit()})
   expect(quick.session).toBeNull()

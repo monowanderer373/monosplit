@@ -175,9 +175,9 @@ export function TravelViewSwitch({ density, onChange }: { density: 'detailed' | 
   </div>
 }
 
-export function TravelRecordsSection({ props, children, detail = false, onAdd }: {
+export function TravelRecordsSection({ props, children, detail = false }: {
   props: Pick<HomeScreenProps, 'trip' | 'recordGroups' | 'recordsStatus' | 'travelStatus' | 'affiliationsStatus' | 'onRetryTravel' | 'density' | 'onDensityChange'>;
-  children: ReactNode; detail?: boolean; onAdd?: () => void
+  children: ReactNode; detail?: boolean
 }) {
   const t = useT()
   const loading = props.travelStatus === 'loading' || props.recordsStatus === 'loading' || props.affiliationsStatus === 'loading'
@@ -188,7 +188,7 @@ export function TravelRecordsSection({ props, children, detail = false, onAdd }:
     {error ? <p className="tt-state-message" role="alert">{t(props.recordGroups.length ? 'travel.refreshFailed' : 'travel.unavailable')} <button className="tt-link" type="button" onClick={props.onRetryTravel}>{t('common.retry')}</button></p> : null}
     {props.trip && props.recordGroups.length > 0 ? children : loading ? <p role="status">{t('home.loading')}</p> : error ? null : !props.trip ? <FirstTripGuide />
       : <section className="tt-guide tt-paper-card" data-testid="travel-empty-records"><div className="tt-guide-intro"><TravelIcon name="receipt" /><h3 className="tt-guide-title">{t('travel.noExpenses')}</h3><p className="tt-guide-description">{t('travel.firstExpense')}</p></div>
-        {onAdd ? <button className="tt-primary tt-empty-add" type="button" onClick={onAdd}><TravelIcon name="plus" />{t('tab.addExpense')}</button> : null}</section>}
+</section>}
     {props.trip && !props.trip.trip.id.startsWith('affiliation:') && props.recordGroups.some(group => group.records.some(record => record.chip.kind === 'space')) ? <p className="tt-shared-strip"><TravelIcon name="users" />{t('travel.sharedHelp')}</p> : null}
   </section>
 }
@@ -199,6 +199,6 @@ export function TravelHome({ props, records, notice, modeSwitch }: { props: Home
     <header className="tt-home-header" data-testid="home-header"><div><div className="tt-title-bell"><h1 className="tt-home-title">{t('home.modeTravel')}</h1>{notice}</div>
       <p className="tt-date">{formatDate(props.localToday!, lang)}</p></div>{modeSwitch}</header>
     <TravelSummary props={props} />
-    <TravelRecordsSection props={props} onAdd={props.onAddTripExpense}>{records}</TravelRecordsSection>
+    <TravelRecordsSection props={props}>{records}</TravelRecordsSection>
   </div>
 }

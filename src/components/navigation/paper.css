@@ -250,3 +250,5 @@
     animation: none;
   }
 }
+
+#root .tt-center-layer--standalone { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }

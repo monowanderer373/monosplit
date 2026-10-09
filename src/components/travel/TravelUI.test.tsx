@@ -14,7 +14,7 @@ function travelProps(patch: Partial<HomeScreenProps> = {}): HomeScreenProps {
     balances: [], monthlySpending: [], receivables: [], tileLayout: 'hidden', accountTasks: [], sharedContexts: [], sharedStatus: 'ready',
     recordGroups: [], recordsStatus: 'ready', affiliationsStatus: 'ready', trip: { trip, phase: 'active' },
     trips: [trip, { ...trip, id: 'b', name: 'Coastal weekend' }], travelStatus: 'ready', tripSpending: [], tripSpendingStatus: 'ready',
-    onSelectTrip: vi.fn(), onCreateTrip: vi.fn(), onManageTrips: vi.fn(), onViewTrip: vi.fn(), onAddTripExpense: vi.fn(), onRetryTravel: vi.fn(),
+    onSelectTrip: vi.fn(), onCreateTrip: vi.fn(), onManageTrips: vi.fn(), onViewTrip: vi.fn(), onRetryTravel: vi.fn(),
     onOpenSharedContext: vi.fn(), onCreateAccount: vi.fn(async () => {}), ...patch,
   }
 }

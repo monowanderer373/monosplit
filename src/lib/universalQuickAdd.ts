@@ -48,6 +48,7 @@ export type UniversalQuickAddSession = Readonly<{
   captureSource: 'manual' | 'template' | 'recurring' | 'natural_language' | 'voice' | 'ocr'
   contextPolicy: ContextSwitchPolicy
   context: ResolvedMoneyContext | null
+  followPageContext?: boolean
   originalContext: MoneyContextRef | null
   values: UniversalQuickAddValues
 }>
@@ -61,6 +62,7 @@ export type CreateQuickAddSessionInput = Readonly<{
   captureSource?: UniversalQuickAddSession['captureSource']
   contextPolicy?: ContextSwitchPolicy
   context?: ResolvedMoneyContext | null
+  followPageContext?: boolean
   originalContext?: MoneyContextRef | null
   initialValues?: Partial<UniversalQuickAddValues>
 }>
@@ -120,6 +122,7 @@ export function createUniversalQuickAddSession(
     captureSource: input.captureSource ?? 'manual',
     contextPolicy: input.contextPolicy ?? 'switchable',
     context,
+    followPageContext: input.followPageContext,
     originalContext: input.originalContext ?? context?.ref ?? null,
     values: {
       ...createDefaultValues(context),
@@ -194,7 +197,7 @@ export function hasCustomContextConfiguration(
   if (!session.context) return false
   const defaults = defaultSelectedParticipantIds(session.context)
   return (
-    !sameSet(session.values.selectedParticipantIds, defaults) ||
+    (!sameSet(session.values.selectedParticipantIds, defaults) && !(session.followPageContext && sameSet(session.values.selectedParticipantIds, [session.context.currentParticipantId]))) ||
     session.values.splitMode === 'exact' ||
     Object.values(session.values.exactShareAmounts).some(
       (amount) => amount.trim() !== '',
