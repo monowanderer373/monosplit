@@ -41,7 +41,7 @@ for(const width of [320,360,390,430])test(`Inline ledger selection and real frie
   await capture(page,`01-ready-${width}`)
   const baseline=await quick.locator('.qa-inputs').boundingBox()
   await header.click();await quick.getByRole('tab',{name:'Trips',exact:true}).click()
-  await expect(quick.getByRole('button',{name:/Mountain weekend/})).toBeVisible()
+  await expect(quick.locator('.qa-option--single')).toHaveCount(4)
   await expect(page.getByRole('dialog')).toHaveCount(1);await expect(header).toContainText('Personal ledger')
   await expect(quick.getByRole('button',{name:'Save and close'})).toBeDisabled();await expect(quick.getByRole('button',{name:'Save and continue'})).toBeDisabled()
   await expect(quick.getByRole('searchbox')).not.toBeFocused()
@@ -85,5 +85,9 @@ for(const width of [320,360,390,430])test(`Inline ledger selection and real frie
   await header.click();await quick.getByRole('tab',{name:'Trips',exact:true}).click();await quick.getByRole('button',{name:'More trips ↓',exact:true}).click();await capture(page,`long-names-${width}`)
   await quick.evaluate(root=>{for(const el of root.querySelectorAll<HTMLElement>('.qa-context-type,.qa-context-name,.qa-tab-face,.qa-option-title,.qa-option-meta,.qa-selected-count,.qa-commit-face')){const s=getComputedStyle(el);el.style.fontSize=`${parseFloat(s.fontSize)*2}px`;el.style.lineHeight=`${parseFloat(s.lineHeight)*2}px`}})
   await capture(page,`text-200-percent-${width}`)
+  await quick.getByRole('button',{name:'Close Quick Add',exact:true}).click();await expect(quick).toHaveCount(0)
+  await page.goto(`/person/${people[1]}`);await expect(page.getByRole('heading',{name:'Ben',exact:true})).toBeVisible();await page.getByRole('button',{name:'Quick add expense',exact:true}).click()
+  await expect(header).toContainText('Ben');await quick.getByRole('button',{name:/^Split/}).click();await expect(split.getByRole('checkbox',{name:'Ben',exact:true})).toBeChecked();await expect(split.getByRole('checkbox',{name:'Ada',exact:true})).not.toBeChecked()
+  await split.getByRole('button',{name:'Close panel',exact:true}).click();await quick.getByRole('button',{name:'Close Quick Add',exact:true}).click();await expect(quick).toHaveCount(0)
  }finally{await actor.context.close()}
 })
