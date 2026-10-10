@@ -132,3 +132,67 @@ describe('Quick Add save lifecycle',()=>{
   expect(quick.session!.context!.ref.kind).toBe('personal')
  })
 })
+
+describe('Inline ledger commits',()=>{
+ it('locks the service entry during selection and restores the original validation path',async()=>{
+  act(()=>{quick.open({entryPoint:'global',context:shared,initialValues:{amount:'20',category:'Food'}});quick.setContextPickerOpen(true)})
+  let result
+  await act(async()=>{result=await quick.submit({continueAdding:true})})
+  expect(result).toMatchObject({ok:false,error:'selection_in_progress'});expect(mocks.save).not.toHaveBeenCalled()
+  act(()=>quick.setContextPickerOpen(false))
+  await act(async()=>{await quick.submit()})
+  expect(mocks.save).toHaveBeenCalledOnce()
+ })
+ it('keeps the real currency, account, expression, note, category and date when moving to a VND trip',async()=>{
+  const personal={...shared,ref:{kind:'personal' as const},availableParticipants:[self]}
+  act(()=>{quick.open({entryPoint:'global',context:personal});quick.updateValues({amount:'12+8',calculation:'12+8',currency:'MYR',accountId:'wallet',description:'Coffee',category:'Coffee',categorySource:'SUGGESTED',occurredOn:'2026-10-01'});quick.setContextPickerOpen(true)})
+  mocks.resolve.mockResolvedValue({...shared,defaultCurrency:'VND'})
+  await act(async()=>{await quick.commitInlineContext(shared.ref)})
+  expect(quick.session!.values).toMatchObject({amount:'12+8',calculation:'12+8',currency:'MYR',accountId:'wallet',description:'Coffee',category:'Coffee',categorySource:'SUGGESTED',occurredOn:'2026-10-01',selectedParticipantIds:['self']})
+  expect(mocks.replace).toHaveBeenLastCalledWith(expect.objectContaining({step:'capture',context:shared.ref}))
+ })
+ it('cancels an in-flight commit without changing the draft or ledger',async()=>{
+  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'37'});quick.setContextPickerOpen(true)})
+  let release!:(value:ResolvedMoneyContext)=>void
+  mocks.resolve.mockImplementation(()=>new Promise(resolve=>{release=resolve}))
+  let request!:ReturnType<typeof quick.commitInlineContext>
+  act(()=>{request=quick.commitInlineContext({kind:'personal'})})
+  act(()=>quick.setContextPickerOpen(false))
+  await act(async()=>{release({...shared,ref:{kind:'personal'},availableParticipants:[self]});expect(await request).toMatchObject({ok:false,error:'cancelled'})})
+  expect(quick.session!.context!.ref).toEqual(shared.ref);expect(quick.session!.values.amount).toBe('37')
+ })
+ it('distinguishes network and permission failures and never commits an unavailable friend',async()=>{
+  act(()=>{quick.open({entryPoint:'global',context:shared});quick.setContextPickerOpen(true)})
+  mocks.resolve.mockRejectedValueOnce(new Error('network'))
+  await act(async()=>expect(await quick.commitInlineContext({kind:'personal'})).toMatchObject({ok:false,error:'network'}))
+  mocks.resolve.mockResolvedValueOnce(null)
+  await act(async()=>expect(await quick.commitInlineContext({kind:'personal'})).toMatchObject({ok:false,error:'unavailable'}))
+  await act(async()=>expect(await quick.commitInlineContext(shared.ref,['missing'])).toMatchObject({ok:false,error:'unavailable'}))
+  expect(quick.session!.context!.ref).toEqual(shared.ref);expect(mocks.save).not.toHaveBeenCalled()
+ })
+ it('does not overwrite the target draft until the user chooses and can resume it independently',async()=>{
+  const personal={...shared,ref:{kind:'personal' as const},availableParticipants:[self]}
+  act(()=>{quick.open({entryPoint:'global',context:personal});quick.updateValues({amount:'11'});quick.close();quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'44'});quick.setContextPickerOpen(true)})
+  await act(async()=>expect(await quick.commitInlineContext({kind:'personal'})).toMatchObject({ok:false,error:'draft-conflict'}))
+  expect(quick.session!.values.amount).toBe('44')
+  await act(async()=>{await quick.commitInlineContext({kind:'personal'},undefined,'resume')})
+  expect(quick.session!.values.amount).toBe('11')
+  act(()=>quick.close())
+  await act(async()=>quick.open({entryPoint:'global',context:shared}))
+  expect(quick.session!.values.amount).toBe('44')
+ })
+ it('prefills multiple existing friend Participants through direct scope and preserves same-selection exact shares',async()=>{
+  const person={kind:'person' as const,personId:'p',participantId:'friend',participantIds:['friend'],participantKind:'manual' as const,displayName:'Friend'}
+  const another={...friend,id:'another',displayName:'Another'}
+  mocks.resolve.mockResolvedValue({...shared,ref:person,availableParticipants:[self,friend,another]})
+  act(()=>{quick.open({entryPoint:'global',context:{...shared,ref:{kind:'personal'},availableParticipants:[self]}});quick.updateValues({amount:'60',category:'Food'});quick.setContextPickerOpen(true)})
+  await act(async()=>{await quick.commitInlineContext(person,['friend','another'])})
+  expect(quick.session!.values.selectedParticipantIds).toEqual(['self','friend','another']);expect(mocks.save).not.toHaveBeenCalled()
+  act(()=>quick.updateValues({splitMode:'exact',exactShareAmounts:{self:'20',friend:'10',another:'30'}}))
+  await act(async()=>{await quick.commitInlineContext(person,['friend','another'])})
+  expect(quick.session!.values.exactShareAmounts).toEqual({self:'20',friend:'10',another:'30'})
+  act(()=>quick.setContextPickerOpen(false))
+  await act(async()=>{await quick.submit()})
+  expect(mocks.save.mock.calls[0][0]).toMatchObject({scope:'direct',spaceId:null,participants:[self,friend,another],splitMode:'exact',exactShareAmounts:{self:'20',friend:'10',another:'30'}})
+ })
+})

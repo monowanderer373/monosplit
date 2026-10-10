@@ -76,6 +76,8 @@ type UniversalQuickAddContextValue = Readonly<{
   cancelContextSwitchWarning: () => void
   updateValues: (patch: Partial<UniversalQuickAddValues>) => void
   configureSplit: (ref: MoneyContextRef, selectedIds?: string[]) => Promise<boolean>
+  setContextPickerOpen: (open: boolean) => void
+  commitInlineContext: (ref: MoneyContextRef, selectedIds?: string[], draftChoice?: 'resume' | 'move') => Promise<{ ok: boolean; session?: UniversalQuickAddSession; error?: 'unavailable' | 'network' | 'draft-conflict' | 'cancelled' }>
   submit: (options?: { continueAdding?: boolean; beforeClose?: () => Promise<void>; values?: Partial<UniversalQuickAddValues> }) => Promise<SaveResult>
   close: () => void
   clearFeedback: () => void
@@ -122,6 +124,7 @@ export function UniversalQuickAddProvider({
   const [contextError, setContextError] = useState(false)
   const [pendingSwitch, setPendingSwitch] = useState<MoneyContextRef | null>(null)
   const resolutionGenerationRef = useRef(0)
+  const contextPickerOpenRef = useRef(false)
 
   const installSession = useCallback((next: UniversalQuickAddSession | null) => {
     sessionRef.current = next
@@ -220,6 +223,7 @@ export function UniversalQuickAddProvider({
 
   const open = useCallback((request: OpenRequest) => {
     resolutionGenerationRef.current += 1
+    contextPickerOpenRef.current = false
     setResolving(false)
     const startedAtMs = Date.now()
     const requestedContext = request.context && isResolvedMoneyContext(request.context) ? request.context.ref : request.context
@@ -501,8 +505,53 @@ export function UniversalQuickAddProvider({
     return true
   }, [installSession, resolveRef])
 
+  // A synchronous provider guard also covers callers outside the visible buttons.
+  const setContextPickerOpen = useCallback((open: boolean) => {
+    contextPickerOpenRef.current = open
+    if (!open) resolutionGenerationRef.current += 1
+  }, [])
+
+  const commitInlineContext = useCallback(async (
+    ref: MoneyContextRef, selectedIds?: string[], draftChoice?: 'resume' | 'move',
+  ): Promise<{ ok: boolean; session?: UniversalQuickAddSession; error?: 'unavailable' | 'network' | 'draft-conflict' | 'cancelled' }> => {
+    const active = sessionRef.current
+    if (!active?.context || active.contextPolicy === 'locked') return { ok: false, error: 'unavailable' }
+    const generation = ++resolutionGenerationRef.current
+    try {
+      const resolved = await resolveRef(ref)
+      const latest = sessionRef.current
+      if (generation !== resolutionGenerationRef.current || latest?.sessionId !== active.sessionId) return { ok: false, error: 'cancelled' }
+      if (!resolved) return { ok: false, error: 'unavailable' }
+      const same = sameContext(active.context.ref, resolved.ref)
+      const stored = !same ? readQuickDraft(identityKey, resolved.ref) : null
+      const nonempty = stored && (stored.values.amount || stored.values.calculation || stored.values.description || stored.values.selectedParticipantIds.some(id => id !== resolved.currentParticipantId))
+      if (nonempty && stored.clientRequestId !== active.clientRequestId && !draftChoice) return { ok: false, error: 'draft-conflict' }
+      let values = latest.values
+      if (draftChoice === 'resume' && stored) {
+        values = stored.values
+        if (stored.context?.ref.kind === 'person' && resolved.ref.kind === 'person') values = remapQuickAddParticipant(values, stored.context.ref.participantId, resolved.ref.participantId)
+        if (values.selectedParticipantIds.some(id => !resolved.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'unavailable' }
+      } else {
+        let ids = selectedIds ?? (same ? values.selectedParticipantIds : [resolved.currentParticipantId])
+        if (ref.kind === 'person' && resolved.ref.kind === 'person') ids = ids.map(id => id === ref.participantId ? resolved.ref.kind === 'person' ? resolved.ref.participantId : id : id)
+        ids = [...new Set([resolved.currentParticipantId, ...ids])]
+        if (ids.some(id => !resolved.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'unavailable' }
+        const keepAllocation = same && ids.length === values.selectedParticipantIds.length && ids.every(id => values.selectedParticipantIds.includes(id))
+        values = { ...values, selectedParticipantIds: ids, ...(keepAllocation ? {} : { splitMode: 'equal' as const, exactShareAmounts: {}, payerAmounts: {}, items: [], detailsExpanded: false }) }
+      }
+      const next = { ...latest, context: resolved, clientRequestId: draftChoice === 'resume' && stored ? stored.clientRequestId : same ? latest.clientRequestId : generateId(), values }
+      installSession(next)
+      history.replace({ step: 'capture', context: resolved.ref, startedAtMs: next.startedAtMs })
+      return { ok: true, session: next }
+    } catch {
+      if (generation !== resolutionGenerationRef.current || sessionRef.current?.sessionId !== active.sessionId) return { ok: false, error: 'cancelled' }
+      return { ok: false, error: 'network' }
+    }
+  }, [history, identityKey, installSession, resolveRef])
+
   const submittingRef = useRef(false)
   const submit = useCallback(async (options?: { continueAdding?: boolean; beforeClose?: () => Promise<void>; values?: Partial<UniversalQuickAddValues> }): Promise<SaveResult> => {
+    if (contextPickerOpenRef.current) return { ok: false, error: 'selection_in_progress' }
     if (submittingRef.current) return { ok: false, error: 'saving' }
     submittingRef.current = true
     try {
@@ -596,6 +645,7 @@ export function UniversalQuickAddProvider({
 
   const close = useCallback(() => {
     resolutionGenerationRef.current += 1
+    contextPickerOpenRef.current = false
     setResolving(false)
     history.close()
     installSession(null)
@@ -605,6 +655,7 @@ export function UniversalQuickAddProvider({
 
   const cancelPicker = useCallback(() => {
     resolutionGenerationRef.current += 1
+    contextPickerOpenRef.current = false
     setResolving(false)
     setPendingSwitch(null)
     setContextError(false)
@@ -629,6 +680,8 @@ export function UniversalQuickAddProvider({
     cancelContextSwitchWarning: () => setPendingSwitch(null),
     updateValues,
     configureSplit,
+    setContextPickerOpen,
+    commitInlineContext,
     submit,
     close,
     clearFeedback: () => setFeedback(null),

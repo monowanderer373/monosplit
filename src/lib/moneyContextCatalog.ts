@@ -22,6 +22,7 @@ export type MoneyContextCatalog = Readonly<{
   groups: Extract<MoneyContextRef, { kind: 'space' }>[]
   trips: Extract<MoneyContextRef, { kind: 'space' }>[]
   peopleParticipants: LedgerDraftParticipant[]
+  spaceDetails?: Record<string, { startDate: string | null; endDate: string | null; updatedAt: string; memberCount?: number }>
 }>
 
 export const EMPTY_MONEY_CONTEXT_CATALOG: MoneyContextCatalog = {
@@ -59,6 +60,7 @@ export function personToMoneyContext(
 export async function loadMoneyContextCatalog(input: {
   isAnonymous: boolean
   excludedSpaceId?: string
+  includeDetails?: boolean
 }): Promise<MoneyContextCatalog> {
   const [spaces, personRelationships] = await Promise.all([
     spaceRepository.list(),
@@ -88,7 +90,10 @@ export async function loadMoneyContextCatalog(input: {
     }))
     .sort((left, right) => left.displayName.localeCompare(right.displayName))
 
+  const spaceDetails = input.includeDetails ? Object.fromEntries(await Promise.all(spaces.filter(({ space, role }) => isSpaceExpenseEligible(space, role)).map(async ({ space }) => [space.id, { startDate: space.startDate, endDate: space.endDate, updatedAt: space.updatedAt, ...(space.type === 'group' ? { memberCount: (await spaceRepository.listMembers(space.id)).length } : {}) }]))) : undefined
+
   return {
+    spaceDetails,
     people,
     peopleParticipants: people.map((person) => ({
       id: person.participantId,

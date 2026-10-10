@@ -19,19 +19,22 @@ import QuickIcon from './QuickIcon'
 import { QuickPanel, SplitConfiguration } from './SplitConfiguration'
 import './quick-add.css'
 import './quick-add-material.css'
+import './quick-add-context.css'
+import InlineContextPicker, { ContextIcon, type InlineCommit } from './InlineContextPicker'
 
 type SaveOptions = { continueAdding?: boolean; beforeClose?: () => Promise<void>; values?: Partial<UniversalQuickAddValues> }
 type Props = {
  session: UniversalQuickAddSession; expenses: CanonicalExpense[]
  onUpdate: (patch: Partial<UniversalQuickAddValues>) => void
- onOpenContextPicker: () => void
+ onCommitContext: InlineCommit
+ onPickerOpenChange: (open: boolean) => void
  onConfigureSplit: (ref: MoneyContextRef, selectedIds?: string[]) => Promise<boolean>
  onClose: () => void
  onSubmit: (options?: SaveOptions) => Promise<{ok:boolean;error?:string;saveState?:string}>
 }
 type Panel = 'account'|'date'|'split'|'categories'|null
 function zeroOrMinor(raw:string,currency:string) {return !raw.trim() || /^0+(\.0*)?$/.test(raw.trim()) ? 0 : parseMajorAmount(raw,currency)}
-export default function UniversalQuickAddSheet({session,onUpdate,onOpenContextPicker,onConfigureSplit,onClose,onSubmit}:Props) {
+export default function UniversalQuickAddSheet({session,expenses,onUpdate,onCommitContext,onPickerOpenChange,onConfigureSplit,onClose,onSubmit}:Props) {
  const {authUser}=useAuth()
  const zh=useStore(s=>s.lang)==='zh'
  const t=useT()
@@ -39,8 +42,15 @@ export default function UniversalQuickAddSheet({session,onUpdate,onOpenContextPi
  const values=session.values, context=session.context!
  const identity=session.identityKey
  const [panel,setPanel]=useState<Panel>(null)
+ const [pickerOpen,setPickerOpen]=useState(false)
+ const pickerOpenRef=useRef(false)
+ const headerRef=useRef<HTMLButtonElement>(null)
+ const closePicker=()=>{pickerOpenRef.current=false;onPickerOpenChange(false);setPickerOpen(false);window.requestAnimationFrame(()=>headerRef.current?.focus())}
+ const togglePicker=()=>{if(pickerOpenRef.current){closePicker();return}pickerOpenRef.current=true;onPickerOpenChange(true);setPickerOpen(true)}
+ const pickerChangeRef=useRef(onPickerOpenChange);pickerChangeRef.current=onPickerOpenChange
+ useEffect(()=>()=>pickerChangeRef.current(false),[])
  const panelSnapshot=useRef({values,ref:context.ref})
- const openPanel=(next:Panel)=>{panelSnapshot.current={values,ref:context.ref};setError('');setPanel(next)}
+ const openPanel=(next:Panel)=>{if(pickerOpenRef.current)closePicker();panelSnapshot.current={values,ref:context.ref};setError('');setPanel(next)}
  const cancelPanel=async()=>{
   if(panel==='split'){
    const before=panelSnapshot.current
@@ -75,12 +85,13 @@ export default function UniversalQuickAddSheet({session,onUpdate,onOpenContextPi
  const evaluatedRef=useRef(false)
  const close=()=>{
   if(savingRef.current||accountBusy||splitBusy)return
+  if(pickerOpenRef.current){pickerOpenRef.current=false;onPickerOpenChange(false)}
   if(panel){void cancelPanel();return}
   if(closingTimer.current)return
   setClosing(true)
   closingTimer.current=setTimeout(onClose,200)
  }
- const dialogRef=useAccessibleDialog<HTMLElement>(close)
+ const dialogRef=useAccessibleDialog<HTMLElement>(()=>{if(pickerOpenRef.current){closePicker();return}close()})
  useEffect(()=>()=>{if(closingTimer.current)clearTimeout(closingTimer.current)},[])
  const updateRef=useRef(onUpdate); updateRef.current=onUpdate
  const valuesRef=useRef(values);valuesRef.current=values
@@ -99,6 +110,10 @@ export default function UniversalQuickAddSheet({session,onUpdate,onOpenContextPi
  const categoryLabel=(category:QuickCategory)=>zh?(category.zh??category.name):category.name
  const computedAmount=(()=>{try{return calculateQuickAmount(expression,values.currency)}catch{return ''}})()
  const selected=context.availableParticipants.filter(p=>values.selectedParticipantIds.includes(p.id))
+ const friends=context.ref.kind==='person'?selected.filter(p=>p.id!==context.currentParticipantId):[]
+ const ledgerType=context.ref.kind==='personal'?copy('PERSONAL','个人'):context.ref.kind==='space'?context.ref.spaceType==='trip'?copy('TRIP','旅行'):copy('GROUP','群组'):copy('FRIENDS','朋友')
+ const ledgerName=context.ref.kind==='personal'?copy('Personal ledger','个人账本'):context.ref.kind==='space'?context.ref.displayName:friends.length>1?`${friends[0].displayName} +${friends.length-1}`:friends[0]?.displayName??context.ref.displayName
+ const ledgerNames=context.ref.kind==='person'?friends.map(p=>p.displayName).join(', ')||context.ref.displayName:ledgerName
  const total=(()=>{try{return parseMajorAmount(computedAmount,values.currency)}catch{return 0}})()
  const selfPaid=(()=>{try{return Object.values(values.payerAmounts).some(a=>a.trim())?zeroOrMinor(values.payerAmounts[context.currentParticipantId]??'',values.currency):total}catch{return 0}})()
  const splitEnabled=values.selectedParticipantIds.some(id=>id!==context.currentParticipantId)
@@ -119,7 +134,7 @@ export default function UniversalQuickAddSheet({session,onUpdate,onOpenContextPi
   onUpdate({category:category.name,categorySource:'USER',description:!values.description||values.description===old?categoryLabel(category):values.description})
  }
  const save=async(continueAdding:boolean)=>{
-  if(savingRef.current)return
+  if(savingRef.current||pickerOpenRef.current)return
   if(!computedAmount||!total||!values.category){setError(copy('Choose a category and enter a valid amount.','请选择分类并输入有效金额。'));return}
   savingRef.current=true;setSaving(true);setError('')
   try{
@@ -163,10 +178,12 @@ export default function UniversalQuickAddSheet({session,onUpdate,onOpenContextPi
  const shiftMonth=(delta:number)=>{const [y,m]=month.split('-').map(Number);const date=new Date(y,m-1+delta,1);setMonth(`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`)}
  const [year,monthNumber]=month.split('-').map(Number)
  const monthStart=new Date(year,monthNumber-1,1),days=new Date(year,monthNumber,0).getDate()
- return <div className={`qa-backdrop${closing?' qa-leaving':''}`}><main ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="qa-title" tabIndex={-1} className="qa-main qa-stationery">
+ return <div className={`qa-backdrop${closing?' qa-leaving':''}`}><main ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="qa-title" tabIndex={-1} className="qa-main qa-stationery tt-qa-context">
  <div className="qa-content" inert={saving}>
- <header className="qa-header"><button type="button" className="qa-icon-button" onClick={close} aria-label={copy('Close Quick Add','关闭快速记账')}><QuickIcon name="back"/></button><div><h1 id="qa-title">{copy('Quick Add','记一笔')}</h1><button type="button" className="qa-ledger-label" data-testid="quick-add-ledger" aria-label={copy('Change ledger','切换账本')} onClick={onOpenContextPicker} disabled={session.contextPolicy==='locked'}>{context.ref.kind==='personal'?copy('Personal','个人账本'):context.ref.kind==='space'?`${context.ref.spaceType==='trip'?copy('Trip','旅行'):copy('Group','群组')} · ${context.ref.displayName}`:context.ref.displayName}<span aria-hidden="true">⌄</span></button></div><span className="qa-header-spacer"/></header>
- <div className="qa-categories" aria-label={copy('Expense categories','支出分类')}><div className="qa-category-grid">{categories.map(category=><button key={category.name} type="button" aria-pressed={values.category===category.name} className={`qa-category${values.category===category.name?' is-selected':''}`} onClick={()=>chooseCategory(category)}><QuickIcon name={category.icon}/><span>{categoryLabel(category)}</span>{values.category===category.name?<span className="qa-category-check" aria-hidden="true"><QuickIcon name="check" size={11}/></span>:null}</button>)}<button type="button" className="qa-category qa-edit" onClick={()=>{setError('');setPanel('categories')}}><QuickIcon name="edit"/><span>{copy('Edit','编辑')}</span></button></div></div>
+ <h1 id="qa-title" className="qa-sr-only">{copy('Quick Add','记一笔')}</h1>
+ <header className="qa-header"><button type="button" className="qa-icon-button" onClick={close} aria-label={copy('Close Quick Add','关闭快速记账')}><QuickIcon name="back"/></button><button ref={headerRef} type="button" className="qa-context-button" data-testid="quick-add-ledger" aria-label={copy(`Change ledger: ${ledgerNames}`,`切换账本：${ledgerNames}`)} aria-expanded={pickerOpen} aria-controls="qa-context-picker" onClick={togglePicker} disabled={session.contextPolicy==='locked'}><ContextIcon name={context.ref.kind==='personal'?'user':context.ref.kind==='space'&&context.ref.spaceType==='trip'?'map':'users'}/><span><span className="qa-context-type">{ledgerType}</span><span className="qa-context-name">{ledgerName}</span></span><ContextIcon name={pickerOpen?'chevron-up':'chevron-down'}/></button></header>
+ <div className="qa-category-or-picker-slot" id="qa-context-picker">{pickerOpen?<InlineContextPicker session={session} expenses={expenses} zh={zh} onCommit={onCommitContext} onCancel={closePicker} onCommitted={(next,friends)=>{closePicker();if(friends){panelSnapshot.current={values:next.values,ref:next.context!.ref};setSplitStage('configure');setPanel('split');setError('')}}}/>:
+ <div className="qa-categories" aria-label={copy('Expense categories','支出分类')}><div className="qa-category-grid">{categories.map(category=><button key={category.name} type="button" aria-pressed={values.category===category.name} className={`qa-category${values.category===category.name?' is-selected':''}`} onClick={()=>chooseCategory(category)}><QuickIcon name={category.icon}/><span>{categoryLabel(category)}</span>{values.category===category.name?<span className="qa-category-check" aria-hidden="true"><QuickIcon name="check" size={11}/></span>:null}</button>)}<button type="button" className="qa-category qa-edit" onClick={()=>{setError('');setPanel('categories')}}><QuickIcon name="edit"/><span>{copy('Edit','编辑')}</span></button></div></div>}</div>
  <div className="qa-entry-zone">
  {notice?<p className="qa-notice" role="status"><QuickIcon name="check" size={16}/>{notice}</p>:null}
  <div className="qa-inputs"><label className="qa-amount"><span>{copy('Amount','金额')}</span><div><select aria-label={t('expense.currency')} value={values.currency} onChange={e=>onUpdate({currency:e.target.value})}>{CURRENCIES.map(c=><option key={c.code} value={c.code}>{c.code==='MYR'?'RM':c.code}</option>)}</select><input aria-label={t('expense.amount')} value={expression} readOnly inputMode="none" onKeyDown={e=>{if(/^[0-9.+%*/-]$/.test(e.key)){e.preventDefault();keypad(e.key)}else if(e.key==='Backspace'){e.preventDefault();keypad('⌫')}else if(e.key==='Enter'){e.preventDefault();keypad('=')}}} placeholder="0.00"/></div>{/[+×÷−%]/.test(expression)&&computedAmount?<small>= {computedAmount}</small>:null}</label><label className="qa-description"><span>{copy('Description','描述')}</span><input aria-label={t('expense.description')} value={values.description} placeholder={copy('Optional note','备注可留空')} maxLength={500} autoCapitalize="sentences" onChange={e=>onUpdate({description:capitalizeDescription(e.target.value)})}/></label></div>
@@ -175,7 +192,7 @@ export default function UniversalQuickAddSheet({session,onUpdate,onOpenContextPi
  {accountStatus==='error'?<p className="qa-helper">{copy('Accounts unavailable · saving will record the expense without a wallet debit.','账户暂不可用：保存仅记录消费，不扣账户余额。')}</p>:null}
  {selectedAccount && selectedAccount.currency!==values.currency && selfPaid>0?<p className="qa-helper">{copy('Different currency · account debit stays pending until its actual amount is entered.','币种不同：实际扣款金额待补，暂不计入账户余额。')}</p>:null}
  {error&&!panel?<p className="qa-error" role="alert">{error}</p>:null}
- <div className="qa-save-buttons"><button type="button" aria-label={copy('Save and continue','保存并继续')} onClick={()=>void save(true)} disabled={saving || accountStatus==='loading' || session.captureSource!=='manual' || session.contextPolicy==='locked'}><QuickIcon name="next" size={26}/><span>{copy('Save & next','保存并继续')}</span></button><button type="button" className="qa-primary" aria-label={copy('Save and close','保存并收起')} onClick={()=>void save(false)} disabled={saving || accountStatus==='loading'}><QuickIcon name="check" size={26}/><span>{saving?copy('Saving…','保存中…'):copy('Save & close','保存并收起')}</span></button></div>
+ <div className={`qa-save-buttons${pickerOpen?' qa-save--selector-paused':''}`}><button type="button" aria-label={copy('Save and continue','保存并继续')} onClick={()=>void save(true)} disabled={pickerOpen || saving || accountStatus==='loading' || session.captureSource!=='manual' || session.contextPolicy==='locked'}><QuickIcon name="next" size={26}/><span>{copy('Save & next','保存并继续')}</span></button><button type="button" className="qa-primary" aria-label={copy('Save and close','保存并收起')} onClick={()=>void save(false)} disabled={pickerOpen || saving || accountStatus==='loading'}><QuickIcon name="check" size={26}/><span>{saving?copy('Saving…','保存中…'):copy('Save & close','保存并收起')}</span></button></div>
  </div></div>
  {panel==='account'?<QuickPanel title={copy('Payment account','付款账户')} onClose={()=>{if(!accountBusy)void cancelPanel()}}><div className="qa-panel-body">
  {accountStatus==='error'?<div className="qa-error" role="alert">{copy('Could not load accounts.','无法加载账户。')}<button type="button" onClick={()=>{setAccountStatus('loading');void loadQuickAccounts().then(rows=>{setAccounts(rows);setAccountStatus('ready')}).catch(()=>setAccountStatus('error'))}}>{copy('Retry','重试')}</button></div>:accountStatus==='loading'?<p>{copy('Loading accounts…','正在加载账户…')}</p>:<>{accounts.map(a=><button type="button" key={a.id} className={`qa-account-row${a.id===values.accountId?' is-selected':''}`} aria-pressed={a.id===values.accountId} onClick={()=>onUpdate({accountId:a.id})}><span className="qa-icon-tile"><QuickIcon name={a.account_type==='bank'?'bank':a.account_type==='cash'?'cash':'wallet'}/></span><span><strong>{a.name}</strong><small>{a.account_type==='ewallet'?copy('E-wallet','电子钱包'):a.account_type==='cash'?copy('Cash','现金'):copy('Bank account','银行账户')} · {a.currency}</small></span>{a.is_default?<small className="qa-badge">{copy('Default','默认')}</small>:null}<span className="qa-radio">{a.id===values.accountId?<QuickIcon name="check" size={14}/>:null}</span></button>)}<button className="qa-text-button" type="button" onClick={()=>onUpdate({accountId:null})}>{copy('No account · record without a wallet debit','不关联账户 · 只记录消费')}</button></>}
