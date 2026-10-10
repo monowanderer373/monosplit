@@ -1,0 +1,156 @@
+/* Scoped tokens only: do not replace global QuickAdd / calculator typography. */
+.tt-qa-context {
+  --qa-paper: #F7F5EF;
+  --qa-surface: #FFFCF7;
+  --qa-warm-paper: #FFF5E6;
+  --qa-context-ink: #24374A;
+  --qa-cocoa: #493322;
+  --qa-secondary: #576779;
+  --qa-denim: #35678B;
+  --qa-denim-hover: #2E5C7E;
+  --qa-denim-pressed: #274F6D;
+  --qa-denim-soft: #DDEAF1;
+  --qa-blue-edge: #8FAFC2;
+  --qa-neutral-edge: #D7DEDF;
+  --qa-apricot: #FBEADB;
+  --qa-green-soft: #DDEAE3;
+  --qa-violet-soft: #E8E0EF;
+  --qa-muted-action: #8FA5B6;
+  --qa-white: #FFFFFF;
+  --qa-dots: #B4BBC0;
+  --qa-impact: #875126;
+  --qa-font: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --qa-paper-texture: url('/assets/quick-add-context/paper-grain.svg');
+  --qa-denim-texture: url('/assets/quick-add-context/denim-weave.svg');
+  --qa-paper-shadow: 0 2px 4px rgba(36,55,74,.08);
+  --qa-button-shadow: 0 2px 0 rgba(36,55,74,.13), 0 3px 5px rgba(36,55,74,.06);
+  --qa-slot-height: 280px; /* Override from actual available sheet/category geometry. */
+  --qa-motion: 140ms;
+}
+
+/* Import tokens first. These classes style only the new selector controls.
+   Existing amount/category/calculator/date/account/Shared/save components remain intact.
+   State, context adapters, query, draft and financial behavior belong to the app. */
+#root .qa-main.tt-qa-context :is(.qa-header,.qa-context-button,.qa-picker,.qa-search,.qa-option,.qa-type-tab,.qa-commit-button,.qa-more-button) { box-sizing: border-box; }
+#root .qa-main.tt-qa-context .qa-icon { width: 16px; height: 16px; flex: 0 0 auto; }
+#root .qa-main.tt-qa-context :is(.qa-context-button,.qa-type-tab,.qa-search-input,.qa-option,.qa-commit-button,.qa-more-button,.qa-impact-action):focus-visible { outline: 2px solid var(--qa-denim); outline-offset: 2px; }
+#root .qa-main.tt-qa-context .qa-header { display: flex; align-items: center; gap: 12px; }
+#root .qa-main.tt-qa-context .qa-context-button {
+  position: relative; isolation: isolate; display: grid;
+  grid-template-columns: 20px minmax(0,1fr) 16px; align-items: center; gap: 10px;
+  flex: 1; min-width: 0; min-height: 48px; padding: 6px 12px;
+  border: 1px solid var(--qa-denim); border-radius: 12px;
+  color: var(--qa-context-ink); background-color: var(--qa-denim-soft);
+  box-shadow: var(--qa-button-shadow); text-align: left; cursor: pointer;
+  font-family: var(--qa-font); transition: transform var(--qa-motion), box-shadow var(--qa-motion);
+}
+#root .qa-main.tt-qa-context .qa-context-button::before, #root .qa-main.tt-qa-context .qa-picker::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background-image: var(--qa-paper-texture); opacity: .28; pointer-events: none;
+}
+#root .qa-main.tt-qa-context .qa-context-button:hover { box-shadow: 0 2px 0 rgba(36,55,74,.16), 0 4px 7px rgba(36,55,74,.08); }
+#root .qa-main.tt-qa-context .qa-context-button:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(36,55,74,.13); }
+#root .qa-main.tt-qa-context .qa-context-button > .qa-icon:first-child { width: 20px; height: 20px; color: var(--qa-denim); }
+#root .qa-main.tt-qa-context .qa-context-type { display: block; color: var(--qa-secondary); font-size: 0.625rem; line-height: 0.875rem; font-weight: 600; letter-spacing: .6px; }
+#root .qa-main.tt-qa-context .qa-context-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9375rem; line-height: 1.25rem; font-weight: 700; }
+#root .qa-main.tt-qa-context .qa-context-chevron { color: var(--qa-denim); }
+#root .qa-main.tt-qa-context .qa-category-or-picker-slot { margin-top: 10px; min-height: var(--qa-slot-height); }
+#root .qa-main.tt-qa-context .qa-picker {
+  position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 6px;
+  height: var(--qa-slot-height); min-height: 0; padding: 10px;
+  border: 1px solid var(--qa-neutral-edge); border-radius: 12px;
+  color: var(--qa-context-ink); background-color: var(--qa-surface); font-family: var(--qa-font);
+}
+#root .qa-main.tt-qa-context .qa-type-tabs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; height: 44px; flex: 0 0 auto; }
+#root .qa-main.tt-qa-context .qa-type-tab { display: flex; align-items: center; justify-content: stretch; height: 44px; padding: 0; border: 0; border-radius: 10px; background: transparent; cursor: pointer; font-family: inherit; }
+#root .qa-main.tt-qa-context .qa-tab-face { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 32px; padding: 6px 3px; border: 1px solid var(--qa-neutral-edge); border-radius: 10px; background: var(--qa-surface); color: var(--qa-cocoa); font-size: 0.75rem; line-height: 1.0625rem; font-weight: 600; }
+#root .qa-main.tt-qa-context .qa-type-tab[aria-selected='true'] .qa-tab-face { background: var(--qa-denim); border-color: var(--qa-denim); color: var(--qa-white); }
+#root .qa-main.tt-qa-context .qa-search { position: relative; display: flex; align-items: center; min-height: 44px; flex: 0 0 auto; }
+#root .qa-main.tt-qa-context .qa-search::before { content: ''; position: absolute; left: 0; right: 0; top: 6px; bottom: 6px; border: 1px solid var(--qa-neutral-edge); border-radius: 10px; background: var(--qa-surface); pointer-events: none; }
+#root .qa-main.tt-qa-context .qa-search .qa-icon { position: absolute; left: 10px; color: var(--qa-secondary); pointer-events: none; }
+#root .qa-main.tt-qa-context .qa-search-input { position: relative; width: 100%; height: 44px; min-width: 0; padding: 10px 10px 10px 34px; border: 0; border-radius: 10px; background: transparent; color: var(--qa-context-ink); font-family: inherit; font-size: 0.75rem; line-height: 1.125rem; }
+#root .qa-main.tt-qa-context .qa-search-input::placeholder { color: var(--qa-secondary); }
+#root .qa-main.tt-qa-context .qa-options-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 3px; scrollbar-width: thin; }
+#root .qa-main.tt-qa-context .qa-option-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+#root .qa-main.tt-qa-context .qa-option {
+  display: grid; grid-template-columns: 24px minmax(0,1fr) 16px; align-items: center; gap: 8px;
+  min-height: 48px; width: 100%; padding: 8px; border: 1px solid var(--qa-neutral-edge);
+  border-radius: 10px; background: var(--qa-surface); color: var(--qa-context-ink); text-align: left;
+  font-family: inherit; cursor: pointer;
+}
+#root .qa-main.tt-qa-context .qa-option--single:not([aria-pressed='true']) { grid-template-columns: 24px minmax(0,1fr); }
+#root .qa-main.tt-qa-context .qa-option[aria-pressed='true'], #root .qa-main.tt-qa-context .qa-option[aria-checked='true'], #root .qa-main.tt-qa-context .qa-option[data-selected='true'] { background: var(--qa-denim-soft); border-color: var(--qa-denim); }
+#root .qa-main.tt-qa-context .qa-option:hover { border-color: var(--qa-blue-edge); }
+#root .qa-main.tt-qa-context .qa-option .qa-icon { width: 20px; height: 20px; color: var(--qa-denim); }
+#root .qa-main.tt-qa-context .qa-option-title { display: block; min-width: 0; overflow-wrap: anywhere; font-size: 0.75rem; line-height: 1.0625rem; font-weight: 600; }
+#root .qa-main.tt-qa-context .qa-option-meta { display: block; color: var(--qa-secondary); font-size: 0.625rem; line-height: 0.875rem; }
+#root .qa-main.tt-qa-context .qa-selection-mark { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border: 1px solid var(--qa-neutral-edge); border-radius: 50%; }
+#root .qa-main.tt-qa-context .qa-option:is([aria-pressed='true'],[aria-checked='true'],[data-selected='true']) .qa-selection-mark { color: var(--qa-white); border-color: var(--qa-denim); background: var(--qa-denim); }
+#root .qa-main.tt-qa-context .qa-selection-mark .qa-icon { width: 10px; height: 10px; color: var(--qa-white); }
+#root .qa-main.tt-qa-context .qa-avatar { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--qa-denim-soft); color: var(--qa-denim); font-size: 0.75rem; line-height: 1.0rem; }
+#root .qa-main.tt-qa-context .qa-avatar--apricot { background: var(--qa-apricot); color: var(--qa-cocoa); }
+#root .qa-main.tt-qa-context .qa-avatar--green { background: var(--qa-green-soft); color: var(--qa-denim); }
+#root .qa-main.tt-qa-context .qa-avatar--violet { background: var(--qa-violet-soft); color: var(--qa-cocoa); }
+#root .qa-main.tt-qa-context .qa-picker-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; flex: 0 0 auto; }
+#root .qa-main.tt-qa-context .qa-recent-label { color: var(--qa-secondary); font-size: 0.625rem; line-height: 0.875rem; }
+#root .qa-main.tt-qa-context .qa-selected-count { color: var(--qa-denim); font-size: 0.6875rem; line-height: 1.0rem; font-weight: 600; }
+#root .qa-main.tt-qa-context .qa-more-button { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 4px; border: 0; border-radius: 6px; color: var(--qa-denim); background: transparent; font-family: inherit; font-size: 0.6875rem; line-height: 1.0rem; font-weight: 600; cursor: pointer; }
+#root .qa-main.tt-qa-context .qa-commit-button { display: flex; align-items: center; min-height: 44px; padding: 0; border: 0; border-radius: 10px; background: transparent; font-family: inherit; cursor: pointer; }
+#root .qa-main.tt-qa-context .qa-commit-face { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 8px 12px; border-radius: 10px; background: var(--qa-denim); color: var(--qa-white); box-shadow: var(--qa-paper-shadow); font-size: 0.75rem; line-height: 1.125rem; font-weight: 600; }
+#root .qa-main.tt-qa-context .qa-commit-button:hover:not(:disabled) .qa-commit-face { background: var(--qa-denim-hover); }
+#root .qa-main.tt-qa-context .qa-commit-button:active:not(:disabled) .qa-commit-face { background: var(--qa-denim-pressed); transform: translateY(1px); box-shadow: none; }
+#root .qa-main.tt-qa-context .qa-commit-button:disabled { cursor: default; }
+#root .qa-main.tt-qa-context .qa-commit-button:disabled .qa-commit-face { background: var(--qa-muted-action); }
+#root .qa-main.tt-qa-context .qa-empty-or-error { padding: 12px 8px; color: var(--qa-secondary); font-size: 0.75rem; line-height: 1.125rem; }
+#root .qa-main.tt-qa-context .qa-impact { padding: 8px; border-radius: 10px; background: var(--qa-apricot); color: var(--qa-impact); font-size: 0.75rem; line-height: 1.125rem; }
+#root .qa-main.tt-qa-context .qa-impact-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+#root .qa-main.tt-qa-context .qa-impact-action { min-height: 44px; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--qa-denim); cursor: pointer; font: inherit; }
+/* Optional visual modifier on the original save button; JS must block all save paths. */
+#root .qa-main.tt-qa-context .qa-save--selector-paused { background-color: var(--qa-muted-action); color: var(--qa-white); box-shadow: none; cursor: default; }
+#root .qa-main.tt-qa-context .qa-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (max-width: 340px) {
+  #root .qa-main.tt-qa-context .qa-header { gap: 8px; }
+  #root .qa-main.tt-qa-context .qa-context-button { padding-inline: 10px; }
+  #root .qa-main.tt-qa-context .qa-tab-face { font-size: 0.6875rem; }
+  #root .qa-main.tt-qa-context .qa-option { gap: 6px; padding: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .qa-main.tt-qa-context .qa-context-button { transition: none; }
+  #root .qa-main.tt-qa-context .qa-context-button:active, #root .qa-main.tt-qa-context .qa-commit-button:active .qa-commit-face { transform: none; }
+}
+
+/* Use the original category geometry; only the two contents are exchanged. */
+#root .qa-main.tt-qa-context .qa-header { gap:12px; }
+#root .qa-main.tt-qa-context .qa-icon-button { width:44px;height:44px; }
+#root .qa-main.tt-qa-context .qa-content { overflow-y:auto; }
+#root .qa-main.tt-qa-context .qa-category-or-picker-slot { display:flex;flex:1 0 280px;min-height:280px;margin-top:0;padding:2px 1px 12px; }
+#root .qa-main.tt-qa-context .qa-category-or-picker-slot > .qa-categories { padding-bottom:0; }
+#root .qa-main.tt-qa-context .qa-picker { width:100%;height:auto;flex:1;min-height:0;box-shadow:var(--qa-paper-shadow); }
+#root .qa-main.tt-qa-context .qa-context-button { color:var(--qa-context-ink);font-size: 0.9375rem; }
+#root .qa-main.tt-qa-context .qa-context-button>span { min-width:0; }
+#root .qa-main.tt-qa-context .qa-option--single:not([aria-pressed=true]) { grid-template-columns:24px minmax(0,1fr); }
+#root .qa-main.tt-qa-context .qa-option { font-size: 0.75rem; }
+#root .qa-main.tt-qa-context .qa-search-input { min-height:44px;border:0;background:transparent;padding:10px 10px 10px 34px;font-size: 0.75rem; }
+#root .qa-main.tt-qa-context .qa-picker :is(input,button):focus-visible { outline:2px solid var(--qa-denim);outline-offset:2px; }
+#root .qa-main.tt-qa-context .qa-picker button:disabled { opacity:1; }
+#root .qa-main.tt-qa-context .qa-picker input[type=checkbox] { width:16px;height:16px;min-height:16px;border-color:var(--qa-neutral-edge);background:var(--qa-surface); }
+#root .qa-main.tt-qa-context .qa-picker input[type=checkbox]:checked { border-color:var(--qa-denim);background:var(--qa-denim) url('/assets/quick-add-context/check.svg') center/10px 10px no-repeat;box-shadow:none; }
+#root .qa-main.tt-qa-context .qa-save-buttons.qa-save--selector-paused>button { opacity:1;color:white; }
+#root .qa-main.tt-qa-context .qa-save-buttons.qa-save--selector-paused>button::before { background:var(--qa-muted-action);border-radius:12px;filter:none; }
+#root .qa-main.tt-qa-context .qa-type-tabs { height:auto;min-height:44px; }
+#root .qa-main.tt-qa-context .qa-type-tab { height:auto;min-height:44px; }
+#root .qa-main.tt-qa-context .qa-impact p { margin:0 0 8px; }
+@media(max-height:740px) { #root .qa-main.tt-qa-context .qa-category-or-picker-slot { flex-grow:0; } }
+@media(prefers-reduced-motion:reduce) { #root .qa-main.tt-qa-context .qa-picker :is(button,input) { animation:none;transition:none; } }
+
+/* Text scaling changes density instead of overlapping neighboring controls. */
+#root .qa-main.tt-qa-context .qa-type-tabs { grid-template-columns:repeat(auto-fit,minmax(min(100%,3.5rem),1fr)); }
+#root .qa-main.tt-qa-context .qa-tab-face { min-width:0;overflow-wrap:anywhere;text-align:center; }
+#root .qa-main.tt-qa-context .qa-option-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));align-items:start; }
+#root .qa-main.tt-qa-context .qa-option { align-self:start; }
+#root .qa-main.tt-qa-context .qa-save-buttons.qa-save--selector-paused { background:transparent; }
+#root .qa-main.tt-qa-context .qa-category-or-picker-slot { flex-basis:calc(12rem + 88px);min-height:calc(12rem + 88px); }
+#root .qa-main.tt-qa-context .qa-search-input { height:auto;min-height:44px; }
+#root .qa-main.tt-qa-context .qa-type-tabs { height:auto; }
+#root .qa-main.tt-qa-context .qa-type-tab { height:auto;min-height:44px; }
+#root .qa-main.tt-qa-context .qa-picker-footer { flex-wrap:wrap; }

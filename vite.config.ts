@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
         workbox: {
           skipWaiting: true,
           clientsClaim: true,
-          globPatterns: ['**/*.{js,css,html,ico,woff,woff2}', 'icon-*.png'],
+          globPatterns: ['**/*.{js,css,html,ico,woff,woff2}', 'icon-*.png', 'assets/quick-add-context/*.svg'],
           navigateFallback: 'index.html',
         },
       }),

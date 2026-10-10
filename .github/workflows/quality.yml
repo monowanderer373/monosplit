@@ -187,7 +187,7 @@ jobs:
       - run: npx supabase start
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test e2e/travel.spec.ts --workers=1
+      - run: npx playwright test e2e/travel.spec.ts e2e/inline-quick-add.spec.ts --workers=1
       - name: Save real Travel screenshots and DOM measurements
         if: always()
         uses: actions/upload-artifact@v4
@@ -195,6 +195,7 @@ jobs:
           name: travel-browser-evidence
           path: |
             test-results/travel/
+            test-results/inline-quick-add/
             test-results/browser-results.json
             test-results/**/error-context.md
           if-no-files-found: ignore

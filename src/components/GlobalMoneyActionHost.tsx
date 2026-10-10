@@ -109,7 +109,8 @@ export default function GlobalMoneyActionHost() {
       session={quickAdd.session}
       expenses={ledger.expenses}
       onUpdate={quickAdd.updateValues}
-      onOpenContextPicker={quickAdd.openSwitchPicker}
+      onCommitContext={quickAdd.commitInlineContext}
+      onPickerOpenChange={quickAdd.setContextPickerOpen}
       onClose={quickAdd.close}
       onConfigureSplit={quickAdd.configureSplit}
       onSubmit={quickAdd.submit}
