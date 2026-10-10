@@ -1,10 +1,10 @@
 .trip-period-fields { min-width:0; margin:0; padding:0; border:0; }
 .trip-period-fields legend { font-size:1rem; font-weight:700; margin-bottom:12px; }
-.trip-period-dates { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.trip-period-dates { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,8.5rem),1fr)); gap:12px; }
 .trip-period-dates label { display:flex; flex-direction:column; gap:6px; min-width:0; font-size:.875rem; font-weight:600; }
 .trip-period-dates input { min-width:0; width:100%; min-height:44px; box-sizing:border-box; }
 .trip-period-later { display:flex; gap:8px; align-items:center; min-height:44px; font-size:.875rem; }
-.trip-period-later input { flex:none; width:18px; height:18px; }
+.trip-period-later input { flex:none; width:18px; height:18px; appearance:auto; -webkit-appearance:checkbox; accent-color:#35678b; }
 .trip-period-help { font-size:.8125rem; line-height:1.5; color:var(--ms-text-secondary); margin:4px 0 0; }
 .trip-period-error { font-size:.875rem; line-height:1.5; color:var(--ms-danger); }
 .trip-period-editor { margin:12px 0; }

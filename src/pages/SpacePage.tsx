@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import SettlementPanel from '../components/SettlementPanel'
 import ActivityFeed from '../components/ActivityFeed'
@@ -57,6 +57,8 @@ export default function SpacePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<TranslationKey | ''>('')
   const [editingPeriod, setEditingPeriod] = useState(false)
+  const periodTrigger = useRef<HTMLButtonElement>(null)
+  const closePeriod = () => { setEditingPeriod(false); requestAnimationFrame(() => periodTrigger.current?.focus({ preventScroll: true })) }
   const today = useLocalCalendarDate(authUser?.timezone ?? 'Asia/Kuala_Lumpur')
   const [inviteRole, setInviteRole] = useState<'full_access' | 'view'>('full_access')
   const [inviteUrl, setInviteUrl] = useState('')
@@ -418,8 +420,8 @@ export default function SpacePage() {
             <p className="mt-1 font-extrabold">{dateLine}</p>
             <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">{t('space.status')}</p>
             <p className="mt-1 font-extrabold">{t(tripPeriodStatusKeys[tripPeriodStatus(entry.space, today)])}</p>
-            {canWrite ? <button type="button" className="trip-period-entry" aria-expanded={editingPeriod} onClick={() => setEditingPeriod(value => !value)}>{t(entry.space.startDate || entry.space.endDate ? 'travel.editPeriod' : 'travel.setPeriod')}</button> : null}
-            {editingPeriod && canWrite ? <TripPeriodEditor key={entry.space.id} spaceId={entry.space.id} onCancel={() => setEditingPeriod(false)} onSaved={() => { setEditingPeriod(false); void refresh() }}/> : null}
+            {canWrite ? <button ref={periodTrigger} type="button" className="trip-period-entry" aria-expanded={editingPeriod} aria-controls="trip-period-info" onClick={() => editingPeriod ? closePeriod() : setEditingPeriod(true)}>{t(entry.space.startDate || entry.space.endDate ? 'travel.editPeriod' : 'travel.setPeriod')}</button> : null}
+            {editingPeriod && canWrite ? <div id="trip-period-info"><TripPeriodEditor key={entry.space.id} spaceId={entry.space.id} onCancel={closePeriod} onSaved={() => { closePeriod(); void refresh() }}/></div> : null}
           </div>
         ) : null}
         <div className="ms-card mt-3">

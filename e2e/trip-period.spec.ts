@@ -69,6 +69,9 @@ for (const width of [320,360,390,430]) test(`Trip creation, date editing and lif
   if(width===390) {
    await page.getByRole('button',{name:'Edit trip dates',exact:true}).click()
    await page.addStyleTag({content:'html { font-size:200% !important; }'})
+   const start=await editor.getByLabel('Start date',{exact:true}).boundingBox(), end=await editor.getByLabel('End date',{exact:true}).boundingBox()
+   expect(end!.y).toBeGreaterThan(start!.y + start!.height)
+   expect(await editor.getByRole('checkbox',{name:'Dates not decided yet',exact:true}).evaluate(el=>getComputedStyle(el).appearance)).not.toBe('none')
    await capture(page,'04-text-200-percent-390')
    await editor.getByRole('button',{name:'Cancel',exact:true}).click()
    await page.goto('/profile'); await page.getByRole('button',{name:'简中',exact:true}).click(); await page.goto(`/travel/trip/${id}`)
