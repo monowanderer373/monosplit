@@ -1,3 +1,4 @@
+import { tripPeriodStatus } from './tripPeriod'
 import type { CanonicalExpense } from '../types'
 import type { PersonalLedgerRow } from './ledgerSummary'
 import {
@@ -807,8 +808,7 @@ function sumDirection(
 }
 
 function tripPhase(trip: HomeSpaceRef, today: string): 'active' | 'ended' {
-  if (trip.status !== 'active') return 'ended'
-  if (trip.endDate && trip.endDate < today) return 'ended'
+  if (['ended', 'archived'].includes(tripPeriodStatus(trip, today))) return 'ended'
   return 'active'
 }
 

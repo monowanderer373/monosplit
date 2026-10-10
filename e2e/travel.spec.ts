@@ -45,6 +45,7 @@ for (const width of [320, 360, 390, 430, 768]) test(`Travel real RPC flows and a
     await expect(page.getByLabel('Name', { exact: true })).toBeVisible()
     await page.getByLabel('Name', { exact: true }).fill('Mountain weekend')
     await page.getByLabel('Currency', { exact: true }).fill('VND')
+  await page.getByRole('checkbox', { name: 'Dates not decided yet', exact: true }).check()
     await page.getByRole('button', { name: 'Create', exact: true }).click()
     await expect(page).toHaveURL('http://127.0.0.1:5173/')
     await expect(page.getByTestId('home-trip-selector')).toHaveText('Mountain weekend')

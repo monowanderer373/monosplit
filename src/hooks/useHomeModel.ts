@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useLocalCalendarDate } from './useLocalCalendarDate'
 import type { usePersonalLedger } from './usePersonalLedger'
 import type { useHomeData } from './useHomeData'
 import type { useStore } from '../store/useStore'
@@ -16,7 +17,6 @@ import {
   isAvailableMoneyAccount,
   isBookedHomeExpense,
   listActionableAccountTasks,
-  localCalendarDate,
   monthlyPersonalSpending,
   presentHomeRecords,
   receivableTotals,
@@ -36,6 +36,7 @@ export default function useHomeModel(input: {
   home: ReturnType<typeof useHomeData>
   homeUi: ReturnType<typeof useStore.getState>['homeUi']
 }) {
+  const today = useLocalCalendarDate(input.timezone)
   return useMemo(() => {
     const accounts = input.home.accounts.data?.accounts ?? []
     const chosen = accounts.find((account) => account.id === input.homeUi.selectedAccountId)
@@ -127,7 +128,6 @@ export default function useHomeModel(input: {
       : []
     const accountCount = input.home.accounts.status === 'ready' ? accountTasks.length : 0
     const sharedCount = sharedStatus === 'ready' ? sharedContexts.length : 0
-    const today = localCalendarDate(new Date(), input.timezone)
     const trips = [
       ...spaces.filter((space) => space.type === 'trip' && space.status !== 'voided'),
       ...(input.home.affiliations.status === 'ready'
@@ -169,6 +169,7 @@ export default function useHomeModel(input: {
     const tripRows = bookedRows.filter((row) => travelIds.has(row.expense.id))
     const tripSpending = sumSpending(tripRows)
     return {
+      localToday: today,
       accounts,
       selectedAccountId,
       balances,
@@ -190,7 +191,7 @@ export default function useHomeModel(input: {
         ? undefined
         : 'home.emptyRecordsFiltered' as const,
     }
-  }, [input])
+  }, [input, today])
 }
 
 function combineStatus(

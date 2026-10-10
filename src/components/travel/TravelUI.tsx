@@ -7,6 +7,7 @@ import { formatDate, localeForLang } from '../../lib/locale'
 import { formatMinorAmount } from '../../lib/money'
 import { useStore } from '../../store/useStore'
 import MoneyText from '../MoneyText'
+import { tripPeriodStatus, tripPeriodStatusKeys } from '../../lib/tripPeriod'
 import './travel-tokens.css'
 import './travel-components.css'
 import './travel-integration.css'
@@ -15,17 +16,17 @@ export function TravelIcon({ name }: { name: string }) {
   return <svg className="tt-icon" aria-hidden="true"><use href={`/travel/icons.svg#${name}`} /></svg>
 }
 
-export function TravelStatus({ trip }: { trip: HomeTripSelection }) {
+export function TravelStatus({ trip, today }: { trip: HomeTripSelection; today?: string }) {
   const t = useT()
-  const key = trip.trip.status === 'archived' ? 'travel.archived' : trip.phase === 'ended' ? 'travel.completed' : 'travel.active'
+  const key = trip.trip.id.startsWith('affiliation:') ? 'travel.personalLabel' : today ? tripPeriodStatusKeys[tripPeriodStatus(trip.trip, today)] : trip.trip.status === 'archived' ? 'travel.archived' : trip.phase === 'ended' ? 'travel.ended' : !trip.trip.startDate && !trip.trip.endDate ? 'travel.datesNotSet' : 'travel.active'
   return <span className="tt-status"><span className="tt-status-dot" aria-hidden="true" />{t(key)}</span>
 }
 
 export function TripDateLine({ trip }: { trip: HomeSpaceRef }) {
-  const lang = useStore(s => s.lang)
-  return <>{[trip.startDate ? formatDate(trip.startDate, lang) : null,
+  const lang = useStore(s => s.lang), t = useT()
+  return <>{!trip.startDate && !trip.endDate && !trip.id.startsWith('affiliation:') ? t('spaces.noDates') : null}{[trip.startDate ? formatDate(trip.startDate, lang) : null,
     trip.endDate ? formatDate(trip.endDate, lang) : null].filter(Boolean).join(' – ')}
-    {(trip.startDate || trip.endDate) && trip.defaultCurrency ? ' · ' : ''}{trip.defaultCurrency ?? ''}</>
+    {trip.defaultCurrency && !trip.id.startsWith('affiliation:') ? ' · ' : ''}{trip.defaultCurrency ?? ''}</>
 }
 
 export function TravelAmount({ lines, currency, hidden, status }: {
@@ -119,7 +120,7 @@ function TripSelector({ props }: { props: HomeScreenProps }) {
         {props.trips.map((trip, index) => <button type="button" role="option" className="tt-trip-option" key={trip.id}
           aria-selected={trip.id === props.trip?.trip.id} tabIndex={focusIndex === index ? 0 : -1} onClick={() => choose(trip.id)}>
           <span className="tt-option-icon"><TravelIcon name={trip.id === props.trip?.trip.id ? 'map' : 'pin'} /></span>
-          <span><span className="tt-option-title">{trip.name}</span><span className="tt-option-meta"><TripDateLine trip={trip} />{trip.status === 'archived' ? ` · ${t('travel.archived')}` : ''}</span></span>
+          <span><span className="tt-option-title">{trip.name}</span><span className="tt-option-meta"><TripDateLine trip={trip} />{props.localToday && !trip.id.startsWith('affiliation:') ? ` · ${t(tripPeriodStatusKeys[tripPeriodStatus(trip, props.localToday)])}` : ''}</span></span>
           {trip.id === props.trip?.trip.id ? <span className="tt-option-check"><TravelIcon name="check" /></span> : <span className="tt-option-unselected" aria-hidden="true" />}
         </button>)}
       </div>
@@ -141,7 +142,7 @@ export function TravelSummary({ props }: { props: HomeScreenProps }) {
     <img className="tt-paper-fold" src="/travel/paper-fold.svg" alt="" />
     {props.trip ? <>
       <img className="tt-map-wash" src="/travel/map-wash.svg" alt="" /><img className="tt-route" src="/travel/route-dashes.svg" alt="" />
-      <div className="tt-summary-top"><TripSelector props={props} /><TravelStatus trip={props.trip} /></div>
+      <div className="tt-summary-top"><TripSelector props={props} /><TravelStatus trip={props.trip} today={props.localToday} /></div>
       <p className="tt-summary-date"><TripDateLine trip={props.trip.trip} /></p>
       <p className="tt-amount-label">{t('home.mySpending')}</p>
       <p className="tt-amount" data-testid="travel-spending"><TravelAmount lines={props.tripSpending} currency={props.trip.trip.defaultCurrency}

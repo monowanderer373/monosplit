@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { renderHook, cleanup } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { renderHook, cleanup, act } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import useHomeModel from './useHomeModel'
 import { defaultHomeUi } from '../store/useStore'
 import { compileLedgerExpense, type LedgerExpenseDraft } from '../lib/compileExpense'
@@ -9,7 +9,7 @@ import { derivePersonalLedgerRows } from '../lib/ledgerSummary'
 import type { useHomeData } from './useHomeData'
 import type { Space } from '../types'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.useRealTimers() })
 const a: Space = { id: 'a', type: 'trip', name: 'Mountain weekend', ownerParticipantId: 'owner', startDate: null, endDate: null, defaultCurrency: 'MYR', status: 'active', version: 1, createdAt: '', updatedAt: '' }
 const b: Space = { ...a, id: 'b', name: 'Coastal weekend', defaultCurrency: 'USD' }
 function expense(trip: string, currency: string, amount: string) {
@@ -57,4 +57,19 @@ describe('Travel financial and selection model', () => {
     expect(view.result.current.recordGroups).toEqual([])
     expect(view.result.current.travelStatus).toBe(status)
   })
+})
+
+it('refreshes an unchanged Home model across midnight in the account timezone', () => {
+ vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T15:59:30Z'))
+ const stable = input(); stable.home.spaces.data![0].space = { ...a, startDate: '2026-10-01', endDate: '2026-10-10' }
+ const view = renderHook(() => useHomeModel(stable))
+ expect(view.result.current.trip?.phase).toBe('active'); expect(view.result.current.localToday).toBe('2026-10-10')
+ act(() => vi.advanceTimersByTime(60_000)); expect(view.result.current.trip?.phase).toBe('ended'); expect(view.result.current.localToday).toBe('2026-10-11')
+})
+it('updates immediately after returning from background suspension and respects account timezone', () => {
+ vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T15:00:00Z'))
+ const stable = input(); stable.timezone = 'America/New_York'; stable.home.spaces.data![0].space = { ...a, startDate:'2026-10-01', endDate:'2026-10-10' }
+ const view = renderHook(() => useHomeModel(stable)); expect(view.result.current.trip?.phase).toBe('active')
+ act(() => { vi.setSystemTime(new Date('2026-10-11T05:00:00Z')); window.dispatchEvent(new Event('focus')) })
+ expect(view.result.current.trip?.phase).toBe('ended'); view.unmount(); expect(vi.getTimerCount()).toBe(0)
 })

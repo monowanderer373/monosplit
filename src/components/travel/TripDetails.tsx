@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import TripPeriodEditor from './TripPeriodEditor'
 import type { ReactNode } from 'react'
 import type { HomeScreenProps } from '../home/HomeScreen'
 import type { TravelMembers } from '../../hooks/useTravelMembers'
@@ -12,6 +13,9 @@ export default function TripDetails({ props, records, members, membersStatus, pa
   const t = useT(), anchor = useRef<HTMLButtonElement>(null)
   const [more, setMore] = useState(false)
   const [labelInfo, setLabelInfo] = useState(false)
+  const [editingPeriod, setEditingPeriod] = useState(false)
+  const periodTrigger = useRef<HTMLButtonElement>(null)
+  const closePeriod = () => { setEditingPeriod(false); requestAnimationFrame(() => periodTrigger.current?.focus({ preventScroll: true })) }
   const close = () => { setMore(false); anchor.current?.focus({ preventScroll: true }) }
   const trip = props.trip
   const personal = trip?.trip.id.startsWith('affiliation:')
@@ -30,8 +34,10 @@ export default function TripDetails({ props, records, members, membersStatus, pa
       </AnchoredPaperPopover> : null}
       {!trip ? <section className="tt-guide tt-paper-card"><p role={props.travelStatus === 'loading' ? 'status' : 'alert'}>{t(props.travelStatus === 'loading' ? 'home.loading' : props.travelStatus === 'error' ? 'travel.unavailable' : 'travel.noAccess')}</p>
         {props.travelStatus === 'error' ? <button className="tt-link" type="button" onClick={props.onRetryTravel}>{t('common.retry')}</button> : null}</section> : <>
-        <header className="tt-detail-heading"><div className="tt-detail-title-line"><h1 className="tt-detail-title">{trip.trip.name}</h1><TravelStatus trip={trip} /></div>
-          <p className="tt-detail-date"><TripDateLine trip={trip.trip} /></p><img className="tt-detail-map" src="/travel/travel-map-ticket.png" alt="" /></header>
+        <header className="tt-detail-heading"><div className="tt-detail-title-line"><h1 className="tt-detail-title">{trip.trip.name}</h1><TravelStatus trip={trip} today={props.localToday} /></div>
+          <p className="tt-detail-date"><TripDateLine trip={trip.trip} /></p>
+          {!personal && canWrite ? <button ref={periodTrigger} type="button" className="trip-period-entry" aria-expanded={editingPeriod} aria-controls="trip-period-details" onClick={() => editingPeriod ? closePeriod() : setEditingPeriod(true)}>{t(trip.trip.startDate || trip.trip.endDate ? 'travel.editPeriod' : 'travel.setPeriod')}</button> : null}<img className="tt-detail-map" src="/travel/travel-map-ticket.png" alt="" /></header>
+        {editingPeriod && !personal && canWrite ? <div id="trip-period-details"><TripPeriodEditor key={trip.trip.id} spaceId={trip.trip.id} onCancel={closePeriod} onSaved={() => { closePeriod(); props.onRetryTravel?.() }}/></div> : null}
         <section className="tt-detail-summary tt-paper-card" data-testid="trip-detail-summary"><img className="tt-map-wash" src="/travel/map-wash.svg" alt="" />
           <p className="tt-amount-label">{t('home.mySpending')}</p><p className="tt-amount"><TravelAmount lines={props.tripSpending} currency={trip.trip.defaultCurrency} hidden={props.balanceHidden} status={props.tripSpendingStatus ?? 'ready'} /></p>
           <div className="tt-detail-facts"><span className="tt-detail-fact"><TravelIcon name="receipt" />{props.tripSpendingStatus === 'ready' ? t('travel.recordCount', { count: props.recordGroups.reduce((sum, group) => sum + group.records.length, 0) }) : t('home.amountUnavailable')}</span>
