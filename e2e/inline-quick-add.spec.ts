@@ -34,7 +34,7 @@ for(const width of [320,360,390,430])test(`Inline ledger selection and real frie
   await page.getByRole('button',{name:'Quick add expense',exact:true}).click()
   const quick=page.getByRole('dialog',{name:'Quick Add',exact:true}),header=quick.getByTestId('quick-add-ledger')
   await expect(header).toContainText('Personal ledger')
-  await expect(quick.getByRole('heading',{name:'Quick Add'})).not.toBeVisible()
+  await expect(quick.getByRole('heading',{name:'Quick Add'})).toHaveClass('qa-sr-only')
   await quick.getByRole('button',{name:'Coffee',exact:true}).click();await enterQuickAmount(quick,'12+8')
   await quick.getByRole('textbox',{name:'Description'}).fill('Tea and snacks')
   await expect(quick.getByRole('button',{name:/Travel wallet/})).toBeVisible()

@@ -196,3 +196,12 @@ describe('Inline ledger commits',()=>{
   expect(mocks.save.mock.calls[0][0]).toMatchObject({scope:'direct',spaceId:null,participants:[self,friend,another],splitMode:'exact',exactShareAmounts:{self:'20',friend:'10',another:'30'}})
  })
 })
+
+ it('preserves allocations when inline revalidation links a Manual Person principal',async()=>{
+  const oldRef={kind:'person' as const,personId:'p',participantId:'old',participantIds:['old'],participantKind:'manual' as const,displayName:'Ada'}
+  const oldContext={...shared,ref:oldRef,availableParticipants:[self,{...friend,id:'old'}]}
+  act(()=>{quick.open({entryPoint:'global',context:oldContext});quick.updateValues({amount:'20',splitMode:'exact',exactShareAmounts:{self:'8',old:'12'},payerAmounts:{old:'20'}});quick.setContextPickerOpen(true)})
+  mocks.resolve.mockResolvedValue({...shared,ref:{...oldRef,participantId:'friend',participantKind:'account'},availableParticipants:[self,friend]})
+  await act(async()=>{await quick.commitInlineContext(oldRef,['old'])})
+  expect(quick.session!.values).toMatchObject({selectedParticipantIds:['self','friend'],splitMode:'exact',exactShareAmounts:{self:'8',friend:'12'},payerAmounts:{friend:'20'}})
+ })

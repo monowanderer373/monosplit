@@ -527,6 +527,7 @@ export function UniversalQuickAddProvider({
       const nonempty = stored && (stored.values.amount || stored.values.calculation || stored.values.description || stored.values.selectedParticipantIds.some(id => id !== resolved.currentParticipantId))
       if (nonempty && stored.clientRequestId !== active.clientRequestId && !draftChoice) return { ok: false, error: 'draft-conflict' }
       let values = latest.values
+      if (same && active.context.ref.kind === 'person' && resolved.ref.kind === 'person') values = remapQuickAddParticipant(values, active.context.ref.participantId, resolved.ref.participantId)
       if (draftChoice === 'resume' && stored) {
         values = stored.values
         if (stored.context?.ref.kind === 'person' && resolved.ref.kind === 'person') values = remapQuickAddParticipant(values, stored.context.ref.participantId, resolved.ref.participantId)
