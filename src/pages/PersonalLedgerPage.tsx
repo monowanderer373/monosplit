@@ -169,6 +169,7 @@ export default function PersonalLedgerPage() {
   )
 
   const props: HomeScreenProps = {
+    localToday: model.localToday,
     timezone: authUser.timezone ?? 'Asia/Kuala_Lumpur',
     initialAccountPanel: searchParams.get('accountPanel') === 'manage' ? 'manage' : undefined,
     onCloseAccountPanel: () => { if (searchParams.has('accountPanel')) setSearchParams({}, { replace: true }) },

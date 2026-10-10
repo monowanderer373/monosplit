@@ -31,6 +31,9 @@ import {
 } from '../lib/i18n'
 import { formatDate } from '../lib/locale'
 import { useStore } from '../store/useStore'
+import TripPeriodEditor from '../components/travel/TripPeriodEditor'
+import { tripPeriodStatus, tripPeriodStatusKeys } from '../lib/tripPeriod'
+import { useLocalCalendarDate } from '../hooks/useLocalCalendarDate'
 
 type MemberEntry = {
   member: SpaceMember
@@ -53,6 +56,8 @@ export default function SpacePage() {
   const [members, setMembers] = useState<MemberEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<TranslationKey | ''>('')
+  const [editingPeriod, setEditingPeriod] = useState(false)
+  const today = useLocalCalendarDate(authUser?.timezone ?? 'Asia/Kuala_Lumpur')
   const [inviteRole, setInviteRole] = useState<'full_access' | 'view'>('full_access')
   const [inviteUrl, setInviteUrl] = useState('')
   const [creatingInvite, setCreatingInvite] = useState(false)
@@ -412,7 +417,9 @@ export default function SpacePage() {
             <p className="text-sm text-[var(--ms-text-secondary)]">{t('space.dates')}</p>
             <p className="mt-1 font-extrabold">{dateLine}</p>
             <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">{t('space.status')}</p>
-            <p className="mt-1 font-extrabold">{t(spaceStatusKey(entry.space.status))}</p>
+            <p className="mt-1 font-extrabold">{t(tripPeriodStatusKeys[tripPeriodStatus(entry.space, today)])}</p>
+            {canWrite ? <button type="button" className="trip-period-entry" aria-expanded={editingPeriod} onClick={() => setEditingPeriod(value => !value)}>{t(entry.space.startDate || entry.space.endDate ? 'travel.editPeriod' : 'travel.setPeriod')}</button> : null}
+            {editingPeriod && canWrite ? <TripPeriodEditor key={entry.space.id} spaceId={entry.space.id} onCancel={() => setEditingPeriod(false)} onSaved={() => { setEditingPeriod(false); void refresh() }}/> : null}
           </div>
         ) : null}
         <div className="ms-card mt-3">

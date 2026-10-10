@@ -12,6 +12,9 @@ import {
 } from '../lib/i18n'
 import { formatDate } from '../lib/locale'
 import { useStore } from '../store/useStore'
+import { TripPeriodFields } from '../components/travel/TripPeriodEditor'
+import { validTripPeriod, tripPeriodStatus, tripPeriodStatusKeys, type TripPeriod } from '../lib/tripPeriod'
+import { useLocalCalendarDate } from '../hooks/useLocalCalendarDate'
 
 export default function SpacesPage({ preferredType }: { preferredType?: SpaceType } = {}) {
   const t = useT()
@@ -28,6 +31,9 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
   const [name, setName] = useState('')
   const [type, setType] = useState<SpaceType>(preferredType ?? 'trip')
   const [currency, setCurrency] = useState(authUser?.defaultCurrency ?? 'MYR')
+  const [period, setPeriod] = useState<TripPeriod>({ startDate: '', endDate: '', datesLater: false })
+  const today = useLocalCalendarDate(authUser?.timezone ?? 'Asia/Kuala_Lumpur')
+  const periodValid = type !== 'trip' || validTripPeriod(period)
   const [error, setError] = useState<TranslationKey | ''>('')
 
   const refresh = useCallback(async () => {
@@ -51,15 +57,15 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
   }, [refresh])
 
   const createSpace = async () => {
-    if (!name.trim() || creating || !authUser) return
+    if (!name.trim() || creating || !authUser || !periodValid) return
     setCreating(true)
     setError('')
     try {
       const id = await spaceRepository.create({
         type,
         name: name.trim(),
-        startDate: null,
-        endDate: null,
+        startDate: type === 'trip' && !period.datesLater ? period.startDate : null,
+        endDate: type === 'trip' && !period.datesLater ? period.endDate : null,
         defaultCurrency: currency,
       })
       if (preferredType === 'trip' && params.get('return') === 'travel') {
@@ -129,10 +135,12 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
               {t('spaces.currency')}
               <input className="ms-input mt-1 w-full uppercase sm:w-28" maxLength={3} value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} />
             </label>
-            <button className="ms-btn-primary h-11 sm:w-auto" disabled={creating || !name.trim()} onClick={() => void createSpace()}>
-              {creating ? t('common.creating') : t('spaces.create')}
-            </button>
+
           </div>
+          {type === 'trip' ? <div className="mt-5"><TripPeriodFields value={period} onChange={setPeriod} disabled={creating}/></div> : null}
+          <div className="mt-4 flex justify-end"><button className="ms-btn-primary h-11 sm:w-auto" disabled={creating || !name.trim() || !periodValid} onClick={() => void createSpace()}>
+              {creating ? t('common.creating') : t('spaces.create')}
+            </button></div>
         </section>
       ) : authUser.isAnonymous ? (
         <section className="ms-card mx-auto mt-6 max-w-4xl">
@@ -186,7 +194,8 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
                   </span>
                 </div>
                 <p className="mt-5 text-sm text-[var(--ms-text-secondary)]">
-                  {space.defaultCurrency} · {space.startDate ? formatDate(space.startDate, lang) : t('spaces.noDates')}
+                  {space.defaultCurrency} · {[space.startDate ? formatDate(space.startDate, lang) : t('spaces.noDates'), space.endDate ? formatDate(space.endDate, lang) : null].filter(Boolean).join(' – ')}
+                  {space.type === 'trip' ? <span className="mt-2 block font-bold">{t(tripPeriodStatusKeys[tripPeriodStatus(space, today)])}</span> : null}
                 </p>
               </button>
             ))}

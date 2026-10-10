@@ -4,7 +4,9 @@ import type { MoneyContextRef } from '../lib/moneyContext'
 import { EMPTY_MONEY_CONTEXT_CATALOG, loadMoneyContextCatalog, type MoneyContextCatalog } from '../lib/moneyContextCatalog'
 import type { CanonicalExpense } from '../types'
 import type { UniversalQuickAddSession } from '../lib/universalQuickAdd'
-import { todayIso } from '../lib/universalQuickAdd'
+import { useLocalCalendarDate } from '../hooks/useLocalCalendarDate'
+import { tripPeriodStatus, tripPeriodStatusKeys } from '../lib/tripPeriod'
+import { useT } from '../lib/i18n'
 
 export function ContextIcon({ name }: { name: string }) {
  return <svg className="qa-icon" viewBox="0 0 24 24" aria-hidden="true"><use href={`/assets/quick-add-context/quickadd-icons.svg#${name}`}/></svg>
@@ -20,6 +22,7 @@ export default function InlineContextPicker({ session, expenses, zh, onCommit, o
  onCommitted: (session: UniversalQuickAddSession, friends: boolean) => void; onCancel: () => void
 }) {
  const { authUser } = useAuth()
+ const today = useLocalCalendarDate(authUser?.timezone ?? 'Asia/Kuala_Lumpur'), t = useT()
  const context = session.context!
  const copy = (en: string, cn: string) => zh ? cn : en
  const [browse, setBrowse] = useState<BrowseType>(() => context.ref.kind === 'space' ? context.ref.spaceType === 'trip' ? 'trips' : 'groups' : context.ref.kind === 'person' ? 'friends' : 'personal')
@@ -94,8 +97,7 @@ export default function InlineContextPicker({ session, expenses, zh, onCommit, o
   const details = catalog.spaceDetails?.[id]
   if (!details) return ''
   if (browse === 'groups') return details.memberCount === undefined ? '' : copy(`${details.memberCount} people`, `${details.memberCount} 人`)
-  const today = todayIso()
-  return details.startDate && details.startDate > today ? copy('Upcoming', '即将开始') : details.endDate && details.endDate < today ? copy('Completed', '已结束') : details.startDate ? copy('In progress', '进行中') : ''
+  return t(tripPeriodStatusKeys[tripPeriodStatus({ status: 'active', startDate: details.startDate ?? null, endDate: details.endDate ?? null }, today)])
  }
  const name = candidate?.ref.kind === 'personal' ? copy('Personal ledger', '个人账本') : candidate?.ref.displayName
  const allocationNames = context.availableParticipants.filter(person => session.values.selectedParticipantIds.includes(person.id)).map(person => person.id === context.currentParticipantId ? copy('You', '我') : person.displayName).join(', ')

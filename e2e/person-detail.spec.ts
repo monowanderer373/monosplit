@@ -110,6 +110,7 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
   await openCreateSpace(page)
   await page.getByLabel('Name').fill('Penang Trip')
   await page.getByLabel('Type').selectOption('trip')
+  await page.getByRole('checkbox', { name: 'Dates not decided yet', exact: true }).check()
   await page.getByRole('button', { name: 'Create', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Penang Trip' })).toBeVisible()
   await expect(page.getByText(/Trip · Owner · Open/)).toBeVisible()
