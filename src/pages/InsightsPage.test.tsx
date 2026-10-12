@@ -23,7 +23,7 @@ beforeEach(() => {
   vi.stubGlobal('cancelAnimationFrame', () => undefined)
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
 })
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
 describe('Insights and records read the same committed snapshot', () => {
   it('month/year browsing does not commit before selecting a month, and Escape returns focus', () => {
     setup()
@@ -40,6 +40,15 @@ describe('Insights and records read the same committed snapshot', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Month: Oct 2024' }))
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(document.activeElement).toBe(trigger)
+  })
+  it('uses the current account-local month at click time after a month boundary', () => {
+    vi.setSystemTime(new Date('2026-10-31T15:00:00Z'))
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Month: Oct 2026' }))
+    vi.setSystemTime(new Date('2026-10-31T17:00:00Z'))
+    fireEvent.click(screen.getByRole('button', { name: 'This month' }))
+    expect(screen.getByRole('button', { name: 'Month: Nov 2026' })).toBeTruthy()
+    vi.useRealTimers()
   })
   it('carries filters/tab into records, counts own shares and reuses the original editor', async () => {
     setup()

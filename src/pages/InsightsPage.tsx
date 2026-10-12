@@ -9,13 +9,13 @@ import { InsightIcon, InsightPage, SpendingCount, SpendingMoney, SpendingState }
 
 export default function InsightsPage() {
   const t = useT()
-  const { auth, ledger, lang, today, filter, snapshot, ready, authenticated, hidden, update } = useSpendingView()
+  const { auth, ledger, lang, today, timezone, filter, snapshot, ready, authenticated, hidden, update } = useSpendingView()
   if (auth.loading) return <InsightPage><SpendingState status="loading" /></InsightPage>
   if (auth.sessionError) return <InsightPage><SpendingState status="error" retry={auth.retrySession} /></InsightPage>
   if (!authenticated) return <InsightPage><p>{auth.authUser ? t('spending.unavailable') : t('ledger.privateTitle')}</p><Link className="i-link" to="/login">{t('common.signIn')}</Link></InsightPage>
   return <InsightPage>
     <header><h1 className="i-heading">{t('insights.title')}</h1><p className="i-subtitle">{t('spending.subtitle')}</p></header>
-    <InsightsFilters filter={filter} currencies={snapshot.currencies} today={today} lang={lang} update={update} />
+    <InsightsFilters filter={filter} currencies={snapshot.currencies} timezone={timezone} lang={lang} update={update} />
     {!ready ? <SpendingState status={ledger.expensesStatus === 'error' ? 'error' : 'loading'} retry={ledger.refresh} /> : <>
       <section className="i-card i-summary-ticket" aria-label={t('spending.total')}>
         <img className="i-corner" src="/assets/insights/denim-corner.svg" alt="" />

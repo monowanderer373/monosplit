@@ -46,3 +46,6 @@ Final review found zero-own-share confirmed records were mislabeled as an empty 
 
 ## Received-record correction
 A reproduced count/list mismatch required an additional fix: the old editor hid rows lacking edit authority. Records now opts into readonly fallback in the same editor/dialog, exposing only existing RLS-returned facts and no mutation actions. Default behavior in other callers remains unchanged. Full local 522/77, lint/build and readonly UI check passed; real backend coverage added. Current branch fix/insights-readonly-records; latest CI and merge pending. Preserve this work, do not restart.
+
+## Current-month final boundary fix
+Readonly received rows and original ranking ties merged via PR #12, application main 6c4a277. Cross-month This month action regression reproduced and corrected at click time using account timezone; branch fix/insights-current-month. This is the last scoped implementation check; await its CI/merge, then update the release/checkpoint and finish outstanding management verification only when secure credentials are available.

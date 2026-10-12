@@ -2,6 +2,7 @@ import { monthLabel } from '../../lib/spendingView'
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useT } from '../../lib/i18n'
+import { localCalendarDate } from '../../lib/homeView'
 import { localeForLang } from '../../lib/locale'
 import { CURRENCIES } from '../../lib/currency'
 import type { SpendingFilter } from '../../lib/spendingView'
@@ -73,7 +74,7 @@ function PaperPopover({ open, label, close, children }: { open: Open; label: str
   </div>, document.body)
 }
 
-export default function InsightsFilters({ filter, currencies, today, lang, update }: { filter: SpendingFilter; currencies: string[]; today: string; lang: 'en' | 'zh'; update: (patch: Partial<SpendingFilter>) => void }) {
+export default function InsightsFilters({ filter, currencies, timezone, lang, update }: { filter: SpendingFilter; currencies: string[]; timezone: string; lang: 'en' | 'zh'; update: (patch: Partial<SpendingFilter>) => void }) {
   const t = useT()
   const [open, setOpen] = useState<Open | null>(null)
   const [browseYear, setBrowseYear] = useState(Number(filter.month.slice(0, 4)))
@@ -109,7 +110,7 @@ export default function InsightsFilters({ filter, currencies, today, lang, updat
             return <button key={month} className="i-month-option" aria-label={monthLabel(month, lang, 'long')} aria-pressed={filter.month === month} onClick={() => commit({ month })}><span className="i-month-face">{new Intl.DateTimeFormat(localeForLang(lang), { month: 'short', timeZone: 'UTC' }).format(date)}</span></button>
           })}
         </div>
-        <div className="i-popover-footer"><button className="i-link" onClick={() => commit({ month: today.slice(0, 7) })}><InsightIcon name="calendar" />{t('spending.thisMonth')}</button></div>
+        <div className="i-popover-footer"><button className="i-link" onClick={() => commit({ month: localCalendarDate(new Date(), timezone).slice(0, 7) })}><InsightIcon name="calendar" />{t('spending.thisMonth')}</button></div>
       </> : open.kind === 'scope' ? <div data-choice-group>{scopes.map((scope, index) => <button key={scope} className="i-scope-option" aria-label={t(`spending.${scope}`)} aria-describedby={`scope-${scope}-description`} aria-pressed={filter.scope === scope} onClick={() => commit({ scope })}>
         <span className="i-record-icon"><InsightIcon name={['layers', 'user', 'users'][index]} /></span><span><span className="i-option-title">{t(`spending.${scope}`)}</span><span className="i-option-meta" id={`scope-${scope}-description`}>{t(`spending.${scope}Help`)}</span></span>{filter.scope === scope ? <span className="i-check"><InsightIcon name="check" /></span> : <span />}
       </button>)}</div> : <>
