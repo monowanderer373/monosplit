@@ -34,6 +34,10 @@ const EMPTY_EXPENSES: never[] = []
 
 function usePersonalLedgerController() {
   const flushingRef = useRef(false)
+  const readGeneration = useRef(0)
+  const invalidateRead = useCallback(() => { readGeneration.current += 1 }, [])
+  const activeIdentity = useRef<string | null>(null)
+  const [verifiedIdentity, setVerifiedIdentity] = useState<string | null>(null)
   const discardUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [discardUndo, setDiscardUndo] = useState<{
     item: ReturnType<typeof createPendingLedgerCommand>
@@ -79,14 +83,20 @@ function usePersonalLedgerController() {
   }, [identityId])
 
   const refresh = useCallback(async () => {
-    if (!identityId || !participantId) return
+    if (!identityId || !participantId || activeIdentity.current !== identityId) return
+    const generation = ++readGeneration.current
     setExpensesStatus((current) => (current === 'ready' ? current : 'loading'))
     try {
       const expenses = await ledgerRepository.listExpenses()
+      if (generation !== readGeneration.current || activeIdentity.current !== identityId) return
       setLedgerExpenses(identityId, expenses)
+      setVerifiedIdentity(identityId)
       setExpensesStatus('ready')
     } catch {
-      // Keep any previously loaded rows, but do not present a failed read as an empty ledger.
+      // Drop late responses from another identity or an older refresh.
+      if (generation !== readGeneration.current || activeIdentity.current !== identityId) return
+      setVerifiedIdentity(identityId)
+      // Keep cached rows internally; consumers must not present a failed read as verified.
       setExpensesStatus('error')
     }
   }, [identityId, participantId, setLedgerExpenses])
@@ -148,6 +158,8 @@ function usePersonalLedgerController() {
   ])
 
   useEffect(() => {
+    activeIdentity.current = identityId
+    setExpensesStatus('loading')
     void refresh()
     void flush()
     const handleOnline = () => void flush()
@@ -167,11 +179,13 @@ function usePersonalLedgerController() {
         .subscribe()
       : null
     return () => {
+      activeIdentity.current = null
+      invalidateRead()
       window.removeEventListener('online', handleOnline)
       if (refreshTimer) clearTimeout(refreshTimer)
       if (channel && supabase) void supabase.removeChannel(channel)
     }
-  }, [flush, identityId, refresh])
+  }, [flush, identityId, refresh, invalidateRead])
 
   const hasDispatchableCommands = Boolean(partition?.outbox.some(
     (item) => item.status === 'pending',
@@ -325,7 +339,7 @@ function usePersonalLedgerController() {
     identityId,
     participantId,
     expenses,
-    expensesStatus,
+    expensesStatus: verifiedIdentity === identityId ? expensesStatus : 'loading' as const,
     rows,
     totals,
     outbox: partition?.outbox ?? [],

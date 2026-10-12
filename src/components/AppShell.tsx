@@ -100,7 +100,8 @@ function ShellContents() {
     pageTarget,
   ])
 
-  const showNavigation = Boolean(authUser?.participantId) && !location.pathname.startsWith('/travel/trip/')
+  const recordsPage = location.pathname === '/insights/records'
+  const showNavigation = Boolean(authUser?.participantId) && !location.pathname.startsWith('/travel/trip/') && !recordsPage
   const place = (location.pathname === '/' && homeMode === 'travel') || location.pathname.startsWith('/travel/') ? 'bali' : 'home'
   useEffect(() => {
     document.documentElement.dataset.place = place
@@ -114,7 +115,7 @@ function ShellContents() {
           <BottomNavigation />
         </>
       ) : null}
-      {authUser?.participantId ? <GlobalMoneyAction onAdd={openGlobalAdd} composerOpen={Boolean(quickAdd.action)} disabled={targetPending} standalone={!showNavigation} /> : null}
+      {authUser?.participantId && !recordsPage ? <GlobalMoneyAction onAdd={openGlobalAdd} composerOpen={Boolean(quickAdd.action)} disabled={targetPending} standalone={!showNavigation} /> : null}
       <GlobalMoneyActionHost />
       {quickAdd.feedback ? (
         <div
