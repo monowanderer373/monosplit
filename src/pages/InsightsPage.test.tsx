@@ -78,6 +78,18 @@ describe('Insights and records read the same committed snapshot', () => {
     expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
     expect(screen.queryByText('Lunch with friends')).toBeNull()
   })
+  it('retains received shared rows and opens readonly details without mutation controls', () => {
+    state.expenses = [spendingExpense('received', 7200, 'direct', { createdBy: 'other', description: 'Received shared bill' })]
+    setup('/insights/records?month=2026-10&currency=MYR')
+    expect(screen.getByText('1 record')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'View Received shared bill' }))
+    const dialog = screen.getByRole('dialog', { name: 'Record details' })
+    expect(dialog.textContent).toMatch(/72\.00/)
+    expect(dialog.textContent).toMatch(/36\.00/)
+    expect(within(dialog).queryByRole('button', { name: 'Save changes' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Cancel expense' })).toBeNull()
+    expect(within(dialog).queryByText(/waiting for a response/)).toBeNull()
+  })
   it('keeps confirmed advances with zero own share distinct from no records', () => {
     const expense = spendingExpense('advance', 2400, 'direct')
     expense.shares[0].amountMinor = 0

@@ -13,6 +13,7 @@ import { generateId } from '../lib/id'
 import { categoryKey, friendlyErrorKey, machineCode, useT, type TranslationKey } from '../lib/i18n'
 import { currencyExponent, equalMinorShares, formatMinorAmount, parseMajorAmount, reconcileMinorAmounts } from '../lib/money'
 import { ledgerRepository } from '../lib/ledgerRepository'
+import { formatDate, localeForLang } from '../lib/locale'
 import { useStore } from '../store/useStore'
 import { personRepository } from '../lib/personRepository'
 import { personToMoneyContext } from '../lib/moneyContextCatalog'
@@ -21,9 +22,10 @@ import MoneyText from './MoneyText'
 import { QuickPanel, SplitConfiguration, type SplitValues } from './SplitConfiguration'
 import './expense-editor.css'
 
-type EditorMode = 'metadata' | 'financial' | 'correction' | 'space_correction' | 'cancel' | 'request_cancellation' | 'view_request'
+type EditorMode = 'read_only' | 'metadata' | 'financial' | 'correction' | 'space_correction' | 'cancel' | 'request_cancellation' | 'view_request'
 type Props = {
   trigger?: ReactNode
+  readOnlyFallback?: boolean
   triggerClassName?: string
   contextLabel?: string
   expense: CanonicalExpense
@@ -37,10 +39,12 @@ type Props = {
 
 export default function ExpenseActionSheet({
   expense, currentParticipantId, spaceRole = null, pendingRequest = null,
-  onCancelExpense, onRefresh, statusNotice = '', trigger, triggerClassName, contextLabel,
+  onCancelExpense, onRefresh, statusNotice = '', trigger, triggerClassName, contextLabel, readOnlyFallback = false,
 }: Props) {
   const t = useT()
-  const zh = useStore(state => state.lang) === 'zh'
+  const lang = useStore(state => state.lang)
+  const hidden = useStore(state => state.homeUi.balanceHidden)
+  const zh = lang === 'zh'
   const copy = (en: string, cn: string) => zh ? cn : en
   const [open, setOpen] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -86,7 +90,7 @@ export default function ExpenseActionSheet({
   const initialMode = (): EditorMode => {
     if (policy.actions.includes('edit_financials')) return 'financial'
     if (policy.actions.includes('propose_correction')) return expense.scope === 'space' ? 'space_correction' : 'correction'
-    return policy.actions.includes('edit_metadata') ? 'metadata' : 'view_request'
+    return policy.actions.includes('edit_metadata') ? 'metadata' : policy.actions.includes('view_request') || !readOnlyFallback ? 'view_request' : 'read_only'
   }
   // Re-evaluate edit authority if a shared participant responds while open.
   const mode = requestedMode === 'cancel' || requestedMode === 'request_cancellation' ? requestedMode : initialMode()
@@ -126,7 +130,7 @@ export default function ExpenseActionSheet({
     setFailClosed(false)
     setOpen(true)
   }
-  if (policy.actions.length === 0) return null
+  if (policy.actions.length === 0 && !readOnlyFallback) return null
 
   const expenseName = capitalizeDescription(expense.description ?? t(categoryKey(expense.category)))
   const editing = ['metadata', 'financial', 'correction', 'space_correction'].includes(mode)
@@ -279,19 +283,30 @@ export default function ExpenseActionSheet({
 
   return <>
     <button type="button" className={triggerClassName ?? 'ms-btn-ghost min-h-10 px-3 py-2 text-xs'} aria-haspopup="dialog" aria-expanded={open}
-      aria-label={copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)} onClick={openSheet}>
+      aria-label={mode === 'read_only' ? copy(`View ${expenseName}`, `查看 ${expenseName}`) : copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)} onClick={openSheet}>
       {triggerClassName === 'home-record-trigger' ? <span className="home-sr">{copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)}</span> : trigger ?? <QuickIcon name="edit" size={16} />}
     </button>
     {open ? createPortal(<EditorDialog titleId={`expense-action-${expense.id}`} closing={closing} onClose={requestClose}>
       <header className="expense-editor-header">
         <span className="expense-editor-icon"><QuickIcon name={({ Drinks: 'Drink', Transportation: 'Transport', Flight: 'Travel', Accommodation: 'Stay', Activities: 'Fun', Sightseeing: 'Travel' } as Record<string, string>)[category] ?? category} size={24} /></span>
-        <div><h2 id={`expense-action-${expense.id}`}>{editing ? copy('Edit record', '编辑记录') : mode === 'view_request' ? t('expenseAction.viewRequest') : t('expenseAction.cancelExpense')}</h2><p>{subtitle}</p></div>
+        <div><h2 id={`expense-action-${expense.id}`}>{mode === 'read_only' ? copy('Record details', '记录详情') : editing ? copy('Edit record', '编辑记录') : mode === 'view_request' ? t('expenseAction.viewRequest') : t('expenseAction.cancelExpense')}</h2><p>{subtitle}</p></div>
         <button type="button" className="expense-editor-close" onClick={requestClose} disabled={saving} aria-label={t('common.close')}><QuickIcon name="close" size={18} /></button>
       </header>
-      <form className="expense-editor-form" onSubmit={event => { event.preventDefault(); if (editing) submit(); else if (mode !== 'view_request') void cancel() }}>
+      <form className="expense-editor-form" onSubmit={event => { event.preventDefault(); if (editing) submit(); else if (mode === 'cancel' || mode === 'request_cancellation') void cancel() }}>
         {partialSave ? <p className="expense-editor-notice" role="status">{copy('Amount and split saved. Details are not saved yet; retry saves only the remaining details.', '金额与分摊已保存，资料尚未保存；重试只会保存剩余资料。')}</p> : null}
         {notice ? <p className="expense-editor-notice" role="status">{notice}</p> : null}
         {error || statusNotice ? <p className="expense-editor-error" role="alert">{error ? t(error) : statusNotice}</p> : null}
+        {mode === 'read_only' ? <section className="expense-editor-review" data-testid="record-readonly-details">
+          <h3>{expenseName}</h3>
+          <dl className="expense-editor-readonly-facts">
+            <div><dt>{t('expenseAction.date')}</dt><dd>{formatDate(expense.occurredOn, lang)}</dd></div>
+            <div><dt>{t('expenseAction.category')}</dt><dd>{t(categoryKey(expense.category))}</dd></div>
+            <div><dt>{t('expenseAction.currency')}</dt><dd>{expense.currency}</dd></div>
+            <div><dt>{copy('Bill', '账单总额')}</dt><dd>{hidden ? <span aria-label={t('spending.hidden')}>••••</span> : <MoneyText value={formatMinorAmount(expense.totalMinor, expense.currency, localeForLang(lang))} />}</dd></div>
+            <div><dt>{copy('Your share', '你的份额')}</dt><dd>{hidden ? <span aria-label={t('spending.hidden')}>••••</span> : <MoneyText value={formatMinorAmount(expense.shares.find(share => share.expenseParticipationId === expense.participations.find(person => person.participantId === currentParticipantId)?.id)?.amountMinor ?? 0, expense.currency, localeForLang(lang))} />}</dd></div>
+          </dl>
+          <p className="expense-editor-hint">{copy('You can view this record. Editing is not available here.', '你可以查看这笔记录，此处不提供编辑操作。')}</p>
+        </section> : null}
         {editing ? <fieldset disabled={saving || mutationBlocked} className="expense-editor-fields">
           <label className="expense-editor-label" htmlFor={`edit-amount-${expense.id}`}>{copy('Amount', '金额')}</label>
           <div className="expense-editor-amount">
@@ -337,7 +352,7 @@ export default function ExpenseActionSheet({
           {financialChanged && mode === 'correction' ? <p className="expense-editor-hint">{t('expenseAction.noEffectUntilApproved')}</p> : financialChanged && mode === 'space_correction' ? <p className="expense-editor-hint">{t('expenseAction.unchangedPrincipals')}</p> : financialChanged && policy.financialEditRequiresReconfirmation ? <p className="expense-editor-hint">{t('expenseAction.reconfirmWarning')}</p> : null}
         </div> : null}
         {mode === 'cancel' || mode === 'request_cancellation' ? <div className="expense-editor-cancel-confirm"><p>{expenseName}</p><p>{t(mode === 'cancel' ? 'expenseAction.cancelHelp' : 'expenseAction.cancellationRequestHelp')}</p></div> : null}
-        {mode === 'view_request' ? <p className="expense-editor-notice">{t('expenseAction.requestFrozen')}</p> : <footer className="expense-editor-footer">
+        {mode === 'read_only' ? null : mode === 'view_request' ? <p className="expense-editor-notice">{t('expenseAction.requestFrozen')}</p> : <footer className="expense-editor-footer">
           {!editing ? <button type="button" className="expense-editor-back" disabled={saving} onClick={() => setMode(initialMode())}>{t('common.back')}</button> : null}
           <button type="submit" className="ms-btn-primary expense-editor-save" disabled={saving || mutationBlocked || (editing && !dirty)}>
             {saving ? t('expenseAction.saving') : !editing ? t(mode === 'cancel' ? 'expenseAction.confirmCancel' : 'expenseAction.sendCancellationRequest') : copy('Save changes', '保存修改')}
