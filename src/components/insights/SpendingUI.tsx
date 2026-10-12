@@ -20,12 +20,12 @@ export function SpendingCount({ count }: { count: number }) {
   const t = useT()
   return <>{t(count === 1 ? 'spending.countOne' : 'spending.countMany', { count })}</>
 }
-export function SpendingState({ status, retry }: { status: 'loading' | 'error' | 'empty'; retry?: () => unknown }) {
+export function SpendingState({ status, retry }: { status: 'loading' | 'error' | 'empty' | 'zero-share'; retry?: () => unknown }) {
   const t = useT()
   return <section className="i-state-card i-card" role={status === 'error' ? 'alert' : 'status'}>
     <InsightIcon name={status === 'error' ? 'info' : 'receipt'} />
-    <div><strong>{t(status === 'loading' ? 'spending.loading' : status === 'error' ? 'spending.error' : 'spending.empty')}</strong>
-      {status === 'empty' ? <p>{t('spending.emptyHelp')}</p> : null}
+    <div><strong>{t(status === 'loading' ? 'spending.loading' : status === 'error' ? 'spending.error' : status === 'zero-share' ? 'spending.zeroShare' : 'spending.empty')}</strong>
+      {status === 'empty' || status === 'zero-share' ? <p>{t(status === 'zero-share' ? 'spending.zeroShareHelp' : 'spending.emptyHelp')}</p> : null}
       {status === 'error' && retry ? <button className="i-link" onClick={() => void retry()}>{t('common.retry')}</button> : null}
     </div>
   </section>

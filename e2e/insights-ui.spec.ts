@@ -89,6 +89,8 @@ test('read error is distinct from zero and concealed amounts stay hidden (interc
   await setup(page, fixtures, 500); await page.goto('/insights?month=2026-10&currency=MYR')
   await expect(page.getByRole('alert')).toContainText('Could not verify'); await expect(page.getByTestId('spending-total')).toHaveCount(0); await capture(page, 'error')
   const empty = await context.newPage(); await setup(empty, []); await empty.goto('/insights?month=2026-10&currency=MYR'); await expect(empty.getByText('No spending recorded')).toBeVisible(); await capture(empty, 'empty'); await empty.close()
+  const advance=spendingExpense('zero-share',2400,'direct'); advance.shares[0].amountMinor=0; advance.shares[1].amountMinor=2400
+  const zero=await context.newPage(); await setup(zero,[advance]); await zero.goto('/insights?month=2026-10&currency=MYR'); await expect(zero.getByText('Your share is zero',{exact:true})).toBeVisible(); await expect(zero.getByText('1 record',{exact:true})).toBeVisible(); await capture(zero,'zero-share'); await zero.close()
   const hidden = await context.newPage(); await setup(hidden, fixtures, 200, true); await hidden.goto('/insights?month=2026-10&currency=MYR'); await expect(hidden.getByTestId('spending-total')).toContainText('••••'); await hidden.getByRole('link', { name: 'View records' }).click(); await expect(hidden.locator('main')).not.toContainText('72.00'); await capture(hidden, 'concealed'); await hidden.close()
 })
 test('Insights history restores scroll and Records retains loaded rows through the editor (intercepted API)', async ({ page }) => {

@@ -32,7 +32,7 @@ export default function InsightsPage() {
         event.preventDefault(); tabs[next].focus(); tabs[next].click()
       }}>{(['category', 'trend', 'ranking'] as SpendingTab[]).map(tab => <button key={tab} role="tab" id={`spending-${tab}`} className="i-analysis-tab" aria-selected={filter.tab === tab} aria-controls="spending-panel" tabIndex={filter.tab === tab ? 0 : -1} onClick={() => update({ tab })}><span className="i-tab-face">{t(tab === 'category' ? 'spending.categories' : `spending.${tab}`)}</span></button>)}</div>
       <section className="i-card i-chart-card" id="spending-panel" role="tabpanel" aria-labelledby={`spending-${filter.tab}`} tabIndex={0}>
-        {snapshot.totalMinor ? <SpendingCharts snapshot={snapshot} tab={filter.tab} month={filter.month} today={today} hidden={hidden} /> : <SpendingState status="empty" />}
+        {snapshot.totalMinor ? <SpendingCharts snapshot={snapshot} tab={filter.tab} month={filter.month} today={today} hidden={hidden} /> : <SpendingState status={snapshot.count ? "zero-share" : "empty"} />}
       </section>
     </>}
   </InsightPage>

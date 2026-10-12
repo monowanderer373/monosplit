@@ -78,6 +78,19 @@ describe('Insights and records read the same committed snapshot', () => {
     expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
     expect(screen.queryByText('Lunch with friends')).toBeNull()
   })
+  it('keeps confirmed advances with zero own share distinct from no records', () => {
+    const expense = spendingExpense('advance', 2400, 'direct')
+    expense.shares[0].amountMinor = 0
+    expense.shares[1].amountMinor = 2400
+    state.expenses = [expense]
+    setup()
+    expect(screen.getByText('1 record')).toBeTruthy()
+    expect(screen.getByText('Your share is zero')).toBeTruthy()
+    expect(screen.queryByText('No spending recorded')).toBeNull()
+    fireEvent.click(screen.getByRole('link', { name: 'View records' }))
+    expect(screen.getByRole('button', { name: 'Edit Record advance' }).textContent).toMatch(/0\.00/)
+    expect(screen.getByText(/Bill/).textContent).toMatch(/24\.00/)
+  })
   it('counts all records while progressively displaying the list', () => {
     state.expenses = Array.from({ length: 85 }, (_, index) => spendingExpense(String(index), 100))
     setup('/insights/records?month=2026-10&currency=MYR')
