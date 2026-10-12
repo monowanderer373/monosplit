@@ -129,6 +129,7 @@ jobs:
           path: |
             test-results/browser-results.json
             test-results/**/error-context.md
+            test-results/insights-ui/
           if-no-files-found: ignore
           retention-days: 14
       - if: always()
@@ -199,6 +200,7 @@ jobs:
             test-results/trip-period/
             test-results/browser-results.json
             test-results/**/error-context.md
+            test-results/insights-ui/
           if-no-files-found: ignore
           retention-days: 14
       - if: always()

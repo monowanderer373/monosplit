@@ -1,0 +1,17 @@
+.tt-insights {
+  --i-paper: #F7F5EF; --i-surface: #FFFCF7; --i-ink: #24374A;
+  --i-secondary: #576779; --i-denim: #35678B; --i-denim-hover: #2E5C7E;
+  --i-denim-pressed: #274F6D; --i-denim-soft: #DDEAF1; --i-blue-edge: #D3E2E9;
+  --i-leather: #C99B78; --i-leather-ink: #3F3028; --i-leather-edge: #AE815E;
+  --i-stitch: #F1D7BD; --i-apricot: #FBEADB; --i-green-soft: #DDEAE3;
+  --i-border: #D7DEDF; --i-dots: #B4BBC0; --i-expense: #AD412E; --i-white: #FFFFFF;
+  --i-chart-1: #E1AD88; --i-chart-2: #8FA99E; --i-chart-3: #CFC29F;
+  --i-chart-4: #B8A29E; --i-chart-5: #9DAEB8; --i-chart-6: #ADB092;
+  --i-font: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --i-padding: 16px; --i-content-max: 640px; --i-motion: 140ms;
+  --i-paper-shadow: 0 2px 4px rgba(36,55,74,.08);
+  --i-popover-shadow: 0 6px 18px rgba(36,55,74,.14);
+  --i-paper-texture: url('/assets/insights/paper-grain.svg');
+  --i-leather-texture: url('/assets/insights/leather-grain.svg');
+}
+@media (max-width:340px) { .tt-insights { --i-padding: 12px; } }

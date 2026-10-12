@@ -1,5 +1,6 @@
 import { useStore } from '../store/useStore'
 import { collectPayTranslations } from './collectPayTranslations'
+import { insightsTranslations } from './insightsTranslations'
 import { travelTranslations } from './travelTranslations'
 
 export type Lang = 'en' | 'zh'
@@ -7,6 +8,7 @@ export type Lang = 'en' | 'zh'
 const translations = {
   ...collectPayTranslations,
   ...travelTranslations,
+  ...insightsTranslations,
   // ── Bottom Tabs ──
   'tab.summary': { en: 'SUMMARY', zh: '摘要' },
   'tab.settle': { en: 'SETTLE UP', zh: '结算' },
