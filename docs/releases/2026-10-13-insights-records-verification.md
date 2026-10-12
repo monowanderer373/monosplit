@@ -1,36 +1,40 @@
 # Insights / Spending records — verified rollout checkpoint
 
-Date: 2026-10-13, Asia/Kuala_Lumpur.
+2026-10-13, Asia/Kuala_Lumpur.
 
-## Code and runtime
+## Result and code
 
-- PR #10: https://github.com/monowanderer373/monosplit/pull/10 (merged).
-- Feature commit: 3ec01082d4b6e923f15f9729f4ffc879ac2f89dc.
-- Main merge / application release commit: 3f7618580344fa0acacb0d4f22c97751c1f17db9.
-- Existing production alias: https://tabby-tally-monowanderer373s-projects.vercel.app/ . Actual served entry `/assets/index-B28dhv70.js` contains the exact merge SHA; lazy `/assets/SpendingRecordsPage-CcgfKwAE.js` is served. The production service worker precaches Records and Insights icons.
-- This is the existing app, not a demo. No migration, dependency upgrade or new finance service was introduced.
+PRs [#10](https://github.com/monowanderer373/monosplit/pull/10), [#11](https://github.com/monowanderer373/monosplit/pull/11), [#12](https://github.com/monowanderer373/monosplit/pull/12), [#13](https://github.com/monowanderer373/monosplit/pull/13) merged to main. Final application release commit: 96975260db658185fa926dce5bb122ca1d050ba8; final PR head d6ce0aff66e93232293773d39af5728eec0f1eaf has the same application tree.
+
+Approved paper/denim Insights and independent Records are implemented with canonical own-share statistics, full count, anchored filters, original permission-aware editor/readonly details, privacy and navigation restoration. Zero-own-share records, received noneditable shared rows, original category tie order and an open page crossing the account-local month boundary have regression coverage. Financial model/RPCs/schema/dependencies unchanged.
 
 ## Actual checks
 
-- Local Vitest: 519 tests / 77 files passed. ESLint (no warnings), TypeScript/Vite production/PWA build and diff check passed.
-- PR Quality: https://github.com/monowanderer373/monosplit/actions/runs/38288083611 — all six jobs succeeded.
-- Main Quality: https://github.com/monowanderer373/monosplit/actions/runs/38289066229 — all six jobs succeeded.
-- PR result artifact: 71 full browser outcomes: 70 expected/first-run passes, 1 flaky existing signup/manifest QuickAdd journey passed on retry; zero unexpected failures/skips. The retry was a 5-second `home-header` login readiness assertion, not a new financial assertion failure. All nine new intercepted-API Insights UI checks and the new real-local-Supabase own-share/RLS journey passed first run.
-- pgTAP: 16 files / 723 assertions passed. Database lint, historical upgrade and concurrency job succeeded. Dedicated CollectPay: 10 passed; Travel/QuickAdd/Trip period: 16 passed.
-- Browser checks exercise 320/360/390/430/1024, year draft/keyboard/escape/focus/outside, all three panels/popovers, complete count and own shares, progressive rows/original editor/back scroll, empty/error/conceal, long values, Chinese and actual 200% text.
+- [Final PR Quality 38300943435](https://github.com/monowanderer373/monosplit/actions/runs/38300943435): six jobs succeeded. 524 unit tests / 77 files, lint, production TypeScript/Vite/PWA build and dependency audit passed.
+- 723 pgTAP assertions / 16 files, database lint/concurrency and historical upgrade passed against isolated Supabase.
+- Full browser log: 71 passed. Dedicated CollectPay 10 and Travel/QuickAdd/Trip period 16 passed. Latest artifact download remains blocked at its Azure blob destination; do not invent artifact statistics. Previous PR #12 artifact is available: 71 expected, zero flaky/unexpected/skipped.
+- [Main Quality 38301821324](https://github.com/monowanderer373/monosplit/actions/runs/38301821324): all six jobs succeeded.
+- UI coverage: 320/360/390/430/1024, all three panels/popovers, draft year/keyboard/Escape/outside/focus, 200% Chinese/long text, complete records/own shares/progressive list/original editor/back-scroll, empty/error/conceal/zero-share/readonly states.
+- Separate real Supabase browser journey created Personal and confirmed Direct expenses, checked currency and own-share reconciliation, original editor, zero-share advance, friend-created received record with readonly Bill/share and foreign private RLS denial. Local reset was CI's disposable stack only; no production financial writes.
 
-## Screenshots and evidence boundaries
+## Existing production runtime
 
-Implementation screenshots are rendered app UI with explicitly fictional test-created API responses, not design PNGs/JSON, and never production fallback. Local `test-results/insights-ui/` and the full-browser-results CI artifact contain Categories/Trend/Ranking/Records, popovers, 200%/long text and error/empty/conceal evidence. The new independent backend journey really created Personal/confirmed Direct records on disposable Supabase, reconciled own-share totals and checked a foreign account cannot read a private expense. Do not describe intercepted screenshots as production financial data or standalone RLS proof.
+[Live alias](https://tabby-tally-monowanderer373s-projects.vercel.app/) serves exact release SHA 96975260db658185fa926dce5bb122ca1d050ba8 in /assets/index-D47gnCAe.js; /assets/SpendingRecordsPage-DKmJHqLy.js is served and precached, as are Insights icons. Expected production Supabase project reference is present in the client.
 
-Actual production browser checks used no account credentials and no fabricated app/API responses. Verified signed-out Records access guards at 320/360/390/430, no overflow, updated offline Records shell. An isolated browser initially had a stale cloud-proxy CA; configured the platform's supplied public CA in that test profile, constrained to the production hostname, retaining TLS verification. Old installed PWA first served `index-BBEEDsub.js`; after waiting for new worker activation it served `index-B28dhv70.js`, with Records cached. This upgrade was checked on the same retained browser profile.
+Actual Chromium, with no synthetic app/API responses or private-account credentials, verified the same installed profile upgrading from older releases: worker activated, new entry controlled, Records cached. Public private-route guard and no overflow at 320/360/390/430 passed; offline updated Records shell passed. TLS verification stayed enabled using the platform public CA in an isolated profile constrained to this production hostname; shared home trust store untouched.
 
-## Remaining external connections / unverified scope
+## Screenshots and intentional differences
 
-- Vercel management API returns missing authentication token. No VERCEL_TOKEN was present. GitHub Vercel status/deployment metadata has not yet reported the merge; last returned production object remains historical 2041f71. Therefore no current Vercel deployment ID / management terminal-state claim is made, despite the verified production runtime containing 3f76185.
-- Supabase management token absent: current remote migration history not independently read. Old HANDOFF/CONTEXT undeployed statements are not treated as current. No production DB changes were made.
-- Secure requirements VERCEL_TOKEN → api.vercel.com and SUPABASE_ACCESS_TOKEN → api.supabase.com saved in environment settings. Enter values there, not chat. Use `python3 scripts/Verify-InsightsConnections.py` to read deployment metadata and migration history; missing-binding path verified, connected path requires the bindings.
-- Local Docker vfs/32 GB image extraction remains unsuitable for local PostgreSQL. Real backend evidence came from CI, not that blocked local stack.
-- Private production-account writes and physical phone/OS keyboard/safe-area behavior remain unverified. CI/emulation/public checks do not establish those.
+Ignored /workspace/verification/pr12-browser-artifact/insights-ui contains actual rendered implementation images using explicitly fictional test API records, including readonly and zero-share states. These are not design PNGs/JSON, production fallback or private production account screenshots. Production evidence contains signed-out/offline pages only. Evidence ZIP combines these clearly labeled sources without raw logs/secrets.
 
-Full live acceptance remains open for the missing deployment-management evidence. Resume from the existing main implementation; do not redo the feature or deploy migrations based on stale history.
+Ranking remains the original CATEGORY ranking and Trend DAILY user-share spending; fictional record-ranking/example values do not change finance semantics. Currency choices reflect real accessible rows/current supported selection without FX. Narrow/200% layouts wrap rather than clip. Original editor is retained. Physical phones/OS keyboards/safe-area and private production write journeys remain unverified.
+
+## Outstanding management acceptance
+
+Actual production code is serving and public/PWA checks passed; complete live acceptance is still open:
+
+- Vercel API returns missingToken and native CLI has no existing login. VERCEL_TOKEN is absent. Current deployment ID/management terminal state cannot be confirmed; GitHub Vercel deployment metadata remains historical.
+- SUPABASE_ACCESS_TOKEN absent; native CLI has no saved login. Remote migration history remains unread. No migrations were created/applied by this work; old reports are not treated as current migration evidence.
+- Secure token requirements saved in cloud environment settings. Create a Vercel account token with access to monowanderer373s-projects and a Supabase personal access token; securely bind VERCEL_TOKEN (api.vercel.com) and SUPABASE_ACCESS_TOKEN (api.supabase.com), then save/apply settings through the product. Do not put values in chat. Draft persistence does not publish the environment.
+- Resume with python3 scripts/Verify-InsightsConnections.py, match real production SHA/alias/state, read remote migration versions, and update the recovery documents. Missing-binding helper path executed; connected path awaits credentials.
+- Local backend setup remains blocked by Docker vfs/32 GB extraction capacity; the passing isolated CI backend evidence is separate from local readiness.

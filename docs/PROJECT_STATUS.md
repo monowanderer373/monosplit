@@ -1,51 +1,37 @@
 # Tabby Tally project status
 
-Checkpoint: 2026-10-13 (Asia/Kuala_Lumpur)
+Checkpoint: 2026-10-13 (Asia/Kuala_Lumpur).
 
 ## Resume first
-Read this file, WORK_LOG.md, CONTEXT.md/ADRs, git status and git diff. Preserve existing changes. Historical HANDOFF.md/CONTEXT.md release status is stale; never reset to its Phase 5 branch or infer undeployed migrations from it.
+Read this file, WORK_LOG.md, CONTEXT.md/ADRs, git status/diff and latest remote main. Preserve user changes. Historical HANDOFF/CONTEXT rollout notes are not current deployment or migration evidence. Do not reset/reapply from them.
 
-## Verified baseline
-- Repository: monowanderer373/monosplit; production branch main.
-- Local branch at takeover: work. HEAD and freshly fetched origin/main: 2041f71a298eca03ca96eeb6b8f3f8f485506660. Working tree initially clean.
-- QuickAdd inline selection (PR #8 / f72885c) and Trip period/lifecycle (PR #9 / 2041f71) are present in main.
-- React 19 / TypeScript / Vite / Supabase / PWA. npm lockfile, Node 22 CI. No Next.js migration.
-- Insights currently uses RLS-loaded canonical expenses, booked predicate, user personalSpendingMinor, daily buckets and CATEGORY ranking. Repository loads all expense pages (500 each). Preserve those definitions.
-- New Insights paper popovers/ticket and independent Spending records are absent in baseline.
+## Takeover baseline
+- Repository monowanderer373/monosplit, production branch main. Initial work branch and freshly fetched main were clean at 2041f71a298eca03ca96eeb6b8f3f8f485506660.
+- React 19 / TypeScript / Vite / Supabase / PWA; npm lockfile and Node 22 CI confirmed. No framework/dependency migration.
+- QuickAdd PR #8 and Trip period/lifecycle PR #9 already existed; retained and regressed.
+- Full TabbyTally_Codex_Master_Handover_2026-10-13.md read; Insights/Records ZIP specs/CSS and eight design images read/inspected. Attachments are design/history context; current user scope and finance/security model take precedence.
 
-## Current task
-Implement approved Insights/Spending records design from TabbyTally_InsightsRecords_Complete_Handoff.zip (2026-10-12), preserving existing financial and authorization rules. Read the complete package specs and inspected all eight approved/full/component images. Design JSON is fictional; never production data or fallback.
+## Completed implementation
+- PRs #10–#13 merged. Application release on main: 96975260db658185fa926dce5bb122ca1d050ba8. Later documentation-only checkpoints may follow; read git HEAD rather than treating this SHA as the current documentation commit.
+- Paper/denim Insights: anchored month/scope/currency popovers, Total spending ticket/View records, Categories, DAILY Trend and CATEGORY Ranking with original tie order.
+- Independent Spending records: identical authoritative snapshot/filters/own shares/count/currency; original editor and permissions; readable received records remain visible with readonly details when editing is unavailable. Zero-owner-share records retain their real count. Back restores filter/tab/scroll and loaded rows survive closing the editor.
+- Preserved finance/RLS/RPC definitions, conceal privacy, original QuickAdd/navigation; no design JSON runtime/fallback, migrations, schema/RPC changes or lockfile changes.
+- Fixed late/previous-identity ledger reads and change-request reads, scroll identity scoping, and account-local This month calculation at click time.
+- Source details: docs/insights/IMPLEMENTATION.md. Changed App/AppShell, Insights/Records, shared selectors/hooks, original sheet opt-in fallback, scoped styles/assets/i18n/PWA, meaningful tests, CI screenshot upload and recovery documents.
 
-## Current code / rollout
-- PR #10 merged: feature 3ec01082d4b6e923f15f9729f4ffc879ac2f89dc, main application merge 3f7618580344fa0acacb0d4f22c97751c1f17db9. Current checkout main; read git HEAD because later checkpoint-only commits may follow.
-- Existing live alias really serves that merge SHA and the new SpendingRecordsPage chunk. Updated PWA activation, Records precache, offline shell and signed-out access guards at 320/360/390/430 verified.
-- PR and main Quality runs 38288083611 / 38289066229: all six jobs successful. 519 unit / 723 pgTAP. PR browser artifact: 71 outcomes, 70 first-run passes and 1 existing login readiness retry passed; new 10 Insights tests first-run passed. Details: docs/releases/2026-10-13-insights-records-verification.md.
-- Full master handover received/read. Old rollout notes remain historical, never reset/reapply from them.
+## Validation and production runtime
+- PR #13 Quality run 38300943435: all six jobs success. 524 Vitest / 77 files; lint/build/audit; 723 pgTAP / 16 files, database lint/concurrency/historical upgrade; 71 browser tests (all passed), dedicated CollectPay 10 and Travel/QuickAdd/Trip period 16 passed.
+- Previous PR #12 browser artifact verified 71 expected, 0 flaky/unexpected/skipped. Latest PR #13 run log confirms 71 passed; downloading its artifact remains network-policy blocked. Its extra change is a unit-tested click-time month calculation; screenshots from PR #12 still depict the final layout.
+- Main Quality run 38301821324: all six jobs succeeded; application tree matches tested PR #13.
+- Actual existing production alias serves exact application SHA in /assets/index-D47gnCAe.js and /assets/SpendingRecordsPage-DKmJHqLy.js. Expected Supabase project reference confirmed.
+- Same retained PWA profile upgraded to the new entry, worker activated, Records cached; signed-out Records guards/no overflow at 320/360/390/430 and offline shell passed. TLS verification retained. No fabricated API responses or private account credentials used in these production checks.
+- UI screenshots use explicitly fictional test-created responses; real database/RLS evidence comes from separate disposable Supabase CI tests. Physical phones/OS keyboard/safe-area and private production writes remain unverified.
 
-## Actual outstanding connections
-- Git HTTPS/API/push verified. Vercel API specifically returns missingToken; VERCEL_TOKEN absent. GitHub has not yet supplied new Vercel deployment object/status, so management terminal state/ID remains unverified despite the current production runtime.
-- SUPABASE_ACCESS_TOKEN absent; remote migration history unverified. No production database modifications.
-- Secure binding requirements saved in environment settings. Do not request values in chat. Read-only helper: python3 scripts/Verify-InsightsConnections.py (current missing-binding result is expected).
-- Local Docker vfs/32 GB cannot extract PostgreSQL. CI supplied real backend validation; do not retry that setup unchanged.
-- Private production writes and physical phone behavior not claimed.
-
-## Safety and scope
-Person != Participant; F = E - T + R; immutable accepted history; existing transactional/versioned RPCs, RLS and idempotency preserved. No schema change currently planned. Production private writes and physical phone behavior must not be inferred from public/PWA checks.
-
-## Current implementation / validation
-- Implemented shared snapshot, scoped paper UI/popovers, records route and original expense editor; see docs/insights/IMPLEMENTATION.md.
-- Changed App/AppShell, InsightsPage, ledger/change/scroll hooks, i18n, PWA precache; new SpendingRecordsPage, spending selectors, insights components/tokens/assets, unit and browser tests. Dependency declarations/lockfile/migrations unchanged.
-- Local 519 Vitest / 77 files, ESLint, production build passed. 9 intercepted-API browser checks passed, including geometry/screenshots and history/list restoration. Screenshots: test-results/insights-ui (fictional test-created rows, ignored).
-- Real-backend test added to existing CI; pending run. Production unchanged by this task so far.
+## Real external blockers
+- GitHub read/API/push/merge verified. Vercel API missingToken, VERCEL_TOKEN absent; native CLI also has no saved login. GitHub deployment metadata remains stale. Production runtime is verified, but current deployment ID/management terminal state is unverified. Do not say complete live acceptance.
+- SUPABASE_ACCESS_TOKEN absent and native CLI has no login; remote migration history cannot yet be read. No production DB modifications occurred.
+- Secure requirements saved in cloud environment settings: VERCEL_TOKEN to api.vercel.com; SUPABASE_ACCESS_TOKEN to api.supabase.com. Both still lack saved bindings. Enter values there, never in chat. Draft setup/start instructions and additive network destinations saved; saving a draft is not environment publication.
+- Local Docker vfs/32 GB cannot extract PostgreSQL; real backend CI passed. Do not retry unchanged or reset production.
 
 ## Next executable step
-After secure VERCEL_TOKEN/SUPABASE_ACCESS_TOKEN bindings are supplied, run the read-only connection helper. Match Vercel production deployment's git SHA to main/app release, confirm terminal state and alias, and compare remote migration versions to current source without applying anything. Recheck live only if the published version changes. Update this checkpoint and the release report with actual metadata; do not redo Insights/Records or existing QuickAdd/Trip features.
-
-## Supplementary correction in progress
-Final review found zero-own-share confirmed records were mislabeled as an empty ledger. fix/insights-zero-share distinguishes zero contribution from zero count without financial changes; relevant unit/UI and real-Supabase regression coverage added. Await this branch's CI/merge before final release checkpoint; prior source release remains 3f76185.
-
-## Received-record correction
-A reproduced count/list mismatch required an additional fix: the old editor hid rows lacking edit authority. Records now opts into readonly fallback in the same editor/dialog, exposing only existing RLS-returned facts and no mutation actions. Default behavior in other callers remains unchanged. Full local 522/77, lint/build and readonly UI check passed; real backend coverage added. Current branch fix/insights-readonly-records; latest CI and merge pending. Preserve this work, do not restart.
-
-## Current-month final boundary fix
-Readonly received rows and original ranking ties merged via PR #12, application main 6c4a277. Cross-month This month action regression reproduced and corrected at click time using account timezone; branch fix/insights-current-month. This is the last scoped implementation check; await its CI/merge, then update the release/checkpoint and finish outstanding management verification only when secure credentials are available.
+Securely bind the two management tokens, save settings/apply to this environment as supported, then run python3 scripts/Verify-InsightsConnections.py. Confirm Vercel project tabby-tally under monowanderer373s-projects, production deployment git SHA/alias/terminal state and read Supabase skiqsxvmxvmxfzhrzcxh migration history without applying changes. Existing feature is implemented and serving production; do not rebuild it. Update this checkpoint/report with actual management evidence.
