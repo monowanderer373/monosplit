@@ -25,6 +25,8 @@ export const insightsTranslations = {
   'spending.rankingTitle': { en: 'Spending ranking', zh: '支出排行' },
   'spending.yourSpending': { en: 'Your spending', zh: '你的支出' },
   'spending.chartLabel': { en: 'Category proportions, detailed below', zh: '分类比例，明细如下' },
+  'spending.zeroShare': { en: 'Your share is zero', zh: '你的支出份额为零' },
+  'spending.zeroShareHelp': { en: 'Confirmed records are available below. None contributes to your spending.', zh: '仍有已确认记录，但没有计入你的个人支出。' },
   'spending.empty': { en: 'No spending recorded', zh: '暂无支出记录' },
   'spending.emptyHelp': { en: 'Try another month or scope.', zh: '试试其他月份或范围。' },
   'spending.loading': { en: 'Loading your spending…', zh: '正在加载支出…' },

@@ -40,3 +40,6 @@ Person != Participant; F = E - T + R; immutable accepted history; existing trans
 
 ## Next executable step
 After secure VERCEL_TOKEN/SUPABASE_ACCESS_TOKEN bindings are supplied, run the read-only connection helper. Match Vercel production deployment's git SHA to main/app release, confirm terminal state and alias, and compare remote migration versions to current source without applying anything. Recheck live only if the published version changes. Update this checkpoint and the release report with actual metadata; do not redo Insights/Records or existing QuickAdd/Trip features.
+
+## Supplementary correction in progress
+Final review found zero-own-share confirmed records were mislabeled as an empty ledger. fix/insights-zero-share distinguishes zero contribution from zero count without financial changes; relevant unit/UI and real-Supabase regression coverage added. Await this branch's CI/merge before final release checkpoint; prior source release remains 3f76185.
