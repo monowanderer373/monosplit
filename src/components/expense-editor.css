@@ -125,3 +125,8 @@
 .expense-editor-friends { margin-top:12px; }
 .expense-editor-friends label { display:flex; align-items:center; gap:10px; min-height:40px; }
 .expense-editor-friends input[type="checkbox"] { width:18px; height:18px; accent-color:#b78c61; }
+
+.expense-editor-readonly-facts { display:grid; gap:12px; margin:16px 0; }
+.expense-editor-readonly-facts > div { display:flex; align-items:baseline; flex-wrap:wrap; justify-content:space-between; gap:8px; }
+.expense-editor-readonly-facts dt { color:var(--ms-text-secondary); }
+.expense-editor-readonly-facts dd { margin:0; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }

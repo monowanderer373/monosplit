@@ -50,7 +50,7 @@ export default function SpendingRecordsPage() {
             </span><span className="i-record-amount"><SpendingMoney minor={row.personalSpendingMinor} currency={expense.currency} /></span><InsightIcon name="chevron-right" />
           </>
           const className = `i-record-row ${shared ? 'i-record-row--shared' : ''}`
-          return changes.loading || changes.error ? <div key={expense.id} className={className}>{content}</div> : <ExpenseActionSheet key={expense.id} expense={expense} currentParticipantId={ledger.participantId!} trigger={content} triggerClassName={className} pendingRequest={changes.requests.find(request => request.targetExpenseId === expense.id && request.state === 'pending')} onCancelExpense={ledger.voidExpense} onRefresh={changes.refreshAuthoritative} />
+          return changes.loading || changes.error ? <div key={expense.id} className={className}>{content}</div> : <ExpenseActionSheet readOnlyFallback key={expense.id} expense={expense} currentParticipantId={ledger.participantId!} trigger={content} triggerClassName={className} pendingRequest={changes.requests.find(request => request.targetExpenseId === expense.id && request.state === 'pending')} onCancelExpense={ledger.voidExpense} onRefresh={changes.refreshAuthoritative} />
         })}
       </section>)}
       {limit < snapshot.count ? <button className="i-link i-load-more" onClick={() => setPage({ key, limit: limit + 40 })}>{t('spending.more')}</button> : snapshot.count ? <p className="i-list-end"><SpendingCount count={snapshot.count} /> · {t('spending.end')}</p> : null}

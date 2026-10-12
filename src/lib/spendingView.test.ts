@@ -27,6 +27,10 @@ describe('one spending snapshot for charts and records', () => {
     expect(snapshot.count).toBe(1)
     expect(snapshot.totalMinor).toBe(2000)
   })
+  it('preserves original category-ranking ties from authoritative ledger ordering', () => {
+    const rows = derivePersonalLedgerRows([spendingExpense('b',3500,'personal',{category:'Food'}),spendingExpense('a',3500,'personal',{category:'Shopping'})], 'you')
+    expect(spendingSnapshot(rows,'you',filter,'MYR').categories).toEqual([['Food',3500],['Shopping',3500]])
+  })
   it('retains explicit zero-result currency and counts more than a visible page', () => {
     const rows = derivePersonalLedgerRows(Array.from({ length: 85 }, (_, index) => spendingExpense(String(index), 100)), 'you')
     expect(spendingSnapshot(rows, 'you', filter, 'MYR').count).toBe(85)

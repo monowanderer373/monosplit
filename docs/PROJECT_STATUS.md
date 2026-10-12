@@ -43,3 +43,6 @@ After secure VERCEL_TOKEN/SUPABASE_ACCESS_TOKEN bindings are supplied, run the r
 
 ## Supplementary correction in progress
 Final review found zero-own-share confirmed records were mislabeled as an empty ledger. fix/insights-zero-share distinguishes zero contribution from zero count without financial changes; relevant unit/UI and real-Supabase regression coverage added. Await this branch's CI/merge before final release checkpoint; prior source release remains 3f76185.
+
+## Received-record correction
+A reproduced count/list mismatch required an additional fix: the old editor hid rows lacking edit authority. Records now opts into readonly fallback in the same editor/dialog, exposing only existing RLS-returned facts and no mutation actions. Default behavior in other callers remains unchanged. Full local 522/77, lint/build and readonly UI check passed; real backend coverage added. Current branch fix/insights-readonly-records; latest CI and merge pending. Preserve this work, do not restart.

@@ -226,6 +226,17 @@ describe('unified paper expense editor', () => {
     render(<ExpenseActionSheet expense={expense()} currentParticipantId="other" onRefresh={mocks.refresh} />)
     expect(screen.queryByRole('button')).toBeNull()
   })
+  it('offers an explicitly requested readonly receipt without any financial write path', () => {
+    const record = expense('direct'); record.createdBy = 'lan'
+    render(<ExpenseActionSheet expense={record} currentParticipantId="you" readOnlyFallback onRefresh={mocks.refresh} />)
+    fireEvent.click(screen.getByRole('button', { name: 'View Dinner' }))
+    const dialog = screen.getByRole('dialog', { name: 'Record details' })
+    expect(dialog.textContent).toContain('35.00')
+    expect(dialog.textContent).toContain('17.50')
+    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
+    fireEvent.submit(dialog.querySelector('form')!)
+    for (const call of [mocks.metadata, mocks.financial, mocks.direct, mocks.space, mocks.cancel]) expect(call).not.toHaveBeenCalled()
+  })
   it('keeps metadata-only editing available for older incomplete split rows', async () => {
     const record = expense('direct')
     record.payerContributions = []
