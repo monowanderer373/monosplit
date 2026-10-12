@@ -16,13 +16,18 @@ Read this file, WORK_LOG.md, CONTEXT.md/ADRs, git status and git diff. Preserve 
 ## Current task
 Implement approved Insights/Spending records design from TabbyTally_InsightsRecords_Complete_Handoff.zip (2026-10-12), preserving existing financial and authorization rules. Read the complete package specs and inspected all eight approved/full/component images. Design JSON is fictional; never production data or fallback.
 
-## Connections and blockers
-- Git HTTPS fetch and GitHub API work after network settings propagation. Repository API reports push access. Production alias HTTP 200. Main CI 38058634519 is successful; GitHub production deployment 6982023097 and Vercel commit status confirm baseline 2041f71 successful.
-- Saved required network domains in cloud configuration draft, preserving public.ecr.aws: api.github.com, api.vercel.com, vercel.com, tabby-tally-monowanderer373s-projects.vercel.app, skiqsxvmxvmxfzhrzcxh.supabase.co, api.supabase.com. Save in environment settings, then retry.
-- No Vercel/Supabase credential bindings configured; GH_TOKEN name present, actual API authentication not verified while blocked. Do not print credentials.
-- Complete master handover MD received and read in full; confirmed source priority and historical evidence limits.
-- Local database: prior onboarding proved PostgreSQL image extraction exhausts 32 GB under Docker vfs, even excluding optional services. Current instance still vfs/32 GB; do not retry unchanged. No pgTAP or authenticated backend test readiness claim.
-- Live alias supplied by user: https://tabby-tally-monowanderer373s-projects.vercel.app/ . Deployment SHA/state and remote migration history remain unverified.
+## Current code / rollout
+- PR #10 merged: feature 3ec01082d4b6e923f15f9729f4ffc879ac2f89dc, main application merge 3f7618580344fa0acacb0d4f22c97751c1f17db9. Current checkout main; read git HEAD because later checkpoint-only commits may follow.
+- Existing live alias really serves that merge SHA and the new SpendingRecordsPage chunk. Updated PWA activation, Records precache, offline shell and signed-out access guards at 320/360/390/430 verified.
+- PR and main Quality runs 38288083611 / 38289066229: all six jobs successful. 519 unit / 723 pgTAP. PR browser artifact: 71 outcomes, 70 first-run passes and 1 existing login readiness retry passed; new 10 Insights tests first-run passed. Details: docs/releases/2026-10-13-insights-records-verification.md.
+- Full master handover received/read. Old rollout notes remain historical, never reset/reapply from them.
+
+## Actual outstanding connections
+- Git HTTPS/API/push verified. Vercel API specifically returns missingToken; VERCEL_TOKEN absent. GitHub has not yet supplied new Vercel deployment object/status, so management terminal state/ID remains unverified despite the current production runtime.
+- SUPABASE_ACCESS_TOKEN absent; remote migration history unverified. No production database modifications.
+- Secure binding requirements saved in environment settings. Do not request values in chat. Read-only helper: python3 scripts/Verify-InsightsConnections.py (current missing-binding result is expected).
+- Local Docker vfs/32 GB cannot extract PostgreSQL. CI supplied real backend validation; do not retry that setup unchanged.
+- Private production writes and physical phone behavior not claimed.
 
 ## Safety and scope
 Person != Participant; F = E - T + R; immutable accepted history; existing transactional/versioned RPCs, RLS and idempotency preserved. No schema change currently planned. Production private writes and physical phone behavior must not be inferred from public/PWA checks.
@@ -33,5 +38,5 @@ Person != Participant; F = E - T + R; immutable accepted history; existing trans
 - Local 519 Vitest / 77 files, ESLint, production build passed. 9 intercepted-API browser checks passed, including geometry/screenshots and history/list restoration. Screenshots: test-results/insights-ui (fictional test-created rows, ignored).
 - Real-backend test added to existing CI; pending run. Production unchanged by this task so far.
 
-## Next
-Create feat/insights-spending-records PR; run existing CI including pgTAP/full browser and new actual Supabase journey. Diagnose failures before merge. After checks, merge through existing release flow, inspect Vercel Production success and exact SHA, validate live/public/PWA, update this checkpoint.
+## Next executable step
+After secure VERCEL_TOKEN/SUPABASE_ACCESS_TOKEN bindings are supplied, run the read-only connection helper. Match Vercel production deployment's git SHA to main/app release, confirm terminal state and alias, and compare remote migration versions to current source without applying anything. Recheck live only if the published version changes. Update this checkpoint and the release report with actual metadata; do not redo Insights/Records or existing QuickAdd/Trip features.
