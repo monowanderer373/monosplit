@@ -35,8 +35,8 @@ export function spendingSnapshot(rows: readonly PersonalLedgerRow[], participant
   // An explicit currency remains explicit when a new scope/month has no such records.
   // Never relabel an old amount in a newly selected currency.
   const currency = filter.currency || currencies[0] || (currencyCodes.has(defaultCurrency) ? defaultCurrency : 'MYR')
+  // The ledger already supplies chronological ordering; preserve its original ranking ties.
   const records = eligible.filter(row => row.expense.currency === currency)
-    .sort((a, b) => b.expense.occurredOn.localeCompare(a.expense.occurredOn) || b.expense.createdAt.localeCompare(a.expense.createdAt) || a.expense.id.localeCompare(b.expense.id))
   const summary = summarizeSpending(records.map(row => ({
     category: row.expense.category || 'Other', date: row.expense.occurredOn, amountMinor: row.personalSpendingMinor,
   })))
