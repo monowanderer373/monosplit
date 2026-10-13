@@ -168,3 +168,5 @@
 
 .tt-insights .i-donut>span { flex-direction:column; gap:4px; }
 .tt-insights .i-donut>span strong { color:var(--i-ink); font-size:.875rem; }
+/* Global MoneyText inheritance must not remove the statement's amount weight. */
+#root .tt-insights .i-original-number { font-weight:700; color:var(--i-ink); }

@@ -28,7 +28,7 @@ function PaperPopover({ open, label, close, onEscape, children }: { open: Open; 
       const topEdge = (viewport?.offsetTop ?? 0) + 16
       const rightEdge = leftEdge + (viewport?.width ?? window.innerWidth) - 32
       const bottomEdge = topEdge + (viewport?.height ?? window.innerHeight) - 32
-      const width = Math.min(Math.max(326, 20.375 * parseFloat(getComputedStyle(document.documentElement).fontSize)), rightEdge - leftEdge)
+      const width = Math.min(Math.max(326, 20.375 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)), rightEdge - leftEdge)
       const left = Math.max(leftEdge, Math.min(anchor.left, rightEdge - width))
       const desiredHeight = (popup.querySelector<HTMLElement>('.i-popover-content')?.scrollHeight ?? popup.scrollHeight) + 34
       const below = bottomEdge - anchor.bottom - 8

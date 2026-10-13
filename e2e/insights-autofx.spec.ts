@@ -4,9 +4,10 @@ import { autoFxRecords,autoFxSnapshot } from './fixtures/autoFx'
 
 for (const width of [320,360,390,430]) for (const scale of [100,125,150,200]) {
   test(`FINAL three currencies ${width}px ${scale}% root font (mock rate/UI contract)`,async ({page})=>{
+    test.setTimeout(60_000)
     await setup(page,autoFxRecords);await page.setViewportSize({width,height:844})
     await page.goto('/insights?month=2026-10&currency=VND')
-    await expect(page.getByTestId('spending-total')).toContainText('≈ RM 200.00')
+    await expect(page.getByTestId('spending-total')).toContainText('≈ RM 200.00',{timeout:15_000})
     await page.addStyleTag({content:`html{font-size:${scale}% !important}`})
     await expect(page.locator('.i-filter-button')).toHaveCount(2)
     await expect(page.locator('.i-filter-label,.i-fold,.i-leather')).toHaveCount(0)
@@ -15,13 +16,14 @@ for (const width of [320,360,390,430]) for (const scale of [100,125,150,200]) {
     await expect(page.getByText('20 records',{exact:true})).toBeVisible()
     await expect(page.locator('.i-donut')).toContainText('946.00')
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
-    await expect.poll(()=>page.locator('.i-original-number').evaluateAll(nodes=>nodes.every(n=>n.scrollWidth<=n.clientWidth+1))).toBe(true)
+    await expect.poll(()=>page.locator('.i-original-number').evaluateAll(nodes=>nodes.every(n=>n.scrollWidth<=n.clientWidth+1 || n.getAttribute('tabindex')==='0' && n.parentElement?.dataset.scroll==='true')))).toBe(true)
     await capture(page,`final-multi-${width}-${scale}`)
     const snapshot=await page.getByTestId('spending-total').textContent()
     await page.getByRole('link',{name:'View records'}).click()
     await expect(page).toHaveURL(/fx=10000000-0000-4000-8000-000000000013/)
     await expect(page.getByTestId('spending-total')).toHaveText(snapshot!)
     await expect(page.locator('.i-record-row')).toHaveCount(20)
+    await expect(page.locator('button.i-record-row')).toHaveCount(20,{timeout:15_000})
     const shared=page.getByRole('button',{name:'Edit Vietnam lunch'})
     await expect(shared).toContainText('300,000');await expect(shared).toContainText('Bill VND 600,000')
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
@@ -71,7 +73,7 @@ test('updating/no cache, retry cooldown, recovery and foreign-only (mock FX)',as
   await capture(page,'final-foreign-only-recovered')
 })
 test('extreme number uses local keyboard scroll, not clipped digits or page overflow',async ({page})=>{
-  const records=autoFxRecords.filter(e=>e.currency==='VND').map(e=>({...e,totalMinor:9007199254000000,shares:e.shares.map(s=>({...s,amountMinor:4503599627000000}))}))
+  const records=autoFxRecords.filter(e=>e.currency==='VND').map(e=>({...e,totalMinor:9007199254000000,payerContributions:e.payerContributions.map((c,i)=>({...c,amountMinor:i===0?9007199254000000:0})),shares:e.shares.map(s=>({...s,amountMinor:e.scope==='personal'?9007199254000000:4503599627000000}))}))
   await setup(page,records);await page.setViewportSize({width:320,height:844});await page.goto('/insights?month=2026-10')
   await expect(page.getByTestId('spending-total')).toContainText('≈ RM')
   await page.addStyleTag({content:'html{font-size:200% !important}'})

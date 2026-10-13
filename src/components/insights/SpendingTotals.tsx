@@ -20,7 +20,9 @@ export default function SpendingTotals({ snapshot, updating, retry }: { snapshot
       const unit = row.querySelector<HTMLElement>('.i-currency-unit')!
       const range = document.createRange(); range.selectNodeContents(amount)
       const width = range.getBoundingClientRect().width
-      row.dataset.stacked = String(width + unit.getBoundingClientRect().width + 8 > row.clientWidth)
+      const unitRange = document.createRange(); unitRange.selectNodeContents(unit)
+      const unitWidth = Math.max(3*parseFloat(getComputedStyle(document.documentElement).fontSize),unitRange.getBoundingClientRect().width)
+      row.dataset.stacked = String(width + unitWidth + 8 > row.clientWidth)
       const scroll = width > amount.clientWidth + 1
       amount.tabIndex = scroll ? 0 : -1
       amount.setAttribute('aria-label', hidden ? t('spending.hidden') : `${amount.textContent}${scroll ? ` · ${t('spending.scrollAmount')}` : ''}`)
