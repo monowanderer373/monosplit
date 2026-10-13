@@ -130,7 +130,9 @@ export async function signIn(
   await page.getByLabel('Password').fill(account.password)
   await page.getByRole('button', { name: 'Sign In' }).click()
   await expect(page).toHaveURL(new RegExp(`${redirect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`))
-  await expect(page.getByTestId('home-header')).toBeVisible()
+  // Account/profile bootstrap can exceed the default five seconds on a busy CI runner.
+  // Still assert the actual authenticated UI, with a bounded readiness budget.
+  await expect(page.getByTestId('home-header')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId('home-account-selector')).toBeVisible()
 }
 

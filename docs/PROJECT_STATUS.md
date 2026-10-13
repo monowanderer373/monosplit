@@ -35,3 +35,13 @@ Read this file, WORK_LOG.md, CONTEXT.md/ADRs, git status/diff and latest remote 
 
 ## Next executable step
 Securely bind the two management tokens, save settings/apply to this environment as supported, then run python3 scripts/Verify-InsightsConnections.py. Confirm Vercel project tabby-tally under monowanderer373s-projects, production deployment git SHA/alias/terminal state and read Supabase skiqsxvmxvmxfzhrzcxh migration history without applying changes. Existing feature is implemented and serving production; do not rebuild it. Update this checkpoint/report with actual management evidence.
+
+## Active task — Insights revision 2026-10-13
+- Current user explicitly requests existing production deployment; earlier setup-only deployment prohibition belongs to the completed environment task. PR#14 remains separate/unmerged.
+- Branch fix/insights-visual-revision based on fresh origin/main392a84f; tree initially clean. Read full pasted request and revision README/spec/prompt/CSS; inspected all four boards. Latest spec takes precedence over conflicting old visuals; financial/RLS definitions unchanged.
+- Measured390px baseline: month135.86/scope128.05/currency78.08px, buttons44px, old fonts13px/corner14px/material mismatches. New layout uses actual glyph/DOM fit; Month→Currency→Scope DOM order, default two rows, wide when content fits, single/stacked at extreme font widths.
+- Implemented scoped exact tokens/SVGs, year range/grid/paging/Escape/footer/focus/collision, compact receipt/tabs/chart/list treatments, records state actions/skeleton/category tones. Original selectors/renderer/permissions/editors preserved.
+- Local final intercepted UI36 tests passed:24 viewport/font combinations (320/360/390/430/480/768 ×100/125/150/200% HTML root font), plus1024/original state/filter/share/privacy/history journeys. Simulated Chromium only; no Honor device claim. Root font/viewport/DPR/button/text geometry saved in ignored evidence.
+- Reproduced/fixed200% narrow grid overflow and currency intrinsic width shrink; initial future-clock test expired its synthetic session, fixed test clock sequencing.
+- Existing Vercel project verified via project-scoped API: prj_hoshkzURGyUGqAVq3Yl45HB5jyj4, team_zgmzKfdeAS7b70OXAolco0Cj, Vite, monowanderer373/monosplit; baseline production392a84f READY/dpl_CUYEepRS4wWoPYS66abvByw5fnuz. Account-wide teams listing403 is not a project authorization blocker; corrected read-only helper accordingly. Supabase management connected,24 remote migrations read, no schema change.
+- Remaining: final unit/lint/build, CI real backend, compare component screenshots, commit/PR/merge, existing production READY/source/PWA verification and controlled authenticated read. No production release from this revision yet.

@@ -1,5 +1,5 @@
 import { monthLabel } from '../lib/spendingView'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useT } from '../lib/i18n'
 import { useSpendingView } from '../hooks/useSpendingView'
 import { spendingQuery, type SpendingTab } from '../lib/spendingView'
@@ -9,19 +9,20 @@ import { InsightIcon, InsightPage, SpendingCount, SpendingMoney, SpendingState }
 
 export default function InsightsPage() {
   const t = useT()
+  const location = useLocation()
   const { auth, ledger, lang, today, timezone, filter, snapshot, ready, authenticated, hidden, update } = useSpendingView()
   if (auth.loading) return <InsightPage><SpendingState status="loading" /></InsightPage>
   if (auth.sessionError) return <InsightPage><SpendingState status="error" retry={auth.retrySession} /></InsightPage>
   if (!authenticated) return <InsightPage><p>{auth.authUser ? t('spending.unavailable') : t('ledger.privateTitle')}</p><Link className="i-link" to="/login">{t('common.signIn')}</Link></InsightPage>
   return <InsightPage>
     <header><h1 className="i-heading">{t('insights.title')}</h1><p className="i-subtitle">{t('spending.subtitle')}</p></header>
-    <InsightsFilters filter={filter} currencies={snapshot.currencies} timezone={timezone} lang={lang} update={update} />
+    <InsightsFilters filter={filter} currencies={snapshot.currencies} timezone={timezone} lang={lang} update={update} initialMonthOpen={Boolean(location.state?.openSpendingMonth)} />
     {!ready ? <SpendingState status={ledger.expensesStatus === 'error' ? 'error' : 'loading'} retry={ledger.refresh} /> : <>
       <section className="i-card i-summary-ticket" aria-label={t('spending.total')}>
         <img className="i-corner" src="/assets/insights/denim-corner.svg" alt="" />
         <div className="i-ticket-top"><h2 className="i-ticket-title"><InsightIcon name="receipt" />{t('spending.total')}</h2><span className="i-month-badge i-leather">{monthLabel(filter.month, lang).toLocaleUpperCase()}</span></div>
         <p className="i-total" data-testid="spending-total"><SpendingMoney minor={snapshot.totalMinor} currency={snapshot.currency} /></p>
-        <div className="i-ticket-footer"><span><span className="i-record-count"><SpendingCount count={snapshot.count} /></span><span className="i-share-basis">{t('spending.basis')}</span></span><Link className="i-link" to={`/insights/records?${spendingQuery(filter)}`} state={{ fromInsights: true }}>{t('spending.viewRecords')}<InsightIcon name="arrow-right" /></Link></div>
+        <div className="i-ticket-footer"><span><span className="i-record-count"><SpendingCount count={snapshot.count} /></span><span className="i-share-basis">{t(filter.scope === 'personal' ? 'spending.personalBasis' : 'spending.basis')}</span></span><Link className="i-link" to={`/insights/records?${spendingQuery(filter)}`} state={{ fromInsights: true }}>{t('spending.viewRecords')}<InsightIcon name="arrow-right" /></Link></div>
         <img className="i-fold" src="/assets/insights/paper-fold.svg" alt="" />
       </section>
       <div className="i-analysis-tabs" role="tablist" aria-label={t('spending.views')} onKeyDown={event => {

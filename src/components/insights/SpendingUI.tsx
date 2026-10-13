@@ -10,6 +10,11 @@ import './insights.css'
 export function InsightIcon({ name, className = '' }: { name: string; className?: string }) {
   return <svg className={`i-icon ${className}`} aria-hidden="true"><use href={`/assets/insights/insights-icons.svg#${name}`} /></svg>
 }
+const categoryIcons: Record<string, string> = { Food: 'utensils', Drinks: 'coffee', Groceries: 'cart', Transportation: 'car', Flight: 'car', Accommodation: 'bed', Shopping: 'bag', Sightseeing: 'ticket', Activities: 'ticket' }
+export function CategoryDisk({ category }: { category: string }) {
+  const tone = ['Groceries', 'Shopping'].includes(category) ? 'sage' : ['Transportation', 'Flight', 'Accommodation'].includes(category) ? 'blue' : 'apricot'
+  return <span className="i-record-icon" data-tone={tone}><InsightIcon name={categoryIcons[category] ?? 'receipt'} /></span>
+}
 export function SpendingMoney({ minor, currency }: { minor: number; currency: string }) {
   const lang = useStore(state => state.lang)
   const hidden = useStore(state => state.homeUi.balanceHidden)
@@ -20,13 +25,16 @@ export function SpendingCount({ count }: { count: number }) {
   const t = useT()
   return <>{t(count === 1 ? 'spending.countOne' : 'spending.countMany', { count })}</>
 }
-export function SpendingState({ status, retry }: { status: 'loading' | 'error' | 'empty' | 'zero-share'; retry?: () => unknown }) {
+export function SpendingState({ status, retry, records = false, changeMonth }: { status: 'loading' | 'error' | 'empty' | 'zero-share'; retry?: () => unknown; records?: boolean; changeMonth?: () => unknown }) {
   const t = useT()
+  if (status === 'loading') return <section className="i-state-card i-card" role="status" aria-busy="true" aria-label={t('spending.loading')}><div className="i-skeleton-list" aria-hidden="true">{[0, 1].map(index => <div key={index} className="i-skeleton-row"><span /><span /><span /></div>)}</div></section>
   return <section className="i-state-card i-card" role={status === 'error' ? 'alert' : 'status'}>
     <InsightIcon name={status === 'error' ? 'info' : 'receipt'} />
-    <div><strong>{t(status === 'loading' ? 'spending.loading' : status === 'error' ? 'spending.error' : status === 'zero-share' ? 'spending.zeroShare' : 'spending.empty')}</strong>
+    <div><strong>{t(status === 'error' ? records ? 'spending.recordsError' : 'spending.error' : status === 'zero-share' ? 'spending.zeroShare' : records ? 'spending.recordsEmpty' : 'spending.empty')}</strong>
       {status === 'empty' || status === 'zero-share' ? <p>{t(status === 'zero-share' ? 'spending.zeroShareHelp' : 'spending.emptyHelp')}</p> : null}
-      {status === 'error' && retry ? <button className="i-link" onClick={() => void retry()}>{t('common.retry')}</button> : null}
+      {status === 'empty' && changeMonth ? <button className="i-link i-state-action" onClick={() => void changeMonth()}><InsightIcon name="calendar" />{t('spending.changeMonth')}</button> : null}
+      {records && status === 'error' ? <p>{t('spending.tryAgain')}</p> : null}
+      {status === 'error' && retry ? <button className="i-link i-state-action" onClick={() => void retry()}>{t('common.retry')}</button> : null}
     </div>
   </section>
 }

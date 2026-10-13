@@ -55,5 +55,5 @@ export function spendingCategoryColor(category: string): string {
 }
 
 export function monthLabel(month: string, lang: 'en' | 'zh', style: 'short' | 'long' = 'short') {
-  return new Intl.DateTimeFormat(localeForLang(lang), { year: 'numeric', month: style, timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`))
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : localeForLang(lang), { year: 'numeric', month: style, timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`))
 }
