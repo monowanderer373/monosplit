@@ -25,6 +25,13 @@ test('renders the quick-add deep link without exposing a ledger while signed out
 })
 
 test('installs the production PWA and restores its private shell offline', async ({ page, context }) => {
+  const workerResponse = await page.request.get('/sw.js')
+  expect(workerResponse.ok()).toBe(true)
+  const workerSource = await workerResponse.text()
+  for (const material of ['denim-corner', 'denim-weave', 'paper-grain', 'insights-icons']) {
+    // Stable asset URLs need a content revision, or an existing PWA keeps old art.
+    expect(workerSource).toMatch(new RegExp(`url:["']assets/insights/${material}\\.svg["'],revision:["'][0-9a-f]{32}["']`))
+  }
   await page.goto('/')
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready
