@@ -4,7 +4,7 @@ Use the existing /workspace/monosplit checkout; do not create a worktree unless 
 
 Runtime: export PATH=/workspace/.tabby-node/node-v22.23.3-linux-x64/bin:"$PATH" in every execution session. Node 22 matches CI's major; CI's moving patch can differ. Installer downloads official distribution with TLS and SHA-256 verification. Dependencies/snapshot files may survive; servers and session PATH do not.
 
-If dependencies/generated wrapper are missing, run bash /workspace/monosplit/cloud/install.sh when present. Otherwise use the saved Cloud Install Script; it is NOT assumed to exist at /workspace/onboarding/install.sh. Installation uses npm ci (never rewrites the lockfile), creates .env.local only when absent, and generates /workspace/onboarding/{validate-local-env.mjs,playwright.config.ts}. It never starts Docker or deploys.
+If dependencies/generated wrapper are missing, run bash /workspace/monosplit/cloud/install.sh when present. Otherwise use the saved Cloud Install Script; it is NOT assumed to exist at /workspace/onboarding/install.sh. Installation uses npm ci (never rewrites the lockfile), creates .env.local only when absent, and generates /workspace/onboarding/{validate-local-env.mjs,playwright.config.ts}. It never starts Docker or deploys. Finish installation before validation; never run npm ci concurrently with tests/builds.
 
 Before development, build or disposable browser tests:
 cd /workspace/monosplit

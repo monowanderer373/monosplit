@@ -3,14 +3,14 @@
 2026-10-13 (Asia/Kuala_Lumpur). Adapted all files in TabbyTally_Codex_Autonomous_Setup_v3.zip to actual repository/environment; attachment proposals are not current-state evidence.
 
 ## Executive status
-- Repo / active branch / latest commit: monowanderer373/monosplit, chore/codex-environment-v3, based on main392a84f52b5e75537dd21b437261e82056786420; final scoped Git commit is the commit containing this report (use git log -1). PR link recorded below after creation.
+- Repo / active branch / latest commit: monowanderer373/monosplit, chore/codex-environment-v3, based on main392a84f52b5e75537dd21b437261e82056786420; final scoped Git commit is the commit containing this report (use git log -1). Implementation commit4f7d3edbb363bbb40fe19183c30b993ba1e1f13f; PRhttps://github.com/monowanderer373/monosplit/pull/14 (OPEN, unmerged). Documentation-only checkpoints may follow; use git HEAD for latest checkpoint.
 - Remote Codex Cloud Environment actually updated? **NO for active/published settings; YES for saved draft**, confirmed by exact read-back of both fields. Draft6acd982256a4819296cde723dcf7ce97, requires_publish=true. Supported tool cannot apply/publish it. No claim of fresh-task restoration.
 - Frontend development ready? **YES on this instance**, when exporting documented Node PATH and using generated target guard. Fresh-task verification pending publication.
 - Backend integration ready? **BLOCKED locally** by unchanged Docker vfs/capacity design and no disposable backend running. Use isolated existing CI.
 - Production deployed? **NO** — this setup task does not authorize deployment. Main is unmerged; no deploy commands or production data operations.
 
 ## Changes made
-- cloud/install.sh: full standalone cloud field text; official Node22.23.3/linux-x64 TLS+SHA256 verification, npm ci cache/no-audit/no-fund, fail-closed config constants, exclusive env creation, ESM external helper metadata, Vite-resolved isolation and Chromium-only wrapper preserving options/server arrays. No Docker startup/reset/deployment. Pinned Node major matches CI22; CI patch floats.
+- cloud/install.sh: full standalone cloud field text; official Node22.23.3/linux-x64 TLS+SHA256 verification, npm ci cache/no-audit/no-fund, fail-closed config constants, exclusive env creation, ESM external helper metadata, Vite-resolved isolation and Chromium-only wrapper preserving options/server arrays. No Docker startup/reset/deployment. Pinned Node major matches CI22; CI patch floats. System Node24.19.0/npm11.9.0 remains untouched: new command sessions must export the managed Node22 PATH; all current final checks did so.
 - cloud/START_SKILL.md: full copy-ready startup text, PATH per session, truthful frontend/backend separation, bounded recovery reads, process ownership and publication boundaries.
 - cloud/verify-environment.test.mjs: seven meaningful regression checks for target resolution/privileged key/URL credentials and wrapper preservation across Chromium/Firefox, launch options and server arrays. Synthetic temporary fixtures only.
 - .agents/skills/tabby-environment-qa/SKILL.md: reusable repository skill; different from cloud Start Skill field. Conventional repository skill path is present; automatic discovery in a future session NOT independently verified.
@@ -35,12 +35,15 @@
 | Docker resource readiness | BLOCKED | vfs;32GB filesystem/30GB available; images221.1MB; no containers/volumes/auth health. Known same-capacity PostgreSQL extraction failure; no unchanged pull attempted |
 | Disposable DB lint / pgTAP | BLOCKED | No verified disposable stack; no reset/start/DB commands run. Existing isolated Quality CI is the recommended runner |
 | Authenticated Playwright | BLOCKED | Local backend unavailable; no production/shared fixtures used |
+| Isolated CI DB/auth/regressions | PASS | Current run38337612375: six jobs success,723 pgTAP; actual GitHub API job outcomes, separate from local readiness |
 | Production deployment | NOT RUN | Out of setup scope, no main merge/deployment |
 | Published/new-task restoration | NOT RUN | Supported tool saves draft only; requires user publication then new task |
 
 Initial attempts and recovery: wrapper first loaded as CommonJS and failed on import.meta; corrected external ESM metadata and confirmed list/public run. One reinstall overlapped first tests/build, causing missing-module failures; those results were discarded and full current checks rerun after install. First browser attempt refused an occupied port as intended; owned dev processes stopped before final4/4. CLI default state hit readonly home; documented SUPABASE_HOME succeeded. No unresolved frontend FAIL remains.
 
 Logs on current machine: /workspace/onboarding/setup-v3-{install,repeat-install,unit-final,lint-final,build-final,guard-final,public-final,test-list}.log. Logs are local evidence, not committed artifacts; do not dump arbitrary env/credentials in future runs. Old508/519/previous71/pgTAP evidence is not this task's local success.
+
+PR #14 current isolated [Quality CI38337612375](https://github.com/monowanderer373/monosplit/actions/runs/38337612375) finished: all six jobs succeeded (API job states inspected),524 unit/77 files,723 pgTAP/16 files, database lint/concurrency/historical upgrade, CollectPay10 and Travel/QuickAdd/period16 passed. Full browser/auth job succeeded; the downloaded combined log duplicated CollectPay output under browser, so no full-browser case count/skipped/retry statistics are asserted without its result artifact. Local backend remains blocked independently of CI success.
 
 ## Unresolved blockers
 - Backend: unchanged vfs/capacity prevents a safe meaningful retry. Run existing GitHub Actions Quality on a disposable runner or provision suitable storage/layer-sharing driver; verify ownership, localhost auth/database and CLI flags before any local reset. Never substitute production.
@@ -50,4 +53,4 @@ Logs on current machine: /workspace/onboarding/setup-v3-{install,repeat-install,
 
 ## Security confirmation
 - Production database untouched by this task: no reset/migrate/seed/write commands, no production financial data or automated account fixtures used. This is a command-scope assertion, not a forensic audit of external actors.
-- No secrets printed or committed: env checks emit generic verdicts; only existing PUBLIC LOCAL demo fixture key is read for verification; env/cache/helper output remains outside tracked changes. Review git staged diff/files before commit. TLS/checksum verification retained; no service-role or token values included.
+- No secrets printed or committed: proposed file-list/available binding-value exclusion check passed; env checks emit generic verdicts; only existing PUBLIC LOCAL demo fixture key is read for verification; env/cache/helper output remains outside tracked changes. Review git staged diff/files before commit. TLS/checksum verification retained; no service-role or token values included.
