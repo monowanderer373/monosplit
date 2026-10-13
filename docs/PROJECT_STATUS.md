@@ -5,7 +5,14 @@ Checkpoint:2026-10-13 (Asia/Kuala_Lumpur).
 ## Resume first
 Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff and current remote main. Preserve work. Old handover release/migration claims are historical; never reset/reapply from them.
 
-## Current completed task
+## Active task — AutoFX FINAL2026-10-13
+- Branch feat/insights-autofx-final from clean main0ff76f1. Final requirements/specs read; four boards and three exact renders reviewed. Prior revision is historical baseline.
+- Implement all currencies, final Month+Scope/A statement, exact MYR reference valuation and shared snapshot. No original finance model changes.
+- Connections: GitHub read, Vercel correct project/framework/git, Supabase24 migration history verified now. No FX cache/extensions installed. Official Frankfurter OpenAPI2.1.1 read from provider repository. Cloud direct provider CONNECT403; additive domain draft saved, requires publication (not active). Hosting access still to verify.
+- Planned backend: isolated FX metadata tables/controlled refresh/RLS+grants/daily Cron; forward additive migration, CI isolated validation before production. No production financial reset/data export.
+- Current feature tests/deploy NOT RUN yet. Next: implement and verify before release.
+
+## Previous completed task
 - Approved Insights / Spending records REVISION2026-10-13 implemented on existing React19/TS/Vite/Supabase/PWA. Full pasted request and package/spec/CSS/four boards reviewed. No finance/RLS/model/schema/dependency/lockfile changes.
 - PR15 MERGED; app main9b2eb2f56dbe6d8cb0f327798bb77f4a3e343bf2. Later docs-only checkpoint may follow; read HEAD.
 - Actual-content fit: Month→Currency→Scope DOM/keyboard order;2-row mobile/default48px,96px currency, large-font/narrow single/stacked, wide only when fits. Scoped exact colors/materials, original SVGs, compact ticket/tabs/chart/records typography.
