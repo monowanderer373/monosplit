@@ -1,47 +1,30 @@
 # Tabby Tally project status
 
-Checkpoint: 2026-10-13 (Asia/Kuala_Lumpur).
+Checkpoint:2026-10-13 (Asia/Kuala_Lumpur).
 
 ## Resume first
-Read this file, WORK_LOG.md, CONTEXT.md/ADRs, git status/diff and latest remote main. Preserve user changes. Historical HANDOFF/CONTEXT rollout notes are not current deployment or migration evidence. Do not reset/reapply from them.
+Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff and current remote main. Preserve work. Old handover release/migration claims are historical; never reset/reapply from them.
 
-## Takeover baseline
-- Repository monowanderer373/monosplit, production branch main. Initial work branch and freshly fetched main were clean at 2041f71a298eca03ca96eeb6b8f3f8f485506660.
-- React 19 / TypeScript / Vite / Supabase / PWA; npm lockfile and Node 22 CI confirmed. No framework/dependency migration.
-- QuickAdd PR #8 and Trip period/lifecycle PR #9 already existed; retained and regressed.
-- Full TabbyTally_Codex_Master_Handover_2026-10-13.md read; Insights/Records ZIP specs/CSS and eight design images read/inspected. Attachments are design/history context; current user scope and finance/security model take precedence.
+## Current completed task
+- Approved Insights / Spending records REVISION2026-10-13 implemented on existing React19/TS/Vite/Supabase/PWA. Full pasted request and package/spec/CSS/four boards reviewed. No finance/RLS/model/schema/dependency/lockfile changes.
+- PR15 MERGED; app main9b2eb2f56dbe6d8cb0f327798bb77f4a3e343bf2. Later docs-only checkpoint may follow; read HEAD.
+- Actual-content fit: Month→Currency→Scope DOM/keyboard order;2-row mobile/default48px,96px currency, large-font/narrow single/stacked, wide only when fits. Scoped exact colors/materials, original SVGs, compact ticket/tabs/chart/records typography.
+- Same anchored month/year popup: dynamic12 years,44px framed controls/stitched selector, range label/no fake chevron, paging/return/This month/semantic selection/keyboard/outside/focus/collision/internal scroll. English Sep consistent.
+- Records uses SAME authoritative snapshot/query/count/own shares/currency and original editor/permissions/readonly fallback/history scroll. Real Empty Change month, Loading skeleton/no false0, Error Retry, category tones. Daily Trend/CATEGORY Ranking and colors preserved.
+- Files and visual deviations mapped in docs/insights/REVISION_2026-10-13.md; complete evidence in docs/releases/2026-10-13-insights-ui-revision.md.
 
-## Completed implementation
-- PRs #10–#13 merged. Application release on main: 96975260db658185fa926dce5bb122ca1d050ba8. Later documentation-only checkpoints may follow; read git HEAD rather than treating this SHA as the current documentation commit.
-- Paper/denim Insights: anchored month/scope/currency popovers, Total spending ticket/View records, Categories, DAILY Trend and CATEGORY Ranking with original tie order.
-- Independent Spending records: identical authoritative snapshot/filters/own shares/count/currency; original editor and permissions; readable received records remain visible with readonly details when editing is unavailable. Zero-owner-share records retain their real count. Back restores filter/tab/scroll and loaded rows survive closing the editor.
-- Preserved finance/RLS/RPC definitions, conceal privacy, original QuickAdd/navigation; no design JSON runtime/fallback, migrations, schema/RPC changes or lockfile changes.
-- Fixed late/previous-identity ledger reads and change-request reads, scroll identity scoping, and account-local This month calculation at click time.
-- Source details: docs/insights/IMPLEMENTATION.md. Changed App/AppShell, Insights/Records, shared selectors/hooks, original sheet opt-in fallback, scoped styles/assets/i18n/PWA, meaningful tests, CI screenshot upload and recovery documents.
+## Current verified evidence
+- Local524 unit/77,lint/typecheck/build PASS.37 UI cases PASS; final state refinement1/1 and final24 geometry combinations PASS.320/360/390/430/480/768/1024;125/150/200% HTML root font, English/Chinese/long labels/values, original finance/privacy/history/state and short viewport touch.
+- PR Quality38345796393 and main38346660475: six jobs SUCCESS;723 pgTAP/16,DB lint/concurrency/historical upgrade,CollectPay10,Travel/QuickAdd/period16 and full real backend/browser job. First failed CI selector/readiness recovered with scoped selector/bounded actual readiness; no ignored failure.
+- Original existing app production READY/dpl_9qtfWrKfKYNNw28kqXWeTV3LLJvM at exact9b2eb2f/main; alias https://tabby-tally-monowanderer373s-projects.vercel.app/ . Entry index-Don0a5kX/Records D6waQ98v serve actual SHA and new styles/materials.
+- Actual normal login/production RLS reads with separate controlled QA principals/data, no interception: All48/2,Personal12/1,Shared own36/1 versusBill72; counterpart cannot read owner's personal expense. Month/year/This month/currency/scopes/Records/back/visible+accessible privacy PASS,0 runtime errors. QA financial facts remain immutable; sessions cleared/signed out; no actual customer accounts/data touched.
+- Retained PWA upgraded/activated,records cached,public guards320/360/390/430 and offline shell PASS. TLS verification maintained, platform public CA constrained only in owned test profile.
+- Supabase remote24 migrations == source24; no changes applied. Vercel project-scoped API connected/project/git/framework/READY verified; account-wide teams403 does not block this project.
 
-## Validation and production runtime
-- PR #13 Quality run 38300943435: all six jobs success. 524 Vitest / 77 files; lint/build/audit; 723 pgTAP / 16 files, database lint/concurrency/historical upgrade; 71 browser tests (all passed), dedicated CollectPay 10 and Travel/QuickAdd/Trip period 16 passed.
-- Previous PR #12 browser artifact verified 71 expected, 0 flaky/unexpected/skipped. Latest PR #13 run log confirms 71 passed; downloading its artifact remains network-policy blocked. Its extra change is a unit-tested click-time month calculation; screenshots from PR #12 still depict the final layout.
-- Main Quality run 38301821324: all six jobs succeeded; application tree matches tested PR #13.
-- Actual existing production alias serves exact application SHA in /assets/index-D47gnCAe.js and /assets/SpendingRecordsPage-DKmJHqLy.js. Expected Supabase project reference confirmed.
-- Same retained PWA profile upgraded to the new entry, worker activated, Records cached; signed-out Records guards/no overflow at 320/360/390/430 and offline shell passed. TLS verification retained. No fabricated API responses or private account credentials used in these production checks.
-- UI screenshots use explicitly fictional test-created responses; real database/RLS evidence comes from separate disposable Supabase CI tests. Physical phones/OS keyboard/safe-area and private production writes remain unverified.
-
-## Real external blockers
-- GitHub read/API/push/merge verified. Vercel API missingToken, VERCEL_TOKEN absent; native CLI also has no saved login. GitHub deployment metadata remains stale. Production runtime is verified, but current deployment ID/management terminal state is unverified. Do not say complete live acceptance.
-- SUPABASE_ACCESS_TOKEN absent and native CLI has no login; remote migration history cannot yet be read. No production DB modifications occurred.
-- Secure requirements saved in cloud environment settings: VERCEL_TOKEN to api.vercel.com; SUPABASE_ACCESS_TOKEN to api.supabase.com. Both still lack saved bindings. Enter values there, never in chat. Draft setup/start instructions and additive network destinations saved; saving a draft is not environment publication.
-- Local Docker vfs/32 GB cannot extract PostgreSQL; real backend CI passed. Do not retry unchanged or reset production.
-
-## Next executable step
-Securely bind the two management tokens, save settings/apply to this environment as supported, then run python3 scripts/Verify-InsightsConnections.py. Confirm Vercel project tabby-tally under monowanderer373s-projects, production deployment git SHA/alias/terminal state and read Supabase skiqsxvmxvmxfzhrzcxh migration history without applying changes. Existing feature is implemented and serving production; do not rebuild it. Update this checkpoint/report with actual management evidence.
-
-## Active task — Insights revision 2026-10-13
-- Current user explicitly requests existing production deployment; earlier setup-only deployment prohibition belongs to the completed environment task. PR#14 remains separate/unmerged.
-- Branch fix/insights-visual-revision based on fresh origin/main392a84f; tree initially clean. Read full pasted request and revision README/spec/prompt/CSS; inspected all four boards. Latest spec takes precedence over conflicting old visuals; financial/RLS definitions unchanged.
-- Measured390px baseline: month135.86/scope128.05/currency78.08px, buttons44px, old fonts13px/corner14px/material mismatches. New layout uses actual glyph/DOM fit; Month→Currency→Scope DOM order, default two rows, wide when content fits, single/stacked at extreme font widths.
-- Implemented scoped exact tokens/SVGs, year range/grid/paging/Escape/footer/focus/collision, compact receipt/tabs/chart/list treatments, records state actions/skeleton/category tones. Original selectors/renderer/permissions/editors preserved.
-- Local final intercepted UI36 tests passed:24 viewport/font combinations (320/360/390/430/480/768 ×100/125/150/200% HTML root font), plus1024/original state/filter/share/privacy/history journeys. Simulated Chromium only; no Honor device claim. Root font/viewport/DPR/button/text geometry saved in ignored evidence.
-- Reproduced/fixed200% narrow grid overflow and currency intrinsic width shrink; initial future-clock test expired its synthetic session, fixed test clock sequencing.
-- Existing Vercel project verified via project-scoped API: prj_hoshkzURGyUGqAVq3Yl45HB5jyj4, team_zgmzKfdeAS7b70OXAolco0Cj, Vite, monowanderer373/monosplit; baseline production392a84f READY/dpl_CUYEepRS4wWoPYS66abvByw5fnuz. Account-wide teams listing403 is not a project authorization blocker; corrected read-only helper accordingly. Supabase management connected,24 remote migrations read, no schema change.
-- Remaining: final unit/lint/build, CI real backend, compare component screenshots, commit/PR/merge, existing production READY/source/PWA verification and controlled authenticated read. No production release from this revision yet.
+## Actual limits and next step
+- Physical Honor/OS keyboard/system fonts/safe-area NOT RUN; all viewport/DPR tests simulated. Root-font scaling is not OS/browser zoom evidence.
+- CI full-browser result artifact blocked at Azure host11; job success verified, no unobserved per-case/retry/skip statistics claimed.
+- Local Docker vfs/capacity still blocked; do not retry unchanged or reset production. Existing isolated CI passed real DB tests.
+- No outstanding live connection/authorization blocker. Continue from completed main; next work only on a new user request or verified actual gap.
+- Separate environment PR14 OPEN/unmerged. Its cloud drafts were saved/read back; active publication/fresh-task recovery not established by that task. Node22 managed PATH/helpers already usable on this instance; do not merge setup PR as part of this release.
+- Person!=Participant;F=E-T+R;immutable accepted facts;transactional/versioned RPCs,scope/RLS/currency/idempotency/privacy preserved. No production reset/force-push/new project.
