@@ -4,7 +4,7 @@
 .tt-insights :is(button,a,input,[role='option']):focus-visible { outline:2px solid var(--i-focus); outline-offset:2px; }
 .tt-insights button { font-family:inherit; cursor:pointer; }
 .tt-insights button:disabled { cursor:default; opacity:.5; }
-.tt-insights .i-page { max-width:var(--i-content-max); margin-inline:auto; padding:24px var(--i-padding) calc(var(--existing-nav-height,76px) + env(safe-area-inset-bottom,0px) + 16px); container-type:inline-size; }
+.tt-insights .i-page { max-width:var(--i-content-max); margin-inline:auto; padding:16px var(--i-padding) calc(var(--existing-nav-height,76px) + env(safe-area-inset-bottom,0px) + 16px); container-type:inline-size; }
 .tt-insights .i-heading,.tt-insights .i-records-heading { margin:0 0 8px; font-size:1.75rem; line-height:2.125rem; font-weight:700; color:var(--i-ink); overflow-wrap:anywhere; }
 .tt-insights .i-subtitle { margin:0 0 16px; font-size:.875rem; line-height:1.3125rem; color:var(--i-secondary); }
 .tt-insights .i-icon { width:18px; height:18px; flex:0 0 auto; }

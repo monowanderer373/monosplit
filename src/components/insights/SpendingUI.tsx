@@ -3,8 +3,8 @@ import { useStore } from '../../store/useStore'
 import { localeForLang } from '../../lib/locale'
 import MoneyText from '../MoneyText'
 import { useLayoutEffect,useRef,type ReactNode } from 'react'
-import { exactAmount,exactCurrencyMoney } from '../../lib/fx'
-import { currencyExponent } from '../../lib/money'
+import { exactAmount } from '../../lib/fx'
+import { currencyExponent,formatMinorAmount } from '../../lib/money'
 import './tokens.css'
 import './insights.css'
 
@@ -29,7 +29,7 @@ export function SpendingMoney({ minor, currency, showCode = false }: { minor: nu
       if (!number) return
       const scroll=number.scrollWidth>number.clientWidth+1
       // Rows already have an accessible action button; avoid nested tab stops.
-      number.tabIndex=scroll && !root.closest('button')?0:-1
+      if (scroll && !root.closest('button')) number.tabIndex=0;else number.removeAttribute('tabindex')
       number.title=scroll?t('spending.scrollAmount'):''
       root.dataset.scroll=String(scroll)
     }
@@ -38,7 +38,7 @@ export function SpendingMoney({ minor, currency, showCode = false }: { minor: nu
     fit();const ro=new ResizeObserver(queue);ro.observe(root)
     return()=>{cancelAnimationFrame(frame);ro.disconnect()}
   },[minor,currency,hidden,lang,t])
-  return hidden ? <span aria-label={t('spending.hidden')}>••••</span> : <span ref={ref} className="i-money-raw" data-scroll-label={t('spending.scrollAmount')}>{showCode ? <><span className="tt-money-currency">{currency} </span><span className="tt-money-number">{exactAmount(BigInt(minor),currencyExponent(currency),localeForLang(lang))}</span></> : <MoneyText value={exactCurrencyMoney(BigInt(minor),currencyExponent(currency),currency,localeForLang(lang))} />}</span>
+  return hidden ? <span aria-label={t('spending.hidden')}>••••</span> : <span ref={ref} className="i-money-raw" data-scroll-label={t('spending.scrollAmount')}>{showCode ? <><span className="tt-money-currency">{currency} </span><span className="tt-money-number">{exactAmount(BigInt(minor),currencyExponent(currency),localeForLang(lang))}</span></> : <MoneyText value={formatMinorAmount(minor,currency,localeForLang(lang))} />}</span>
 }
 export function SpendingCount({ count }: { count: number }) {
   const t = useT()

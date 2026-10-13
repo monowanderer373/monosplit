@@ -70,12 +70,23 @@ export function formatMinorAmount(amountMinor: number, currency: string, locale?
   // Balances and journal entries are signed; expense input validation stays positive.
   if (!Number.isSafeInteger(amountMinor)) throw new MoneyError('amount_overflow')
   const exponent = currencyExponent(currency)
-  return new Intl.NumberFormat(locale, {
+  const formatter = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency.toUpperCase(),
     minimumFractionDigits: exponent,
     maximumFractionDigits: exponent,
-  }).format(amountMinor / 10 ** exponent)
+  })
+  const signed = BigInt(amountMinor), magnitude = signed < 0n ? -signed : signed
+  const factor = 10n ** BigInt(exponent), whole = magnitude / factor
+  // Intl accepts BigInt: retain exact integer digits and native placement/signs.
+  // A negative sub-unit needs a signed template because BigInt has no negative zero.
+  const parts = formatter.formatToParts(signed < 0n ? -(whole || 1n) : whole)
+  const fraction = exponent ? new Intl.NumberFormat(locale, {
+    useGrouping:false,minimumIntegerDigits:exponent,maximumFractionDigits:0,
+  }).format(magnitude % factor) : ''
+  return parts.map(part => part.type === 'fraction' ? fraction
+    : part.type === 'integer' && signed < 0n && whole === 0n
+      ? new Intl.NumberFormat(locale,{useGrouping:false}).format(0) : part.value).join('')
 }
 
 export function equalMinorShares(totalMinor: number, orderedParticipantIds: readonly string[]): Map<string, number> {
