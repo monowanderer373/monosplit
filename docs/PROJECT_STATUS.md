@@ -1,18 +1,21 @@
 # Tabby Tally project status
 
-Checkpoint:2026-10-13 (Asia/Kuala_Lumpur).
+Checkpoint:2026-10-14 (Asia/Kuala_Lumpur).
 
 ## Resume first
 Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff and current remote main. Preserve work. Old handover release/migration claims are historical; never reset/reapply from them.
 
 ## Active task — AutoFX FINAL2026-10-13
-- Branch feat/insights-autofx-final from clean main0ff76f1. Final requirements/specs read; four boards and three exact renders reviewed. Prior revision is historical baseline.
-- Implement all currencies, final Month+Scope/A statement, exact MYR reference valuation and shared snapshot. No original finance model changes.
-- Connections: GitHub read, Vercel correct project/framework/git, Supabase24 migration history verified now. No FX cache/extensions installed. Official Frankfurter OpenAPI2.1.1 read from provider repository. Cloud direct provider CONNECT403; additive domain draft saved, requires publication (not active). Hosting access still to verify.
-- Planned backend: isolated FX metadata tables/controlled refresh/RLS+grants/daily Cron; forward additive migration, CI isolated validation before production. No production financial reset/data export.
-- Feature UI/precision/cache integration implemented but not production released. Current targeted application25/25 and package21/21 PASS. Backend CI83c7e1e database+historical-upgrade PASS after fixing JSON typing/volatility warnings; full feature CI still required. Local browser cold build timed out120s; owned external wrapper now300s, rerun active. Full local unit rerun limited2 workers to avoid resource contention.
-- Actual provider cloudHTTP200 after environment restart; livev2 OpenAPI2.1.1 read. MYR→USD0.24478/VND6332,rateDate2026-10-13. New immutable snapshots and daily Cron are not yet installed in production. Platform backup metadata lists0 backups; independent new metadata migration has transactional rollback and does not touch original financial facts/functions. Existing function definition hash captured.
-- All50 parts individually viewed; native assets copied. Source, tests, component map and statuses must be checkpointed before release.
+- Branch feat/insights-autofx-final; tested application efabb59a11f2a94fa58fb16bcae1e544db749e8b, recovery documentation may follow (read HEAD). PR16 draft. Fresh remote main0ff76f191a8704d58ba2dda956c1f3e47580ad70 remains production READY/dpl_SxQLEvNGXkgyN2x7rJow3DU6Q18W; no feature merge/release yet.
+- All final instructions/specs/reference files, four boards/three renders and50 individual parts reviewed. Implemented Month+Scope-only actual glyph fit/year draft; A statement/static all-original totals; exact MYR charts and all-currency Records/own shared shares/permission-bound Bill/original editor. Original financial engine/principals/immutable facts/RLS/RPCs unchanged.
+- Final corrections: original global money formatting retains exact last cent; RAF-queued size observers remove browser loops; native1.5px icon strokes; last-good kept visible during refresh; history-only pins on Records/back and latest cache on full reload. Extreme narrow200% number-only accessible scroll, no page overflow or nested controls. Dependencies/lock/CI/framework unchanged.
+- Shared FX migration202610130001 frozen plus new authenticated operational-health migration202610130002. Source26 versions; remote original24 not installed. Private metadata, actual Frankfurter v2 direction/date/provider, global lock/TTL/backoff, daily09:10UTC (17:10 Malaysia), no synthetic fallback.
+- Genuine blocker: SQL platform connection acts as supabase_read_only_user/read-only even supportedfalse; CREATE EXTENSION failed before writes. User chose SQL Editor but now explicitly confirms no script entered after Internet interruption. Installation not done; native controlled QA FX health404. Prepared docs/runbooks/insights-fx-production-apply.sql (same /workspace/verification/autofx/production-apply.sql) supports24/25, append-only transaction and next-minute Cron that restores daily. Do not reinterpret route selection as execution or bypass connection controls.
+- Exact-source CI38433602662 all six jobs SUCCESS:541 unit/79 files, lint/typecheck/PWA build,742 pgTAP/18 plus DB lint/concurrency/historical upgrade; browser artifact119 expected,0 skipped/unexpected/flaky. Dedicated CollectPay/Travel jobs PASS. Actual isolated backend FX/RLS evidence is not production evidence.
+- Local latest36 targeted units PASS (singleworker CLI15s),20/20 mocked AutoFX dev-wrapper browser PASS, package21/21 PASS. Earlier full-local contended bootstrap/interaction failures and interrupted runs are not claimed successful; cold local preview build exceeded120s then300s. Original CI still production-preview tests unchanged.
+- Official provider actual cloudHTTP200 MYR→USD0.24478/VND6332,date2026-10-13, not hosting proof. Final comparison gallery /workspace/verification/autofx/comparison/index.html and allowlisted evidence zip include all50 parts and actual synthetic UI screenshots. Devices not physically tested.
+- Cloud Install Script/Start Skill full updated draft saved/read back revision18; optional guarded external dev UI wrapper now reproducible. Not published/fresh task NOT RUN. Current Vite all-mode loopback guard and Node22/Chromium checks PASS. Docker currentvfs32GB/30GBfree/no containers; same extraction-risk driver/capacity, not blindly retried; backend CI verified.
+- Full candidate report: docs/releases/2026-10-14-insights-autofx-candidate.md. Next: user executes existing project SQL Editor script, verify26 history/original function hash (exclude BOTH new readers), real cache12quotes/provider/Cron via ordinary owned QA JWT; then PR/main/existing Vercel production/native authenticated data/Records/privacy/PWA. No production completion until actual evidence.
 
 ## Previous completed task
 - Approved Insights / Spending records REVISION2026-10-13 implemented on existing React19/TS/Vite/Supabase/PWA. Full pasted request and package/spec/CSS/four boards reviewed. No finance/RLS/model/schema/dependency/lockfile changes.
@@ -22,7 +25,7 @@ Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff a
 - Records uses SAME authoritative snapshot/query/count/own shares/currency and original editor/permissions/readonly fallback/history scroll. Real Empty Change month, Loading skeleton/no false0, Error Retry, category tones. Daily Trend/CATEGORY Ranking and colors preserved.
 - Files and visual deviations mapped in docs/insights/REVISION_2026-10-13.md; complete evidence in docs/releases/2026-10-13-insights-ui-revision.md.
 
-## Current verified evidence
+## Previous revision release evidence
 - Local524 unit/77,lint/typecheck/build PASS.37 UI cases PASS; final state refinement1/1 and final24 geometry combinations PASS.320/360/390/430/480/768/1024;125/150/200% HTML root font, English/Chinese/long labels/values, original finance/privacy/history/state and short viewport touch.
 - PR Quality38345796393 and main38346660475: six jobs SUCCESS;723 pgTAP/16,DB lint/concurrency/historical upgrade,CollectPay10,Travel/QuickAdd/period16 and full real backend/browser job. First failed CI selector/readiness recovered with scoped selector/bounded actual readiness; no ignored failure.
 - Original existing app production READY/dpl_9qtfWrKfKYNNw28kqXWeTV3LLJvM at exact9b2eb2f/main; alias https://tabby-tally-monowanderer373s-projects.vercel.app/ . Entry index-Don0a5kX/Records D6waQ98v serve actual SHA and new styles/materials.
@@ -30,10 +33,10 @@ Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff a
 - Retained PWA upgraded/activated,records cached,public guards320/360/390/430 and offline shell PASS. TLS verification maintained, platform public CA constrained only in owned test profile.
 - Supabase remote24 migrations == source24; no changes applied. Vercel project-scoped API connected/project/git/framework/READY verified; account-wide teams403 does not block this project.
 
-## Actual limits and next step
+## Previous revision limits (historical)
 - Physical Honor/OS keyboard/system fonts/safe-area NOT RUN; all viewport/DPR tests simulated. Root-font scaling is not OS/browser zoom evidence.
 - CI full-browser result artifact blocked at Azure host11; job success verified, no unobserved per-case/retry/skip statistics claimed.
 - Local Docker vfs/capacity still blocked; do not retry unchanged or reset production. Existing isolated CI passed real DB tests.
-- No outstanding live connection/authorization blocker. Continue from completed main; next work only on a new user request or verified actual gap.
+- Previous revision had no outstanding live blocker; the active AutoFX task above has a current SQL writer limitation. Authorization remains valid.
 - Separate environment PR14 OPEN/unmerged. Its cloud drafts were saved/read back; active publication/fresh-task recovery not established by that task. Node22 managed PATH/helpers already usable on this instance; do not merge setup PR as part of this release.
 - Person!=Participant;F=E-T+R;immutable accepted facts;transactional/versioned RPCs,scope/RLS/currency/idempotency/privacy preserved. No production reset/force-push/new project.
