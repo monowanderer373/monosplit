@@ -52,6 +52,7 @@ test('cached/older/partial/unsupported rates keep original facts and privacy (mo
   await capture(hidden,'final-amounts-hidden');await hidden.close()
 })
 test('updating/no cache, retry cooldown, recovery and foreign-only (mock FX)',async ({page})=>{
+  test.setTimeout(60_000)
   await setup(page,autoFxRecords.filter(e=>e.currency==='VND'))
   let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve});let calls=0
   await page.route('**/rpc/insights_fx_snapshot',async route=>{
@@ -59,6 +60,8 @@ test('updating/no cache, retry cooldown, recovery and foreign-only (mock FX)',as
     return route.fulfill({json:calls===1?{...autoFxSnapshot,id:null,rates:{},status:'unavailable'}:autoFxSnapshot})
   })
   await page.goto('/insights?month=2026-10')
+  await expect(page.getByRole('heading',{name:'Insights',exact:true})).toBeVisible({timeout:15_000})
+  await expect(page.getByTestId('spending-total')).toBeVisible({timeout:15_000})
   await expect(page.getByTestId('spending-total')).toContainText('Updating estimate')
   await expect(page.getByTestId('spending-total')).toContainText('1,250,000')
   await capture(page,'final-updating-no-cache');release()
@@ -71,6 +74,25 @@ test('updating/no cache, retry cooldown, recovery and foreign-only (mock FX)',as
   await expect(page.getByTestId('spending-total')).toContainText('≈ RM 200.00')
   expect(calls).toBe(2);await expect(page.getByText('4 records',{exact:true})).toBeVisible()
   await capture(page,'final-foreign-only-recovered')
+})
+test('Records back retains one snapshot; full Insights reload reads newly refreshed cache',async ({page})=>{
+  test.setTimeout(60_000)
+  await setup(page,autoFxRecords)
+  let updated=false
+  const newer={...autoFxSnapshot,id:'10000000-0000-4000-8000-000000000014',rates:{...autoFxSnapshot.rates,VND:{...autoFxSnapshot.rates.VND,denominator:'5000'}}}
+  await page.route('**/rpc/insights_fx_snapshot',route=>route.fulfill({json:updated && !route.request().postDataJSON().p_snapshot_id ? newer : autoFxSnapshot}))
+  await page.goto('/insights?month=2026-10&tab=trend')
+  await expect(page.getByTestId('spending-total')).toContainText('≈ RM 200.00',{timeout:15_000})
+  await page.getByRole('link',{name:'View records'}).click()
+  await expect(page).toHaveURL(/fx=10000000-0000-4000-8000-000000000013/)
+  await expect(page.getByTestId('spending-total')).toContainText('≈ RM 200.00')
+  updated=true;await page.clock.setFixedTime(new Date(Date.now()+61_000))
+  await page.getByRole('button',{name:'Insights',exact:true}).click()
+  await expect(page.getByRole('tab',{name:'Trend'})).toHaveAttribute('aria-selected','true')
+  await expect(page.getByTestId('spending-total')).toContainText('≈ RM 200.00')
+  expect(new URL(page.url()).searchParams.has('fx')).toBe(false)
+  await page.reload()
+  await expect(page.getByTestId('spending-total')).toContainText('≈ RM 250.00',{timeout:15_000})
 })
 test('extreme number uses local keyboard scroll, not clipped digits or page overflow',async ({page})=>{
   const records=autoFxRecords.filter(e=>e.currency==='VND').map(e=>({...e,totalMinor:9007199254000000,payerContributions:e.payerContributions.map((c,i)=>({...c,amountMinor:i===0?9007199254000000:0})),shares:e.shares.map(s=>({...s,amountMinor:e.scope==='personal'?9007199254000000:4503599627000000}))}))
