@@ -1,4 +1,5 @@
 begin;
+create extension if not exists pgtap with schema extensions;
 select plan(15);
 select ok(has_function_privilege('authenticated','public.insights_fx_snapshot(uuid)','execute'),'authenticated read RPC');
 select ok(not has_function_privilege('anon','public.insights_fx_snapshot(uuid)','execute'),'no anon RPC');
