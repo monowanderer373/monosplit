@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decimalFraction, estimateMinor, exactAmount, reconcileEstimates, roundFraction, unavailableFx, validateFx, type FxRate } from './fx'
+import { decimalFraction, estimateMinor, exactAmount, exactCurrencyMoney, reconcileEstimates, roundFraction, unavailableFx, validateFx, type FxRate } from './fx'
 import { spendingSnapshot } from './spendingView'
 import { derivePersonalLedgerRows } from './ledgerSummary'
 import { spendingExpense } from '../test/spendingFixtures'
@@ -39,6 +39,10 @@ describe('reference-only FX in the actual spending engine', () => {
   })
   it('formats amounts beyond safe integer without losing digits',()=>{
     expect(exactAmount('900719925474099329',2,'en-US')).toBe('9,007,199,254,740,993.29')
+  })
+  it('keeps the last MYR cent in records and preserves native currency placement',()=>{
+    expect(exactCurrencyMoney(9007199254740991n,2,'MYR','en-MY')).toBe('RM\u00a090,071,992,547,409.91')
+    expect(exactCurrencyMoney(1200n,2,'MYR','en-MY')).toBe('RM\u00a012.00')
   })
   it('MYR-only needs no network and legacy currency selection cannot drop records',()=>{
     const rows=derivePersonalLedgerRows([spendingExpense('myr',1200)],'you')

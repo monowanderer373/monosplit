@@ -37,7 +37,11 @@ export default function SpendingRecordsPage() {
       <section className="i-card i-records-summary"><div className="i-records-summary-heading"><p className="i-share-basis">{t('spending.total')}</p><span className="i-record-count"><SpendingCount count={snapshot.count} /></span></div><SpendingTotals snapshot={snapshot} updating={updatingFx} retry={retryFx} /></section>
       <p className="i-records-explanation">{t(filter.scope === 'personal' ? 'spending.personalExplanation' : 'spending.explanation')}</p>
       {changes.error ? <p role="alert" className="i-state-card">{t('spending.actionsError')} <button className="i-link" onClick={() => void changes.refreshAuthoritative()}>{t('common.retry')}</button></p> : null}
-      {!snapshot.count ? <SpendingState records status="empty" changeMonth={() => navigate(`/insights?${spendingQuery(filter)}`, { state: { openSpendingMonth: true, restoreScroll: 0 } })} /> : [...groups].map(([date, rows]) => <section key={date} className="i-date-group" aria-label={formatDate(date, lang)}>
+      {!snapshot.count ? <SpendingState records status="empty" changeMonth={() => navigate(`/insights?${spendingQuery(filter)}`, { state: { openSpendingMonth: true, restoreScroll: 0 } })} /> : [...groups].map(([date, rows]) => <section key={date} className="i-date-group" aria-label={formatDate(date, lang)} onKeyDown={event => {
+        if (!['ArrowLeft','ArrowRight'].includes(event.key) || !(event.target as HTMLElement).matches('button.i-record-row')) return
+        const amount = (event.target as HTMLElement).querySelector<HTMLElement>('.i-record-amount .tt-money-number')
+        if (amount && amount.scrollWidth > amount.clientWidth) { event.preventDefault();amount.scrollBy({left:event.key === 'ArrowRight' ? 48 : -48}) }
+      }}>
         <h2 className="i-date-heading"><time dateTime={date}>{formatDate(date, lang)}</time></h2>
         {rows.map(row => {
           const expense = row.expense

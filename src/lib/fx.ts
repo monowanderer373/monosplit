@@ -66,3 +66,15 @@ export function exactAmount(minor: string | bigint, digits: number, locale: stri
   const separator = new Intl.NumberFormat(locale).formatToParts(1.1).find(p => p.type === 'decimal')?.value ?? '.'
   return (n < 0n ? '−' : '') + new Intl.NumberFormat(locale).format(abs / scale) + (digits ? separator + (abs % scale).toString().padStart(digits,'0') : '')
 }
+/** Keep Intl currency placement/symbols while avoiding Number(minor)/factor drift. */
+export function exactCurrencyMoney(minor: bigint, digits: number, currency: string, locale: string) {
+  const parts = new Intl.NumberFormat(locale,{style:'currency',currency,minimumFractionDigits:digits,maximumFractionDigits:digits}).formatToParts(minor < 0n ? -1 : 0)
+  const numeric = new Set(['integer','group','decimal','fraction'])
+  let inserted = false
+  return parts.map(p => {
+    if (!numeric.has(p.type)) return p.value
+    if (inserted) return ''
+    inserted=true
+    return exactAmount(minor < 0n ? -minor : minor,digits,locale)
+  }).join('')
+}

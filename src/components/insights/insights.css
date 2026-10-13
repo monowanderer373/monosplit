@@ -170,3 +170,11 @@
 .tt-insights .i-donut>span strong { color:var(--i-ink); font-size:.875rem; }
 /* Global MoneyText inheritance must not remove the statement's amount weight. */
 #root .tt-insights .i-original-number { font-weight:700; color:var(--i-ink); }
+.tt-insights .i-money-raw { display:inline-flex; align-items:baseline; flex-wrap:wrap; gap:2px; max-width:100%; }
+.tt-insights .i-money-raw .tt-money-number { min-width:0; max-width:100%; white-space:nowrap; overflow-x:auto; overscroll-behavior-inline:contain; scrollbar-width:thin; overflow-wrap:normal; }
+.tt-insights .i-money-raw[data-scroll='true']::after { content:attr(data-scroll-label); display:block; flex:1 0 100%; font-size:.75rem; line-height:1.125rem; font-weight:400; color:var(--i-secondary); }
+.tt-insights .i-scope-option[aria-pressed='true'] { background:var(--i-blue-selected); }
+
+.tt-insights .i-check { border-radius:0; background:transparent; color:var(--i-denim); }
+.tt-insights .i-check .i-icon { width:18px; height:18px; }
+.tt-insights .i-scope-option .i-record-icon { width:32px; height:32px; }

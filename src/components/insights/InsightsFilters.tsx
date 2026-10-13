@@ -126,7 +126,7 @@ export default function InsightsFilters({ filter, timezone, lang, update, initia
         </div>
         <div className="i-popover-footer">{years ? <button className="i-link" onClick={returnMonths}><InsightIcon name="chevron-left" />{t('spending.months')}</button> : <button className="i-link" onClick={() => commit({ month: localCalendarDate(new Date(), timezone).slice(0, 7) })}><InsightIcon name="calendar" />{t('spending.thisMonth')}</button>}</div>
       </> : <div data-choice-group>{scopes.map((scope, index) => <button key={scope} className="i-scope-option" aria-label={t(`spending.${scope}`)} aria-describedby={`scope-${scope}-description`} aria-pressed={filter.scope === scope} onClick={() => commit({ scope })}>
-        <span className="i-record-icon"><InsightIcon name={['layers', 'user', 'users'][index]} /></span><span><span className="i-option-title">{t(`spending.${scope}`)}</span><span className="i-option-meta" id={`scope-${scope}-description`}>{t(`spending.${scope}Help`)}</span></span>{filter.scope === scope ? <span className="i-check"><InsightIcon name="check" /></span> : <span />}
+        <span className="i-record-icon" data-tone={index === 0 ? 'blue' : index === 1 ? 'apricot' : 'sage'}><InsightIcon name={['layers', 'user', 'users'][index]} /></span><span><span className="i-option-title">{t(`spending.${scope}`)}</span><span className="i-option-meta" id={`scope-${scope}-description`}>{t(`spending.${scope}Help`)}</span></span>{filter.scope === scope ? <span className="i-check"><InsightIcon name="check" /></span> : <span />}
       </button>)}</div>}
     </PaperPopover> : null}
   </>
