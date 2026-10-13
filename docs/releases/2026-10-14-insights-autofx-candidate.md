@@ -1,6 +1,6 @@
-# Insights / Spending records AutoFX FINAL — release candidate
+# Insights / Spending records AutoFX FINAL — archived release candidate
 
-Checkpoint: 2026-10-14 Asia/Kuala_Lumpur. **Production release BLOCKED; not live complete.**
+Historical pre-release checkpoint. Current completion/evidence: `2026-10-14-insights-autofx-live.md`. The blocked/untouched-production statements below describe that earlier stage; user SQL installation and later controlled QA writes are documented in the live report.
 
 ## Executive status
 - Existing repository monowanderer373/monosplit; branch `feat/insights-autofx-final`; tested implementation `efabb59a11f2a94fa58fb16bcae1e544db749e8b`. PR16: https://github.com/monowanderer373/monosplit/pull/16 . Recovery documentation may follow this tested application SHA; read HEAD.
