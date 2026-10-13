@@ -27,11 +27,23 @@ Read this file, WORK_LOG.md, CONTEXT.md/ADRs, git status/diff and latest remote 
 - Same retained PWA profile upgraded to the new entry, worker activated, Records cached; signed-out Records guards/no overflow at 320/360/390/430 and offline shell passed. TLS verification retained. No fabricated API responses or private account credentials used in these production checks.
 - UI screenshots use explicitly fictional test-created responses; real database/RLS evidence comes from separate disposable Supabase CI tests. Physical phones/OS keyboard/safe-area and private production writes remain unverified.
 
-## Real external blockers
+## Earlier rollout blockers (historical; recheck before release)
 - GitHub read/API/push/merge verified. Vercel API missingToken, VERCEL_TOKEN absent; native CLI also has no saved login. GitHub deployment metadata remains stale. Production runtime is verified, but current deployment ID/management terminal state is unverified. Do not say complete live acceptance.
 - SUPABASE_ACCESS_TOKEN absent and native CLI has no login; remote migration history cannot yet be read. No production DB modifications occurred.
 - Secure requirements saved in cloud environment settings: VERCEL_TOKEN to api.vercel.com; SUPABASE_ACCESS_TOKEN to api.supabase.com. Both still lack saved bindings. Enter values there, never in chat. Draft setup/start instructions and additive network destinations saved; saving a draft is not environment publication.
 - Local Docker vfs/32 GB cannot extract PostgreSQL; real backend CI passed. Do not retry unchanged or reset production.
 
-## Next executable step
+## Earlier rollout next step (superseded by active setup below)
 Securely bind the two management tokens, save settings/apply to this environment as supported, then run python3 scripts/Verify-InsightsConnections.py. Confirm Vercel project tabby-tally under monowanderer373s-projects, production deployment git SHA/alias/terminal state and read Supabase skiqsxvmxvmxfzhrzcxh migration history without applying changes. Existing feature is implemented and serving production; do not rebuild it. Update this checkpoint/report with actual management evidence.
+
+## Active environment optimization — 2026-10-13
+- Branch chore/codex-environment-v3 based on main checkpoint392a84f; app/source/lockfile/CI/migrations unchanged. Setup-only scope overrides the earlier feature rollout next-step priority. Do not merge/deploy production for this task.
+- Read every file of Autonomous Setup v3 ZIP; adapted templates to actual Vite/Playwright and cloud configuration.
+- New cloud/install.sh is standalone and checksum-verifies official Node22.23.3 (npm10.9.9), uses npm ci, preserves existing local env and generates Vite-aware guard/ESM Chromium wrapper outside checkout. Node major matches CI22; its moving patch is not guaranteed identical.
+- Added cloud/START_SKILL.md, seven guard/wrapper regression checks, .agents/skills/tabby-environment-qa and merged AGENTS recovery/QA guidance.
+- Current checks PASS: Bash/embedded Python/JS syntax; npm ci repeatability; seven environment regressions; 524 unit/77 files; lint/build; dev HTTP HTML/source; public Playwright4/4 including offline PWA. Dependency/build/test counts are from THIS task.
+- BLOCKED local backend: Docker still vfs on32GB/30GB free; no containers/volumes/auth health. No repeated PostgreSQL pull/start/reset attempted. DB lint/pgTAP/auth E2E require existing isolated GitHub Actions or suitable disposable storage. Do not count old CI runs as current checks.
+- Cloud remote Install Script/Start Skill draft saved and read-back compared successfully. requires_publish=true; active configuration/publication/new-task restoration NOT verified. Existing network and secure token bindings retained, no new credentials requested.
+- Detailed report: docs/environment/QA_REPORT.md. Next: review/save/publish environment settings, verify fresh task Node path/helpers/local guard/public QA; use disposable CI for backend.
+
+- Current isolated PR #14 Quality38337612375: six jobs succeeded,524 unit/77,723 pgTAP/16; database/auth/browser/CollectPay/Travel regressions passed. Local Supabase remains BLOCKED. Implementation commit4f7d3ed; final documentation-only checkpoint follows. PRhttps://github.com/monowanderer373/monosplit/pull/14 remains OPEN/unmerged; main still392a84f.
