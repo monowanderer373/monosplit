@@ -272,4 +272,5 @@ end $apply$;
 select cron.schedule('tabby-insights-frankfurter-daily','* * * * *',
   'select tabby_fx.refresh(true);select cron.schedule(''tabby-insights-frankfurter-daily'',''10 9 * * *'',''select tabby_fx.refresh(true);'');');
 commit;
-select schedule,active from cron.job where jobname='tabby-insights-frankfurter-daily';
+select 'FX_INSTALL_COMPLETE' as status,schedule,active from cron.job where jobname='tabby-insights-frankfurter-daily';
+-- END OF COMPLETE SCRIPT
