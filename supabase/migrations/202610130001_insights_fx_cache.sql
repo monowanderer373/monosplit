@@ -24,8 +24,8 @@ revoke all on all tables in schema tabby_fx from public, anon, authenticated, se
 
 -- Keep decimal text as returned by JSON, not a binary floating point conversion.
 create function tabby_fx.normalize_rates(p_body jsonb, p_fetched_at timestamptz)
-returns jsonb language plpgsql immutable set search_path = '' as $$
-declare item jsonb; result jsonb := '{}'; code text; rate numeric; day date;
+returns jsonb language plpgsql stable set search_path = '' as $$
+declare item jsonb; result jsonb := '{}'::jsonb; code text; rate numeric; day date;
 begin
   if jsonb_typeof(p_body) <> 'array' then raise exception 'invalid FX response'; end if;
   for item in select value from jsonb_array_elements(p_body) loop
@@ -45,7 +45,7 @@ begin
       'currency',code,'quote','MYR','numerator','1','denominator',rate::text,
       'direction','MYR-per-foreign','originalBase','MYR','originalQuote',code,
       'originalRate',rate::text,'rateDate',day::text,'fetchedAt',p_fetched_at,
-      'provider','Frankfurter','providerKeys',coalesce(item->'providers','[]'::jsonb),
+      'provider','Frankfurter','providerKeys',(select coalesce(jsonb_agg(v->>'key'),'[]'::jsonb) from jsonb_array_elements(coalesce(item->'providers','[]'::jsonb)) v where coalesce((v->>'excluded')::boolean,false)=false),
       'mode','blended-reference'));
   end loop;
   if result = '{}'::jsonb then raise exception 'empty FX response'; end if;
