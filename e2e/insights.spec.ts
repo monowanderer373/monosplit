@@ -39,7 +39,7 @@ test('real local ledger reconciles Insights/records and rejects foreign private 
     await page.getByRole('button', { name: 'October 2026' }).click()
     await expect(page.getByTestId('spending-total')).toContainText('86.00')
     await page.getByRole('button', { name: 'Scope: All spending' }).click()
-    await page.getByRole('button', { name: 'Shared', exact: true }).click()
+    await page.getByRole('dialog', { name: 'Scope', exact: true }).getByRole('button', { name: 'Shared', exact: true }).click()
     await expect(page.getByTestId('spending-total')).toContainText('36.00')
     await expect(page.getByText('1 record', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Scope: Shared' }).click()
