@@ -5,6 +5,7 @@ import { autoFxRecords,autoFxSnapshot } from './fixtures/autoFx'
 for (const width of [320,360,390,430]) for (const scale of [100,125,150,200]) {
   test(`FINAL three currencies ${width}px ${scale}% root font (mock rate/UI contract)`,async ({page})=>{
     test.setTimeout(60_000)
+    const errors: string[]=[];page.on('pageerror',error=>errors.push(error.message))
     await setup(page,autoFxRecords);await page.setViewportSize({width,height:844})
     await page.goto('/insights?month=2026-10&currency=VND')
     await expect(page.getByTestId('spending-total')).toContainText('≈ RM 200.00',{timeout:15_000})
@@ -31,6 +32,7 @@ for (const width of [320,360,390,430]) for (const scale of [100,125,150,200]) {
     await page.getByRole('button',{name:'Insights',exact:true}).click()
     await expect(page.getByTestId('spending-total')).toHaveText(snapshot!)
     await expect(page.getByRole('button',{name:'Month: Oct 2026'})).toBeVisible()
+    expect(errors).toEqual([])
   })
 }
 test('cached/older/partial/unsupported rates keep original facts and privacy (mock FX)',async ({page,context})=>{

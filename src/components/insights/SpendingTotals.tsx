@@ -29,9 +29,11 @@ export default function SpendingTotals({ snapshot, updating, retry }: { snapshot
       row.dataset.scroll = String(scroll)
     })
     fit()
-    const ro = new ResizeObserver(fit); ro.observe(root)
-    document.fonts?.addEventListener('loadingdone',fit)
-    return () => { ro.disconnect();document.fonts?.removeEventListener('loadingdone',fit) }
+    let frame = 0
+    const schedule = () => { if (!frame) frame=requestAnimationFrame(() => {frame=0;fit()}) }
+    const ro = new ResizeObserver(schedule); ro.observe(root)
+    document.fonts?.addEventListener('loadingdone',schedule)
+    return () => { cancelAnimationFrame(frame);ro.disconnect();document.fonts?.removeEventListener('loadingdone',schedule) }
   },[snapshot.totals,hidden,t])
   const foreign = snapshot.currencies.filter(c => c !== 'MYR')
   const available = foreign.flatMap(c => snapshot.fx.rates[c] ? [snapshot.fx.rates[c]] : [])

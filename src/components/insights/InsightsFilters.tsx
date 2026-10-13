@@ -39,12 +39,14 @@ function PaperPopover({ open, label, close, onEscape, children }: { open: Open; 
       setPosition({ position: 'fixed', left, top, width, maxHeight: height, visibility: 'visible', '--i-arrow-left': `${Math.max(14, Math.min(width - 26, anchor.left + anchor.width / 2 - left))}px`, '--i-arrow-top': flip ? 'auto' : '-5px', '--i-arrow-bottom': flip ? '-5px' : 'auto', '--i-arrow-rotation': flip ? '225deg' : '45deg' } as CSSProperties)
     }
     place()
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place)
+    let frame = 0
+    const schedule = () => { if (!frame) frame=requestAnimationFrame(() => {frame=0;place()}) }
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
     if (ref.current) observer?.observe(ref.current); if (ref.current?.firstElementChild) observer?.observe(ref.current.querySelector('.i-popover-content')!)
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    window.visualViewport?.addEventListener('resize', place)
-    return () => { observer?.disconnect(); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); window.visualViewport?.removeEventListener('resize', place) }
+    window.addEventListener('resize', schedule)
+    window.addEventListener('scroll', schedule, true)
+    window.visualViewport?.addEventListener('resize', schedule)
+    return () => { cancelAnimationFrame(frame);observer?.disconnect(); window.removeEventListener('resize', schedule); window.removeEventListener('scroll', schedule, true); window.visualViewport?.removeEventListener('resize', schedule) }
   }, [open])
   useEffect(() => {
     const popup = ref.current

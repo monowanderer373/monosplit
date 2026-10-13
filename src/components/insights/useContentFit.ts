@@ -33,13 +33,15 @@ export function useContentFit(ref: RefObject<HTMLElement | null>, revision: stri
       buttons.forEach((button, index) => { button.dataset.stacked = String(widths[index] > button.getBoundingClientRect().width + 1) })
     }
     measure()
-    const observer = new ResizeObserver(measure)
+    let frame = 0
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame=0;measure() }) }
+    const observer = new ResizeObserver(schedule)
     observer.observe(root)
     root.querySelectorAll('button').forEach(button => observer.observe(button))
-    const mutation = new MutationObserver(measure)
+    const mutation = new MutationObserver(schedule)
     mutation.observe(root, { childList: true, characterData: true, subtree: true })
-    document.fonts?.addEventListener('loadingdone', measure)
-    window.addEventListener('resize', measure)
-    return () => { observer.disconnect(); mutation.disconnect(); document.fonts?.removeEventListener('loadingdone', measure); window.removeEventListener('resize', measure) }
+    document.fonts?.addEventListener('loadingdone', schedule)
+    window.addEventListener('resize', schedule)
+    return () => { cancelAnimationFrame(frame);observer.disconnect(); mutation.disconnect(); document.fonts?.removeEventListener('loadingdone', schedule); window.removeEventListener('resize', schedule) }
   }, [ref, revision, grid])
 }
