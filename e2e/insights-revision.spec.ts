@@ -18,13 +18,13 @@ for (const width of [320, 360, 390, 430, 480, 768]) for (const scale of [100, 12
     const boxes = await buttons.evaluateAll(nodes => nodes.map(el => ({ x: el.getBoundingClientRect().x, y: el.getBoundingClientRect().y, height: el.getBoundingClientRect().height, width: el.getBoundingClientRect().width })))
     expect(boxes.every(box => box.height >= 48)).toBe(true)
     const layout = await page.locator('.i-filter-row').getAttribute('data-layout')
-    if (layout === 'two') { expect(boxes[0].y).toBe(boxes[1].y); expect(boxes[0].height).toBe(boxes[1].height); expect(boxes[2].y).toBeGreaterThan(boxes[0].y) }
-    if (layout === 'single') expect(boxes[2].y).toBeGreaterThan(boxes[1].y)
-    if (scale === 100 && width <= 480) expect(layout).toBe('two')
+    if (layout === 'row') { expect(boxes[0].y).toBe(boxes[1].y); expect(boxes[0].height).toBe(boxes[1].height); expect(boxes).toHaveLength(2) }
+    if (layout === 'single') expect(boxes[1].y).toBeGreaterThan(boxes[0].y)
+    if (scale === 100 && width >= 360) expect(layout).toBe('row')
     const popupTrigger = buttons.first()
     await popupTrigger.click()
     await expect(page.getByRole('dialog')).toBeVisible()
-    if (layout === 'two') {
+    if (layout === 'row') {
       const heights = await buttons.evaluateAll(nodes => nodes.map(el => el.getBoundingClientRect().height))
       expect(heights[0]).toBe(heights[1])
     }
@@ -73,9 +73,7 @@ test('long filter labels and one real currency reflow without cropping', async (
   await page.locator('.i-filter-button--scope .i-filter-value').evaluate(el => { el.textContent = 'All spending — personal and shared spending records' })
   await expect.poll(() => page.locator('.i-filter-button--scope').getAttribute('data-stacked')).toBe('true')
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-  await page.getByRole('button', { name: 'Currency: MYR' }).click()
-  await expect(page.locator('.i-currency-option')).toHaveCount(1)
-  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: /^Currency:/ })).toHaveCount(0)
 })
 
 test('records loading, retry and Change month are real actions, never false zero/error states', async ({ page, context }) => {

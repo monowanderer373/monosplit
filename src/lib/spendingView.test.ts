@@ -8,14 +8,15 @@ describe('one spending snapshot for charts and records', () => {
     const expenses = [spendingExpense('personal', 1200), spendingExpense('direct', 7200, 'direct'), spendingExpense('trip', 3000, 'space'), spendingExpense('other-currency', 99900, 'personal', { currency: 'JPY' }), spendingExpense('old', 4000, 'personal', { occurredOn: '2026-09-30' })]
     const rows = derivePersonalLedgerRows(expenses, 'you')
     const snapshot = spendingSnapshot(rows, 'you', filter, 'MYR')
-    expect(snapshot.count).toBe(3)
+    expect(snapshot.count).toBe(4)
     expect(snapshot.totalMinor).toBe(6300)
-    expect(snapshot.records.reduce((sum, row) => sum + row.personalSpendingMinor, 0)).toBe(snapshot.totalMinor)
+    expect(snapshot.totals.find(t=>t.currency==='MYR')?.originalMinor).toBe('6300')
+    expect(snapshot.missingCurrencies).toEqual(['JPY'])
     expect(snapshot.categories.reduce((sum, [, amount]) => sum + amount, 0)).toBe(snapshot.totalMinor)
     expect(snapshot.days.reduce((sum, [, amount]) => sum + amount, 0)).toBe(snapshot.totalMinor)
     expect(spendingSnapshot(rows, 'you', { ...filter, scope: 'shared' }, 'MYR').totalMinor).toBe(5100)
-    expect(spendingSnapshot(rows, 'you', { ...filter, scope: 'personal' }, 'MYR').count).toBe(1)
-    expect(spendingSnapshot(rows, 'you', { ...filter, currency: 'JPY' }, 'MYR').totalMinor).toBe(99900)
+    expect(spendingSnapshot(rows, 'you', { ...filter, scope: 'personal' }, 'MYR').count).toBe(2)
+    expect(spendingSnapshot(rows, 'you', { ...filter, currency: 'JPY' }, 'MYR').count).toBe(4)
   })
   it('excludes unsubmitted outbox, pending/declined shares, void and correction candidates', () => {
     const pending = spendingExpense('pending-share', 1000, 'direct')
@@ -31,18 +32,18 @@ describe('one spending snapshot for charts and records', () => {
     const rows = derivePersonalLedgerRows([spendingExpense('b',3500,'personal',{category:'Food'}),spendingExpense('a',3500,'personal',{category:'Shopping'})], 'you')
     expect(spendingSnapshot(rows,'you',filter,'MYR').categories).toEqual([['Food',3500],['Shopping',3500]])
   })
-  it('retains explicit zero-result currency and counts more than a visible page', () => {
+  it('ignores legacy currency and counts more than a visible page', () => {
     const rows = derivePersonalLedgerRows(Array.from({ length: 85 }, (_, index) => spendingExpense(String(index), 100)), 'you')
     expect(spendingSnapshot(rows, 'you', filter, 'MYR').count).toBe(85)
     const empty = spendingSnapshot(rows, 'you', { ...filter, currency: 'JPY' }, 'MYR')
-    expect(empty).toMatchObject({ currency: 'JPY', count: 0, totalMinor: 0 })
+    expect(empty).toMatchObject({ currency: 'MYR', count: 85, totalMinor: 8500 })
     expect(spendingSnapshot(rows, null, filter, 'MYR').count).toBe(0)
     expect(spendingSnapshot(rows, 'someone-else', filter, 'MYR').count).toBe(0)
   })
   it('validates deep links and retains filters/tabs without accepting identity from URLs', () => {
     expect(spendingFilter(new URLSearchParams('month=0000-13&scope=admin&currency=FAKE&tab=bad&participant=you'), '2026-11-01')).toEqual({ month: '2026-11', scope: 'all', currency: '', tab: 'category' })
     const original = { ...filter, scope: 'shared' as const, tab: 'ranking' as const }
-    expect(spendingFilter(new URLSearchParams(spendingQuery(original)), '2026-11-01')).toEqual(original)
+    expect(spendingFilter(new URLSearchParams(spendingQuery(original)), '2026-11-01')).toEqual({...original,currency:''})
     expect(spendingCategoryColor('Food')).toBe(spendingCategoryColor('Food'))
   })
 })

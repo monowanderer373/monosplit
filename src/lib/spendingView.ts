@@ -4,47 +4,75 @@ import { summarizeSpending } from './insightsModel'
 import { CURRENCIES } from './currency'
 import { localeForLang } from './locale'
 import { EXPENSE_CATEGORIES } from './categories'
+import { currencyExponent } from './money'
+import { fraction, addFraction, estimateMinor, roundFraction, reconcileEstimates, unavailableFx, type FxSnapshot, type Fraction } from './fx'
 
 export type SpendingScope = 'all' | 'personal' | 'shared'
 export type SpendingTab = 'category' | 'trend' | 'ranking'
-export type SpendingFilter = { month: string; scope: SpendingScope; currency: string; tab: SpendingTab }
+export type SpendingFilter = { month: string; scope: SpendingScope; currency: string; tab: SpendingTab; fx?: string }
 const currencyCodes = new Set(CURRENCIES.map(item => item.code))
 
 export function spendingFilter(params: URLSearchParams, today: string): SpendingFilter {
   const month = params.get('month') ?? ''
   const scope = params.get('scope')
   const tab = params.get('tab')
-  const currency = params.get('currency') ?? ''
   return {
     month: /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : today.slice(0, 7),
     scope: scope === 'personal' || scope === 'shared' ? scope : 'all',
-    currency: currencyCodes.has(currency) ? currency : '',
+    currency: '', // Legacy Insights-only currency links now include all currencies.
+    ...( /^[0-9a-f-]{36}$/i.test(params.get('fx') ?? '') ? { fx: params.get('fx')! } : {}),
     tab: tab === 'trend' || tab === 'ranking' ? tab : 'category',
   }
 }
 
 /** Derive every visual from ONE complete RLS-loaded ledger, never from the visible page. */
-export function spendingSnapshot(rows: readonly PersonalLedgerRow[], participantId: string | null, filter: SpendingFilter, defaultCurrency: string) {
+export function spendingSnapshot(rows: readonly PersonalLedgerRow[], participantId: string | null, filter: SpendingFilter, defaultCurrency: string, fx: FxSnapshot = unavailableFx) {
   const eligible = participantId ? rows.filter(row =>
     isBookedHomeExpense(row.expense, participantId)
     && !row.expense.id.startsWith('pending:')
     && row.expense.occurredOn.startsWith(`${filter.month}-`)
     && (filter.scope === 'all' || (filter.scope === 'personal' ? row.expense.scope === 'personal' : row.expense.scope !== 'personal')),
   ) : []
-  const currencies = [...new Set(eligible.map(row => row.expense.currency))].sort()
+  const currencies = [...new Set(eligible.map(row => row.expense.currency))].sort((a,b) => a === 'MYR' ? -1 : b === 'MYR' ? 1 : a.localeCompare(b))
   // An explicit currency remains explicit when a new scope/month has no such records.
   // Never relabel an old amount in a newly selected currency.
-  const currency = filter.currency || currencies[0] || (currencyCodes.has(defaultCurrency) ? defaultCurrency : 'MYR')
+  const currency = 'MYR'
   // The ledger already supplies chronological ordering; preserve its original ranking ties.
-  const records = eligible.filter(row => row.expense.currency === currency)
-  const summary = summarizeSpending(records.map(row => ({
-    category: row.expense.category || 'Other', date: row.expense.occurredOn, amountMinor: row.personalSpendingMinor,
-  })))
-  return { ...summary, records, count: records.length, currency, currencies }
+  const records = eligible
+  const originals = new Map<string,bigint>(), categories = new Map<string,Fraction>(), days = new Map<string,Fraction>()
+  let total = fraction(0n)
+  for (const row of records) {
+    const code = row.expense.currency, minor = BigInt(row.personalSpendingMinor)
+    originals.set(code,(originals.get(code) ?? 0n) + minor)
+    const rate = code === 'MYR' ? { numerator:'1',denominator:'1' } : fx.rates[code]
+    if (!rate) continue
+    const amount = estimateMinor(minor,currencyExponent(code),rate)
+    total = addFraction(total,amount)
+    const category = row.expense.category || 'Other', day = row.expense.occurredOn
+    categories.set(category,addFraction(categories.get(category) ?? fraction(0n),amount))
+    days.set(day,addFraction(days.get(day) ?? fraction(0n),amount))
+  }
+  const missingCurrencies = currencies.filter(code => code !== 'MYR' && !fx.rates[code])
+  const converted = [...originals].flatMap(([code, minor]): [string,Fraction][] => {
+    const rate = code === 'MYR' ? { numerator:'1',denominator:'1' } : fx.rates[code]
+    return rate ? [[code,estimateMinor(minor,currencyExponent(code),rate)]] : []
+  })
+  const equivalents = new Map(reconcileEstimates(converted))
+  const totals = (currencies.length ? currencies : [currencyCodes.has(defaultCurrency) ? defaultCurrency : 'MYR']).map(code => ({
+    currency:code, originalMinor:(originals.get(code) ?? 0n).toString(), equivalentMinor:equivalents.get(code)?.toString() ?? null,
+  }))
+  const estimated = roundFraction(total)
+  const overflow = estimated > BigInt(Number.MAX_SAFE_INTEGER) || estimated < BigInt(Number.MIN_SAFE_INTEGER)
+  const summary = overflow ? summarizeSpending([]) : {
+    totalMinor:Number(estimated),
+    categories:reconcileEstimates([...categories]).map(([key,n]): [string,number] => [key,Number(n)]).sort((a,b) => b[1]-a[1]),
+    days:reconcileEstimates([...days]).map(([key,n]): [string,number] => [key,Number(n)]).sort((a,b) => a[0].localeCompare(b[0])),
+  }
+  return { ...summary, records, count:records.length, currency, currencies, totals, missingCurrencies, overflow, estimatedMinor:estimated.toString(), fx }
 }
 
 export function spendingQuery(filter: SpendingFilter): string {
-  return new URLSearchParams({ month: filter.month, scope: filter.scope, currency: filter.currency, tab: filter.tab }).toString()
+  return new URLSearchParams({ month: filter.month, scope: filter.scope, tab: filter.tab, ...(filter.fx ? { fx:filter.fx } : {}) }).toString()
 }
 
 const colors = ['#E1AD88', '#8FA99E', '#CFC29F', '#B8A29E', '#9DAEB8', '#ADB092']

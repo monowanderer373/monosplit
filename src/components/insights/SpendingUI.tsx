@@ -4,6 +4,8 @@ import { formatMinorAmount } from '../../lib/money'
 import { localeForLang } from '../../lib/locale'
 import MoneyText from '../MoneyText'
 import type { ReactNode } from 'react'
+import { exactAmount } from '../../lib/fx'
+import { currencyExponent } from '../../lib/money'
 import './tokens.css'
 import './insights.css'
 
@@ -15,11 +17,11 @@ export function CategoryDisk({ category }: { category: string }) {
   const tone = ['Groceries', 'Shopping'].includes(category) ? 'sage' : ['Transportation', 'Flight', 'Accommodation'].includes(category) ? 'blue' : 'apricot'
   return <span className="i-record-icon" data-tone={tone}><InsightIcon name={categoryIcons[category] ?? 'receipt'} /></span>
 }
-export function SpendingMoney({ minor, currency }: { minor: number; currency: string }) {
+export function SpendingMoney({ minor, currency, showCode = false }: { minor: number; currency: string; showCode?: boolean }) {
   const lang = useStore(state => state.lang)
   const hidden = useStore(state => state.homeUi.balanceHidden)
   const t = useT()
-  return hidden ? <span aria-label={t('spending.hidden')}>••••</span> : <MoneyText value={formatMinorAmount(minor, currency, localeForLang(lang))} />
+  return hidden ? <span aria-label={t('spending.hidden')}>••••</span> : showCode ? <span className="tt-money"><span className="tt-money-currency">{currency} </span><span className="tt-money-number">{exactAmount(BigInt(minor),currencyExponent(currency),localeForLang(lang))}</span></span> : <MoneyText value={formatMinorAmount(minor, currency, localeForLang(lang))} />
 }
 export function SpendingCount({ count }: { count: number }) {
   const t = useT()

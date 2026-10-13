@@ -28,11 +28,8 @@ export function useContentFit(ref: RefObject<HTMLElement | null>, revision: stri
         return textWidth(value) + icons.reduce((sum, icon) => sum + icon.getBoundingClientRect().width, 0)
           + (parseFloat(style.gap) || 0) * icons.length + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2
       })
-      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
-      const currency = Math.max(6 * rem, widths[1])
-      const wide = Math.max(10 * rem, widths[0]) + currency + Math.max(11.25 * rem, widths[2]) + 2 * gap
-      root.dataset.layout = root.clientWidth >= Math.max(30 * rem, wide) ? 'wide'
-        : widths[0] + currency + gap <= root.clientWidth ? 'two' : 'single'
+      root.dataset.layout = widths.reduce((sum,n) => sum+n,0)+gap <= root.clientWidth ? 'row' : 'single'
+      root.style.gridTemplateColumns = root.dataset.layout === 'row' ? `minmax(${widths[0]}px,1fr) minmax(${widths[1]}px,1.15fr)` : 'minmax(0,1fr)'
       buttons.forEach((button, index) => { button.dataset.stacked = String(widths[index] > button.getBoundingClientRect().width + 1) })
     }
     measure()

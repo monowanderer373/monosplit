@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { spendingExpense } from '../../src/test/spendingFixtures'
+import { autoFxSnapshot } from './autoFx'
 import type { CanonicalExpense } from '../../src/types'
 
 /** API-intercepted UI contract tests. These are not claims of real database/RLS validation. */
@@ -20,6 +21,7 @@ export async function setup(page: Page, records = fixtures, status = 200, hidden
   }, { hidden, lang })
   await page.route('http://127.0.0.1:54321/**', async route => {
     const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/rpc/insights_fx_snapshot')) return route.fulfill({json:autoFxSnapshot})
     if (path.includes('/user_profiles')) return route.fulfill({ json: { display_name: 'UI contract tester', default_currency: 'MYR', timezone: 'Asia/Kuala_Lumpur' } })
     if (path.includes('/participants')) return route.fulfill({ json: { id: 'you' } })
     if (path.endsWith('/expenses')) return route.fulfill({ status, json: status === 200 ? records.map(apiExpense) : { code: 'test_error', message: 'Test read failure' } })

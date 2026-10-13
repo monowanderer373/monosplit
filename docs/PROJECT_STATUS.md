@@ -10,7 +10,9 @@ Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff a
 - Implement all currencies, final Month+Scope/A statement, exact MYR reference valuation and shared snapshot. No original finance model changes.
 - Connections: GitHub read, Vercel correct project/framework/git, Supabase24 migration history verified now. No FX cache/extensions installed. Official Frankfurter OpenAPI2.1.1 read from provider repository. Cloud direct provider CONNECT403; additive domain draft saved, requires publication (not active). Hosting access still to verify.
 - Planned backend: isolated FX metadata tables/controlled refresh/RLS+grants/daily Cron; forward additive migration, CI isolated validation before production. No production financial reset/data export.
-- Current feature tests/deploy NOT RUN yet. Next: implement and verify before release.
+- Feature UI/precision/cache integration implemented but not production released. Current targeted application25/25 and package21/21 PASS. Backend CI83c7e1e database+historical-upgrade PASS after fixing JSON typing/volatility warnings; full feature CI still required. Local browser cold build timed out120s; owned external wrapper now300s, rerun active. Full local unit rerun limited2 workers to avoid resource contention.
+- Actual provider cloudHTTP200 after environment restart; livev2 OpenAPI2.1.1 read. MYR→USD0.24478/VND6332,rateDate2026-10-13. New immutable snapshots and daily Cron are not yet installed in production. Platform backup metadata lists0 backups; independent new metadata migration has transactional rollback and does not touch original financial facts/functions. Existing function definition hash captured.
+- All50 parts individually viewed; native assets copied. Source, tests, component map and statuses must be checkpointed before release.
 
 ## Previous completed task
 - Approved Insights / Spending records REVISION2026-10-13 implemented on existing React19/TS/Vite/Supabase/PWA. Full pasted request and package/spec/CSS/four boards reviewed. No finance/RLS/model/schema/dependency/lockfile changes.
