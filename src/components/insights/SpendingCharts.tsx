@@ -1,6 +1,6 @@
 import { categoryKey, useT } from '../../lib/i18n'
 import { spendingCategoryColor, type SpendingTab, type spendingSnapshot } from '../../lib/spendingView'
-import { SpendingMoney } from './SpendingUI'
+import { CategoryDisk, SpendingMoney } from './SpendingUI'
 import { currencyExponent } from '../../lib/money'
 
 type Snapshot = ReturnType<typeof spendingSnapshot>
@@ -32,6 +32,7 @@ export default function SpendingCharts({ snapshot, tab, month, today, hidden }: 
   let offset = 0
   return <>
     <h2 className="i-section-heading">{t(tab === 'ranking' ? 'spending.rankingTitle' : 'spending.categoryTitle')}</h2>
+    <p className="i-chart-context">{t('spending.chartCurrency', { currency: snapshot.currency })}</p>
     {tab === 'category' ? <div className="i-donut">
       <svg viewBox="0 0 210 210" role="img" aria-label={t('spending.chartLabel')}>
         {snapshot.categories.map(([category, amount]) => {
@@ -42,8 +43,8 @@ export default function SpendingCharts({ snapshot, tab, month, today, hidden }: 
       </svg><span>{t('spending.yourSpending')}</span>
     </div> : null}
     <div>{snapshot.categories.map(([category, amount], index) => <div key={category} className={tab === 'ranking' ? 'i-ranking-row' : 'i-legend-row'}>
-      {tab === 'ranking' ? <span className="i-ranking-number">{index + 1}</span> : <span className="i-color-dot" style={{ backgroundColor: spendingCategoryColor(category) }} />}
-      <span className="i-legend-name">{t(categoryKey(category))}</span>
+      {tab === 'ranking' ? <span className="i-ranking-number">{String(index + 1).padStart(2, '0')}</span> : <CategoryDisk category={category} />}
+      <span className="i-legend-name">{tab === 'category' ? <span className="i-color-dot" style={{ backgroundColor: spendingCategoryColor(category) }} /> : null}{t(categoryKey(category))}</span>
       <span className="i-legend-amount"><SpendingMoney minor={amount} currency={snapshot.currency} /><span className="i-legend-percent">{Math.round(amount / snapshot.totalMinor * 100)}%</span></span>
     </div>)}</div>
     <p className="i-chart-basis">{t('spending.explanation')}</p>

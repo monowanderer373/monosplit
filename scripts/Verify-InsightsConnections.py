@@ -35,12 +35,13 @@ def verify():
         result['vercel'] = {'connected': False, 'missing_binding': 'VERCEL_TOKEN'}
     else:
         try:
-            teams = request('https://api.vercel.com', '/v2/teams', vercel)
-            team = next(item for item in teams.get('teams', []) if item.get('slug') == TEAM)
-            suffix = '?teamId=' + urllib.parse.quote(team['id'])
-            project = request('https://api.vercel.com', '/v9/projects/' + PROJECT + suffix, vercel)
+            # Project-scoped tokens may deny account-wide /v2/teams listing.
+            project = request('https://api.vercel.com', '/v9/projects/' + PROJECT + '?slug=' + TEAM, vercel)
+            if project.get('name') != PROJECT or project.get('link', {}).get('org') != 'monowanderer373' or project.get('link', {}).get('repo') != 'monosplit':
+                raise KeyError('Unexpected project repository')
+            suffix = '?teamId=' + urllib.parse.quote(project['accountId'])
             deployments = request('https://api.vercel.com', '/v6/deployments' + suffix + '&target=production&projectId=' + urllib.parse.quote(project['id']), vercel)
-            result['vercel'] = {'connected': True, 'team': team.get('slug'), 'project': project.get('name'), 'production': [
+            result['vercel'] = {'connected': True, 'team': TEAM, 'project': project.get('name'), 'production': [
                 {'id': item.get('uid'), 'state': item.get('state'), 'url': item.get('url'),
                  'commit': item.get('meta', {}).get('githubCommitSha'), 'branch': item.get('meta', {}).get('githubCommitRef')}
                 for item in deployments.get('deployments', [])[:5]
