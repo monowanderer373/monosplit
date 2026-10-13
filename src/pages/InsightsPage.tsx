@@ -11,7 +11,7 @@ import SpendingTotals from '../components/insights/SpendingTotals'
 export default function InsightsPage() {
   const t = useT()
   const location = useLocation()
-  const { auth, ledger, lang, today, timezone, filter, snapshot, ready, authenticated, hidden, update, updatingFx,retryFx } = useSpendingView()
+  const { auth, ledger, lang, today, timezone, filter, snapshot, ready, authenticated, hidden, update, updatingFx,retryFx,rememberFx } = useSpendingView()
   if (auth.loading) return <InsightPage><SpendingState status="loading" /></InsightPage>
   if (auth.sessionError) return <InsightPage><SpendingState status="error" retry={auth.retrySession} /></InsightPage>
   if (!authenticated) return <InsightPage><p>{auth.authUser ? t('spending.unavailable') : t('ledger.privateTitle')}</p><Link className="i-link" to="/login">{t('common.signIn')}</Link></InsightPage>
@@ -23,7 +23,7 @@ export default function InsightsPage() {
         <img className="i-corner" src="/assets/insights/denim-corner.svg" alt="" />
         <div className="i-ticket-top"><h2 className="i-ticket-title"><InsightIcon name="receipt" />{t('spending.total')}</h2><span className="i-quiet-month">{monthLabel(filter.month, lang)}</span></div>
         <SpendingTotals snapshot={snapshot} updating={updatingFx} retry={retryFx} />
-        <div className="i-ticket-footer"><span><span className="i-record-count"><SpendingCount count={snapshot.count} /></span><span className="i-share-basis">{t(filter.scope === 'personal' ? 'spending.personalBasis' : 'spending.basis')}</span></span><Link className="i-link" onClick={() => { if (filter.fx) update({fx:filter.fx}) }} to={`/insights/records?${spendingQuery(filter)}`} state={{ fromInsights: true }}>{t('spending.viewRecords')}<InsightIcon name="arrow-right" /></Link></div>
+        <div className="i-ticket-footer"><span><span className="i-record-count"><SpendingCount count={snapshot.count} /></span><span className="i-share-basis">{t(filter.scope === 'personal' ? 'spending.personalBasis' : 'spending.basis')}</span></span><Link className="i-link" onClick={rememberFx} to={`/insights/records?${spendingQuery(filter)}`} state={{ fromInsights: true }}>{t('spending.viewRecords')}<InsightIcon name="arrow-right" /></Link></div>
       </section>
       <div className="i-analysis-tabs" role="tablist" aria-label={t('spending.views')} onKeyDown={event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return

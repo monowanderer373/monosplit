@@ -16,7 +16,7 @@ for (const width of [320,360,390,430]) for (const scale of [100,125,150,200]) {
     await expect(page.getByText('20 records',{exact:true})).toBeVisible()
     await expect(page.locator('.i-donut')).toContainText('946.00')
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
-    await expect.poll(()=>page.locator('.i-original-number').evaluateAll(nodes=>nodes.every(n=>n.scrollWidth<=n.clientWidth+1 || n.getAttribute('tabindex')==='0' && n.parentElement?.dataset.scroll==='true')))).toBe(true)
+    await expect.poll(()=>page.locator('.i-original-number').evaluateAll(nodes=>nodes.every(n=>n.scrollWidth<=n.clientWidth+1 || n.getAttribute('tabindex')==='0' && n.parentElement?.dataset.scroll==='true'))).toBe(true)
     await capture(page,`final-multi-${width}-${scale}`)
     const snapshot=await page.getByTestId('spending-total').textContent()
     await page.getByRole('link',{name:'View records'}).click()

@@ -34,10 +34,9 @@ export function spendingSnapshot(rows: readonly PersonalLedgerRow[], participant
     && (filter.scope === 'all' || (filter.scope === 'personal' ? row.expense.scope === 'personal' : row.expense.scope !== 'personal')),
   ) : []
   const currencies = [...new Set(eligible.map(row => row.expense.currency))].sort((a,b) => a === 'MYR' ? -1 : b === 'MYR' ? 1 : a.localeCompare(b))
-  // An explicit currency remains explicit when a new scope/month has no such records.
-  // Never relabel an old amount in a newly selected currency.
+  // Chart unit only. Original currency totals stay separate and unmodified.
   const currency = 'MYR'
-  // The ledger already supplies chronological ordering; preserve its original ranking ties.
+  // Preserve chronological ledger ordering and original category-ranking tie order.
   const records = eligible
   const originals = new Map<string,bigint>(), categories = new Map<string,Fraction>(), days = new Map<string,Fraction>()
   let total = fraction(0n)
