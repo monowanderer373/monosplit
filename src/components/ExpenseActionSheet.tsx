@@ -395,5 +395,11 @@ function amountInputs(expense: CanonicalExpense, kind: 'paid' | 'share'): Record
   const amounts = kind === 'paid' ? snapshot.contributionAmounts : snapshot.shareAmounts
   return Object.fromEntries(snapshot.participantIds.map((id, index) => [id, minorInput(amounts[index], expense.currency)]))
 }
-function minorInput(amountMinor: number, currency: string): string { return (amountMinor / 10 ** currencyExponent(currency)).toFixed(currencyExponent(currency)) }
+function minorInput(amountMinor: number, currency: string): string {
+  const exponent = currencyExponent(currency), value = BigInt(amountMinor)
+  const magnitude = value < 0n ? -value : value, factor = 10n ** BigInt(exponent)
+  // Canonical minor units must survive opening a draft without float rounding.
+  const fraction = exponent ? `.${(magnitude % factor).toString().padStart(exponent, '0')}` : ''
+  return `${value < 0n ? '-' : ''}${magnitude / factor}${fraction}`
+}
 function parseNonnegativeMajor(value: string, currency: string): number { return /^0+(?:\.0*)?$/.test(value.trim()) ? 0 : parseMajorAmount(value, currency) }

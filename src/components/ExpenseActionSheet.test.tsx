@@ -178,9 +178,21 @@ describe('unified paper expense editor', () => {
     mount(); const trigger = screen.getByRole('button', { name: 'Edit Dinner' }); trigger.focus(); open()
     expect(document.body.style.overflow).toBe('hidden')
     fireEvent.keyDown(document, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(document.body.style.overflow).toBe('')
-    expect(document.activeElement).toBe(trigger)
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(document.body.style.overflow).toBe('')
+      expect(document.activeElement).toBe(trigger)
+    })
+  })
+  it('opens a large canonical amount without changing its final cent or making the draft dirty', () => {
+    const record = expense()
+    record.totalMinor = Number.MAX_SAFE_INTEGER - 1
+    record.payerContributions[0].amountMinor = record.totalMinor
+    record.shares[0].amountMinor = record.totalMinor
+    mount(record); open()
+    expect((screen.getByRole('textbox', { name: 'Total amount' }) as HTMLInputElement).value).toBe('90071992547409.90')
+    expect(screen.getByRole('button', { name: 'Save changes' }).hasAttribute('disabled')).toBe(true)
+    expect(mocks.financial).not.toHaveBeenCalled()
   })
   it('shows partial save truthfully and retries only remaining details', async () => {
     mocks.metadata.mockRejectedValueOnce(new Error('network')).mockResolvedValue(3)
