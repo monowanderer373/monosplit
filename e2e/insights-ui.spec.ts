@@ -8,7 +8,7 @@ for (const width of [320, 360, 390, 430, 1024]) test(`paper Insights / records a
   await expect(page.getByTestId('spending-total')).toContainText('101.00')
   await expect(page.getByText('4 records', { exact: true })).toBeVisible()
   await capture(page, `categories-${width}`)
-  for (const kind of ['Month: Oct 2026', 'Scope: All spending', 'Currency: MYR']) {
+  for (const kind of ['Month: Oct 2026', 'Scope: All spending']) {
     const anchor = page.getByRole('button', { name: kind, exact: true }); await anchor.click()
     const popup = page.getByRole('dialog'); await expect(popup).toBeVisible()
     const box = await popup.boundingBox(); expect(box!.x).toBeGreaterThanOrEqual(15); expect(box!.x + box!.width).toBeLessThanOrEqual(width - 15); expect(box!.height).toBeLessThan(450)
@@ -38,8 +38,8 @@ test('draft years, keyboard commit, exclusive popovers and original record edito
   await page.getByRole('button', { name: 'October 2026' }).focus(); await page.keyboard.press('ArrowLeft'); await expect(page.getByRole('button', { name: 'September 2026' })).toBeFocused()
   await page.keyboard.press('Enter'); await expect(page.getByText('No spending recorded')).toBeVisible()
   await page.getByRole('button', { name: /^Month: Sept? 2026$/ }).click(); await page.getByRole('button', { name: 'October 2026' }).click()
-  await page.getByRole('button', { name: 'Month: Oct 2026' }).click(); await page.getByRole('button', { name: 'Currency: MYR' }).click()
-  await expect(page.getByRole('dialog')).toHaveCount(1); await expect(page.getByRole('dialog')).toHaveAttribute('aria-label', 'Currency')
+  await page.getByRole('button', { name: 'Month: Oct 2026' }).click(); await page.getByRole('button', { name: 'Scope: All spending' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(1); await expect(page.getByRole('dialog')).toHaveAttribute('aria-label', 'Scope')
   await page.getByRole('heading', { name: 'Insights', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.getByRole('link', { name: 'View records' }).click(); await page.getByRole('button', { name: 'Edit Morning coffee' }).click()
   await expect(page.getByRole('dialog', { name: 'Edit record' })).toBeVisible(); await expect(page.getByRole('textbox', { name: 'Total amount' })).toHaveValue('12.00')
@@ -50,7 +50,7 @@ test('200% text, long records/currencies and Chinese remain usable (intercepted 
   await setup(page, records, 200, false, 'zh'); await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/insights?month=2026-10&currency=JPY')
   await expect(page.getByTestId('spending-total')).toBeVisible(); await page.addStyleTag({ content: 'html { font-size:200% !important; }' })
   await capture(page, 'text-200-zh')
-  await page.getByRole('button', { name: '币种: JPY' }).click(); await capture(page, 'currency-200-zh'); await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: /^币种:/ })).toHaveCount(0)
   await page.getByRole('link', { name: '查看记录' }).click(); await capture(page, 'records-200-zh')
 })
 test('read error is distinct from zero and concealed amounts stay hidden (intercepted API)', async ({ page, context }) => {

@@ -19,7 +19,7 @@ export default function SpendingCharts({ snapshot, tab, month, today, hidden }: 
     const x = (index: number) => 34 + index / Math.max(1, values.length - 1) * 274
     const y = (amount: number) => 170 - amount / max * 130
     return <>
-      <h2 className="i-section-heading">{t('spending.trendTitle')}</h2><p className="i-chart-context">{snapshot.currency}</p>
+      <h2 className="i-section-heading">{t('spending.trendTitle')}</h2><p className="i-chart-context">{t(snapshot.currencies.some(c => c !== 'MYR') ? 'spending.fxChartBasis' : 'spending.chartCurrency',{currency:'MYR'})}</p>
       <svg className="i-trend-plot" viewBox="0 0 330 205" aria-hidden="true">
         {[0, 0.5, 1].map(value => <g key={value}><line x1="34" y1={y(max * value)} x2="308" y2={y(max * value)} stroke="var(--i-border)" strokeDasharray="2 4" /><text x="28" y={y(max * value) + 4} textAnchor="end">{(max * value / 10 ** currencyExponent(snapshot.currency)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</text></g>)}
         {values.length > 1 ? <polyline fill="none" stroke="var(--i-denim)" strokeWidth="2" points={values.map((amount, index) => `${x(index)},${y(amount)}`).join(' ')} /> : null}
@@ -32,7 +32,7 @@ export default function SpendingCharts({ snapshot, tab, month, today, hidden }: 
   let offset = 0
   return <>
     <h2 className="i-section-heading">{t(tab === 'ranking' ? 'spending.rankingTitle' : 'spending.categoryTitle')}</h2>
-    <p className="i-chart-context">{t('spending.chartCurrency', { currency: snapshot.currency })}</p>
+    <p className="i-chart-context">{t(snapshot.currencies.some(c => c !== 'MYR') ? 'spending.fxChartBasis' : 'spending.chartCurrency', { currency: snapshot.currency })}</p>
     {tab === 'category' ? <div className="i-donut">
       <svg viewBox="0 0 210 210" role="img" aria-label={t('spending.chartLabel')}>
         {snapshot.categories.map(([category, amount]) => {
@@ -40,7 +40,7 @@ export default function SpendingCharts({ snapshot, tab, month, today, hidden }: 
           const start = offset; offset += arc
           return <circle key={category} cx="105" cy="105" r="92" fill="none" stroke={spendingCategoryColor(category)} strokeWidth="26" pathLength="100" strokeDasharray={`${arc} ${100 - arc}`} strokeDashoffset={-start} transform="rotate(-90 105 105)" />
         })}
-      </svg><span>{t('spending.yourSpending')}</span>
+      </svg><span><strong><SpendingMoney minor={snapshot.totalMinor} currency="MYR" /></strong><span>{t(snapshot.currencies.some(c => c !== 'MYR') ? 'spending.fxEstimated' : 'spending.yourSpending')}</span></span>
     </div> : null}
     <div>{snapshot.categories.map(([category, amount], index) => <div key={category} className={tab === 'ranking' ? 'i-ranking-row' : 'i-legend-row'}>
       {tab === 'ranking' ? <span className="i-ranking-number">{String(index + 1).padStart(2, '0')}</span> : <CategoryDisk category={category} />}

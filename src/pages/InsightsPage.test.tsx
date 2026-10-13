@@ -56,7 +56,7 @@ describe('Insights and records read the same committed snapshot', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Scope: All spending' }))
     fireEvent.click(screen.getByRole('button', { name: 'Shared' }))
     const link = screen.getByRole('link', { name: 'View records' })
-    expect(link.getAttribute('href')).toContain('scope=shared&currency=MYR&tab=ranking')
+    expect(link.getAttribute('href')).toContain('scope=shared&tab=ranking')
     expect(screen.getByTestId('spending-total').textContent).toMatch(/RM\s36\.00/)
     fireEvent.click(link)
     expect(screen.getByRole('heading', { name: 'Spending records' })).toBeTruthy()

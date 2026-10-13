@@ -4,12 +4,11 @@ import { createPortal } from 'react-dom'
 import { useT } from '../../lib/i18n'
 import { localCalendarDate } from '../../lib/homeView'
 import { localeForLang } from '../../lib/locale'
-import { CURRENCIES } from '../../lib/currency'
 import type { SpendingFilter } from '../../lib/spendingView'
 import { InsightIcon } from './SpendingUI'
 import { useContentFit } from './useContentFit'
 
-type Kind = 'month' | 'scope' | 'currency'
+type Kind = 'month' | 'scope'
 type Open = { kind: Kind; anchor: HTMLButtonElement }
 
 /** Nonmodal anchored surface: no scrim, no background inertness, no second picker window. */
@@ -29,8 +28,8 @@ function PaperPopover({ open, label, close, onEscape, children }: { open: Open; 
       const topEdge = (viewport?.offsetTop ?? 0) + 16
       const rightEdge = leftEdge + (viewport?.width ?? window.innerWidth) - 32
       const bottomEdge = topEdge + (viewport?.height ?? window.innerHeight) - 32
-      const width = Math.min(Math.max(326, 20.375 * parseFloat(getComputedStyle(document.documentElement).fontSize)), rightEdge - leftEdge)
-      const left = Math.max(leftEdge, Math.min(open.kind === 'currency' ? anchor.right - width : anchor.left, rightEdge - width))
+      const width = Math.min(Math.max(326, 20.375 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)), rightEdge - leftEdge)
+      const left = Math.max(leftEdge, Math.min(anchor.left, rightEdge - width))
       const desiredHeight = (popup.querySelector<HTMLElement>('.i-popover-content')?.scrollHeight ?? popup.scrollHeight) + 34
       const below = bottomEdge - anchor.bottom - 8
       const above = anchor.top - topEdge - 8
@@ -40,12 +39,14 @@ function PaperPopover({ open, label, close, onEscape, children }: { open: Open; 
       setPosition({ position: 'fixed', left, top, width, maxHeight: height, visibility: 'visible', '--i-arrow-left': `${Math.max(14, Math.min(width - 26, anchor.left + anchor.width / 2 - left))}px`, '--i-arrow-top': flip ? 'auto' : '-5px', '--i-arrow-bottom': flip ? '-5px' : 'auto', '--i-arrow-rotation': flip ? '225deg' : '45deg' } as CSSProperties)
     }
     place()
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place)
+    let frame = 0
+    const schedule = () => { if (!frame) frame=requestAnimationFrame(() => {frame=0;place()}) }
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
     if (ref.current) observer?.observe(ref.current); if (ref.current?.firstElementChild) observer?.observe(ref.current.querySelector('.i-popover-content')!)
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    window.visualViewport?.addEventListener('resize', place)
-    return () => { observer?.disconnect(); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); window.visualViewport?.removeEventListener('resize', place) }
+    window.addEventListener('resize', schedule)
+    window.addEventListener('scroll', schedule, true)
+    window.visualViewport?.addEventListener('resize', schedule)
+    return () => { cancelAnimationFrame(frame);observer?.disconnect(); window.removeEventListener('resize', schedule); window.removeEventListener('scroll', schedule, true); window.visualViewport?.removeEventListener('resize', schedule) }
   }, [open])
   useEffect(() => {
     const popup = ref.current
@@ -76,7 +77,7 @@ function PaperPopover({ open, label, close, onEscape, children }: { open: Open; 
   </div>, document.body)
 }
 
-export default function InsightsFilters({ filter, currencies, timezone, lang, update, initialMonthOpen = false }: { filter: SpendingFilter; currencies: string[]; timezone: string; lang: 'en' | 'zh'; update: (patch: Partial<SpendingFilter>) => void; initialMonthOpen?: boolean }) {
+export default function InsightsFilters({ filter, timezone, lang, update, initialMonthOpen = false }: { filter: SpendingFilter; timezone: string; lang: 'en' | 'zh'; update: (patch: Partial<SpendingFilter>) => void; initialMonthOpen?: boolean }) {
   const t = useT()
   const filterRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -92,10 +93,10 @@ export default function InsightsFilters({ filter, currencies, timezone, lang, up
     setOpen({ kind, anchor })
   }
   const label = (kind: Kind) => t(`spending.${kind}`)
-  const value = (kind: Kind) => kind === 'month' ? monthLabel(filter.month, lang) : kind === 'scope' ? t(`spending.${filter.scope}`) : filter.currency
+  const value = (kind: Kind) => kind === 'month' ? monthLabel(filter.month, lang) : t(`spending.${filter.scope}`)
   const scopes = ['all', 'personal', 'shared'] as const
   const firstYear = Math.min(9988, Math.max(1, browseYear - 5))
-  useContentFit(filterRef, [filter.month, filter.scope, filter.currency, lang].join(':'))
+  useContentFit(filterRef, [filter.month, filter.scope, lang].join(':'))
   useContentFit(gridRef, [open?.kind, years, browseYear, lang].join(':'), true)
   useEffect(() => {
     if (!initialMonthOpen) return
@@ -104,17 +105,16 @@ export default function InsightsFilters({ filter, currencies, timezone, lang, up
   }, [initialMonthOpen])
   const returnMonths = () => { setYears(false); requestAnimationFrame(() => yearRef.current?.focus()) }
   return <>
-    <div ref={filterRef} className="i-filter-row" data-layout="two">{(['month', 'currency', 'scope'] as const).map(kind => <div key={kind} className={"i-field-" + kind}>
-      <span className="i-filter-label" id={`insights-${kind}-label`}>{label(kind)}</span>
-      <button type="button" className={`i-filter-button i-filter-button--${kind} ${kind === 'currency' ? 'i-leather' : ''}`} aria-label={`${label(kind)}: ${value(kind)}`} aria-haspopup="dialog" aria-expanded={open?.kind === kind} aria-controls={open?.kind === kind ? `insights-${kind}-popover` : undefined} onClick={event => toggle(kind, event.currentTarget)}>
-        {kind !== 'currency' ? <InsightIcon name={kind === 'month' ? 'calendar' : 'layers'} /> : null}<span className="i-filter-value">{value(kind)}</span><InsightIcon className="i-filter-chevron" name={`chevron-${open?.kind === kind ? 'up' : 'down'}`} />
+    <div ref={filterRef} className="i-filter-row" data-layout="row">{(['month', 'scope'] as const).map(kind => <div key={kind} className={"i-field-" + kind}>
+      <button type="button" className={`i-filter-button i-filter-button--${kind}`} aria-label={`${label(kind)}: ${value(kind)}`} aria-haspopup="dialog" aria-expanded={open?.kind === kind} aria-controls={open?.kind === kind ? `insights-${kind}-popover` : undefined} onClick={event => toggle(kind, event.currentTarget)}>
+        <InsightIcon name={kind === 'month' ? 'calendar' : 'layers'} /><span className="i-filter-value">{value(kind)}</span><InsightIcon className="i-filter-chevron" name={`chevron-${open?.kind === kind ? 'up' : 'down'}`} />
       </button>
     </div>)}</div>
     {open ? <PaperPopover open={open} label={label(open.kind)} close={close} onEscape={() => { if (open.kind === 'month' && years) { returnMonths(); return true } return false }}>
       {open.kind === 'month' ? <>
         <div className="i-year-row">
           <button className="i-icon-button" disabled={browseYear <= 1} aria-label={t(years ? 'spending.previousYears' : 'spending.previousYear')} onClick={() => setBrowseYear(year => Math.max(1, year - (years ? 12 : 1)))}><InsightIcon name="chevron-left" /></button>
-          {years ? <span className="i-year-range i-leather">{firstYear}–{firstYear + 11}</span> : <button ref={yearRef} className="i-year-button i-leather" aria-label={`${t('spending.chooseYear')}: ${browseYear}`} aria-expanded={false} onClick={() => setYears(true)}>{browseYear}<InsightIcon name="chevron-down" /></button>}
+          {years ? <span className="i-year-range">{firstYear}–{firstYear + 11}</span> : <button ref={yearRef} className="i-year-button" aria-label={`${t('spending.chooseYear')}: ${browseYear}`} aria-expanded={false} onClick={() => setYears(true)}>{browseYear}<InsightIcon name="chevron-down" /></button>}
           <button className="i-icon-button" disabled={browseYear >= 9999} aria-label={t(years ? 'spending.nextYears' : 'spending.nextYear')} onClick={() => setBrowseYear(year => Math.min(9999, year + (years ? 12 : 1)))}><InsightIcon name="chevron-right" /></button>
         </div>
         <div ref={gridRef} className="i-month-grid" data-choice-group data-columns="4">
@@ -125,18 +125,9 @@ export default function InsightsFilters({ filter, currencies, timezone, lang, up
           })}
         </div>
         <div className="i-popover-footer">{years ? <button className="i-link" onClick={returnMonths}><InsightIcon name="chevron-left" />{t('spending.months')}</button> : <button className="i-link" onClick={() => commit({ month: localCalendarDate(new Date(), timezone).slice(0, 7) })}><InsightIcon name="calendar" />{t('spending.thisMonth')}</button>}</div>
-      </> : open.kind === 'scope' ? <div data-choice-group>{scopes.map((scope, index) => <button key={scope} className="i-scope-option" aria-label={t(`spending.${scope}`)} aria-describedby={`scope-${scope}-description`} aria-pressed={filter.scope === scope} onClick={() => commit({ scope })}>
-        <span className="i-record-icon"><InsightIcon name={['layers', 'user', 'users'][index]} /></span><span><span className="i-option-title">{t(`spending.${scope}`)}</span><span className="i-option-meta" id={`scope-${scope}-description`}>{t(`spending.${scope}Help`)}</span></span>{filter.scope === scope ? <span className="i-check"><InsightIcon name="check" /></span> : <span />}
-      </button>)}</div> : <>
-        <p className="i-currency-title">{t('spending.currency')}</p>
-        <div data-choice-group>{[...new Set([...currencies, filter.currency])].map(code => {
-          const currency = CURRENCIES.find(item => item.code === code)
-          const name = new Intl.DisplayNames([localeForLang(lang)], { type: 'currency' }).of(code) ?? currency?.label ?? code
-          return <button key={code} className="i-scope-option i-currency-option" aria-pressed={filter.currency === code} onClick={() => commit({ currency: code })}>
-            <span className="i-record-icon">{currency?.symbol ?? code}</span><span><span className="i-option-title">{code}</span><span className="i-option-meta">{name}</span></span>{filter.currency === code ? <span className="i-check"><InsightIcon name="check" /></span> : <span />}
-          </button>
-        })}</div><p className="i-currency-note">{t('spending.currencyNote', { currency: filter.currency })}</p>
-      </>}
+      </> : <div data-choice-group>{scopes.map((scope, index) => <button key={scope} className="i-scope-option" aria-label={t(`spending.${scope}`)} aria-describedby={`scope-${scope}-description`} aria-pressed={filter.scope === scope} onClick={() => commit({ scope })}>
+        <span className="i-record-icon" data-tone={index === 0 ? 'blue' : index === 1 ? 'apricot' : 'sage'}><InsightIcon name={['layers', 'user', 'users'][index]} /></span><span><span className="i-option-title">{t(`spending.${scope}`)}</span><span className="i-option-meta" id={`scope-${scope}-description`}>{t(`spending.${scope}Help`)}</span></span>{filter.scope === scope ? <span className="i-check"><InsightIcon name="check" /></span> : <span />}
+      </button>)}</div>}
     </PaperPopover> : null}
   </>
 }
