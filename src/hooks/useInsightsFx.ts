@@ -6,11 +6,11 @@ import { unavailableFx, validateFx, type FxSnapshot } from '../lib/fx'
 const requests = new Map<string, { promise: Promise<FxSnapshot>; expires: number }>()
 export function useInsightsFx(identity: string, needed: boolean, pinned?: string) {
   const key = `${identity}:${pinned ?? 'latest'}`
-  const [result, setResult] = useState<{ key: string; snapshot: FxSnapshot; updating: boolean }>({ key:'', snapshot:unavailableFx, updating:false })
+  const [result, setResult] = useState<{ key: string; identity:string; snapshot: FxSnapshot; updating: boolean }>({ key:'',identity:'', snapshot:unavailableFx, updating:false })
   const load = useCallback(async () => {
     if (!identity || !needed || !supabase) return
     await Promise.resolve()
-    setResult(old => ({ key, snapshot:old.key === key ? old.snapshot : unavailableFx, updating:true }))
+    setResult(old => ({ key,identity, snapshot:old.identity === identity ? old.snapshot : unavailableFx, updating:true }))
     let request = requests.get(key)
     if (!request || request.expires < Date.now()) {
       const promise = Promise.resolve(supabase.rpc('insights_fx_snapshot',{ p_snapshot_id:pinned ?? null })).then(({data,error}) => {
@@ -29,14 +29,14 @@ export function useInsightsFx(identity: string, needed: boolean, pinned?: string
     let active = true
     void Promise.resolve().then(load).then(snapshot => {
       if (!active) return
-      setResult(old => old.key === key ? {key,snapshot:snapshot ?? {...old.snapshot,status:old.snapshot.id ? 'cached' : 'unavailable'},updating:false} : old)
+      setResult(old => old.key === key ? {key,identity,snapshot:snapshot ?? {...old.snapshot,status:old.snapshot.id ? 'cached' : 'unavailable'},updating:false} : old)
     }).finally(() => { if (active) setResult(old => old.key === key ? {...old,updating:false} : old) })
     return () => { active=false }
-  },[load,key])
+  },[load,key,identity])
   const retry = async () => {
     const snapshot = await load()
-    setResult(old => old.key === key ? {key,snapshot:snapshot ?? {...old.snapshot,status:old.snapshot.id ? 'cached' : 'unavailable'},updating:false} : old)
+    setResult(old => old.key === key ? {key,identity,snapshot:snapshot ?? {...old.snapshot,status:old.snapshot.id ? 'cached' : 'unavailable'},updating:false} : old)
   }
   const matching = result.key === key
-  return { snapshot:needed && matching ? result.snapshot : unavailableFx, updating:needed && (!matching || result.updating), retry }
+  return { snapshot:needed && result.identity === identity ? result.snapshot : unavailableFx, updating:needed && (!matching || result.updating), retry }
 }

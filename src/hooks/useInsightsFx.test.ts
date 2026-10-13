@@ -35,3 +35,15 @@ it('keeps last-good quotes on transport failure and enforces retry cooldown',asy
  expect(hook.result.current.snapshot.status).toBe('cached');expect(hook.result.current.snapshot.rates.USD.denominator).toBe('0.25')
  await act(async()=>hook.result.current.retry());expect(api.rpc).toHaveBeenCalledTimes(2)
 })
+it('retains the same actual cache during a pinned-to-latest refresh',async()=>{
+ const id='10000000-0000-4000-8000-000000000005'
+ let resolve!:(value:unknown)=>void
+ api.rpc.mockResolvedValueOnce({data:snapshot(id),error:null}).mockImplementationOnce(()=>new Promise(r=>{resolve=r}))
+ const hook=renderHook(({pinned}:{pinned:string|undefined})=>useInsightsFx('retained-refresh',true,pinned),{initialProps:{pinned:id as string|undefined}})
+ await waitFor(()=>expect(hook.result.current.snapshot.id).toBe(id))
+ hook.rerender({pinned:undefined});await waitFor(()=>expect(api.rpc).toHaveBeenCalledTimes(2))
+ expect(hook.result.current.updating).toBe(true);expect(hook.result.current.snapshot.id).toBe(id)
+ await act(async()=>resolve({data:null,error:new Error('offline')}))
+ await waitFor(()=>expect(hook.result.current.snapshot.status).toBe('cached'))
+ expect(hook.result.current.snapshot.id).toBe(id)
+})
