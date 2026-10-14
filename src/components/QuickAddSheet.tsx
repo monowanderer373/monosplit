@@ -1,3 +1,4 @@
+import AmountInput from './AmountInput'
 import { useMemo, useRef, useState } from 'react'
 import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
 import type { LedgerExpenseDraft } from '../lib/compileExpense'
@@ -127,14 +128,14 @@ export default function QuickAddSheet({
           <span className="sr-only">{t('expense.amount')}</span>
           <div className="flex items-center gap-3 rounded-2xl bg-[var(--ms-bg-warm)] px-4 py-3">
             <span className="text-sm font-bold text-[var(--ms-text-secondary)]">{currency}</span>
-            <input
+            <AmountInput
               ref={amountRef}
               className="min-w-0 flex-1 bg-transparent text-right text-4xl font-extrabold tracking-tight outline-none"
               inputMode="decimal"
               autoComplete="off"
               placeholder="0.00"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onValueChange={raw => setAmount(raw)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') void submit()
               }}

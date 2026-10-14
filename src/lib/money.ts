@@ -75,18 +75,27 @@ export function formatMinorAmount(amountMinor: number, currency: string, locale?
     currency: currency.toUpperCase(),
     minimumFractionDigits: exponent,
     maximumFractionDigits: exponent,
+    numberingSystem: 'latn',
+    useGrouping: true,
   })
   const signed = BigInt(amountMinor), magnitude = signed < 0n ? -signed : signed
   const factor = 10n ** BigInt(exponent), whole = magnitude / factor
   // Intl accepts BigInt: retain exact integer digits and native placement/signs.
   // A negative sub-unit needs a signed template because BigInt has no negative zero.
   const parts = formatter.formatToParts(signed < 0n ? -(whole || 1n) : whole)
-  const fraction = exponent ? new Intl.NumberFormat(locale, {
-    useGrouping:false,minimumIntegerDigits:exponent,maximumFractionDigits:0,
-  }).format(magnitude % factor) : ''
-  return parts.map(part => part.type === 'fraction' ? fraction
-    : part.type === 'integer' && signed < 0n && whole === 0n
-      ? new Intl.NumberFormat(locale,{useGrouping:false}).format(0) : part.value).join('')
+  const fraction = exponent ? (magnitude % factor).toString().padStart(exponent, '0') : ''
+  const number = new Intl.NumberFormat('en-US', { useGrouping: true }).format(whole)
+  let integerWritten = false
+  return parts.map(part => {
+    if (part.type === 'group') return ''
+    if (part.type === 'integer') {
+      if (integerWritten) return ''
+      integerWritten = true
+      return number
+    }
+    if (part.type === 'decimal') return '.'
+    return part.type === 'fraction' ? fraction : part.value
+  }).join('')
 }
 
 export function equalMinorShares(totalMinor: number, orderedParticipantIds: readonly string[]): Map<string, number> {

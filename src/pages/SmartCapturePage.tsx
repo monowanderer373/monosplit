@@ -1,3 +1,4 @@
+import AmountInput from '../components/AmountInput'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
@@ -412,7 +413,7 @@ export default function SmartCapturePage() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
               {t('expense.amount')}
-              <input className="ms-input mt-1 w-full" inputMode="decimal" value={values.amount} onChange={(event) => setValues((current) => ({ ...current, amount: event.target.value }))} />
+              <AmountInput className="ms-input mt-1 w-full" inputMode="decimal" value={values.amount} onValueChange={raw => setValues((current) => ({ ...current, amount: raw }))} />
             </label>
             <label className="text-xs font-bold text-[var(--ms-text-secondary)]">
               {t('expense.currency')}

@@ -13,6 +13,22 @@ function Harness({shared=false}:{shared?:boolean}={}){const [session,setSession]
 beforeEach(()=>{localStorage.clear();mocked.submit.mockReset();mocked.submit.mockResolvedValue({ok:true});render(<Harness/>)})
 afterEach(cleanup)
 describe('Quick Add capture',()=>{
+ it('groups calculator operands and results while saving the original exact amount',async()=>{
+  fireEvent.click(screen.getByRole('button',{name:'Food'}))
+  for(const name of ['9','0','0','0','0'])fireEvent.click(screen.getByRole('button',{name}))
+  const input=screen.getByRole('textbox',{name:'Amount'}) as HTMLInputElement
+  expect(input.value).toBe('90,000')
+  fireEvent.click(screen.getByRole('button',{name:'Backspace'}))
+  expect(input.value).toBe('9,000')
+  fireEvent.click(screen.getByRole('button',{name:'+'}))
+  for(const name of ['1','0','0','0'])fireEvent.click(screen.getByRole('button',{name}))
+  expect(input.value).toBe('9,000+1,000')
+  expect(screen.getByText('= 10,000.00')).toBeTruthy()
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Save and close'}).hasAttribute('disabled')).toBe(false))
+  fireEvent.click(screen.getByRole('button',{name:'Save and close'}))
+  await waitFor(()=>expect(mocked.submit).toHaveBeenCalled())
+  expect(mocked.submit.mock.calls[0][0]).toMatchObject({values:{amount:'10000.00',calculation:'10000.00'}})
+ })
  it('restores interaction after dismissing a nested panel',async()=>{
   cleanup()
   Object.defineProperty(HTMLElement.prototype,'inert',{configurable:true,get(){return this.hasAttribute('inert')},set(value){this.toggleAttribute('inert',!!value)}})

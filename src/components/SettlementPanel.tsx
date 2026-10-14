@@ -1,3 +1,4 @@
+import AmountInput from './AmountInput'
 import { useMemo, useState } from 'react'
 import type { CanonicalExpense } from '../types'
 import { useSettlements } from '../hooks/useSettlements'
@@ -298,7 +299,7 @@ export default function SettlementPanel({
                       </p>
                     ) : null}
                     {intent === 'partial' ? (
-                      <input
+                      <AmountInput
                         className="ms-input mt-2 h-10 w-full text-right"
                         inputMode="decimal"
                         aria-label={t('settlement.amountFor', {
@@ -306,9 +307,9 @@ export default function SettlementPanel({
                         })}
                         placeholder={t('settlement.enterPartialAmount')}
                         value={amounts[debt.key] ?? ''}
-                        onChange={(event) => setAmounts((current) => ({
+                        onValueChange={raw => setAmounts((current) => ({
                           ...current,
-                          [debt.key]: event.target.value,
+                          [debt.key]: raw,
                         }))}
                       />
                     ) : null}

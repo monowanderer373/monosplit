@@ -63,6 +63,7 @@ export function validateFx(input: unknown): FxSnapshot {
 }
 export function exactAmount(minor: string | bigint, digits: number, locale: string) {
   const n = BigInt(minor), abs = n < 0n ? -n : n, scale = 10n ** BigInt(digits)
-  const separator = new Intl.NumberFormat(locale).formatToParts(1.1).find(p => p.type === 'decimal')?.value ?? '.'
-  return (n < 0n ? '−' : '') + new Intl.NumberFormat(locale).format(abs / scale) + (digits ? separator + (abs % scale).toString().padStart(digits,'0') : '')
+  // The app uses comma groups of three for money in every UI language.
+  void locale
+  return (n < 0n ? '−' : '') + new Intl.NumberFormat('en-US', { useGrouping: true }).format(abs / scale) + (digits ? '.' + (abs % scale).toString().padStart(digits,'0') : '')
 }

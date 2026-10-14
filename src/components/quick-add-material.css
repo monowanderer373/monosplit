@@ -83,6 +83,7 @@
 #root .qa-stationery .qa-inputs > label > span { color: #76624f; }
 #root .qa-stationery .qa-inputs :is(input, select) { background: transparent; background-image: none; }
 #root .qa-stationery .qa-inputs .qa-amount input { font-weight: 600; color: #38281c; }
+#root .qa-stationery .qa-inputs .qa-amount select { flex: 0 0 auto; width: 4ch; max-width: none; margin-right: 4px; }
 #root .qa-stationery .qa-amount input::placeholder { opacity: 1; color: #38281c; }
 #root .qa-stationery .qa-inputs .qa-description input { font-weight: 550; }
 #root .qa-stationery .qa-keypad button::before,

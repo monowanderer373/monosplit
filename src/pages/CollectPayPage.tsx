@@ -1,3 +1,4 @@
+import AmountInput from '../components/AmountInput'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
@@ -229,13 +230,13 @@ function PaymentForm({ item, snapshot, timezone, service, onRefresh, onResult, d
     <p className="cp-help">{t(item.direction === 'pay' ? 'cp.recordHelp' : 'cp.requestHelp')}</p>
     <fieldset disabled={busy || attempted}><legend className="cp-sr">{t('settlement.chooseAmount')}</legend>
       <div className="cp-tabs">{(['full', 'partial'] as const).map(intent => <button type="button" key={intent} aria-pressed={input.intent === intent} onClick={() => update({ intent, overpay: null })}>{t(intent === 'full' ? 'settlement.full' : 'settlement.partial')}</button>)}</div>
-      <label>{t('expense.amount')} {item.currency}{input.intent === 'partial' ? <input inputMode="decimal" type="text" value={input.partialAmount} aria-describedby="cp-form-error" onChange={e => update({ partialAmount: e.target.value })} /> : <output>{money(item.remainingMinor)}</output>}</label>
+      <label>{t('expense.amount')} {item.currency}{input.intent === 'partial' ? <AmountInput inputMode="decimal" value={input.partialAmount} aria-describedby="cp-form-error" onValueChange={raw => update({ partialAmount: raw })} /> : <output>{money(item.remainingMinor)}</output>}</label>
       {item.direction === 'pay' && input.intent === 'partial' && item.context.scope === 'direct' ? <label>{t('cp.overpay')}<select value={input.overpay ?? ''} onChange={e => update({ overpay: e.target.value === 'gift' || e.target.value === 'carry' ? e.target.value : null })}>
         <option value="">{t('cp.normal')}</option><option value="gift">{t('cp.gift')}</option><option value="carry">{t('cp.carry')}</option></select></label> : null}
       {item.direction === 'pay' ? <>
         <label>{t('cp.paidFrom')}<select value={input.accountId} onChange={e => update({ accountId: e.target.value })}><option value="">{t('cp.chooseAccount')}</option>{accounts.map(a => <option value={a.id} key={a.id}>{a.name} · {a.currency}</option>)}</select></label>
         {!accounts.length ? <p>{t('cp.noAccounts')}</p> : null}
-        {account && account.currency !== item.currency ? <label>{t('cp.cashAmount')} · {account.currency}<input inputMode="decimal" value={input.cashAmount} onChange={e => update({ cashAmount: e.target.value })} /><small>{t('cp.fxHelp')}</small></label> : null}
+        {account && account.currency !== item.currency ? <label>{t('cp.cashAmount')} · {account.currency}<AmountInput inputMode="decimal" value={input.cashAmount} onValueChange={raw => update({ cashAmount: raw })} /><small>{t('cp.fxHelp')}</small></label> : null}
         <label>{t('expense.date')}<input type="date" value={input.date} onChange={e => update({ date: e.target.value })} /></label>
         {item.requests.some(r => r.status === 'open') ? <label>{t('cp.chooseRequest')}<select value={input.sourceRequestId ?? ''} onChange={e => update({ sourceRequestId: e.target.value || null })}><option value="">{t('cp.noRequest')}</option>{item.requests.filter(r => r.status === 'open').map(r => <option value={r.id} key={r.id}>{money(r.amountMinor)}</option>)}</select></label> : null}
       </> : null}

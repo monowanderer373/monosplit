@@ -1,3 +1,4 @@
+import AmountInput from '../AmountInput'
 import { capitalizeDescription } from '../../lib/description'
 import MoneyText from '../MoneyText'
 import { TravelHome } from '../travel/TravelUI'
@@ -939,7 +940,7 @@ function CreateAccountSheet({
       <p className="home-note">{t('home.openingHelp')}</p>
       <label className="home-sheet-option">
         <span>{t('home.openingAmount')}</span>
-        <input className="ms-input" inputMode="decimal" value={opening} onChange={(event) => setOpening(event.target.value)} />
+        <AmountInput className="ms-input" inputMode="decimal" value={opening} onValueChange={raw => setOpening(raw)} />
       </label>
       <label className="home-sheet-option">
         <span>{t('home.openingDate')}</span>

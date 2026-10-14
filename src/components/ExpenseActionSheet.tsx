@@ -1,3 +1,4 @@
+import AmountInput from './AmountInput'
 import { capitalizeDescription } from '../lib/description'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -313,7 +314,7 @@ export default function ExpenseActionSheet({
             <select aria-label={t('expenseAction.currency')} value={currency} disabled={mode !== 'financial'} onChange={event => changeAmount(total, event.target.value)}>
               {CURRENCIES.map(item => <option key={item.code} value={item.code}>{item.symbol} · {item.code}</option>)}
             </select>
-            <input id={`edit-amount-${expense.id}`} aria-label={t('expenseAction.amount')} inputMode="decimal" value={total} readOnly={mode === 'metadata'} required onChange={event => changeAmount(event.target.value)} />
+            <AmountInput id={`edit-amount-${expense.id}`} aria-label={t('expenseAction.amount')} inputMode="decimal" value={total} readOnly={mode === 'metadata'} required onValueChange={raw => changeAmount(raw)} />
           </div>
           <label className="expense-editor-label expense-editor-description">{t('expenseAction.description')}<input className="ms-input" value={description} autoCapitalize="sentences" onChange={event => setDescription(capitalizeDescription(event.target.value))} /></label>
           <div className="expense-editor-pair">

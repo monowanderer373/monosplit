@@ -9,6 +9,15 @@ import {
 } from './money'
 
 describe('money', () => {
+  it('uses comma groups of three for all monetary displays while keeping currency precision and signs', () => {
+    for (const locale of ['en-MY', 'zh-CN', 'de-DE', 'en-IN']) {
+      expect(formatMinorAmount(600000, 'MYR', locale)).toContain('6,000.00')
+      expect(formatMinorAmount(90000, 'VND', locale)).toContain('90,000')
+      expect(formatMinorAmount(345005, 'CNY', locale)).toContain('3,450.05')
+      expect(formatMinorAmount(-Number.MAX_SAFE_INTEGER + 1, 'MYR', locale)).toContain('90,071,992,547,409.90')
+      expect(formatMinorAmount(-1, 'MYR', locale)).toContain('0.01')
+    }
+  })
   it('parses two-decimal and zero-decimal currencies without floating point arithmetic', () => {
     expect(parseMajorAmount('100.25', 'MYR')).toBe(10_025)
     expect(parseMajorAmount('1,200', 'JPY')).toBe(1_200)

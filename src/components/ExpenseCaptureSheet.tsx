@@ -1,3 +1,4 @@
+import AmountInput from './AmountInput'
 import { useMemo, useRef, useState } from 'react'
 import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
 import type { ExpenseScope, ParticipantKind } from '../types'
@@ -128,14 +129,14 @@ export default function ExpenseCaptureSheet({
           <span className="sr-only">{t('expense.amount')}</span>
           <div className="flex items-center gap-3 rounded-2xl bg-[var(--ms-bg-warm)] px-4 py-3">
             <span className="text-sm font-bold text-[var(--ms-text-secondary)]">{currency}</span>
-            <input
+            <AmountInput
               ref={amountRef}
               className="min-w-0 flex-1 bg-transparent text-right text-4xl font-extrabold tracking-tight outline-none"
               inputMode="decimal"
               autoComplete="off"
               placeholder="0.00"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onValueChange={raw => setAmount(raw)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && scope === 'personal') void submit()
               }}
@@ -215,7 +216,7 @@ export default function ExpenseCaptureSheet({
               {selectedParticipants.map((participant) => (
                 <label key={participant.id} className="flex items-center justify-between gap-3 text-sm">
                   <span className="truncate">{participant.id === currentParticipantId ? t('common.you') : participant.displayName}</span>
-                  <input
+                  <AmountInput
                     className="ms-input h-10 w-32 text-right"
                     inputMode="decimal"
                     aria-label={t('expenseCapture.shareFor', {
@@ -223,7 +224,7 @@ export default function ExpenseCaptureSheet({
                     })}
                     placeholder="0.00"
                     value={exactShareAmounts[participant.id] ?? ''}
-                    onChange={(event) => setExactShareAmounts((current) => ({ ...current, [participant.id]: event.target.value }))}
+                    onValueChange={raw => setExactShareAmounts((current) => ({ ...current, [participant.id]: raw }))}
                   />
                 </label>
               ))}
@@ -244,7 +245,7 @@ export default function ExpenseCaptureSheet({
                   {selectedParticipants.map((participant) => (
                     <label key={participant.id} className="flex items-center justify-between gap-3 text-sm">
                       <span className="truncate">{participant.id === currentParticipantId ? t('common.you') : participant.displayName}</span>
-                      <input
+                      <AmountInput
                         className="ms-input h-10 w-32 text-right"
                         inputMode="decimal"
                         aria-label={t('expenseCapture.paidBy', {
@@ -252,7 +253,7 @@ export default function ExpenseCaptureSheet({
                         })}
                         placeholder="0.00"
                         value={payerAmounts[participant.id] ?? ''}
-                        onChange={(event) => setPayerAmounts((current) => ({ ...current, [participant.id]: event.target.value }))}
+                        onValueChange={raw => setPayerAmounts((current) => ({ ...current, [participant.id]: raw }))}
                       />
                     </label>
                   ))}
