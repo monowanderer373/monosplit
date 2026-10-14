@@ -1,7 +1,7 @@
 import NotificationTarget from '../components/home/NotificationTarget'
 import {useHomeNotifications} from '../hooks/useHomeNotifications'
 import {parseNotice,noticePath} from '../lib/homeNotifications'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
@@ -40,6 +40,15 @@ export default function PersonalLedgerPage() {
   const homeRefreshKey = `${ledger.expenses.map((expense) => `${expense.id}:${expense.updatedAt}`).join('|')}:${accountReload}`
   const home = useHomeData(ledger.participantId, homeRefreshKey, true)
   const noticeTarget=useMemo(()=>parseNotice(location.search),[location.search])
+  const previousNotice=useRef(noticeTarget)
+  useEffect(()=>{
+    const closed=previousNotice.current&&!noticeTarget
+    previousNotice.current=noticeTarget
+    if(!closed)return
+    // Run after the old dialog's inert/focus cleanup and the router commit.
+    const frame=requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('[data-testid="home-account-notice"]')?.focus({preventScroll:true}))
+    return()=>cancelAnimationFrame(frame)
+  },[noticeTarget])
   const notifications=useHomeNotifications(authUser?.id??null,ledger.participantId,ledger.outbox,homeRefreshKey)
   const refreshNotices=notifications.refresh
   const refreshLedger=ledger.refresh
@@ -50,7 +59,6 @@ export default function PersonalLedgerPage() {
   const closeNotice=()=>{
     if(location.state?.noticeBack)navigate(-1)
     else {const next=new URLSearchParams(searchParams);next.delete('notice');next.delete('target');setSearchParams(next,{replace:true})}
-    requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('[data-testid="home-account-notice"]')?.focus({preventScroll:true}))
   }
   const model = useHomeModel({
     participantId: ledger.participantId,

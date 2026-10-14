@@ -15,7 +15,8 @@ export default function AccountNotice({timezone='Asia/Kuala_Lumpur',notices=[],s
       const a=anchor.getBoundingClientRect(),viewport=window.visualViewport
       const width=viewport?.width??document.documentElement.clientWidth
       node.style.left=`${Math.max(16,Math.min(a.left,width-16-node.getBoundingClientRect().width))-a.left}px`
-      node.style.maxHeight=`${Math.max(144,(viewport?.height??innerHeight)-a.bottom-20)}px`
+      const safe=parseFloat(getComputedStyle(node).getPropertyValue('--notice-safe-bottom'))||0
+      node.style.maxHeight=`${Math.max(144,(viewport?.height??innerHeight)-a.bottom-20-safe)}px`
     }
     fit();const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(fit);observer?.observe(node);observer?.observe(anchor)
     window.addEventListener('resize',fit);window.visualViewport?.addEventListener('resize',fit)

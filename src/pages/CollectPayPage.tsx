@@ -63,7 +63,7 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
-  useRouteScroll(status === 'ready', snapshot?.owner ?? '')
+  useRouteScroll(status === 'ready'&&!params.has('noticeTarget'), snapshot?.owner ?? '')
   const tab = params.get('tab') === 'history' ? 'history' : 'outstanding'
   const filter = params.get('filter') ?? 'all'
   const selectedKey = params.get('item')
@@ -82,10 +82,9 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
   useEffect(()=>{
     if(status!=='ready'||!noticeValid||!noticeId||noticeHidden)return
     const key=`${snapshot?.owner}:${noticeKind}:${noticeId}`
-    if(focusedNotice.current===key)return
     const el=document.querySelector<HTMLElement>(`[data-notice-entity="${noticeKind}:${CSS.escape(noticeId)}"]`)
     if(!el)return
-    focusedNotice.current=key;el.tabIndex=-1;el.scrollIntoView({block:'center'});el.focus({preventScroll:true})
+    if(focusedNotice.current!==key){focusedNotice.current=key;el.dataset.noticeFocus='true';el.tabIndex=-1;el.scrollIntoView({block:'center'});el.focus({preventScroll:true})}
     const version=noticeKind==='payment'?snapshot?.payments.find(p=>p.id===noticeId)?.version:snapshot?.requests.find(r=>r.id===noticeId)?.version
     if(notificationIdentity&&version!=null)markNotificationRead(notificationIdentity,{id:`${noticeKind}:${noticeId}`,version:String(version)})
   },[status,noticeValid,noticeId,noticeKind,noticeHidden,snapshot,notificationIdentity])

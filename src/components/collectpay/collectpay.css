@@ -62,3 +62,5 @@
 .cp-original summary:focus-visible { outline: 2px solid var(--cp-denim); outline-offset: 2px; }
 .cp-scope button { transition: background-color var(--cp-control-duration) ease-out,box-shadow var(--cp-control-duration) ease-out; }
 @media(prefers-reduced-motion:reduce) { .cp-scope button { transition: none; } }
+
+.cp-scope .cp-history-row[data-notice-focus="true"] {outline:2px solid var(--cp-denim);outline-offset:2px;}

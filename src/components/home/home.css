@@ -253,3 +253,5 @@ button.home-sheet-option:hover { background: var(--tt-primary-soft); }
 .home-notice-target strong {overflow-wrap:anywhere;}
 
 .home-notice-list li:first-child .home-notice-row {border-top:0;}
+
+.home-notice-popover {--notice-safe-bottom:env(safe-area-inset-bottom,0px);}
