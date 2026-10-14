@@ -51,7 +51,7 @@
 .tt-insights .i-analysis-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); min-height:44px; margin:14px 0 12px; border:1px solid var(--i-blue-edge); border-radius:10px; background:var(--i-denim-soft); }
 .tt-insights .i-analysis-tab { display:flex; min-height:44px; padding:0; border:1px solid transparent; background:transparent; border-radius:9px; }
 .tt-insights .i-tab-face { display:flex; justify-content:center; align-items:center; width:100%; min-height:40px; padding:6px 4px; color:var(--i-denim); font-size:.875rem; line-height:1.25rem; overflow-wrap:anywhere; }
-.tt-insights .i-analysis-tab[aria-selected='true'] { background:var(--i-blue-selected); border-color:var(--i-blue-edge); }
+.tt-insights .i-analysis-tab[aria-selected='true'] { background:var(--i-blue-selected); border-color:var(--i-focus); }
 .tt-insights .i-analysis-tab[aria-selected='true'] .i-tab-face { color:var(--i-ink); font-weight:600; }
 .tt-insights .i-chart-card { padding:16px; margin-bottom:12px; }
 .tt-insights .i-section-heading { margin:0 0 8px; font-size:1rem; line-height:1.375rem; font-weight:700; overflow-wrap:anywhere; }
@@ -77,15 +77,15 @@
 .tt-insights .i-popover-arrow { position:absolute; width:8px; height:8px; left:var(--i-arrow-left,20px); top:var(--i-arrow-top,-5px); bottom:var(--i-arrow-bottom,auto); background:var(--i-surface); border-top:1px solid var(--i-border); border-left:1px solid var(--i-border); transform:rotate(var(--i-arrow-rotation,45deg)); }
 .tt-insights .i-year-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:8px; border-bottom:1px dotted var(--i-dots); }
 .tt-insights .i-icon-button { display:flex; align-items:center; justify-content:center; flex:0 0 auto; min-width:44px; min-height:44px; padding:0; border:1px solid var(--i-border); border-radius:8px; color:var(--i-denim); background:var(--i-surface); }
-.tt-insights .i-year-button,.tt-insights .i-year-range { display:flex; justify-content:center; align-items:center; gap:8px; min-width:100px; min-height:44px; padding:8px 12px; font-size:1rem; line-height:1.375rem; font-weight:600; white-space:nowrap; }
+.tt-insights .i-year-button,.tt-insights .i-year-range { display:flex; flex:1; justify-content:center; align-items:center; gap:8px; min-width:100px; min-height:44px; padding:8px 12px; font-size:1rem; line-height:1.375rem; font-weight:600; white-space:nowrap; }
 .tt-insights .i-year-range { font-size:.875rem; }
 .tt-insights .i-month-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; padding:12px 0; }
 .tt-insights .i-month-grid[data-columns='3'] { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .tt-insights .i-month-grid[data-columns='2'] { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .tt-insights .i-month-grid[data-columns='1'] { grid-template-columns:minmax(0,1fr); }
 .tt-insights .i-month-option { display:flex; align-items:stretch; justify-content:center; min-width:0; min-height:44px; padding:0; border:0; border-radius:8px; background:transparent; }
-.tt-insights .i-month-face { display:flex; align-items:center; justify-content:center; width:100%; min-height:44px; padding:8px; border:1px solid var(--i-border); border-radius:8px; color:var(--i-ink); background:var(--i-surface); font-size:.9375rem; line-height:1.25rem; font-weight:600; white-space:nowrap; }
-.tt-insights .i-month-option[aria-pressed='true'] .i-month-face { color:var(--i-white); background-color:var(--i-denim); background-image:var(--i-denim-texture); border-color:var(--i-denim); }
+.tt-insights .i-month-face { display:flex; align-items:center; justify-content:center; width:100%; min-height:44px; padding:8px; border:1px solid var(--i-border); border-radius:8px; color:var(--i-ink); background:var(--i-surface); font-size:.9375rem; line-height:1.25rem; font-weight:400; white-space:nowrap; }
+.tt-insights .i-month-option[aria-pressed='true'] .i-month-face { color:var(--i-white); background-color:var(--i-denim); background-image:var(--i-denim-texture); border-color:var(--i-denim); font-weight:600; }
 .tt-insights .i-popover-footer { display:flex; justify-content:flex-end; padding-top:4px; border-top:1px dotted var(--i-dots); }
 .tt-insights .i-scope-option { display:grid; grid-template-columns:34px minmax(0,1fr) 18px; align-items:center; gap:8px; min-height:64px; width:100%; padding:8px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--i-ink); text-align:left; }
 .tt-insights .i-scope-option[aria-pressed='true'] { background:var(--i-denim-soft); border-color:var(--i-blue-edge); }
@@ -115,7 +115,7 @@
 .tt-insights .i-record-icon[data-tone='blue'] { background:var(--i-denim-soft); }
 .tt-insights .i-legend-row .i-record-icon { width:32px; height:32px; }
 .tt-insights .i-record-copy { min-width:0; }
-.tt-insights .i-record-title { display:block; font-size:.875rem; line-height:1.25rem; font-weight:500; overflow-wrap:anywhere; }
+.tt-insights .i-record-title { display:block; font-size:.875rem; line-height:1.25rem; font-weight:600; overflow-wrap:anywhere; }
 .tt-insights .i-record-meta,.tt-insights .i-record-bill { display:block; color:var(--i-secondary); font-size:.75rem; line-height:1.125rem; overflow-wrap:anywhere; }
 .tt-insights .i-record-amount { min-width:0; text-align:right; color:var(--i-expense); font-size:1rem; line-height:1.375rem; font-weight:600; }
 .tt-insights .i-record-amount .tt-money-currency { font-size:.75rem; }
@@ -182,7 +182,7 @@
 .tt-insights .i-money-raw { display:inline-flex; align-items:baseline; flex-wrap:wrap; gap:2px; max-width:100%; }
 .tt-insights .i-money-raw .tt-money-number { min-width:0; max-width:100%; white-space:nowrap; overflow-x:auto; overscroll-behavior-inline:contain; scrollbar-width:thin; overflow-wrap:normal; }
 .tt-insights .i-money-raw[data-scroll='true']::after { content:attr(data-scroll-label); display:block; flex:1 0 100%; font-size:.75rem; line-height:1.125rem; font-weight:400; color:var(--i-secondary); }
-.tt-insights .i-scope-option[aria-pressed='true'] { background:var(--i-blue-selected); }
+.tt-insights .i-scope-option:first-child .i-record-icon { background:transparent; }
 
 .tt-insights .i-check { border-radius:0; background:transparent; color:var(--i-denim); }
 .tt-insights .i-check .i-icon { width:18px; height:18px; }
