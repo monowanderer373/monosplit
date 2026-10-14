@@ -72,7 +72,7 @@ function PaperPopover({ open, label, close, onEscape, children }: { open: Open; 
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? choices.length - 1 : (index + step + choices.length) % choices.length
       event.preventDefault(); choices[next]?.focus()
     }}>
-    <span className="i-popover-arrow" aria-hidden="true" /><img className="i-popover-corner" src="/assets/insights/denim-corner.svg" alt="" />
+    <span className="i-popover-arrow" aria-hidden="true" />
     <div className="i-popover-content">{children}</div>
   </div>, document.body)
 }

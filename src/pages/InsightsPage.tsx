@@ -20,10 +20,9 @@ export default function InsightsPage() {
     <InsightsFilters filter={filter} timezone={timezone} lang={lang} update={update} initialMonthOpen={Boolean(location.state?.openSpendingMonth)} />
     {!ready ? <SpendingState status={ledger.expensesStatus === 'error' ? 'error' : 'loading'} retry={ledger.refresh} /> : <>
       <section className="i-card i-summary-ticket" aria-label={t('spending.total')}>
-        <img className="i-corner" src="/assets/insights/denim-corner.svg" alt="" />
-        <div className="i-ticket-top"><h2 className="i-ticket-title"><InsightIcon name="receipt" />{t('spending.total')}</h2><span className="i-quiet-month">{monthLabel(filter.month, lang)}</span></div>
+        <div className="i-ticket-top"><h2 className="i-ticket-title"><InsightIcon name="receipt" /><span>{t('spending.total')}</span></h2><span className="i-quiet-month">{monthLabel(filter.month, lang)}</span></div>
         <SpendingTotals snapshot={snapshot} updating={updatingFx} retry={retryFx} />
-        <div className="i-ticket-footer"><span><span className="i-record-count"><SpendingCount count={snapshot.count} /></span><span className="i-share-basis">{t(filter.scope === 'personal' ? 'spending.personalBasis' : 'spending.basis')}</span></span><Link className="i-link" onClick={rememberFx} to={`/insights/records?${spendingQuery(filter)}`} state={{ fromInsights: true }}>{t('spending.viewRecords')}<InsightIcon name="arrow-right" /></Link></div>
+        <div className="i-ticket-footer"><span className="i-receipt-perforation" aria-hidden="true" /><span><span className="i-record-count"><SpendingCount count={snapshot.count} /></span><span className="i-share-basis">{t(filter.scope === 'personal' ? 'spending.personalBasis' : 'spending.basis')}</span></span><Link className="i-link" onClick={rememberFx} to={`/insights/records?${spendingQuery(filter)}`} state={{ fromInsights: true }}><span>{t('spending.viewRecords')}</span><InsightIcon name="arrow-right" /></Link></div>
       </section>
       <div className="i-analysis-tabs" role="tablist" aria-label={t('spending.views')} onKeyDown={event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return

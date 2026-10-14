@@ -8,6 +8,7 @@
   --i-font:Inter,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
   --i-padding:16px; --i-content-max:640px; --i-motion:140ms;
   --i-paper-shadow:0 2px 6px rgba(36,55,74,.06);
+  --i-receipt-band:#E8F0F3; --i-receipt-perforation:#CBC8C0; --i-receipt-separator:#B8C8D3;
   --i-popover-shadow:0 6px 18px rgba(36,55,74,.12);
   --i-paper-texture:url('/assets/insights/paper-grain.svg');
   --i-denim-texture:url('/assets/insights/denim-weave.svg');
