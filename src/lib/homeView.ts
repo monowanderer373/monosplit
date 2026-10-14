@@ -36,6 +36,8 @@ export type HomeAccount = {
   unpostedInstallmentMinor?: number
   /** Ignored by available-money math. A credit limit is not spendable cash. */
   creditLimitMinor?: number
+  /** Entry cardinality changes only when a new immutable private movement posts. */
+  attentionRevision?: string
 }
 
 export type CurrencyAmount = {

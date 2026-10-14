@@ -1,3 +1,5 @@
+import {buildHomeNotifications} from '../lib/homeNotifications'
+import {noticeSnapshot} from '../test/notificationFixtures'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import BottomNavigation from '../components/BottomNavigation'
@@ -231,6 +233,8 @@ function HarnessBody() {
         monthlySpending={[{ currency: 'MYR', amountMinor: 8_640 }]}
         receivables={[{ currency: 'MYR', amountMinor: 2_400 }]}
         tileLayout={summaryTileLayout(accountTasks.length, sharedContexts.length)}
+        notifications={accountTasks.length?buildHomeNotifications(noticeSnapshot(),[]):[]}
+        unreadNotifications={new Set(accountTasks.length?['funding:fund-1']:[])}
         accountTasks={accountTasks}
         sharedContexts={sharedContexts}
         sharedPreviews={scenario === 'none' || scenario === 'empty-accounts' ? [] : [{

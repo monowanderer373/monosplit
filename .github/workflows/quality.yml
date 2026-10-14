@@ -128,6 +128,7 @@ jobs:
           name: full-browser-results
           path: |
             test-results/browser-results.json
+            test-results/notifications/
             test-results/**/error-context.md
             test-results/insights-ui/
           if-no-files-found: ignore

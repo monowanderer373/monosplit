@@ -1,3 +1,5 @@
+import AccountNotice from './AccountNotice'
+import type {HomeNotification} from '../../lib/homeNotifications'
 import AmountInput from '../AmountInput'
 import { capitalizeDescription } from '../../lib/description'
 import MoneyText from '../MoneyText'
@@ -44,6 +46,11 @@ type DisplayRecord = HomeRecordPresentation & {
 export type HomeScreenProps = {
   localToday?: string
   timezone?: string
+  notifications?: readonly HomeNotification[]
+  notificationsStatus?: 'loading'|'ready'|'error'
+  unreadNotifications?: ReadonlySet<string>
+  onOpenNotification?: (notice:HomeNotification)=>void
+  onRetryNotifications?: ()=>unknown
   initialAccountPanel?: 'manage'
   onCloseAccountPanel?: () => void
   mode: 'daily' | 'travel'
@@ -125,14 +132,14 @@ export default function HomeScreen(props: HomeScreenProps) {
   }
 
   if (props.mode === 'travel') return <TravelHome props={{ ...props, localToday: today }}
-    notice={<AccountNotice tasks={props.accountTasks} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
+    notice={<AccountNotice timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
     records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
 
   return (
     <div className="home-frame" data-density={props.density}>
       <header className="home-header" data-testid="home-header">
         <div>
-          <div className="home-title-row"><h1 className="home-title">{props.mode === 'daily' ? t('home.myDay') : t('home.modeTravel')}</h1><AccountNotice tasks={props.accountTasks} /></div>
+          <div className="home-title-row"><h1 className="home-title">{props.mode === 'daily' ? t('home.myDay') : t('home.modeTravel')}</h1><AccountNotice timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} /></div>
           <p className="home-today">{formatDate(today, lang)}</p>
         </div>
         <ModeBookmark mode={props.mode} onChange={props.onModeChange} />
@@ -660,7 +667,7 @@ function UnconfirmedNotice({ contexts, onReview }: { contexts: readonly SharedPr
   </button>
 }
 
-function HomeSheet({
+export function HomeSheet({
   title,
   onClose,
   testId,
@@ -732,75 +739,6 @@ function chipText(record: HomeRecordPresentation, t: ReturnType<typeof useT>): s
   return t(record.chip.spaceType === 'group' ? 'home.chipGroup' : 'home.chipTrip', {
     name: record.chip.spaceName,
   })
-}
-
-/** Non-modal notice: keeps the ledger visible, scrollable and interactive. */
-function AccountNotice({ tasks }: { tasks: readonly AccountAttentionSource[] }) {
-  const t = useT()
-  const [open, setOpen] = useState(false)
-  const wrapper = useRef<HTMLDivElement>(null)
-  const trigger = useRef<HTMLButtonElement>(null)
-  const panel = useRef<HTMLElement>(null)
-  const id = useId()
-  useEffect(() => {
-    if (!open) return
-    panel.current?.focus({ preventScroll: true })
-    const outside = (event: globalThis.PointerEvent) => {
-      if (event.target instanceof Node && !wrapper.current?.contains(event.target)) setOpen(false)
-    }
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      setOpen(false)
-      trigger.current?.focus({ preventScroll: true })
-    }
-    const focusOutside = (event: FocusEvent) => {
-      if (event.target instanceof Node && !wrapper.current?.contains(event.target)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', outside)
-    document.addEventListener('keydown', escape)
-    document.addEventListener('focusin', focusOutside)
-    return () => {
-      document.removeEventListener('pointerdown', outside)
-      document.removeEventListener('keydown', escape)
-      document.removeEventListener('focusin', focusOutside)
-    }
-  }, [open])
-  return <div className="home-notice-anchor" ref={wrapper}>
-    <button ref={trigger} type="button" className="home-account-notice" data-testid="home-account-notice"
-      aria-label={`${t('home.accountTasks')} · ${t('home.taskCount', { count: tasks.length })}`}
-      title={t('home.accountTasks')} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined}
-      onClick={() => setOpen(value => !value)}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3Zm5 3h4M12 2v2" />
-      </svg>
-      {tasks.length > 0 ? <span className="home-account-notice-dot" aria-hidden="true" /> : null}
-    </button>
-    {open ? <section ref={panel} id={id} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`}
-      tabIndex={-1} className="home-notice-popover" data-testid="home-notice-popover">
-      <header>
-        <h2 id={`${id}-title`}>{t('home.accountTasks')}</h2>
-        <button type="button" className="home-icon-button" aria-label={t('home.close')}
-          onClick={() => { setOpen(false); trigger.current?.focus({ preventScroll: true }) }}>×</button>
-      </header>
-      <ul className="home-notice-list" tabIndex={0} aria-label={t('home.notifications')}>
-        {tasks.length === 0 ? <li className="home-notice-row">{t('home.noAccountTasks')}</li> : null}
-        {tasks.map(task => <li key={task.id} className="home-notice-row">
-          <span className="home-notice-icon" aria-hidden="true">!</span>
-          <p>{taskLabel(task, t)}</p>
-        </li>)}
-      </ul>
-    </section> : null}
-  </div>
-}
-
-function taskLabel(task: AccountAttentionSource, t: ReturnType<typeof useT>): string {
-  if (task.kind === 'pending_funding') return t('home.taskPendingFunding')
-  if (task.kind === 'recurring_attention') return t('home.taskRecurring')
-  if (task.kind === 'failed_installment') return t('home.taskInstallment')
-  if (task.kind === 'pending_principal') return t('home.taskPrincipal')
-  if (task.kind === 'insufficient_balance') return t('home.taskInsufficient', { name: task.accountName ?? '' })
-  return t('home.accountTasks')
 }
 
 function accountBalanceLabel(account: HomeAccount, lang: ReturnType<typeof useStore.getState>['lang'], t: ReturnType<typeof useT>): string {

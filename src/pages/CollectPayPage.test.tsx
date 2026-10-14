@@ -170,3 +170,21 @@ describe('collect/pay navigable flows', () => {
     expect(screen.getByText('此范围原始净额')).toBeTruthy()
   })
 })
+
+describe('notification entry into the original settlement UI',()=>{
+ it('focuses only the referenced payment, marks its actual version read and does not confirm on navigation',()=>{
+  useStore.setState({homeUi:{...useStore.getState().homeUi,balanceHidden:false}})
+  const scroll=vi.fn();Element.prototype.scrollIntoView=scroll;vi.stubGlobal('CSS',{escape:(s:string)=>s})
+  const s=snapshot([obligation(4800,'collect')]);s.payments=[payment(1000,'collect'),{...payment(500,'collect'),id:'payment-two',clientRequestId:'two',allocations:[{...payment(500,'collect').allocations[0],id:'allocation-two',settlementPaymentId:'payment-two'}]}]
+  const item=buildCollectPayItems(s).find(i=>i.direction==='collect')!,service={...collectPayService,confirmReceived:vi.fn(collectPayService.confirmReceived)}
+  const path=`/collect-pay/collect?${new URLSearchParams({item:item.key,noticeType:'payment',noticeTarget:'payment-two'})}`
+  render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/collect-pay/:direction" element={<CollectPayScreen snapshot={s} status="ready" timezone="Asia/Kuala_Lumpur" onRefresh={async()=>{}} service={service} notificationIdentity="qa-id"/>}/></Routes></MemoryRouter>)
+  expect(document.activeElement?.getAttribute('data-notice-entity')).toBe('payment:payment-two');expect(document.activeElement?.getAttribute('data-notice-focus')).toBe('true');expect(scroll).toHaveBeenCalled();expect(service.confirmReceived).not.toHaveBeenCalled();expect(JSON.parse(localStorage.getItem('tt-notification-read:qa-id')!)).toMatchObject({'payment:payment-two':'1'})
+ })
+ it('conceals all deep-entry amounts until explicitly revealed',()=>{
+  useStore.setState({homeUi:{...useStore.getState().homeUi,balanceHidden:true}})
+  const s=snapshot([obligation(4800,'collect')]);s.payments=[payment(1000,'collect')];const item=buildCollectPayItems(s).find(i=>i.direction==='collect')!
+  render(<MemoryRouter initialEntries={[`/collect-pay/collect?${new URLSearchParams({item:item.key,noticeType:'payment',noticeTarget:'payment'})}`]}><Routes><Route path="/collect-pay/:direction" element={<CollectPayScreen snapshot={s} status="ready" timezone="Asia/Kuala_Lumpur" onRefresh={async()=>{}}/>}/></Routes></MemoryRouter>)
+  expect(screen.getByRole('status').textContent).toContain('Amounts are hidden');expect(document.body.textContent).not.toMatch(/48.00|10.00|38.00/);expect(screen.queryByRole('button',{name:'Confirm receipt'})).toBeNull()
+ })
+})

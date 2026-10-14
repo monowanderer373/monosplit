@@ -220,3 +220,38 @@ button.home-sheet-option:hover { background: var(--tt-primary-soft); }
 #root .home-shell .cp-summary-fold { position: absolute; right: 3px; bottom: 3px; width: 10px; height: 10px; background: url('/collect-pay/paper-fold.svg') center / contain no-repeat; filter: drop-shadow(-1px 1px 1px rgb(36 55 74 / .10)); pointer-events: none; }
 #root .home-shell .cp-summary-material:focus-visible { outline: 2px solid var(--tt-focus); outline-offset: 2px; }
 @media(prefers-reduced-motion:reduce) { #root .home-shell button.cp-summary-material:active { transform: none; } }
+
+/* Account notifications: paper popover, read state independent from task count. */
+.home-notice-count {position:absolute;bottom:-2px;right:-4px;min-width:18px;min-height:18px;padding:1px 4px;border-radius:8px;background:var(--tt-primary-soft);color:var(--tt-ink);font-size:11px;font-weight:700;border:1px solid var(--tt-border);}
+#root .home-notice-popover {width:min(360px,calc(100vw - 32px));max-height:calc(100dvh - 110px - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;}
+#root .home-notice-popover h2 {font-size:1rem;overflow-wrap:anywhere;}
+.home-notice-popover header {flex:none;}
+.home-notice-tabs {display:flex;gap:4px;border-bottom:1px dotted var(--tt-dots);flex:none;}
+.home-notice-tabs button {flex:1;min-width:0;min-height:44px;padding:8px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--tt-ink);font:inherit;font-weight:600;overflow-wrap:anywhere;cursor:pointer;}
+.home-notice-tabs button[aria-selected="true"] {background:var(--tt-primary-soft);border-color:var(--tt-border);}
+.home-notice-list {min-height:0;max-height:min(400px,50dvh);overscroll-behavior:contain;overflow:auto;}
+.home-notice-list ul {list-style:none;padding:0;margin:0;}
+.home-notice-row {width:100%;min-height:64px;display:grid;grid-template-columns:20px minmax(0,1fr) 16px;gap:10px;padding:12px 4px;text-align:left;border:0;border-top:1px dotted var(--tt-dots);background:transparent;color:var(--tt-ink);font:inherit;font-size:.875rem;cursor:pointer;}
+.home-notice-new {margin-left:6px;color:var(--tt-unread);}
+.home-notice-row:hover {background:var(--tt-primary-soft);border-radius:8px;}
+.home-notice-row:active {transform:translateY(1px);background:var(--tt-primary-soft);}
+.home-notice-copy {display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere;}
+.home-notice-copy strong {font-weight:700;}
+.home-notice-copy small {color:var(--tt-secondary);font-size:.75rem;}
+.home-notice-action {color:var(--tt-primary);font-weight:600;}
+.home-notice-arrow {align-self:center;color:var(--tt-primary);font-size:1.5rem;}
+.home-notice-message {margin:0;padding:12px 4px;font-size:.875rem;overflow-wrap:anywhere;}
+.home-notice-retry {min-height:44px;background:transparent;border:1px solid var(--tt-border);border-radius:8px;padding:8px 12px;color:var(--tt-primary);font:inherit;cursor:pointer;}
+.home-notice-row:focus-visible,.home-notice-tabs button:focus-visible,.home-notice-retry:focus-visible {outline:2px solid var(--tt-primary);outline-offset:2px;}
+.home-notice-target {display:grid;gap:16px;overflow-wrap:anywhere;}
+.home-notice-target h3 {font-size:1.125rem;font-weight:700;}
+.home-notice-target section {display:grid;gap:12px;}
+.home-notice-target button,.home-notice-target select,.home-notice-target input {min-height:44px;max-width:100%;}
+.home-notice-target .home-notice-form {display:grid;gap:16px;}
+.home-notice-target label {display:grid;gap:8px;min-width:0;}
+.home-notice-target select,.home-notice-target input {width:100%;min-width:0;border:1px solid var(--tt-border);background:var(--tt-surface);color:var(--tt-ink);border-radius:10px;padding:10px;font:inherit;}
+.home-notice-target strong {overflow-wrap:anywhere;}
+
+.home-notice-list li:first-child .home-notice-row {border-top:0;}
+
+.home-notice-popover {--notice-safe-bottom:env(safe-area-inset-bottom,0px);}

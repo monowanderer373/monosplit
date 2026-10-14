@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react'
+import NotificationTarget from '../components/home/NotificationTarget'
+import {useHomeNotifications} from '../hooks/useHomeNotifications'
+import {parseNotice,noticePath} from '../lib/homeNotifications'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
@@ -36,6 +39,27 @@ export default function PersonalLedgerPage() {
   const [accountReload, setAccountReload] = useState(0)
   const homeRefreshKey = `${ledger.expenses.map((expense) => `${expense.id}:${expense.updatedAt}`).join('|')}:${accountReload}`
   const home = useHomeData(ledger.participantId, homeRefreshKey, true)
+  const noticeTarget=useMemo(()=>parseNotice(location.search),[location.search])
+  const previousNotice=useRef(noticeTarget)
+  useEffect(()=>{
+    const closed=previousNotice.current&&!noticeTarget
+    previousNotice.current=noticeTarget
+    if(!closed)return
+    // Run after the old dialog's inert/focus cleanup and the router commit.
+    const frame=requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('[data-testid="home-account-notice"]')?.focus({preventScroll:true}))
+    return()=>cancelAnimationFrame(frame)
+  },[noticeTarget])
+  const notifications=useHomeNotifications(authUser?.id??null,ledger.participantId,ledger.outbox,homeRefreshKey)
+  const refreshNotices=notifications.refresh
+  const refreshLedger=ledger.refresh
+  const refreshAfterTask=useCallback(async()=>{
+    window.dispatchEvent(new Event('tt:accounts-changed'))
+    await Promise.all([refreshLedger(),refreshNotices()])
+  },[refreshLedger,refreshNotices])
+  const closeNotice=()=>{
+    if(location.state?.noticeBack)navigate(-1)
+    else {const next=new URLSearchParams(searchParams);next.delete('notice');next.delete('target');setSearchParams(next,{replace:true})}
+  }
   const model = useHomeModel({
     participantId: ledger.participantId,
     timezone: authUser?.timezone ?? 'Asia/Kuala_Lumpur',
@@ -98,7 +122,7 @@ export default function PersonalLedgerPage() {
           <p className="mt-3 text-sm leading-6 text-[var(--ms-text-secondary)]">
             {t('ledger.privateHelp')}
           </p>
-          <button className="ms-btn-primary mt-6 w-full" onClick={() => navigate('/login')}>
+          <button className="ms-btn-primary mt-6 w-full" onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname+location.search)}`)}>
             {t('common.signIn')}
           </button>
           <button className="ms-btn-ghost mt-2 w-full" onClick={() => navigate('/spaces')}>
@@ -169,6 +193,9 @@ export default function PersonalLedgerPage() {
   )
 
   const props: HomeScreenProps = {
+    notifications: notifications.notices, notificationsStatus: notifications.status, unreadNotifications: notifications.unread,
+    onRetryNotifications: notifications.refresh,
+    onOpenNotification: notice=>navigate(noticePath(notice.ref),{state:{noticeBack:true}}),
     localToday: model.localToday,
     timezone: authUser.timezone ?? 'Asia/Kuala_Lumpur',
     initialAccountPanel: searchParams.get('accountPanel') === 'manage' ? 'manage' : undefined,
@@ -217,5 +244,6 @@ export default function PersonalLedgerPage() {
   </>
   return <main className="ms-page home-shell" data-home-mode={homeUi.mode}>
     <HomeScreen {...props} /><ExpenseRecoveryNotices />
+    {noticeTarget&&ledger.participantId?<NotificationTarget key={`${authUser.id}:${noticeTarget.kind}:${noticeTarget.id}`} timezone={authUser.timezone} sourceVersion={notifications.status==='ready'?(notifications.notices.find(n=>n.ref.kind===noticeTarget.kind&&n.ref.id===noticeTarget.id)?.version??'missing'):undefined} owner={ledger.participantId} identity={authUser.id} target={noticeTarget} ledger={ledger} onClose={closeNotice} onViewed={notifications.markRead} onChange={refreshAfterTask}/>:null}
   </main>
 }

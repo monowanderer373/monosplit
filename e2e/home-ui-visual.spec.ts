@@ -109,7 +109,7 @@ test('preserves notification content, zero pending and error states', async ({ p
   await expect(page.getByTestId('home-review-sheet')).toContainText('Pending confirmation')
   await page.keyboard.press('Escape')
   await page.getByTestId('home-account-notice').click()
-  await expect(page.getByTestId('home-notice-popover')).toContainText('Account tasks')
+  await expect(page.getByTestId('home-notice-popover')).toContainText('Notifications')
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('home-account-notice')).toBeFocused()
   await openCase(page, 390, 'none')
