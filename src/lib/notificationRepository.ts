@@ -25,9 +25,13 @@ async function readSnapshot(owner:string):Promise<NoticeSnapshot> {
   ])
   return {owner,accounts:home.accounts,expenses,changes,payments,funding,recurring,rules,installments,plans,requests}
 }
-export async function notificationRpc(name:string,args:Record<string,unknown>){
+export async function notificationRpc(name:string,args:Record<string,unknown>,identity:string,guard:()=>void){
   if(!supabase)throw new Error('not_configured')
-  const {data,error}=await supabase.rpc(name,args)
+  const {data:auth,error:authError}=await supabase.auth.getSession()
+  guard()
+  if(authError||!auth.session||auth.session.user.id!==identity)throw new Error('notification_context_changed')
+  // Freeze the normal authenticated actor for this one dispatch, even if the shared client later switches identity.
+  const {data,error}=await supabase.rpc(name,args).setHeader('Authorization',`Bearer ${auth.session.access_token}`)
   if(error)throw error
   return data
 }

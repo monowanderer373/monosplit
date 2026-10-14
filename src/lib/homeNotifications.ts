@@ -70,7 +70,13 @@ export function resolveNotice(s: NoticeSnapshot | null, ref: NoticeRef, outbox: 
   if(ref.kind==='payment'&&s.payments.some(p=>p.id===ref.id))return {state:'completed',snapshot:s}
   if(ref.kind==='request'&&s.requests.some(p=>p.id===ref.id))return {state:'changed',snapshot:s}
   if(ref.kind==='outbox'&&s.expenses.some(e=>e.clientRequestId===ref.id))return {state:'completed',snapshot:s}
-  if(ref.kind==='account'&&s.accounts.some(a=>a.id===ref.id))return {state:'completed',snapshot:s}
+  if(ref.kind==='account'){
+    const a=s.accounts.find(a=>a.id===ref.id)
+    if(a?.archived)return {state:'changed',snapshot:s}
+    // A positive account is a valid details target, not a completed financial task or a new event.
+    if(a)return {state:'ready',snapshot:s,notice:{id:noticeKey(ref),ref,intent:'view-account',source:'owner-account',version:`account:${a.attentionRevision??'known'}`,tab:'activity',state:'info',title:'notice.accountDetails',action:'notice.records',description:a.name,date:'',scope:{kind:'personal',spaceId:null},relatedAccountId:a.id,relatedAccountName:a.name}}
+  }
+  if(ref.kind==='installment'&&s.installments.some(i=>i.id===ref.id&&i.status==='scheduled'))return {state:'changed',snapshot:s}
   return {state:'unavailable'}
 }
 

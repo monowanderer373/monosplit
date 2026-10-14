@@ -14,13 +14,18 @@ const load=vi.mocked(loadNotificationSnapshot),rpc=vi.mocked(notificationRpc)
 const ledger={outbox:[],refresh:vi.fn(),retryCommand:vi.fn(),discardLocalCreate:vi.fn(),discardFailedCreate:vi.fn()} as unknown as ReturnType<typeof usePersonalLedger>
 let current=noticeSnapshot()
 beforeEach(()=>{vi.clearAllMocks();sessionStorage.clear();useStore.setState({lang:'en',homeUi:{...useStore.getState().homeUi,balanceHidden:false}});current=noticeSnapshot();load.mockImplementation(async()=>structuredClone(current));vi.stubGlobal('requestAnimationFrame',()=>0);vi.stubGlobal('cancelAnimationFrame',()=>{});vi.stubGlobal('crypto',webcrypto)})
-afterEach(()=>{cleanup();vi.unstubAllGlobals()})
+afterEach(()=>{cleanup();vi.restoreAllMocks();vi.unstubAllGlobals()})
 function setup(id='fund-1'){
  const onChange=vi.fn(async()=>{}),onViewed=vi.fn(),onClose=vi.fn()
  const tree=(id:string)=><MemoryRouter><NotificationTarget key={id} identity="identity" owner="owner" target={{kind:'funding',id}} ledger={ledger} onChange={onChange} onViewed={onViewed} onClose={onClose}/></MemoryRouter>
- const view=render(tree(id));return {onChange,onViewed,onClose,changeTarget:(id:string)=>view.rerender(tree(id))}
+ const view=render(tree(id));return {onChange,onViewed,onClose,unmount:()=>view.unmount(),changeTarget:(id:string)=>view.rerender(tree(id))}
 }
 describe('real notification target controller',()=>{
+ it('does not submit an old financial action after its target has unmounted during a delayed status check',async()=>{
+  const user=userEvent.setup(),view=setup();await screen.findByRole('combobox');await user.selectOptions(screen.getByRole('combobox'),'bank')
+  let release!:(s:ReturnType<typeof noticeSnapshot>)=>void;load.mockImplementationOnce(()=>new Promise(r=>{release=r}));vi.spyOn(crypto.subtle,'digest').mockResolvedValue(new ArrayBuffer(32))
+  await user.click(screen.getByRole('button',{name:'Complete debit'}));view.unmount();await act(async()=>{release(current);await new Promise(r=>setTimeout(r,0))});expect(rpc).not.toHaveBeenCalled()
+ })
  it('completes only the selected intent with exact accepted payer amount; double submit produces one RPC and authoritative result',async()=>{
   const user=userEvent.setup(),{onChange,onViewed}=setup();await screen.findByRole('combobox',{name:'Choose account'})
   await user.selectOptions(screen.getByRole('combobox'),'bank');expect((screen.getByRole('textbox',{name:'Actual debit · MYR'}) as HTMLInputElement).value).toBe('6,000.00')

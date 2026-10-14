@@ -4,6 +4,11 @@ import {noticeSnapshot,funding,noticeExpense} from '../test/notificationFixtures
 import {noticeQueryFailure} from './notificationRepository'
 import type {PendingLedgerCommand} from '../store/useStore'
 describe('authoritative home notification lifecycle',()=>{
+ it('resolves a rescheduled repayment and an archived account to changed current details, never to missing or old actions',()=>{
+  const s=noticeSnapshot();s.installments=[{id:'repayment',status:'scheduled',version:2,updated_at:'2026-10-14',due_on:'2026-11-01'}]
+  expect(resolveNotice(s,{kind:'installment',id:'repayment'},[])).toMatchObject({state:'changed'})
+  s.accounts[0].archived=true;expect(resolveNotice(s,{kind:'account',id:'wallet-1'},[])).toMatchObject({state:'changed'})
+ })
  it('uses the true stable ID to distinguish identical descriptions and expands a colliding short reference',()=>{
   const n=buildHomeNotifications(noticeSnapshot(),[]).filter(n=>n.tab==='tasks');n[0].ref={kind:'funding',id:'abcdabcd-1111-1111'};n[1].ref={kind:'funding',id:'abcdabcd-2222-2222'};n[1].description=n[0].description
   expect(noticeReference(n[0],n)).not.toBe(noticeReference(n[1],n));expect(noticeReference(n[0],n)).toBe('abcdabcd-111')
@@ -31,7 +36,7 @@ describe('authoritative home notification lifecycle',()=>{
  it('ends a low-balance reminder only after the fresh account sum is nonnegative',()=>{
   const s=noticeSnapshot();s.accounts[0].entrySumMinor=0
   expect(buildHomeNotifications(s,[]).some(n=>n.ref.kind==='account')).toBe(false)
-  expect(resolveNotice(s,{kind:'account',id:'wallet-1'},[])).toMatchObject({state:'completed'})
+  expect(resolveNotice(s,{kind:'account',id:'wallet-1'},[])).toMatchObject({state:'ready',notice:{state:'info',title:'notice.accountDetails'}})
  })
  it('keeps cancelled/reversed/voided funding out of actions and fails closed on lost visibility',()=>{
   const s=noticeSnapshot();s.expenses[0].status='voided';expect(resolveNotice(s,{kind:'funding',id:'fund-1'},[])).toMatchObject({state:'ready',notice:{state:'changed',tab:'activity'}})
