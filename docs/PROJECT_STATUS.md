@@ -5,6 +5,12 @@ Checkpoint:2026-10-14 (Asia/Kuala_Lumpur).
 ## Resume first
 Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff and current remote main. Preserve work. Old handover release/migration claims are historical; never reset/reapply from them.
 
+## Active task — comma grouping for all amount displays (2026-10-14)
+- User asks for groups of three: RM6,000 / VND90,000 / CNY3,450. Existing fractional precision is retained; this is presentation/input only.
+- Branch fix/amount-thousands-separators, based on clean current main644ba8e. Shared AmountInput displays commas but emits raw string drafts; Quick Add groups each calculator operand/result independently; existing keypad, draft, save/continue, parser/RPC/model unchanged.
+- Covered record editor, capture/review, split paid/share/items, settlement/CollectPay and account opening inputs. Global canonical/FX/chart displays enforce comma groups independently of browser locale, preserving currency labels, signs, exact BigInt cents and supported precision.
+- Current full548 units/80 files PASS, ESLint/typecheck/production PWA build PASS. First four-width intercepted browser4/4 PASS, screenshots reviewed; a small nonshrinking currency-label fix and final browser rerun pending. Production has NOT changed for this task; completion requires CI/actual deployment and read-back. No database migration or Docker retry needed.
+
 ## Current completed task — Insights / Records AutoFX FINAL2026-10-13
 - Feature production and real live verification COMPLETE on tested appmain17348f10600dce3fe01ebc83eacd710d365f686f; PR16/17/18 MERGED. Vercel existing projectREADY/dpl_Cr1rPdpKQYqUaGF2WAduQB4yegzJ; alias https://tabby-tally-monowanderer373s-projects.vercel.app/ . Actual entryCvG0Rr2R/RecordsDDXDulqT contains173. Documentation-only checkpoint may follow; read HEAD and actual deployment metadata, not a stale SHA.
 - Final all50 parts/four boards/three renders reviewed. Month+Scope-only anchored month/year draft, A statement/all original currency totals/actual-date references, original charts valued in MYR, all-currency Records/own shares/permission-bound Bill/original editor. Exact display math, last-good, history pins/reload-latest and RAF observers. No financial model/RLS/history/identity rewrite.

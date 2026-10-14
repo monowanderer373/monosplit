@@ -6,7 +6,9 @@ export async function enterQuickAmount(dialog: Locator, amount: string): Promise
   for (const digit of amount) {
     await dialog.getByRole('button', { name: digit, exact: true }).click()
   }
-  await expect(dialog.getByRole('textbox', { name: 'Amount', exact: true })).toHaveValue(amount)
+  const [whole, fraction] = amount.split('.')
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction === undefined ? '' : `.${fraction}`)
+  await expect(dialog.getByRole('textbox', { name: 'Amount', exact: true })).toHaveValue(grouped)
 }
 
 export async function fillQuickExpense(dialog: Locator, amount: string, description: string): Promise<void> {

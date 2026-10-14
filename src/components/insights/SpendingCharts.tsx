@@ -21,7 +21,7 @@ export default function SpendingCharts({ snapshot, tab, month, today, hidden }: 
     return <>
       <h2 className="i-section-heading">{t('spending.trendTitle')}</h2><p className="i-chart-context">{t(snapshot.currencies.some(c => c !== 'MYR') ? 'spending.fxChartBasis' : 'spending.chartCurrency',{currency:'MYR'})}</p>
       <svg className="i-trend-plot" viewBox="0 0 330 205" aria-hidden="true">
-        {[0, 0.5, 1].map(value => <g key={value}><line x1="34" y1={y(max * value)} x2="308" y2={y(max * value)} stroke="var(--i-border)" strokeDasharray="2 4" /><text x="28" y={y(max * value) + 4} textAnchor="end">{(max * value / 10 ** currencyExponent(snapshot.currency)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</text></g>)}
+        {[0, 0.5, 1].map(value => <g key={value}><line x1="34" y1={y(max * value)} x2="308" y2={y(max * value)} stroke="var(--i-border)" strokeDasharray="2 4" /><text x="28" y={y(max * value) + 4} textAnchor="end">{(max * value / 10 ** currencyExponent(snapshot.currency)).toLocaleString('en-US', { useGrouping: true, maximumFractionDigits: 2 })}</text></g>)}
         {values.length > 1 ? <polyline fill="none" stroke="var(--i-denim)" strokeWidth="2" points={values.map((amount, index) => `${x(index)},${y(amount)}`).join(' ')} /> : null}
         {values.map((amount, index) => amount ? <circle key={index} cx={x(index)} cy={y(amount)} r="2.5" fill="var(--i-denim)" /> : null)}
         {[...new Set([0, Math.floor((values.length - 1) / 2), values.length - 1])].filter(index => index >= 0).map(index => <text key={index} x={x(index)} y="192" textAnchor="middle">{index + 1}</text>)}

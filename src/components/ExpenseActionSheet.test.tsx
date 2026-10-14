@@ -190,7 +190,7 @@ describe('unified paper expense editor', () => {
     record.payerContributions[0].amountMinor = record.totalMinor
     record.shares[0].amountMinor = record.totalMinor
     mount(record); open()
-    expect((screen.getByRole('textbox', { name: 'Total amount' }) as HTMLInputElement).value).toBe('90071992547409.90')
+    expect((screen.getByRole('textbox', { name: 'Total amount' }) as HTMLInputElement).value).toBe('90,071,992,547,409.90')
     expect(screen.getByRole('button', { name: 'Save changes' }).hasAttribute('disabled')).toBe(true)
     expect(mocks.financial).not.toHaveBeenCalled()
   })
