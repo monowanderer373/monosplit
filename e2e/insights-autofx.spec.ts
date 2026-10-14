@@ -40,7 +40,7 @@ test('cached/older/partial/unsupported rates keep original facts and privacy (mo
   await page.route('**/rpc/insights_fx_snapshot',route=>route.fulfill({json:{...autoFxSnapshot,status:'cached',rates:{VND:{...autoFxSnapshot.rates.VND,rateDate:'2026-10-01',fetchedAt:'2026-10-01T00:00:00Z'}}}}))
   await page.goto('/insights?month=2026-10')
   await expect(page.getByTestId('spending-total')).toContainText('1,250,000')
-  await expect(page.getByTestId('spending-total')).toContainText('Estimate unavailable')
+  await expect(page.getByTestId('spending-total').getByLabel('Estimate unavailable')).toBeVisible()
   await expect(page.getByRole('status',{name:''}).filter({hasText:'Older reference rates'})).toBeVisible()
   await expect(page.getByText('Converted currencies only · Missing: USD')).toBeVisible()
   await expect(page.locator('.i-donut')).toContainText('546.00')
@@ -88,6 +88,9 @@ test('Records back retains one snapshot; full Insights reload reads newly refres
   await page.getByRole('link',{name:'View records'}).click()
   await expect(page).toHaveURL(/fx=10000000-0000-4000-8000-000000000013/)
   await expect(page.getByTestId('spending-total')).toContainText('≈ RM 200.00')
+  // Lazy navigation updates the URL before Records replaces the previous page.
+  // Wait for the actual destination so Insights means its Back control, not the old bottom nav.
+  await expect(page.getByRole('heading',{name:'Spending records',exact:true})).toBeVisible()
   updated=true;await page.clock.setFixedTime(new Date(Date.now()+61_000))
   await page.getByRole('button',{name:'Insights',exact:true}).click()
   await expect(page.getByRole('tab',{name:'Trend'})).toHaveAttribute('aria-selected','true')

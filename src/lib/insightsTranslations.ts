@@ -5,6 +5,8 @@ export const insightsTranslations = {
   'spending.fxBasis': { en:'Latest reference rates · Estimated',zh:'最新参考汇率 · 估值' },
   'spending.fxChartBasis': { en:'Estimated in MYR · Latest reference rates',zh:'以 MYR 估值 · 最新参考汇率' },
   'spending.fxUpdating': { en:'Updating estimate…',zh:'正在更新估值…' },
+  'spending.fxUpdatingInline': { en:'Updating…',zh:'更新中…' },
+  'spending.fxUnavailableInline': { en:'Unavailable',zh:'不可用' },
   'spending.fxUnavailable': { en:'Estimate unavailable',zh:'估值暂不可用' },
   'spending.fxCached': { en:'Cached rates',zh:'使用缓存汇率' },
   'spending.fxOlder': { en:'Older reference rates (over 7 days)',zh:'较早的参考汇率（超过七天）' },
