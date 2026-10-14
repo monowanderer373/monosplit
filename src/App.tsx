@@ -1,6 +1,7 @@
+import {parseNotice} from './lib/homeNotifications'
 import { lazy, Suspense, useEffect } from 'react'
 import * as Sentry from '@sentry/react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useStore } from './store/useStore'
 import { resolveThemeId } from './lib/themes'
 import { useT } from './lib/i18n'
@@ -50,6 +51,8 @@ function AppErrorFallback({ resetError }: { resetError: () => void }) {
 
 function PersonalLedgerRoute() {
   const { authUser } = useAuth()
+  const location=useLocation()
+  if(authUser?.isAnonymous&&parseNotice(location.search))return <Navigate to={`/profile?upgrade=preserve-session&redirect=${encodeURIComponent(location.pathname+location.search)}`} replace />
   return authUser?.isAnonymous ? <Navigate to="/profile" replace /> : <PersonalLedgerPage />
 }
 

@@ -101,6 +101,7 @@ export async function loadPersonalAccountHome(input: {
   const accountRows = accountsResult.data ?? []
   const accountIds = accountRows.map((row) => row.id as string)
   const sums = new Map<string, number>()
+  const entryCounts = new Map<string,number>()
   if (accountIds.length > 0) {
     const entryRows = await readAllPages(async (from, to) => {
       const entriesResult = await client
@@ -114,6 +115,7 @@ export async function loadPersonalAccountHome(input: {
     })
     for (const entry of entryRows) {
       const accountId = entry.account_id as string
+      entryCounts.set(accountId,(entryCounts.get(accountId)??0)+1)
       sums.set(
         accountId,
         addStoredMinor(sums.get(accountId) ?? 0, requiredMinor(entry.amount_minor as number | string)),
@@ -135,6 +137,7 @@ export async function loadPersonalAccountHome(input: {
       archived: row.archived_at != null,
       openingStatus: row.opening_status === 'posted' ? 'posted' as const : 'unknown' as const,
       entrySumMinor: sums.get(row.id as string) ?? 0,
+      attentionRevision:String(entryCounts.get(row.id as string)??0),
     }]
   })
 

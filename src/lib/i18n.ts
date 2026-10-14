@@ -1,4 +1,5 @@
 import { useStore } from '../store/useStore'
+import { notificationTranslations } from './notificationTranslations'
 import { collectPayTranslations } from './collectPayTranslations'
 import { insightsTranslations } from './insightsTranslations'
 import { travelTranslations } from './travelTranslations'
@@ -6,6 +7,7 @@ import { travelTranslations } from './travelTranslations'
 export type Lang = 'en' | 'zh'
 
 const translations = {
+  ...notificationTranslations,
   ...collectPayTranslations,
   ...travelTranslations,
   ...insightsTranslations,

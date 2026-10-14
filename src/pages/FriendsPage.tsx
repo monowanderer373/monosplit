@@ -1,3 +1,4 @@
+import DirectExpenseReviewCard from '../components/DirectExpenseReviewCard'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
@@ -10,22 +11,17 @@ import {
   type ParticipantLinkRequest,
 } from '../lib/friendRepository'
 import { personRepository } from '../lib/personRepository'
-import { formatMinorAmount } from '../lib/money'
 import {
-  countKey,
   friendlyErrorKey,
   machineCode,
   personStateKey,
   useT,
   type TranslationKey,
 } from '../lib/i18n'
-import { formatDate } from '../lib/locale'
-import { useStore } from '../store/useStore'
 import type { PersonRelationship } from '../types'
 
 export default function FriendsPage() {
   const t = useT()
-  const lang = useStore((state) => state.lang)
   const navigate = useNavigate()
   const { authUser, loading: authLoading } = useAuth()
   const participantId = authUser?.participantId ?? null
@@ -185,43 +181,7 @@ export default function FriendsPage() {
         <section className="mx-auto mt-6 max-w-4xl">
           <p className="ms-label">{t('friends.needsAnswer')}</p>
           <div className="mt-2 grid gap-3">
-            {pendingExpenses.map((expense) => {
-              const mine = expense.participations.find((participation) => participation.participantId === participantId)
-              const myShare = expense.shares.find((share) => share.expenseParticipationId === mine?.id)?.amountMinor ?? 0
-              const payerNames = expense.payerContributions
-                .map((contribution) => expense.participations.find(
-                  (participation) => participation.id === contribution.expenseParticipationId,
-                )?.nameSnapshot)
-                .filter((name): name is string => Boolean(name))
-                .join(', ')
-              return (
-                <article key={expense.id} className="ms-card-hero">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-extrabold">{expense.description ?? expense.category}</p>
-                      <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">
-                        {t('friends.share', { amount: formatMinorAmount(myShare, expense.currency), date: formatDate(expense.occurredOn, lang) })}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--ms-text-muted)]">
-                        {t('friends.total', {
-                          amount: formatMinorAmount(expense.totalMinor, expense.currency),
-                          people: t(countKey('common.count.people.one', 'common.count.people.many', expense.participantCount), { count: expense.participantCount }),
-                        })}
-                        {payerNames ? ` · ${t('friends.paidBy', { names: payerNames })}` : ''}
-                      </p>
-                      <p className="mt-2 text-xs text-[var(--ms-text-muted)]">
-                        {t('friends.visibilityHelp')}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-[var(--ms-info-bg)] px-2 py-1 text-xs font-bold text-[var(--ms-info)]">{t('common.pending')}</span>
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <button className="ms-btn-ghost" disabled={action === expense.id} onClick={() => void respond(expense.id, 'declined', expense.version)}>{t('common.decline')}</button>
-                    <button className="ms-btn-primary" disabled={action === expense.id} onClick={() => void respond(expense.id, 'accepted', expense.version)}>{t('friends.acceptShare')}</button>
-                  </div>
-                </article>
-              )
-            })}
+            {pendingExpenses.map(expense => <DirectExpenseReviewCard key={expense.id} expense={expense} participantId={participantId!} busy={action===expense.id} onRespond={respond} />)}
           </div>
         </section>
       ) : null}
