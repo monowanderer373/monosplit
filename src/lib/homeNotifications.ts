@@ -24,18 +24,18 @@ export function buildHomeNotifications(s: NoticeSnapshot, outbox: readonly Pendi
   for (const row of s.funding) {
     const expense = expenses.get(row.expense_id ?? ''), changed = row.status==='cancelled'||row.status==='reversed'||expense?.status==='voided'
     const state = changed?'changed':row.status==='pending'?'pending':'completed'
-    add({kind:'funding',id:row.id},state,state==='pending'?'notice.funding':state==='changed'?'notice.fundingChanged':'notice.fundingDone',state==='pending'?(row.account_id?'notice.complete':'notice.choose'):'notice.view',expense?.description??expense?.category??'',expense?.occurredOn??row.updated_at,String(row.version),expense,row.account_id)
+    add({kind:'funding',id:row.id},state,state==='pending'?'notice.funding':state==='changed'?'notice.fundingChanged':'notice.fundingDone',state==='pending'?(row.account_id?'notice.complete':'notice.choose'):'notice.view',expense?.description??expense?.category??'',state==='pending'?(expense?.occurredOn??row.updated_at):row.updated_at,String(row.version),expense,row.account_id)
   }
   for (const account of s.accounts) if (!account.archived && account.accountClass==='asset' && account.openingStatus==='posted' && account.entrySumMinor<0) add({kind:'account',id:account.id},'info','notice.negative','notice.account',account.name,'',`negative:${account.attentionRevision??'known'}`,undefined,account.id)
   for (const row of s.recurring) {
     const rule=s.rules.find(r=>r.id===row.rule_id), expense=expenses.get(row.expense_id??'')
     const pending=['pending_review','failed'].includes(row.status)
-    add({kind:'recurring',id:row.id},pending?'pending':row.status==='reversed'?'changed':'completed',pending?'notice.recurring':'notice.recurringUpdate',pending?'notice.review':'notice.view',rule?.title??expense?.description??'',row.scheduled_for??'',String(row.version),expense, row.effective_account_id??rule?.funding_account_id)
+    add({kind:'recurring',id:row.id},pending?'pending':row.status==='reversed'?'changed':'completed',pending?'notice.recurring':'notice.recurringUpdate',pending?'notice.review':'notice.view',rule?.title??expense?.description??'',pending?(row.scheduled_for??''):row.updated_at,String(row.version),expense, row.effective_account_id??rule?.funding_account_id)
   }
   for (const row of s.installments) {
     if (row.status==='scheduled') continue
     const plan=s.plans.find(p=>p.id===row.plan_id), expense=expenses.get(plan?.purchase_expense_id??'')
-    add({kind:'installment',id:row.id},row.status==='failed'?'pending':row.status==='reversed'?'changed':'completed',row.status==='failed'?'notice.installment':'notice.installmentUpdate',row.status==='failed'?'notice.review':'notice.view',expense?.description??expense?.category??'',row.due_on??'',String(row.version),expense,row.repayment_account_id)
+    add({kind:'installment',id:row.id},row.status==='failed'?'pending':row.status==='reversed'?'changed':'completed',row.status==='failed'?'notice.installment':'notice.installmentUpdate',row.status==='failed'?'notice.review':'notice.view',expense?.description??expense?.category??'',row.status==='failed'?(row.due_on??''):row.updated_at,String(row.version),expense,row.repayment_account_id)
   }
   const candidates = new Set(s.changes.map(c=>c.replacementExpenseId))
   for (const expense of s.expenses) if (expense.scope==='direct' && expense.status==='active' && !candidates.has(expense.id) && expense.participations.some(p=>p.participantId===s.owner&&p.state==='pending')) add({kind:'expense',id:expense.id},'pending','notice.expense','notice.review',expense.description??expense.category,expense.occurredOn,String(expense.version),expense)
@@ -44,12 +44,12 @@ export function buildHomeNotifications(s: NoticeSnapshot, outbox: readonly Pendi
     const own=payment.allocations.filter(a=>a.creditorParticipantId===s.owner)
     if(payment.debtorParticipantId!==s.owner&&!own.length)continue
     const pending=own.some(a=>a.state==='pending'),state=pending?'pending':payment.allocations.some(a=>a.state==='pending')?'info':['reversed','cancelled','declined'].includes(payment.status)?'changed':'completed'
-    add({kind:'payment',id:payment.id},state,pending?'notice.payment':'notice.paymentUpdate',pending?'notice.review':'notice.view',payment.note??'',payment.paymentDate,String(payment.version))
+    add({kind:'payment',id:payment.id},state,pending?'notice.payment':'notice.paymentUpdate',pending?'notice.review':'notice.view',payment.note??'',pending?payment.paymentDate:payment.updatedAt,String(payment.version))
     entries.at(-1)!.scope={kind:payment.scope,spaceId:payment.spaceId}
   }
   for (const row of s.requests) if(row.debtor_participant_id===s.owner||row.creditor_participant_id===s.owner) {
     const state=row.status==='open'?(row.debtor_participant_id===s.owner?'pending':'info'):row.status==='converted'?'completed':'changed'
-    add({kind:'request',id:row.id},state,state==='pending'?'notice.request':'notice.requestUpdate',state==='pending'?'notice.review':'notice.view','',row.created_at??'',String(row.version))
+    add({kind:'request',id:row.id},state,state==='pending'?'notice.request':'notice.requestUpdate',state==='pending'?'notice.review':'notice.view','',state==='pending'||state==='info'?(row.created_at??''):row.updated_at,String(row.version))
     entries.at(-1)!.scope={kind:row.scope??'direct',spaceId:row.space_id??null}
   }
   const submitted = new Set(s.expenses.map(e=>e.clientRequestId))
@@ -58,7 +58,7 @@ export function buildHomeNotifications(s: NoticeSnapshot, outbox: readonly Pendi
   const unique=new Map<string,HomeNotification>()
   for(const n of entries){const prior=unique.get(n.id);if(!prior||!(Number(prior.version)>Number(n.version)))unique.set(n.id,n)}
   const sorted=[...unique.values()].sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id))
-  return [...sorted.filter(n=>n.tab==='tasks'),...sorted.filter(n=>n.tab==='activity').slice(0,activityLimit)]
+  return [...sorted.filter(n=>n.tab==='tasks'),...sorted.filter(n=>n.tab==='activity'&&n.state==='info'),...sorted.filter(n=>n.tab==='activity'&&n.state!=='info').slice(0,activityLimit)]
 }
 export type NoticeResolution = {state:'ready';notice:HomeNotification;snapshot:NoticeSnapshot} | {state:'completed'|'changed';snapshot:NoticeSnapshot} | {state:'unavailable'} | {state:'login'} | {state:'retry'}
 export function resolveNotice(s: NoticeSnapshot | null, ref: NoticeRef, outbox: readonly PendingLedgerCommand[]): NoticeResolution {
@@ -78,4 +78,10 @@ export function noticeCalendarDate(value:string,timezone:string){
   if(/^\d{4}-\d{2}-\d{2}$/.test(value))return value
   const date=new Date(value)
   return Number.isNaN(date.getTime())?'':localCalendarDate(date,timezone)
+}
+
+/** A visible reference distinguishes even identically named records; actions still use full typed IDs. */
+export function noticeReference(notice:HomeNotification,visible:readonly HomeNotification[]){
+  for(let length=8;length<notice.ref.id.length;length+=4){const short=notice.ref.id.slice(0,length);if(!visible.some(n=>n.ref.kind===notice.ref.kind&&n.ref.id!==notice.ref.id&&n.ref.id.startsWith(short)))return short}
+  return notice.ref.id
 }

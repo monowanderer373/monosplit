@@ -2,7 +2,7 @@ import {useEffect,useLayoutEffect,useId,useRef,useState} from 'react'
 import {useT} from '../../lib/i18n'
 import {useStore} from '../../store/useStore'
 import {formatDate} from '../../lib/locale'
-import {noticeCalendarDate} from '../../lib/homeNotifications'
+import {noticeCalendarDate,noticeReference} from '../../lib/homeNotifications'
 import type {HomeNotification} from '../../lib/homeNotifications'
 export default function AccountNotice({timezone='Asia/Kuala_Lumpur',notices=[],status='ready',unread=new Set<string>(),onAction,onRetry}: {timezone?:string;notices?:readonly HomeNotification[];status?:'loading'|'ready'|'error';unread?:ReadonlySet<string>;onAction?:(notice:HomeNotification)=>void;onRetry?:()=>unknown}){
   const lang=useStore(s=>s.lang),t=useT(),[open,setOpen]=useState(false),[tab,setTab]=useState<'tasks'|'activity'>('tasks')
@@ -46,7 +46,7 @@ export default function AccountNotice({timezone='Asia/Kuala_Lumpur',notices=[],s
       <div role="tabpanel" id={`${id}-list`} aria-labelledby={`${id}-${tab}`} tabIndex={0} className="home-notice-list">
         {!visible.length&&status==='ready'?<p className="home-notice-message">{t(tab==='tasks'?'notice.noTasks':'notice.noActivity')}</p>:null}
         <ul>{visible.map(n=><li key={n.id}><button type="button" className="home-notice-row" data-notice-id={n.id} data-unread={unread.has(n.id)} aria-description={unread.has(n.id)?t('notice.unread'):undefined} onClick={()=>{close();onAction?.(n)}}>
-          <span className="home-notice-icon" aria-hidden="true">{n.tab==='tasks'?'!':'i'}</span><span className="home-notice-copy"><strong>{t(n.title)}{unread.has(n.id)?<span className="home-notice-new" aria-hidden="true">•</span>:null}</strong>{n.description?<span>{n.description}</span>:null}{n.relatedAccountName&&n.ref.kind!=='account'?<small>{n.relatedAccountName}</small>:null}{n.date?<small>{formatDate(noticeCalendarDate(n.date,timezone),lang)}</small>:null}<span className="home-notice-action">{t(n.action)}</span></span><span aria-hidden="true" className="home-notice-arrow">›</span>
+          <span className="home-notice-icon" aria-hidden="true">{n.tab==='tasks'?'!':'i'}</span><span className="home-notice-copy"><strong>{t(n.title)}{unread.has(n.id)?<span className="home-notice-new" aria-hidden="true">•</span>:null}</strong>{n.description?<span>{n.description}</span>:null}{n.relatedAccountName&&n.ref.kind!=='account'?<small>{n.relatedAccountName}</small>:null}{n.date?<small>{formatDate(noticeCalendarDate(n.date,timezone),lang)}</small>:null}<small className="home-notice-reference">{t('notice.reference',{id:noticeReference(n,notices)})}</small><span className="home-notice-action">{t(n.action)}</span></span><span aria-hidden="true" className="home-notice-arrow">›</span>
         </button></li>)}</ul>
       </div>
     </section>:null}

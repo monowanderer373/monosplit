@@ -1,9 +1,18 @@
 import {describe,it,expect} from 'vitest'
-import {buildHomeNotifications,resolveNotice,parseNotice,noticePath,noticeCalendarDate} from './homeNotifications'
-import {noticeSnapshot,funding} from '../test/notificationFixtures'
+import {buildHomeNotifications,resolveNotice,parseNotice,noticePath,noticeCalendarDate,noticeReference} from './homeNotifications'
+import {noticeSnapshot,funding,noticeExpense} from '../test/notificationFixtures'
 import {noticeQueryFailure} from './notificationRepository'
 import type {PendingLedgerCommand} from '../store/useStore'
 describe('authoritative home notification lifecycle',()=>{
+ it('uses the true stable ID to distinguish identical descriptions and expands a colliding short reference',()=>{
+  const n=buildHomeNotifications(noticeSnapshot(),[]).filter(n=>n.tab==='tasks');n[0].ref={kind:'funding',id:'abcdabcd-1111-1111'};n[1].ref={kind:'funding',id:'abcdabcd-2222-2222'};n[1].description=n[0].description
+  expect(noticeReference(n[0],n)).not.toBe(noticeReference(n[1],n));expect(noticeReference(n[0],n)).toBe('abcdabcd-111')
+ })
+ it('retains active balance information beyond the history cap and sorts a newly completed backdated record by actual update time',()=>{
+  const s=noticeSnapshot();s.funding=[];s.expenses=[]
+  for(let i=0;i<60;i++){const e=noticeExpense('past-'+i,'Historic record');e.occurredOn=i===0?'2026-09-01':'2026-10-14';s.expenses.push(e);s.funding.push({...funding('done-'+i,e.id),status:'posted',version:2,updated_at:i===0?'2026-10-15T01:00:00Z':'2026-10-14T01:00:00Z'})}
+  const n=buildHomeNotifications(s,[]);expect(n.some(n=>n.ref.kind==='account')).toBe(true);expect(n.filter(n=>n.state==='completed')).toHaveLength(50);expect(n.find(n=>n.state==='completed')?.ref.id).toBe('done-0')
+ })
  it('uses the account local day for timestamp notices and preserves expense calendar dates',()=>{expect(noticeCalendarDate('2026-10-13T18:00:00Z','Asia/Kuala_Lumpur')).toBe('2026-10-14');expect(noticeCalendarDate('2026-10-13','Asia/Kuala_Lumpur')).toBe('2026-10-13')})
  it('distinguishes two pending debit objects; an ordinary negative balance is Activity, not a blocked debit',()=>{
   const n=buildHomeNotifications(noticeSnapshot(),[])
