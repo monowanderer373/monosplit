@@ -119,7 +119,7 @@ export default function NotificationTarget(props:Props){
    })}/></section>:null}
    {notice&&!hidden&&['payment','request'].includes(props.target.kind)?<button type="button" className="ms-btn-primary" disabled={busy||checking} onClick={()=>void openPayment()}>{t('notice.review')}</button>:null}
    {expense&&props.target.kind!=='outbox'?<ExpenseActionSheet expense={expense} currentParticipantId={props.owner} trigger={<span>{t('notice.original')}</span>} triggerClassName="ms-btn-ghost" readOnlyFallback onRefresh={async()=>{await changed();reloadTarget()}}/>:null}
-   {snapshot&&!hidden&&(completed||changedState)&&expense?<ExpenseHistoryList expenses={snapshot.expenses.filter(e=>e.id===expense.id||e.correctsExpenseId===expense.id)} directRequests={snapshot.changes.filter(c=>c.targetExpenseId===expense.id)}/>:null}
+   {snapshot&&!hidden&&(completed||changedState)&&expense?<ExpenseHistoryList expenses={snapshot.expenses} directRequests={snapshot.changes} focusExpenseId={expense.id}/>:null}
   </div>
  </HomeSheet>
 }

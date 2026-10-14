@@ -13,22 +13,28 @@ import { useStore } from '../store/useStore'
 export default function ExpenseHistoryList({
   expenses,
   directRequests,
+  focusExpenseId,
 }: {
   expenses: readonly CanonicalExpense[]
   directRequests: readonly DirectExpenseChangeRequest[]
+  focusExpenseId?: string
 }) {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const result = useMemo(() => {
     try {
       const entries = deriveExpenseRevisionEntries(expenses, directRequests)
+      const focusedChain = focusExpenseId
+        ? entries.find((entry) => entry.expense.id === focusExpenseId)?.chainId
+        : undefined
       const chainSizes = new Map<string, number>()
       entries.forEach((entry) => {
         chainSizes.set(entry.chainId, (chainSizes.get(entry.chainId) ?? 0) + 1)
       })
       return {
         entries: entries.filter((entry) => (
-          entry.lifecycle !== 'proposal_candidate'
+          (!focusExpenseId || entry.chainId === focusedChain)
+          && entry.lifecycle !== 'proposal_candidate'
           && (
             (chainSizes.get(entry.chainId) ?? 0) > 1
             || entry.lifecycle !== 'active'
@@ -39,7 +45,7 @@ export default function ExpenseHistoryList({
     } catch {
       return { entries: [], failed: true }
     }
-  }, [directRequests, expenses])
+  }, [directRequests, expenses, focusExpenseId])
 
   if (!result.failed && result.entries.length === 0) return null
   const expenseById = new Map(expenses.map((expense) => [expense.id, expense]))
