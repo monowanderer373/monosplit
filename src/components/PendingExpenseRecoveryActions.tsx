@@ -3,10 +3,12 @@ import { useT } from '../lib/i18n'
 
 export default function PendingExpenseRecoveryActions({
   item,
+  notification=false,
   onUndoAdd,
   onRetry,
   onDiscardFailed,
 }: {
+  notification?: boolean
   item: PendingLedgerCommand
   onUndoAdd: (requestId: string) => boolean
   onRetry: (requestId: string) => Promise<void>
@@ -43,10 +45,10 @@ export default function PendingExpenseRecoveryActions({
   return (
     <span className="flex flex-wrap items-center justify-end gap-1">
       <button
-        className="min-h-9 px-2 text-xs font-extrabold text-[var(--ms-accent)]"
+        className={notification?'ms-btn-primary':'min-h-9 px-2 text-xs font-extrabold text-[var(--ms-accent)]'}
         onClick={() => void onRetry(item.command.requestId)}
       >
-        {t('common.retry')}
+        {t(notification?'noticeA.outbox.retry':'common.retry')}
       </button>
       {item.commitState === 'not_committed' ? (
         <button

@@ -129,6 +129,7 @@ jobs:
           path: |
             test-results/browser-results.json
             test-results/notifications/
+            test-results/notifications-a/
             test-results/**/error-context.md
             test-results/insights-ui/
           if-no-files-found: ignore

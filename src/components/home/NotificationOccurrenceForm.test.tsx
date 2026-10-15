@@ -1,0 +1,26 @@
+/** @vitest-environment jsdom */
+import {cleanup,render,screen,waitFor} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import {MemoryRouter} from 'react-router-dom'
+import {afterEach,beforeEach,expect,it,vi} from 'vitest'
+import NotificationOccurrenceForm from './NotificationOccurrenceForm'
+import {loadNotificationSnapshot,notificationRpc} from '../../lib/notificationRepository'
+import {noticeSnapshot} from '../../test/notificationFixtures'
+import {useStore} from '../../store/useStore'
+vi.mock('../../lib/notificationRepository',()=>({loadNotificationSnapshot:vi.fn(),notificationRpc:vi.fn()}))
+const load=vi.mocked(loadNotificationSnapshot),rpc=vi.mocked(notificationRpc)
+let s=noticeSnapshot()
+beforeEach(()=>{vi.clearAllMocks();useStore.setState({lang:'en'});s=noticeSnapshot();s.accounts.push({...s.accounts[1],id:'usd',name:'USD wallet',currency:'USD'});s.rules=[{id:'rule',title:'Internet',amount_minor:8000,currency:'MYR',funding_account_id:'bank',status:'active',version:1,updated_at:'2026-10-15'}];s.recurring=[{id:'occurrence',rule_id:'rule',status:'pending_review',version:2,scheduled_for:'2026-10-15',effective_amount_minor:null,effective_currency:null,effective_occurred_on:'2026-10-14',effective_account_id:null,updated_at:'2026-10-15'}];s.plans=[{id:'plan',status:'active',version:1,currency:'MYR',updated_at:'2026-10-15'}];s.installments=[{id:'installment',plan_id:'plan',status:'failed',version:2,due_on:'2026-10-15',principal_minor:12000,asset_payment_minor:null,repayment_account_id:'bank',updated_at:'2026-10-15'}];load.mockImplementation(async()=>structuredClone(s))})
+afterEach(cleanup)
+function setup(installment=false,guard=()=>{}){const row=structuredClone(installment?s.installments[0]:s.recurring[0]);const errors:unknown[]=[];const onSubmit=vi.fn(async(work:(g:()=>void)=>Promise<unknown>)=>{try{await work(guard)}catch(error){errors.push(error)}});render(<MemoryRouter><NotificationOccurrenceForm identity="identity" target={{kind:installment?'installment':'recurring',id:row.id}} row={row} snapshot={structuredClone(s)} busy={false} allowScheduled={false} onSubmit={onSubmit}/></MemoryRouter>);return {onSubmit,errors}}
+it('changes only the selected occurrence account, preserves nullable overrides and rechecks its returned version before original posting',async()=>{
+ const user=userEvent.setup();setup();rpc.mockImplementation(async(name,args)=>{if(name==='update_personal_recurring_occurrence'){expect(args).toMatchObject({target_occurrence_id:'occurrence',expected_version:2,override_amount_minor:null,override_currency:null,override_occurred_on:'2026-10-14',override_account_id:'wallet-1'});s.recurring[0]={...s.recurring[0],version:3,effective_account_id:'wallet-1'};return {version:3}}return {status:'posted'}})
+ await user.selectOptions(screen.getByRole('combobox'),'wallet-1');await user.click(screen.getByRole('button',{name:'Record as paid'}));await waitFor(()=>expect(rpc).toHaveBeenCalledTimes(2));expect(rpc.mock.calls[1][0]).toBe('post_personal_recurring_occurrence');expect(s.rules[0].funding_account_id).toBe('bank')
+})
+it('requires foreign actual debit, clears it on currency switch, and preserves installment due date/principal during original edit then post',async()=>{
+ const user=userEvent.setup();setup(true);await user.selectOptions(screen.getByRole('combobox'),'usd');expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('');expect(screen.getByRole('button',{name:'Record as paid'}).hasAttribute('disabled')).toBe(true);await user.type(screen.getByRole('textbox'),'28');await user.selectOptions(screen.getByRole('combobox'),'bank');await user.selectOptions(screen.getByRole('combobox'),'usd');expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('');await user.type(screen.getByRole('textbox'),'27.45')
+ rpc.mockImplementation(async(name,args)=>{if(name==='edit_future_installment'){expect(args).toEqual({target_installment_id:'installment',expected_version:2,replacement_due_on:'2026-10-15',replacement_repayment_account_id:'usd',replacement_asset_payment_minor:2745});s.installments[0]={...s.installments[0],status:'scheduled',version:3,repayment_account_id:'usd',asset_payment_minor:2745};return {version:3}}return {status:'posted'}})
+ await user.click(screen.getByRole('button',{name:'Record as paid'}));await waitFor(()=>expect(rpc).toHaveBeenCalledTimes(2));expect(rpc.mock.calls[1][0]).toBe('post_installment_repayment');expect(s.installments[0].principal_minor).toBe(12000)
+})
+it('does not retry an occurrence already posted on another device',async()=>{const user=userEvent.setup();setup();s.recurring[0].status='posted';await user.click(screen.getByRole('button',{name:'Record as paid'}));await waitFor(()=>expect(load).toHaveBeenCalledTimes(1));expect(rpc).not.toHaveBeenCalled()})
+it('does not write after a preflight lease closes',async()=>{const user=userEvent.setup();let active=true;const {onSubmit,errors}=setup(false,()=>{if(!active)throw new Error('closed')});active=false;await user.click(screen.getByRole('button',{name:'Record as paid'}));await waitFor(()=>expect(onSubmit).toHaveBeenCalled());expect(errors).toEqual([new Error('closed')]);expect(rpc).not.toHaveBeenCalled()})

@@ -9,7 +9,7 @@ export function markNotificationRead(identity:string,notice:Pick<HomeNotificatio
   try{const next={...read(identity),[notice.id]:notice.version};localStorage.setItem(prefix+identity,JSON.stringify(Object.fromEntries(Object.entries(next).slice(-500))))}catch{/* Storage unavailable must not block navigation. */}
 }
 export function useHomeNotifications(identity:string|null,owner:string|null,outbox:readonly PendingLedgerCommand[],refreshKey:string){
-  const [result,setResult]=useState<{owner:string|null;data:NoticeSnapshot|null;status:'loading'|'ready'|'error'}>({owner:null,data:null,status:'loading'})
+  const [result,setResult]=useState<{owner:string|null;data:NoticeSnapshot|null;status:'loading'|'ready'|'error';revision:number}>({owner:null,data:null,status:'loading',revision:0})
   const [,setReadEpoch]=useState(0)
   const generation=useRef(0)
   const current=useRef(owner)
@@ -19,8 +19,8 @@ export function useHomeNotifications(identity:string|null,owner:string|null,outb
   const refresh=useCallback(async()=>{
     if(!owner)return
     const token=++generation.current
-    try{const next=await loadNotificationSnapshot(owner);if(token===generation.current&&current.current===owner)setResult({owner,data:next,status:'ready'})}
-    catch{if(token===generation.current&&current.current===owner)setResult(old=>({owner,data:old.owner===owner?old.data:null,status:'error'}))}
+    try{const next=await loadNotificationSnapshot(owner);if(token===generation.current&&current.current===owner)setResult({owner,data:next,status:'ready',revision:token})}
+    catch{if(token===generation.current&&current.current===owner)setResult(old=>({owner,data:old.owner===owner?old.data:null,status:'error',revision:token}))}
   },[owner])
   useEffect(()=>{
     let timer:ReturnType<typeof setTimeout>|undefined
@@ -38,5 +38,5 @@ export function useHomeNotifications(identity:string|null,owner:string|null,outb
   const notices=useMemo(()=>data?buildHomeNotifications(data,outbox):[],[data,outbox])
   const reads=read(identity)
   const markRead=useCallback((notice:HomeNotification)=>{if(identity){markNotificationRead(identity,notice);setReadEpoch(n=>n+1)}},[identity])
-  return {notices,status:result.owner===owner?result.status:'loading' as const,unread:new Set(notices.filter(n=>reads[n.id]!==n.version).map(n=>n.id)),markRead,refresh}
+  return {notices,contextRevision:result.owner===owner?result.revision:0,status:result.owner===owner?result.status:'loading' as const,unread:new Set(notices.filter(n=>reads[n.id]!==n.version).map(n=>n.id)),markRead,refresh}
 }

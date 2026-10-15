@@ -1,4 +1,6 @@
+import {notificationATranslations} from './notificationATranslations'
 export const notificationTranslations = {
+  ...notificationATranslations,
   'notice.reference': {en:'Ref. {{id}}',zh:'参考号 {{id}}'},
   'notice.title': {en:'Notifications',zh:'通知'},
   'notice.tasks': {en:'To do',zh:'待处理'},
