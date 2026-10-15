@@ -373,5 +373,13 @@ export const notificationATranslations = {
   "noticeA.alreadySaved": {
     "en": "This record is saved. Check the latest result.",
     "zh": "此记录已保存，请查看最新结果。"
-  }
+  },
+  "noticeA.reason.archived": {"en": "The original account was archived. Choose an active account.", "zh": "原账户已归档，请选择可用账户。"},
+  "noticeA.reason.account": {"en": "The original payment account is unavailable. Choose an active account.", "zh": "原付款账户不可用，请选择可用账户。"},
+  "noticeA.reason.actual": {"en": "Enter the amount actually charged by your payment account.", "zh": "请填写付款账户实际扣款金额。"},
+  "noticeA.reason.liability": {"en": "The linked liability account is unavailable. Review the installment plan.", "zh": "关联负债账户不可用，请查看分期计划。"},
+  "noticeA.reason.contribution": {"en": "The original payment contribution is unavailable. Review the record.", "zh": "原付款贡献不可用，请查看原记录。"},
+  "noticeA.reason.changed": {"en": "The previous attempt needs a current status check before retrying.", "zh": "重试前请先核对最新状态。"},
+  "noticeA.reason.amount": {"en": "Review the original amount and currency before recording payment.", "zh": "记录付款前请核对原金额与币种。"},
+  "noticeA.reason.failed": {"en": "The previous payment attempt was not recorded. Review it before retrying.", "zh": "上次付款记录未成功，请核对后重试。"}
 } as const

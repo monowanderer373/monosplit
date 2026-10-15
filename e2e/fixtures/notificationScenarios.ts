@@ -22,7 +22,7 @@ export async function notificationScenario(page:Page,scene:string){
  }
  if(scene==='A4'||scene==='L3'){
   state.snapshot.expenses=[noticeExpense('camera','Camera')];state.snapshot.plans=[{id:'plan',purchase_expense_id:'camera',status:'active',version:1,updated_at:'2026-10-15',currency:'MYR',installment_count:6}]
-  state.snapshot.installments=[{id:'installment',plan_id:'plan',status:'failed',version:2,sequence:3,updated_at:'2026-10-15T02:00:00Z',due_on:'2026-10-15',principal_minor:12000,asset_payment_minor:12000,repayment_account_id:'bank',error_code:'personal_account_archived'},{id:'upcoming',plan_id:'plan',status:'scheduled',version:1,sequence:4,updated_at:'2026-10-15',due_on:'2026-11-15',principal_minor:12000,repayment_account_id:'bank'}]
+  state.snapshot.installments=[{id:'installment',plan_id:'plan',status:'failed',version:2,sequence:3,updated_at:'2026-10-15T02:00:00Z',due_on:'2026-10-15',principal_minor:12000,asset_payment_minor:12000,repayment_account_id:'bank',error_code:'account_archived'},{id:'upcoming',plan_id:'plan',status:'scheduled',version:1,sequence:4,updated_at:'2026-10-15',due_on:'2026-11-15',principal_minor:12000,repayment_account_id:'bank'}]
  }
  if(['A5','A6','A7'].includes(scene)){
   const e=obligation(7200,'pay','shared');e.description='Lunch with friends';e.participations.find(p=>p.participantId==='owner')!.state=scene==='A5'?'pending':'accepted';e.shares=[{expenseId:e.id,expenseParticipationId:e.participations.find(p=>p.participantId==='owner')!.id,amountMinor:2400},{expenseId:e.id,expenseParticipationId:e.participations.find(p=>p.participantId==='other')!.id,amountMinor:4800}];state.snapshot.expenses=[e]

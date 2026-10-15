@@ -24,3 +24,5 @@ it('requires foreign actual debit, clears it on currency switch, and preserves i
 })
 it('does not retry an occurrence already posted on another device',async()=>{const user=userEvent.setup();setup();s.recurring[0].status='posted';await user.click(screen.getByRole('button',{name:'Record as paid'}));await waitFor(()=>expect(load).toHaveBeenCalledTimes(1));expect(rpc).not.toHaveBeenCalled()})
 it('does not write after a preflight lease closes',async()=>{const user=userEvent.setup();let active=true;const {onSubmit,errors}=setup(false,()=>{if(!active)throw new Error('closed')});active=false;await user.click(screen.getByRole('button',{name:'Record as paid'}));await waitFor(()=>expect(onSubmit).toHaveBeenCalled());expect(errors).toEqual([new Error('closed')]);expect(rpc).not.toHaveBeenCalled()})
+
+it('presents the actual normalized posting reason without exposing its technical code',()=>{s.installments[0].error_code='actual_payment_required';setup(true);expect(screen.getByText('Enter the amount actually charged by your payment account.')).toBeTruthy();expect(screen.queryByText('actual_payment_required')).toBeNull()})
