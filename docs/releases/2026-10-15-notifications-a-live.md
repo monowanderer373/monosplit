@@ -1,5 +1,7 @@
 # Notifications A FINAL — production release, 2026-10-15
 
+**Subsequent regression:** the user reported collapsed notification text after this release. The prior harness-enabled checks missed a production CSS chunk-order difference. See the [verified layout repair](2026-10-15-notification-layout-fix-live.md) for the reproduction, fix and stronger production-graph coverage. This report describes the earlier validation, not proof that the regression was absent.
+
 Notifications A is implemented in the existing Tabby Tally application and verified on production with normal owned QA accounts. No customer ledger was used. No database migration, dependency, financial model or RLS change was required.
 
 ## Git and deployment evidence
