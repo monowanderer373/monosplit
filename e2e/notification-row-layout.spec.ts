@@ -28,6 +28,7 @@ test('two short Food tasks keep a readable text column on a cold production buil
  await expect(dialog.getByRole('heading',{name:'Food',exact:true})).toBeVisible()
  const paper=await dialog.evaluate(el=>({width:el.getBoundingClientRect().width,padding:getComputedStyle(el).padding,borderRadius:getComputedStyle(el).borderRadius}))
  expect(paper).toEqual({width:342,padding:'20px',borderRadius:'14px'})
+ expect(await dialog.locator('form').evaluate(el=>getComputedStyle(el).gap)).toBe('12px')
  await page.keyboard.press('Escape')
  await expect(panel).toBeVisible()
  await page.getByRole('tab',{name:'Activity',exact:true}).click()
