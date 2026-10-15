@@ -1,12 +1,33 @@
+import './notifications-a.css'
+import QuickIcon from '../QuickIcon'
 import {useEffect,useLayoutEffect,useId,useRef,useState} from 'react'
 import {useT} from '../../lib/i18n'
 import {useStore} from '../../store/useStore'
 import {formatDate} from '../../lib/locale'
-import {noticeCalendarDate,noticeReference} from '../../lib/homeNotifications'
+import {noticeCalendarDate} from '../../lib/homeNotifications'
+import {noticeRowAction,saveNoticeOrigin,takeNoticeOrigin,type NoticeOrigin} from '../../lib/notificationPresentation'
 import type {HomeNotification} from '../../lib/homeNotifications'
-export default function AccountNotice({timezone='Asia/Kuala_Lumpur',notices=[],status='ready',unread=new Set<string>(),onAction,onRetry}: {timezone?:string;notices?:readonly HomeNotification[];status?:'loading'|'ready'|'error';unread?:ReadonlySet<string>;onAction?:(notice:HomeNotification)=>void;onRetry?:()=>unknown}){
+export default function AccountNotice({identity,targetOpen=false,timezone='Asia/Kuala_Lumpur',notices=[],status='ready',unread=new Set<string>(),onAction,onRetry}: {identity?:string;targetOpen?:boolean;timezone?:string;notices?:readonly HomeNotification[];status?:'loading'|'ready'|'error';unread?:ReadonlySet<string>;onAction?:(notice:HomeNotification)=>void;onRetry?:()=>unknown}){
   const lang=useStore(s=>s.lang),t=useT(),[open,setOpen]=useState(false),[tab,setTab]=useState<'tasks'|'activity'>('tasks')
   const wrapper=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLElement>(null),id=useId()
+  const restore=useRef<NoticeOrigin|null>(null)
+  useEffect(()=>{
+    if(!identity||targetOpen)return
+    const origin=takeNoticeOrigin(identity)
+    if(origin){restore.current=origin;setTab(origin.tab);setOpen(true)}
+  },[identity,targetOpen])
+  useLayoutEffect(()=>{
+    if(!open||!restore.current||status!=='ready')return
+    const origin=restore.current
+    const frame=requestAnimationFrame(()=>{
+      const list=panel.current?.querySelector<HTMLElement>('.home-notice-list');if(list)list.scrollTop=origin.scrollTop
+      window.scrollTo({top:origin.pageScroll,behavior:'instant'})
+      const row=[...panel.current?.querySelectorAll<HTMLElement>('[data-notice-id]')??[]].find(r=>r.dataset.noticeId===origin.rowId)
+      ;(row??panel.current?.querySelector<HTMLElement>('[aria-selected="true"]')??trigger.current)?.focus({preventScroll:true})
+      restore.current=null
+    })
+    return()=>cancelAnimationFrame(frame)
+  },[open,tab,status,notices])
   const close=(restore=false)=>{setOpen(false);if(restore)trigger.current?.focus({preventScroll:true})}
   useLayoutEffect(()=>{
     if(!open||!panel.current||!wrapper.current)return
@@ -45,8 +66,8 @@ export default function AccountNotice({timezone='Asia/Kuala_Lumpur',notices=[],s
       {status==='error'?<div role="alert" className="home-notice-message"><p>{t('notice.error')}</p><button type="button" className="home-notice-retry" onClick={()=>void onRetry?.()}>{t('common.retry')}</button></div>:null}
       <div role="tabpanel" id={`${id}-list`} aria-labelledby={`${id}-${tab}`} tabIndex={0} className="home-notice-list">
         {!visible.length&&status==='ready'?<p className="home-notice-message">{t(tab==='tasks'?'notice.noTasks':'notice.noActivity')}</p>:null}
-        <ul>{visible.map(n=><li key={n.id}><button type="button" className="home-notice-row" data-notice-id={n.id} data-unread={unread.has(n.id)} aria-description={unread.has(n.id)?t('notice.unread'):undefined} onClick={()=>{close();onAction?.(n)}}>
-          <span className="home-notice-icon" aria-hidden="true">{n.tab==='tasks'?'!':'i'}</span><span className="home-notice-copy"><strong>{t(n.title)}{unread.has(n.id)?<span className="home-notice-new" aria-hidden="true">•</span>:null}</strong>{n.description?<span>{n.description}</span>:null}{n.relatedAccountName&&n.ref.kind!=='account'?<small>{n.relatedAccountName}</small>:null}{n.date?<small>{formatDate(noticeCalendarDate(n.date,timezone),lang)}</small>:null}<small className="home-notice-reference">{t('notice.reference',{id:noticeReference(n,notices)})}</small><span className="home-notice-action">{t(n.action)}</span></span><span aria-hidden="true" className="home-notice-arrow">›</span>
+        <ul>{visible.map(n=><li key={n.id}><button type="button" className="home-notice-row" data-notice-id={n.id} data-unread={unread.has(n.id)} aria-description={unread.has(n.id)?t('notice.unread'):undefined} onClick={()=>{if(identity)saveNoticeOrigin(identity,{tab,scrollTop:panel.current?.querySelector('.home-notice-list')?.scrollTop??0,rowId:n.id,pageScroll:window.scrollY});close();onAction?.(n)}}>
+          <span className="home-notice-icon" aria-hidden="true"><QuickIcon name={n.tab==='activity'&&n.state==='completed'?'check':({Drinks:'Drink',transport:'Transport',Transportation:'Transport'}as Record<string,string>)[n.icon??'']??n.icon??'Bills'} size={21}/></span><span className="home-notice-copy"><span className="home-notice-headline"><strong>{n.ref.kind==='account'?t('noticeA.account.negative'):n.description||t(n.title)}</strong>{n.ref.kind!=='account'?<span className="home-notice-action"> · {t(noticeRowAction(n))}</span>:null}{unread.has(n.id)?<span className="home-notice-new" aria-hidden="true">•</span>:null}</span><span className="home-notice-metadata">{n.date?<time dateTime={noticeCalendarDate(n.date,timezone)}>{formatDate(noticeCalendarDate(n.date,timezone),lang)}</time>:null}{n.date?<span aria-hidden="true"> · </span>:null}<span>{n.relatedAccountName||n.contextLabel||t(n.ref.kind==='funding'?'noticeA.funding.noAccount':n.scope.kind==='personal'?'home.chipPersonal':'home.chipDirect')}</span></span></span><span aria-hidden="true" className="home-notice-arrow">›</span>
         </button></li>)}</ul>
       </div>
     </section>:null}

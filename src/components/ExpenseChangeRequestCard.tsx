@@ -24,6 +24,9 @@ type Props = {
   targetExpense: CanonicalExpense
   replacementExpense: CanonicalExpense | null
   currentParticipantId: string
+  compact?: boolean
+  disabled?: boolean
+  onRespond?: (response:'accepted'|'declined')=>Promise<unknown>
   onRefresh: () => Promise<unknown>
 }
 
@@ -33,6 +36,9 @@ export default function ExpenseChangeRequestCard({
   replacementExpense,
   currentParticipantId,
   onRefresh,
+  compact=false,
+  disabled=false,
+  onRespond,
 }: Props) {
   const t = useT()
   const [action, setAction] = useState('')
@@ -48,11 +54,12 @@ export default function ExpenseChangeRequestCard({
   const historyState = deriveDirectChangeHistoryState(request)
 
   const respond = async (response: 'accepted' | 'declined') => {
-    if (action || failClosed) return
+    if (action || failClosed || disabled) return
     setAction(response)
     setError('')
     setMessage('')
     try {
+      if(onRespond){await onRespond(response);return}
       await expenseChangeRepository.respondToDirectChange({
         requestId: request.id,
         response,
@@ -67,7 +74,7 @@ export default function ExpenseChangeRequestCard({
   }
 
   const withdraw = async () => {
-    if (action || failClosed) return
+    if (action || failClosed || disabled) return
     setAction('withdraw')
     setError('')
     setMessage('')
@@ -105,6 +112,24 @@ export default function ExpenseChangeRequestCard({
     )
     : null
 
+  if(compact){
+    const ownShare=(expense:CanonicalExpense)=>expense.shares.find(s=>s.expenseParticipationId===expense.participations.find(p=>p.participantId===currentParticipantId)?.id)?.amountMinor
+    const before=ownShare(targetExpense),after=replacementExpense?ownShare(replacementExpense):null
+    const proposer=targetExpense.participations.find(p=>p.participantId===request.proposedBy)?.nameSnapshot
+    return <article className="notification-a-panel" data-testid={`expense-change-${request.clientRequestId}`}>
+      <h3>{targetExpense.description??targetExpense.category}</h3>
+      {proposer?<p className="home-meta">{proposer}</p>:null}
+      <dl className="notification-a-facts">
+       {request.kind==='correction'&&replacementExpense?<div><dt>{t('noticeA.direct.billTotal')}</dt><dd>{formatMinorAmount(targetExpense.totalMinor,targetExpense.currency)} → {formatMinorAmount(replacementExpense.totalMinor,replacementExpense.currency)}</dd></div>:null}
+       {before!=null?<div className="notification-a-highlight"><dt>{t('noticeA.direct.yourShare')}</dt><dd>{formatMinorAmount(before,targetExpense.currency)}{after!=null&&replacementExpense?<> → {formatMinorAmount(after,replacementExpense.currency)}</>:null}</dd></div>:null}
+      </dl>
+      {request.kind==='cancellation'?<p>{t('noticeA.cancel.impact')}</p>:null}
+      <p className="notification-a-helper">{t('noticeA.change.pending')}</p>
+      <details className="notification-a-disclosure"><summary>{t('noticeA.change.details')}</summary>{request.reason?<p>{request.reason}</p>:null}<p>{t(changeHistoryTitleKey(historyState))}</p>{replacementExpense?<p>{replacementExpense.description??replacementExpense.category}</p>:null}</details>
+      {error?<p role="alert">{t(error)}</p>:null}
+      {presentation.canRespond&&!failClosed?<div className="notification-a-actions"><button type="button" className="ms-btn-primary" disabled={!!action||disabled} onClick={()=>void respond('accepted')}>{t(request.kind==='correction'?'noticeA.change.accept':'noticeA.cancel.approve')}</button><button type="button" className="ms-btn-ghost" disabled={!!action||disabled} onClick={()=>void respond('declined')}>{t('common.decline')}</button></div>:null}
+    </article>
+  }
   return (
     <article
       className="ms-card-hero"

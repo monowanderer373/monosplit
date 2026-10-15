@@ -48,6 +48,8 @@ export type HomeScreenProps = {
   timezone?: string
   notifications?: readonly HomeNotification[]
   notificationsStatus?: 'loading'|'ready'|'error'
+  notificationIdentity?: string
+  notificationTargetOpen?: boolean
   unreadNotifications?: ReadonlySet<string>
   onOpenNotification?: (notice:HomeNotification)=>void
   onRetryNotifications?: ()=>unknown
@@ -132,14 +134,14 @@ export default function HomeScreen(props: HomeScreenProps) {
   }
 
   if (props.mode === 'travel') return <TravelHome props={{ ...props, localToday: today }}
-    notice={<AccountNotice timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
+    notice={<AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
     records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
 
   return (
     <div className="home-frame" data-density={props.density}>
       <header className="home-header" data-testid="home-header">
         <div>
-          <div className="home-title-row"><h1 className="home-title">{props.mode === 'daily' ? t('home.myDay') : t('home.modeTravel')}</h1><AccountNotice timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} /></div>
+          <div className="home-title-row"><h1 className="home-title">{props.mode === 'daily' ? t('home.myDay') : t('home.modeTravel')}</h1><AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} /></div>
           <p className="home-today">{formatDate(today, lang)}</p>
         </div>
         <ModeBookmark mode={props.mode} onChange={props.onModeChange} />
@@ -342,7 +344,7 @@ function ModeBookmark({ mode, onChange }: { mode: 'daily' | 'travel'; onChange: 
 }
 
 function AccountPaperMenu({ title, onClose, testId, triggerRef, children }: {
-  title: string
+  title: ReactNode
   onClose: () => void
   testId: string
   triggerRef: RefObject<HTMLElement | null>
@@ -675,13 +677,15 @@ export function HomeSheet({
   dismissible = true,
   returnFocusRef,
   presentation = 'sheet',
+  className = '',
 }: {
-  title: string
+  title: ReactNode
   onClose: () => void
   testId: string
   children: ReactNode
   dismissible?: boolean
   presentation?: 'sheet' | 'dialog'
+  className?: string
   returnFocusRef?: RefObject<HTMLElement | null>
 }) {
   const t = useT()
@@ -702,11 +706,11 @@ export function HomeSheet({
     }
   }, [])
   return createPortal(
-    <div className={`home-sheet-backdrop${presentation === 'dialog' ? ' is-paper-dialog' : ''}${closing ? ' is-closing' : ''}`} data-testid={`${testId}-backdrop`}>
+    <div className={`home-sheet-backdrop${presentation === 'dialog' ? ' is-paper-dialog' : ''}${closing ? ' is-closing' : ''}${className ? ` ${className.trim().split(/\s+/).map(name=>name+'-backdrop').join(' ')}` : ''}`} data-testid={`${testId}-backdrop`}>
       <div className="home-sheet-scrim" aria-hidden="true" data-testid={`${testId}-scrim`} onClick={requestClose} />
       <section
         ref={ref}
-        className={`home-sheet${presentation === 'dialog' ? ' home-paper-dialog' : ''}`}
+        className={`home-sheet${presentation === 'dialog' ? ' home-paper-dialog' : ''} ${className}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${testId}-title`}

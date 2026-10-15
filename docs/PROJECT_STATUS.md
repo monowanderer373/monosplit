@@ -1,9 +1,16 @@
 # Tabby Tally project status
 
-Checkpoint:2026-10-14 (Asia/Kuala_Lumpur).
+Checkpoint:2026-10-15 (Asia/Kuala_Lumpur).
 
 ## Resume first
 Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff and current remote main. Preserve work. Old handover release/migration claims are historical; never reset/reapply from them.
+
+## Active task — Notifications A FINAL (2026-10-15)
+- User-approved package TabbyTally_Notifications_A_FINAL_2026-10-15 extracted/read: execution prompt, full specs/route matrix/scenario/copy, six approved boards, native screens/components/tokens and reference code. Actual repository main/origin cc861e6 clean at baseline; preserve existing original notification/financial services and completed releases.
+- Implemented compact two-line rows without visible reference, centered simple-task dialogs, exact complex-object pages, original Direct/change/CollectPay actions, real account entries and one-shot return focus/scroll. Authoritative paid contribution/foreign-empty actual input/privacy retained. No schema or financial model changes.
+- Account eligibility refresh and action-vs-read epochs prevent stale context and self-invalidation. Occurrence-only versioned account/actual edits precede original post/retry; existing pending payer cash leg resumes without proposing a second payment. New regression tests cover these boundaries.
+- Current branch feat/notifications-a-final, uncommitted implementation. Earlier current app 590 units passed; latest focused 60+8 passed, final typecheck/browser/regression pending after last changes. Package reference57 passed (supplemental only). Existing local Docker vfs blocked; use disposable CI, no blind retries/reset. Production unchanged at baseline cc861e6, no A live claim.
+- Next: final meaningful component/browser checks + screenshots, exact-head PR CI, merge, existing Vercel READY and normal owned-QA/PWA live verification.
 
 ## Current completed application — Home notification actions (2026-10-14)
 - PR21 MERGED from feat/home-notification-actions. Validatedsource9bc1fb9d3c4a141d191a891a6da55077c6322328/main256516798470d4a48da7c8ba9c462a04b5c1be75 exact tree diff empty. Existing Vercel production READY/dpl_7HncvCp7QQRgF7DovbvfEoySJnFn/publicentryDfpHTyVJ contains actualmain,RecordsBWscH8ho cached. A documentation-only checkpoint follows; finaldeployment/SHA/PWA must be read back before delivery.

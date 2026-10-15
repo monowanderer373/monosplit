@@ -1,7 +1,9 @@
-import {noticePath,parseNotice} from '../lib/homeNotifications'
+import {notificationAmountInput} from '../lib/notificationPresentation'
+import {noticePath,parseNotice,type NoticeRef} from '../lib/homeNotifications'
 import {markNotificationRead} from '../hooks/useHomeNotifications'
+import PaymentRecordRecovery from '../components/collectpay/PaymentRecordRecovery'
 import AmountInput from '../components/AmountInput'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useStore } from '../store/useStore'
@@ -10,12 +12,15 @@ import { formatMinorAmount } from '../lib/money'
 import { localeForLang, formatDate } from '../lib/locale'
 import { localCalendarDate } from '../lib/homeView'
 import { buildCollectPayItems, collectPayPreviews, collectPayTotals, financialFingerprint, previewCollectPayReceipt, type CollectPayItem, type CollectPaySnapshot } from '../lib/collectPay'
-import { collectPayService, CollectPaySaveError, type CollectPayFormInput, type CollectPayPreview, type CollectPayAttempt } from '../lib/collectPayRepository'
+import {notificationRpc} from '../lib/notificationRepository'
+import {createSettlementRepository} from '../lib/settlementRepository'
+import { collectPayService, createCollectPayService,createCollectPayRepository,CollectPayRpcError,CollectPaySaveError, type CollectPayFormInput, type CollectPayPreview, type CollectPayAttempt } from '../lib/collectPayRepository'
 import { collectPayErrorKey } from '../lib/collectPayErrors'
 import { generateId } from '../lib/id'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
 import SettlementHistoryList from '../components/SettlementHistoryList'
 import '../components/collectpay/collectpay.css'
+import '../components/home/notifications-a.css'
 import { resetVerifiedHomeCache } from '../hooks/useHomeData'
 import { usePersonalLedger } from '../hooks/usePersonalLedger'
 import { useRouteScroll } from '../hooks/useRouteScroll'
@@ -52,7 +57,7 @@ function CollectPayController({ owner, timezone }: { owner: string; timezone: st
   return <CollectPayScreen snapshot={snapshot} status={status} onRefresh={refresh} timezone={timezone} notificationIdentity={authUser?.id} />
 }
 
-export function CollectPayScreen({ snapshot, status, onRefresh, timezone, service = collectPayService, notificationIdentity }: {
+export function CollectPayScreen({ snapshot, status, onRefresh, timezone, service:providedService = collectPayService, notificationIdentity }: {
   snapshot: CollectPaySnapshot | null; status: 'loading' | 'ready' | 'error'; onRefresh: () => Promise<void>
   timezone: string; service?: typeof collectPayService; notificationIdentity?: string
 }) {
@@ -77,6 +82,21 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
   const selected = allItems.find(i => i.key === selectedKey)
   const noticeKind=params.get('noticeType'),noticeId=params.get('noticeTarget')
   const noticeHidden=useStore(s=>s.homeUi.balanceHidden),setNoticeHomeUi=useStore(s=>s.setHomeUi)
+  const contextKey=[snapshot?.owner,selectedKey,noticeKind,noticeId,notificationIdentity,noticeHidden].join(':')
+  const activeNotice=useRef<string|null>(contextKey)
+  activeNotice.current=contextKey
+  useEffect(()=>{activeNotice.current=contextKey;return()=>{activeNotice.current=null}},[contextKey])
+  const service=useMemo(()=>{
+    if(!noticeId||!notificationIdentity||providedService!==collectPayService)return providedService
+    const guard=()=>{if(activeNotice.current!==contextKey)throw new Error('notification_context_changed')}
+    const call=async(name:string,args:Record<string,unknown>)=>{
+      try{return await notificationRpc(name,args,notificationIdentity,guard)}
+      catch(cause){const e=cause as {message?:string;code?:string};if(e.code)throw new CollectPayRpcError(e.message??'server_rejected',true);throw cause}
+    }
+    const settlements=createSettlementRepository(async(name,args)=>({data:await call(name,args),error:null}))
+    return createCollectPayService(createCollectPayRepository(call,settlements))
+  },[noticeId,notificationIdentity,providedService,contextKey])
+
   const noticeValid=!!noticeId&&!!selected&&(noticeKind==='payment'?selected.payments.some(p=>p.id===noticeId):noticeKind==='request'&&selected.requests.some(r=>r.id===noticeId))
   const focusedNotice=useRef('')
   useEffect(()=>{
@@ -84,7 +104,9 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
     const key=`${snapshot?.owner}:${noticeKind}:${noticeId}`
     const el=document.querySelector<HTMLElement>(`[data-notice-entity="${noticeKind}:${CSS.escape(noticeId)}"]`)
     if(!el)return
-    if(focusedNotice.current!==key){focusedNotice.current=key;el.dataset.noticeFocus='true';el.tabIndex=-1;el.scrollIntoView({block:'center'});el.focus({preventScroll:true})}
+    el.dataset.noticeFocus='true';el.tabIndex=-1
+    if(focusedNotice.current!==key){focusedNotice.current=key;el.scrollIntoView({block:'center'});el.focus({preventScroll:true})}
+    else if(document.activeElement===document.body)el.focus({preventScroll:true})
     const version=noticeKind==='payment'?snapshot?.payments.find(p=>p.id===noticeId)?.version:snapshot?.requests.find(r=>r.id===noticeId)?.version
     if(notificationIdentity&&version!=null)markNotificationRead(notificationIdentity,{id:`${noticeKind}:${noticeId}`,version:String(version)})
   },[status,noticeValid,noticeId,noticeKind,noticeHidden,snapshot,notificationIdentity])
@@ -96,6 +118,7 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
   }
   if (feedback === 'requested' && snapshot?.requests.some(request => request.id === result?.id && request.status !== 'open')) feedback = ''
   const onResult = (saved: CollectPayResult) => {
+    if(activeNotice.current!==contextKey)return
     if (selectedKey) setResult({ ...saved, itemKey: selectedKey })
   }
   const money = (amount: number, currency: string) => formatMinorAmount(amount, currency, localeForLang(lang))
@@ -111,7 +134,7 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
     if (mutationLock.current) return
     mutationLock.current = true; setAction(id); setError('')
     try { await work(); await onRefresh() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'unknown_error') }
+    catch (cause) { if(activeNotice.current===contextKey)setError(cause instanceof Error ? cause.message : 'unknown_error') }
     finally { mutationLock.current = false; setAction('') }
   }
   const pendingExpenses = snapshot ? collectPayPreviews(snapshot).filter(p =>
@@ -119,6 +142,26 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
   ) : []
   const totals = collectPayTotals(items)
   if(noticeId&&status==='ready'&&(!noticeValid||noticeHidden)) return <main className="cp-scope cp-page"><button type="button" className="cp-secondary" onClick={back}>{t('cp.back')}</button><section className="cp-panel" role="status"><p>{t(noticeHidden?'notice.hiddenReview':'notice.unavailable')}</p>{noticeHidden?<button type="button" className="cp-secondary" onClick={()=>setNoticeHomeUi({balanceHidden:false})}>{t('notice.show')}</button>:null}</section></main>
+  if(noticeId&&selected&&snapshot){
+    const target:NoticeRef={kind:noticeKind==='payment'?'payment':'request',id:noticeId}
+    const request=selected.requests.find(r=>r.id===noticeId),payment=selected.payments.find(p=>p.id===noticeId)
+    const incomingPending=payment?.allocations.some(a=>a.creditorParticipantId===snapshot.owner&&a.state==='pending')
+    const linkedPayments=selected.payments.filter(p=>snapshot.paymentIntents?.[p.id]?.sourceRequestId===noticeId)
+    const needsCash=(p:typeof selected.payments[number])=>p.debtorParticipantId===snapshot.owner&&snapshot.cashTrackedPaymentIds.includes(p.id)&&p.allocations.some(a=>a.state==='pending'&&!snapshot.cashLegs.some(l=>l.allocationId===a.id&&l.role==='payer'&&['pending','posted'].includes(l.status)))
+    return <main className="cp-scope cp-page notification-a-cp" data-testid="collect-pay-page"><header className="notification-a-cp-header"><button type="button" className="notification-a-back" aria-label={t('cp.back')} onClick={back}>← {t('notice.title')}</button><h1>{t(target.kind==='request'?'noticeA.payment.title':incomingPending?'noticeA.receipt.title':'noticeA.viewDetails')}</h1></header>
+      {status==='loading'?<p role="status">{t('home.loading')}</p>:null}
+      {status==='error'?<section role="alert"><p>{t('cp.unavailable')}</p><button type="button" className="cp-secondary" onClick={()=>void onRefresh()}>{t('common.retry')}</button></section>:null}
+      {status==='ready'?<><p className="notification-a-cp-person">{selected.otherName||t('common.member')}</p>{error?<section role="alert"><p className="cp-error">{t(collectPayErrorKey(error))}</p><button type="button" className="cp-secondary" onClick={()=>void onRefresh()}>{t('notice.check')}</button></section>:null}
+      {feedback?<p className="cp-feedback" role="status">{t(feedback==='pending'?'cp.recordedPending':feedback==='confirmed'?'cp.recordedConfirmed':'cp.requested')}</p>:null}
+      <PaymentHistory compact target={target} item={selected} snapshot={snapshot} service={service} timezone={timezone} action={action} mutate={mutate} onRefresh={onRefresh} onResult={onResult}/>
+      {target.kind==='request'&&request?.status==='open'&&selected.canPay?<><p className="cp-help">{t('noticeA.payment.help')}</p><PaymentForm key={selected.key+':'+noticeId} initialRequestId={noticeId} item={selected} snapshot={snapshot} timezone={timezone} service={service} draft={drafts[selected.key+':request:'+noticeId]} onDraft={draft=>setDrafts(old=>{const next={...old};const key=selected.key+':request:'+noticeId;if(draft)next[key]=draft;else delete next[key];return next})} onRefresh={onRefresh} onResult={onResult}/></>:null}
+      {target.kind==='request'&&request?.status==='open'&&!selected.canPay?<p>{t('cp.unsupported')}</p>:null}
+      {linkedPayments.filter(needsCash).map(p=><PaymentHistory key={'recover:'+p.id} compact target={{kind:'payment',id:p.id}} item={selected} snapshot={snapshot} service={service} timezone={timezone} action={action} mutate={mutate} onRefresh={onRefresh} onResult={onResult}/>)}
+      {linkedPayments.some(p=>!needsCash(p))?<details className="notification-a-disclosure"><summary>{t('noticeA.details')}</summary>{linkedPayments.filter(p=>!needsCash(p)).map(p=><PaymentHistory key={p.id} target={{kind:'payment',id:p.id}} item={selected} snapshot={snapshot} service={service} timezone={timezone} action={action} mutate={mutate} onRefresh={onRefresh} onResult={onResult}/>)}</details>:null}
+      <details className="notification-a-disclosure"><summary>{t('noticeA.details')}</summary><p className="cp-help">{t('cp.scopeHelp')}</p><dl className="cp-breakdown"><div><dt>{t('cp.original')}</dt><dd>{money(selected.originalNetMinor,selected.currency)}</dd></div><div><dt>{t('cp.confirmed')}</dt><dd>{money(selected.confirmedNetMinor,selected.currency)}</dd></div><div><dt>{t('cp.remaining')}</dt><dd>{money(selected.remainingMinor,selected.currency)}</dd></div></dl><SettlementHistoryList context={selected.context} currentParticipantId={snapshot.owner} participantNames={names} expenses={selected.expenses} settlements={selected.balancePayments}/><button type="button" className="cp-secondary" onClick={()=>openOriginal(selected)}>{t('cp.openOriginal')}</button></details>
+      </>:null}
+    </main>
+  }
   return <main className="cp-scope cp-page" data-testid="collect-pay-page">
     <header className="cp-header"><button type="button" className="cp-icon" onClick={back} aria-label={t('cp.back')}>←</button>
       <h1>{selected ? selected.otherName || t('common.member') : t(direction === 'pay' ? 'home.payable' : 'home.toCollect')}</h1>
@@ -208,15 +251,18 @@ export function CollectPayScreen({ snapshot, status, onRefresh, timezone, servic
   </main>
 }
 
-function PaymentForm({ item, snapshot, timezone, service, onRefresh, onResult, draft, onDraft }: {
+function PaymentForm({ item, snapshot, timezone, service, onRefresh, onResult, draft, onDraft, initialRequestId }: {
   item: CollectPayItem; snapshot: CollectPaySnapshot; timezone: string; service: typeof collectPayService
+  initialRequestId?:string
   draft?: CollectPayFormInput; onDraft: (draft: CollectPayFormInput | null) => void
   onRefresh: () => Promise<void>; onResult: (result: CollectPayResult) => void
 }) {
   const t = useT(), lang = useStore(s => s.lang)
-  const [open, setOpen] = useState(Boolean(draft))
-  const [input, setInput] = useState<CollectPayFormInput>(draft ?? { intent: 'full', partialAmount: '', overpay: null,
-    accountId: '', cashAmount: '', date: localCalendarDate(new Date(), timezone), note: '', sourceRequestId: null })
+  const initialRequest=item.requests.find(r=>r.id===initialRequestId&&r.status==='open')
+  const initialAmount=initialRequest?notificationAmountInput(initialRequest.amountMinor,item.currency):''
+  const [open, setOpen] = useState(Boolean(draft||initialRequest))
+  const [input, setInput] = useState<CollectPayFormInput>(draft ?? { intent: initialRequest?'partial':'full', partialAmount: initialRequest?initialAmount:'', overpay: null,
+    accountId: '', cashAmount: '', date: localCalendarDate(new Date(), timezone), note: '', sourceRequestId: initialRequest?.id??null })
   const [preview, setPreview] = useState<CollectPayPreview | null>(null)
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [attempted, setAttempted] = useState(false)
   const lock = useRef(false), attempt = useRef<CollectPayAttempt | null>(null)
@@ -254,11 +300,11 @@ function PaymentForm({ item, snapshot, timezone, service, onRefresh, onResult, d
       {item.direction === 'pay' && input.intent === 'partial' && item.context.scope === 'direct' ? <label>{t('cp.overpay')}<select value={input.overpay ?? ''} onChange={e => update({ overpay: e.target.value === 'gift' || e.target.value === 'carry' ? e.target.value : null })}>
         <option value="">{t('cp.normal')}</option><option value="gift">{t('cp.gift')}</option><option value="carry">{t('cp.carry')}</option></select></label> : null}
       {item.direction === 'pay' ? <>
-        <label>{t('cp.paidFrom')}<select value={input.accountId} onChange={e => update({ accountId: e.target.value })}><option value="">{t('cp.chooseAccount')}</option>{accounts.map(a => <option value={a.id} key={a.id}>{a.name} · {a.currency}</option>)}</select></label>
+        <label>{t('cp.paidFrom')}<select value={input.accountId} onChange={e => update({ accountId: e.target.value, cashAmount: '' })}><option value="">{t('cp.chooseAccount')}</option>{accounts.map(a => <option value={a.id} key={a.id}>{a.name} · {a.currency}</option>)}</select></label>
         {!accounts.length ? <p>{t('cp.noAccounts')}</p> : null}
         {account && account.currency !== item.currency ? <label>{t('cp.cashAmount')} · {account.currency}<AmountInput inputMode="decimal" value={input.cashAmount} onValueChange={raw => update({ cashAmount: raw })} /><small>{t('cp.fxHelp')}</small></label> : null}
         <label>{t('expense.date')}<input type="date" value={input.date} onChange={e => update({ date: e.target.value })} /></label>
-        {item.requests.some(r => r.status === 'open') ? <label>{t('cp.chooseRequest')}<select value={input.sourceRequestId ?? ''} onChange={e => update({ sourceRequestId: e.target.value || null })}><option value="">{t('cp.noRequest')}</option>{item.requests.filter(r => r.status === 'open').map(r => <option value={r.id} key={r.id}>{money(r.amountMinor)}</option>)}</select></label> : null}
+        {item.requests.some(r => r.status === 'open') ? <label>{t('cp.chooseRequest')}<select value={input.sourceRequestId ?? ''} disabled={!!initialRequestId} onChange={e => update({ sourceRequestId: e.target.value || null })}><option value="">{t('cp.noRequest')}</option>{item.requests.filter(r => r.status === 'open').map(r => <option value={r.id} key={r.id}>{money(r.amountMinor)}</option>)}</select></label> : null}
       </> : null}
       <label>{t('cp.note')}<textarea value={input.note} onChange={e => update({ note: e.target.value })} rows={2} /></label>
     </fieldset>
@@ -276,7 +322,8 @@ function PaymentForm({ item, snapshot, timezone, service, onRefresh, onResult, d
   </section>
 }
 
-function PaymentHistory({ item, snapshot, service, timezone, action, mutate, onRefresh, onResult }: {
+function PaymentHistory({ item, snapshot, service, timezone, action, mutate, onRefresh, onResult, target, compact=false }: {
+  target?:NoticeRef;compact?:boolean
   item: CollectPayItem; snapshot: CollectPaySnapshot; service: typeof collectPayService; timezone: string; action: string
   mutate: (id: string, work: () => Promise<unknown>) => Promise<void>; onRefresh: () => Promise<void>
   onResult: (result: CollectPayResult) => void
@@ -287,8 +334,8 @@ function PaymentHistory({ item, snapshot, service, timezone, action, mutate, onR
   const receiveIds = useRef(new Map<string, string>())
   const reversalIds = useRef(new Map<string, string>())
   const accounts = snapshot.accounts.filter(a => a.accountClass === 'asset' && !a.archived)
-  return <section className="cp-history" id="cp-payment-history"><h2>{t('cp.history')}</h2>
-    {item.payments.flatMap(payment => payment.allocations.filter(a => a.creditorParticipantId === (item.direction === 'collect' ? snapshot.owner : item.otherId)).map(allocation => {
+  return <section className="cp-history" id="cp-payment-history">{!compact?<h2>{t('cp.history')}</h2>:null}
+    {item.payments.filter(payment=>!target||target.kind==='payment'&&target.id===payment.id).flatMap(payment => payment.allocations.filter(a => a.creditorParticipantId === (item.direction === 'collect' ? snapshot.owner : item.otherId)).map(allocation => {
       const leg = snapshot.cashLegs.find(l => l.allocationId === allocation.id)
       const account = snapshot.accounts.find(a => a.id === leg?.accountId)
       const tracked = snapshot.cashTrackedPaymentIds.includes(payment.id)
@@ -299,13 +346,13 @@ function PaymentHistory({ item, snapshot, service, timezone, action, mutate, onR
       }
       return <article className="cp-panel cp-history-row" data-notice-entity={`payment:${payment.id}`} key={allocation.id}>
         <strong>{formatMinorAmount(allocation.amountMinor, payment.currency, localeForLang(lang))}</strong><p>{formatDate(payment.paymentDate, lang)}</p>
-        <p>{account?.name ?? t('cp.accountUnknown')}{leg ? ` · ${formatMinorAmount(leg.amountMinor, leg.currency, localeForLang(lang))}` : ''}</p>
+        <p hidden={compact&&!leg}>{account?.name ?? t('cp.accountUnknown')}{leg ? ` · ${formatMinorAmount(leg.amountMinor, leg.currency, localeForLang(lang))}` : ''}</p>
         <span className="cp-badge">{t(allocation.state === 'pending' ? 'cp.pending' : allocation.state === 'accepted' ? 'history.settlementAccepted' : allocation.state === 'reversed' ? 'history.settlementReversed' : allocation.state === 'declined' ? 'history.settlementDeclined' : 'history.settlementProposalCancelled')}</span>
         {payment.note ? <p>{payment.note}</p> : null}
         {allocation.state === 'pending' && item.direction === 'collect' ? <>
           {receiptPreview ? <p className="cp-preview">{t(receiptPreview.remainingAfterMinor < 0 ? 'cp.creditAfter' : 'cp.afterReceipt', { amount: formatMinorAmount(Math.abs(receiptPreview.remainingAfterMinor), item.currency, localeForLang(lang)) })}</p> : null}
           {receiptError ? <p className="cp-error" role="alert">{t(collectPayErrorKey(receiptError))}</p> : null}
-          <p className="cp-help">{t('cp.paymentDate')}: {formatDate(payment.paymentDate, lang)}</p>
+          <p className="cp-help">{t(compact?'noticeA.receipt.help':'cp.paymentDate')}{!compact?`: ${formatDate(payment.paymentDate,lang)}`:null}</p>
           {tracked ? <label>{t('cp.receivedInto')}<select value={receivingAccount[allocation.id] ?? (leg?.role === 'receiver' ? leg.accountId : '')} disabled={Boolean(action) || leg?.role === 'receiver'} onChange={e => setReceivingAccount(a => ({ ...a, [allocation.id]: e.target.value }))}>
             <option value="">{t('cp.chooseAccount')}</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></label> : <p className="cp-help">{t('cp.legacyReceipt')}</p>}
           <button type="button" className="cp-primary" disabled={Boolean(action) || Boolean(receiptError) || tracked && !receivingAccount[allocation.id] && leg?.role !== 'receiver'} onClick={() => void mutate(allocation.id, async () => {
@@ -315,6 +362,7 @@ function PaymentHistory({ item, snapshot, service, timezone, action, mutate, onR
           })}>{t('cp.confirmReceipt')}</button>
           <button type="button" className="cp-secondary" disabled={Boolean(action)} onClick={() => void mutate(allocation.id, () => service.repository.respond(allocation.id, 'declined', payment.version))}>{t('common.decline')}</button>
         </> : null}
+        {target?.kind==='payment'&&allocation.state==='pending'&&payment.debtorParticipantId===snapshot.owner&&tracked&&!snapshot.cashLegs.some(l=>l.allocationId===allocation.id&&l.role==='payer'&&['pending','posted'].includes(l.status))?<PaymentRecordRecovery snapshot={snapshot} payment={payment} allocation={allocation} service={service} busy={!!action} mutate={mutate}/>:null}
         {allocation.state === 'pending' && item.direction === 'pay' ? <button type="button" className="cp-secondary" disabled={Boolean(action)} onClick={() => void mutate(allocation.id, () => service.repository.cancel(allocation.id, payment.version))}>{t('cp.cancelPayment')}</button> : null}
         {allocation.state === 'accepted' && allocation.reversalMinor === 0 && item.direction === 'collect' ? <>
           {reverseId === allocation.id ? <><p>{t('cp.reverseHelp')}</p><button type="button" className="cp-secondary" disabled={Boolean(action)} onClick={() => void mutate(allocation.id, () => { let id = reversalIds.current.get(allocation.id); if (!id) { id = generateId(); reversalIds.current.set(allocation.id, id) }; return service.repository.reverse(id, allocation.id, payment.version) })}>{t('cp.reverseConfirm')}</button></>
@@ -322,7 +370,7 @@ function PaymentHistory({ item, snapshot, service, timezone, action, mutate, onR
         </> : null}
       </article>
     }))}
-    {item.requests.map(request => <article className="cp-panel cp-history-row" data-notice-entity={`request:${request.id}`} key={request.id}>
+    {item.requests.filter(request=>!target||target.kind==='request'&&target.id===request.id).map(request => <article className="cp-panel cp-history-row" data-notice-entity={`request:${request.id}`} key={request.id}>
       <strong>{formatMinorAmount(request.amountMinor, request.currency, localeForLang(lang))}</strong><p>{formatDate(localCalendarDate(new Date(request.createdAt), timezone), lang)}</p>
       <span className="cp-badge">{t(`cp.requestStatus.${request.status}`)}</span>{request.note ? <p>{request.note}</p> : null}
       {request.status === 'open' && item.direction === 'collect' ? <button type="button" className="cp-secondary" disabled={Boolean(action)} onClick={() => void mutate(request.id, () => service.repository.cancelRequest(request.id, request.version))}>{t('cp.cancelRequest')}</button> : null}

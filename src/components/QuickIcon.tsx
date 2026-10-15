@@ -1,4 +1,6 @@
 const paths: Record<string, string> = {
+ lock:'M5 10h14v12H5ZM8 10V6a4 4 0 0 1 8 0v4M12 15v3', refresh:'M20 7v6h-6M20 13a8 8 0 1 1-2-8', warning:'m12 3 10 18H2ZM12 9v5M12 17h.01', camera:'M3 7h5l2-3h4l2 3h5v14H3ZM16 14a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
+
  back: 'm15 5-7 7 7 7', close: 'm6 6 12 12M18 6 6 18', check: 'm5 12 4 4L19 6', next: 'm11 12 3 3 7-8M3 7h4M2 12h5M3 17h4',
  Food: 'M5 3v6m3-6v6M3 3v6q0 3 4 3v9M17 3v18M17 3q-5 5 0 9', Coffee: 'M4 9h12v5q0 5-6 5t-6-5ZM16 9h2a3 3 0 0 1 0 6h-2M3 21h15M8 3v3M12 2v4',
  Drink: 'M5 7h14l-2 14H7ZM13 7l2-5h4M8 12h8', Groceries: 'M2 3h3l3 12h11l3-9H6M9 20h.01M18 20h.01', Transport: 'm4 9 2-5h12l2 5M3 9h18v9H3ZM5 18v3M19 18v3M6 13h2M16 13h2',

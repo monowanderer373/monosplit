@@ -31,10 +31,10 @@ async function rows(table: string, select: string) {
     return (result.data ?? []) as unknown as Record<string, unknown>[]
   })
 }
-export const collectPayRepository = {
+export function createCollectPayRepository(rpcCall=rpc,settlements=settlementRepository){return {
   async load(owner: string): Promise<CollectPaySnapshot> {
     const [expenses, payments, people, spaces, accounts, requestRows, legs, metadata] = await Promise.all([
-      ledgerRepository.listExpenses(), settlementRepository.listSettlements(), personRepository.listPeople(),
+      ledgerRepository.listExpenses(), settlements.listSettlements(), personRepository.listPeople(),
       spaceRepository.list(), loadPersonalAccountHome(),
       rows('settlement_payment_requests', '*'), rows('personal_settlement_cash_legs', '*'),
       rows('settlement_payments', 'id,cash_tracking_required,overpay_disposition,source_payment_request_id,expected_outstanding_minor'),
@@ -57,12 +57,12 @@ export const collectPayRepository = {
     }
   },
   async directOutstanding(other: string, currency: string) {
-    const data = await rpc('get_direct_outstanding', { target_counterparty_id: other, currency_code: currency })
+    const data = await rpcCall('get_direct_outstanding', { target_counterparty_id: other, currency_code: currency })
     if (!data || data.currency !== currency || !Number.isSafeInteger(Number(data.signed_outstanding_minor))) throw new Error('financial_invariant_violation')
     return Number(data.signed_outstanding_minor)
   },
   async request(item: CollectPayItem, requestId: string, amountMinor: number, note: string) {
-    const data = await rpc('create_settlement_payment_request', { request_id: requestId, target_debtor_id: item.otherId,
+    const data = await rpcCall('create_settlement_payment_request', { request_id: requestId, target_debtor_id: item.otherId,
       request_scope: item.context.scope, target_space_id: item.context.scope === 'space' ? item.context.spaceId : null,
       currency_code: item.currency, requested_amount_minor: amountMinor, request_note: note.trim() || null, request_expires_at: null })
     if (!data || typeof data.payment_request_id !== 'string') throw new Error('financial_invariant_violation')
@@ -71,7 +71,7 @@ export const collectPayRepository = {
   async propose(item: CollectPayItem, input: { requestId: string; amountMinor: number; date: string; note: string;
     overpay: OverpayDisposition | null; sourceRequestId: string | null }) {
     // Existing Phase 6 overload adds the authoritative direct-net guard and cash tracking.
-    const data = await rpc('propose_settlement', { request_id: input.requestId, settlement_scope: item.context.scope,
+    const data = await rpcCall('propose_settlement', { request_id: input.requestId, settlement_scope: item.context.scope,
       target_space_id: item.context.scope === 'space' ? item.context.spaceId : null, currency_code: item.currency,
       total_amount_minor: input.amountMinor, payment_date: input.date, creditor_ids: [item.otherId],
       allocation_amounts: [input.amountMinor], settlement_note: input.note.trim() || null,
@@ -81,20 +81,22 @@ export const collectPayRepository = {
     return data
   },
   async authorize(input: { requestId: string; allocationId: string; role: 'payer' | 'receiver'; accountId: string; cashMinor: number | null }) {
-    const data = await rpc('authorize_personal_settlement_cash_leg', { request_id: input.requestId,
+    const data = await rpcCall('authorize_personal_settlement_cash_leg', { request_id: input.requestId,
       target_allocation_id: input.allocationId, cash_role: input.role, target_account_id: input.accountId,
       supplied_cash_amount_minor: input.cashMinor })
     if (!data || typeof data.cash_leg_id !== 'string') throw new Error('financial_invariant_violation')
     return data
   },
-  payments: () => settlementRepository.listSettlements(),
-  respond: settlementRepository.respondToAllocation.bind(settlementRepository),
-  cancel: settlementRepository.cancelPendingAllocation.bind(settlementRepository),
-  reverse: settlementRepository.reverseAllocation.bind(settlementRepository),
+  payments: () => settlements.listSettlements(),
+  respond: settlements.respondToAllocation.bind(settlements),
+  cancel: settlements.cancelPendingAllocation.bind(settlements),
+  reverse: settlements.reverseAllocation.bind(settlements),
   async cancelRequest(id: string, version: number) {
-    await rpc('cancel_settlement_payment_request', { target_request_id: id, expected_version: version })
+    await rpcCall('cancel_settlement_payment_request', { target_request_id: id, expected_version: version })
   },
 }
+}
+export const collectPayRepository=createCollectPayRepository()
 
 export type CollectPayFormInput = { intent: SettlementIntent; partialAmount: string; overpay: OverpayDisposition | null;
   accountId: string; cashAmount: string; date: string; note: string; sourceRequestId: string | null }

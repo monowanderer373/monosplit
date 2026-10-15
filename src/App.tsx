@@ -1,4 +1,4 @@
-import {parseNotice} from './lib/homeNotifications'
+import {parseNoticeLocation} from './lib/notificationPresentation'
 import { lazy, Suspense, useEffect } from 'react'
 import * as Sentry from '@sentry/react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
@@ -52,7 +52,7 @@ function AppErrorFallback({ resetError }: { resetError: () => void }) {
 function PersonalLedgerRoute() {
   const { authUser } = useAuth()
   const location=useLocation()
-  if(authUser?.isAnonymous&&parseNotice(location.search))return <Navigate to={`/profile?upgrade=preserve-session&redirect=${encodeURIComponent(location.pathname+location.search)}`} replace />
+  if(authUser?.isAnonymous&&parseNoticeLocation(location.pathname,location.search))return <Navigate to={`/profile?upgrade=preserve-session&redirect=${encodeURIComponent(location.pathname+location.search)}`} replace />
   return authUser?.isAnonymous ? <Navigate to="/profile" replace /> : <PersonalLedgerPage />
 }
 
@@ -79,6 +79,7 @@ function AppRoutes() {
             <Route path="/" element={<PersonalLedgerRoute />} />
             <Route path="/insights" element={<InsightsPage />} />
             <Route path="/insights/records" element={<SpendingRecordsPage />} />
+            <Route path="/notifications/:noticeKind/:noticeId" element={<PersonalLedgerRoute />} />
             <Route path="/collect-pay/:direction" element={<CollectPayPage />} />
             <Route path="/shared" element={<SharedPage />} />
             <Route path="/quick-add" element={<PersonalLedgerRoute />} />

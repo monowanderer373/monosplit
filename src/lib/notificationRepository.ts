@@ -17,11 +17,11 @@ async function readSnapshot(owner:string):Promise<NoticeSnapshot> {
   const [home,expenses,changes,payments,funding,recurring,rules,installments,plans,requests]=await Promise.all([
     loadPersonalAccountHome(),ledgerRepository.listExpenses(),expenseChangeRepository.listDirectChanges(),settlementRepository.listSettlements(),
     rows('personal_funding_intents','id,status,version,updated_at,expense_id,account_id,account_amount_minor,expense_amount_minor,expense_currency,account_currency'),
-    rows('personal_recurring_occurrences','id,status,version,updated_at,rule_id,scheduled_for,expense_id,funding_intent_id,error_code,effective_amount_minor,effective_currency,effective_account_id'),
-    rows('personal_recurring_rules','id,title,funding_account_id,amount_minor,currency'),
-    rows('personal_installments','id,status,version,updated_at,plan_id,due_on,repayment_account_id,error_code,principal_minor,asset_payment_minor'),
-    rows('personal_installment_plans','id,purchase_expense_id,funding_intent_id,currency'),
-    rows('settlement_payment_requests','id,status,version,created_at,updated_at,debtor_participant_id,creditor_participant_id,scope,space_id'),
+    rows('personal_recurring_occurrences','id,status,version,updated_at,rule_id,scheduled_for,expense_id,funding_intent_id,error_code,effective_amount_minor,effective_currency,effective_account_id,effective_occurred_on'),
+    rows('personal_recurring_rules','id,title,funding_account_id,amount_minor,currency,cadence'),
+    rows('personal_installments','id,status,version,updated_at,plan_id,sequence,due_on,repayment_account_id,error_code,principal_minor,asset_payment_minor'),
+    rows('personal_installment_plans','id,purchase_expense_id,funding_intent_id,currency,installment_count'),
+    rows('settlement_payment_requests','id,status,version,created_at,updated_at,note,debtor_participant_id,creditor_participant_id,scope,space_id'),
   ])
   return {owner,accounts:home.accounts,expenses,changes,payments,funding,recurring,rules,installments,plans,requests}
 }
@@ -44,4 +44,20 @@ export async function loadNotificationSnapshot(owner:string):Promise<NoticeSnaps
   let timer:ReturnType<typeof setTimeout>|undefined
   try{return await Promise.race([readSnapshot(owner),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('notification_timeout')),20_000)})])}
   finally{if(timer)clearTimeout(timer)}
+}
+
+export type NotificationAccountEntry={id:string;amountMinor:number;currency:string;date:string;description:string|null;kind:string}
+export async function loadNotificationAccountEntries(accountId:string):Promise<NotificationAccountEntry[]>{
+ if(!supabase)throw new Error('not_configured')
+ const client=supabase
+ const entries=await readAllPages(async(from,to)=>{
+  const {data,error}=await client.from('personal_account_entries').select('id,amount_minor,currency,transaction:personal_account_transactions!transaction_id(kind,occurred_on,memo)').eq('account_id',accountId).order('id').range(from,to)
+  if(error)throw error
+  return data??[]
+ })
+ return entries.map(row=>{
+  const transaction=Array.isArray(row.transaction)?row.transaction[0]:row.transaction,amount=Number(row.amount_minor)
+  if(!Number.isSafeInteger(amount)||!transaction)throw new Error('amount_unavailable')
+  return {id:row.id,amountMinor:amount,currency:row.currency,date:transaction.occurred_on,description:transaction.memo,kind:transaction.kind}
+ }).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id))
 }

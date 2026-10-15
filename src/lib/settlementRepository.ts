@@ -232,10 +232,13 @@ function parseMutationResult(value: unknown): SettlementMutationResult | null {
   }
 }
 
-export const settlementRepository: SettlementRepository = {
+type SettlementDispatch=(name:string,args:Record<string,unknown>)=>PromiseLike<{data:unknown;error:{message:string}|null}>
+export function createSettlementRepository(dispatch?:SettlementDispatch):SettlementRepository{
+ const rpcCall:SettlementDispatch=dispatch??((name,args)=>supabase!.rpc(name,args))
+ return {
   async proposeSettlement(input) {
     if (!supabase) throw new SettlementRepositoryError('not_configured')
-    const { data, error } = await supabase.rpc('propose_settlement', {
+    const { data, error } = await rpcCall('propose_settlement', {
       request_id: input.requestId,
       settlement_scope: input.scope,
       target_space_id: input.spaceId,
@@ -271,7 +274,7 @@ export const settlementRepository: SettlementRepository = {
 
   async respondToAllocation(allocationId, response, expectedPaymentVersion) {
     if (!supabase) throw new SettlementRepositoryError('not_configured')
-    const { data, error } = await supabase.rpc('respond_to_settlement', {
+    const { data, error } = await rpcCall('respond_to_settlement', {
       target_allocation_id: allocationId,
       response,
       expected_payment_version: expectedPaymentVersion,
@@ -285,7 +288,7 @@ export const settlementRepository: SettlementRepository = {
 
   async cancelPendingAllocation(allocationId, expectedPaymentVersion) {
     if (!supabase) throw new SettlementRepositoryError('not_configured')
-    const { data, error } = await supabase.rpc('cancel_pending_settlement_allocation', {
+    const { data, error } = await rpcCall('cancel_pending_settlement_allocation', {
       target_allocation_id: allocationId,
       expected_payment_version: expectedPaymentVersion,
     })
@@ -298,7 +301,7 @@ export const settlementRepository: SettlementRepository = {
 
   async reverseAllocation(requestId, allocationId, expectedPaymentVersion, reason = null) {
     if (!supabase) throw new SettlementRepositoryError('not_configured')
-    const { data, error } = await supabase.rpc('reverse_settlement_allocation', {
+    const { data, error } = await rpcCall('reverse_settlement_allocation', {
       reversal_request_id: requestId,
       target_allocation_id: allocationId,
       expected_payment_version: expectedPaymentVersion,
@@ -311,6 +314,8 @@ export const settlementRepository: SettlementRepository = {
     return result
   },
 }
+}
+export const settlementRepository=createSettlementRepository()
 
 export class InMemorySettlementRepository implements SettlementRepository {
   private readonly paymentsByRequest = new Map<string, SettlementPayment>()
