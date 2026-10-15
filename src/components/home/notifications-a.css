@@ -59,8 +59,10 @@
 .notification-a-state-icon {display:grid;place-items:center;width:48px;height:48px;border-radius:50%;margin:auto;background:#ddeaf1;color:#35678b;}
 .notification-a-account-balance {font-size:1.75rem;line-height:1.3;}
 .notification-a-negative {color:#ad412e;}
-.notification-a-entry {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:12px 0;border-bottom:1px dotted #bec8cd;}
-.notification-a-entry small {grid-column:1/-1;color:#5c7181;}
+.notification-a-entry {display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:12px 0;border-bottom:1px dotted #bec8cd;}
+.notification-a-entry > span {flex:1 1 10rem;min-width:0;overflow-wrap:anywhere;}
+.notification-a-entry > strong {min-width:0;max-width:100%;overflow-wrap:anywhere;}
+.notification-a-entry small {flex-basis:100%;color:#5c7181;}
 .notification-a-page button:focus-visible,.notification-a-page summary:focus-visible,.notification-a-dialog button:focus-visible,.notification-a-dialog summary:focus-visible {outline:2px solid #35678b;outline-offset:3px;}
 @keyframes notification-a-fade {from{opacity:0}to{opacity:1}}
 @keyframes notification-a-fade-out {to{opacity:0}}
