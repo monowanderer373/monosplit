@@ -29,7 +29,7 @@ export default function QuickPayment({accounts,parentId,currency,selfPaid,identi
  useEffect(()=>{publish()},[signature,valid,hidden])
  if(offline&&!anchors)return <p>{t('mc.offlineDraft')}</p>
  if(hidden)return <section className="ttmc-module"><p>{t('notice.hiddenReview')}</p><button type="button" onClick={()=>setHomeUi({balanceHidden:false})}>{t('mc.common.reveal')}</button></section>
- return <section className="ttmc-module ttmc-paper">
+ return <section className="ttmc-module ttmc-quick-payment">
   <h3>{t('mc.funding.paidFrom')}</h3>
   <div className="ttmc-actions"><button type="button" aria-pressed={mode==='deferred'} onClick={()=>setMode('deferred')} disabled={busy}>{t('mc.funding.later')}</button><button type="button" aria-pressed={mode==='actual'} onClick={()=>setMode('actual')} disabled={busy}>{t('mc.funding.known')}</button></div>
   {failed?<p role="alert">{t('mc.capability')}</p>:!anchors?<p role="status">{t('mc.state.loading')}</p>:mode==='deferred'?<p>{t('mc.funding.beforeSave')}</p>:<>

@@ -21,7 +21,7 @@ export default function FundingSources({accounts,anchors,sources,onChange,busy=f
           <option value="">{t('mc.funding.chooseBalance')}</option>
           {accounts.filter(a=>!a.archived).map(a=><option key={a.id} value={a.id} disabled={sources.some((s,i)=>i!==index&&s.accountId===a.id)}>{a.name} · {a.currency}</option>)}
         </select></label>
-        {unit?<p className="ttmc-selected-unit" aria-hidden="true">{unit.name} · {unit.currency}</p>:null}
+        {unit&&unit.name.length>28?<p className="ttmc-selected-unit" aria-hidden="true">{unit.name} · {unit.currency}</p>:null}
         {unit?<label>{t('mc.funding.actual',{currency:unit.currency})}<AmountInput value={source.amount} onValueChange={amount=>change(index,{amount})} inputMode="decimal" /></label>:null}
         {negative?<p role="status">{t('mc.negativeBalance')}</p>:null}
         {anchor?<fieldset className="ttmc-coverage"><legend>{t('mc.verify.coverage')}</legend><p>{t('mc.account.asOf')} · {new Intl.DateTimeFormat(localeForLang(lang),{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(anchor.observed_at))}{unit&&anchor.observed_balance_minor!=null?` · ${formatMinorAmount(Number(anchor.observed_balance_minor),unit.currency)}`:''}</p><p>{t('mc.coverageHelp')}</p>

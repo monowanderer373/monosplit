@@ -71,3 +71,10 @@
 .ttmc-verify-row>span:last-child{grid-column:4;grid-row:1/3}
 @container(max-width:20em){.ttmc-module .ttmc-verify-row{grid-template-columns:22px minmax(0,1fr) 12px}.ttmc-verify-amount{grid-column:2;grid-row:2;max-width:none;text-align:start}.ttmc-verify-copy>span{grid-column:2;grid-row:3}.ttmc-verify-icon{grid-row:1/4}.ttmc-verify-row>span:last-child{grid-column:3;grid-row:1/4}}
 @media(max-width:360px){.ttmc-module .ttmc-verify-row{grid-template-columns:22px minmax(0,1fr) 12px}.ttmc-verify-amount{grid-column:2;grid-row:2;max-width:none;text-align:start}.ttmc-verify-copy>span{grid-column:2;grid-row:3}.ttmc-verify-icon{grid-row:1/4}.ttmc-verify-row>span:last-child{grid-column:3;grid-row:1/4}}
+
+/* Keep the new payment section scoped inside the established Quick Add editor. */
+#root .qa-main .ttmc-quick-payment{display:grid;gap:12px;margin:16px 0;font-size:1rem;line-height:1.5}
+#root .qa-main .ttmc-quick-payment h3{font-size:1rem;font-weight:650}
+#root .qa-main .ttmc-quick-payment button{color:#356d91;min-height:44px;padding:.65rem .8rem}
+#root .qa-main .ttmc-quick-payment .ttmc-actions>button{flex:1 1 130px;border:1px solid #ded8ce;border-radius:12px;background:#fffcf5;text-align:center}
+#root .qa-main .ttmc-quick-payment .ttmc-actions>button[aria-pressed=true]{background:#deecf2;border-color:#9eb8c8;color:#24394a;font-weight:650}

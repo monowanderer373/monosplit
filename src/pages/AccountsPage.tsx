@@ -154,10 +154,10 @@ function MovementForm({accounts,anchors,identity,kind,initialParent,onSaved,hidd
  if(hidden)return <Reveal onReveal={onReveal}/>
  return <form onSubmit={e=>{e.preventDefault();if(!valid)return;void action.run('record_personal_money_movement',{movement_payload:payload()},async(result,guard)=>{await onSaved(guard);guard();const r=result as {movement_id?:string};navigate(r.movement_id?`/accounts/movements/${r.movement_id}`:'/accounts',{replace:true})})}}>
   <label>{t('mc.move.from')}<select value={sourceId} disabled={action.busy} onChange={e=>{setSourceId(e.target.value);setDestinationId('');setOut('');setReceived('');setSourceCoverage('');setDestinationCoverage('')}}><option value="">{t('notice.pick')}</option>{eligible.map(a=><option value={a.id} key={a.id}>{a.name} · {a.currency}</option>)}</select></label>
-  {source?<p className="ttmc-selected-unit" aria-hidden="true">{source.name} · {source.currency}</p>:null}
+  {source&&source.name.length>28?<p className="ttmc-selected-unit" aria-hidden="true">{source.name} · {source.currency}</p>:null}
   <label>{t('mc.move.totalOut')} {source?.currency}<AmountInput value={out} onValueChange={setOut} disabled={action.busy}/></label>
   <label>{t('mc.move.to')}<select value={destinationId} disabled={action.busy} onChange={e=>{setDestinationId(e.target.value);setReceived('');setDestinationCoverage('')}}><option value="">{t('notice.pick')}</option>{eligible.filter(a=>source&&a.id!==source.id&&(kind==='exchange'?a.parentAccountId===source.parentAccountId&&a.currency!==source.currency:a.parentAccountId!==source.parentAccountId)).map(a=><option value={a.id} key={a.id}>{a.name} · {a.currency}</option>)}</select></label>
-  {destination?<p className="ttmc-selected-unit" aria-hidden="true">{destination.name} · {destination.currency}</p>:null}
+  {destination&&destination.name.length>28?<p className="ttmc-selected-unit" aria-hidden="true">{destination.name} · {destination.currency}</p>:null}
   <label>{t(destination?.accountType==='cash'?'mc.move.cashReceived':'mc.move.received')} {destination?.currency}<AmountInput value={received} onValueChange={setReceived} disabled={action.busy}/></label>
   <p>{t('mc.move.actualHelp')} {t('mc.move.principalHelp')}</p>
   <Coverage unit={source} anchors={anchors} value={sourceCoverage} onChange={setSourceCoverage} disabled={action.busy}/><Coverage unit={destination} anchors={anchors} value={destinationCoverage} onChange={setDestinationCoverage} disabled={action.busy}/>
