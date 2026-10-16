@@ -103,6 +103,63 @@ select lives_ok(format('select reverse_personal_funding_bundle(gen_random_uuid()
 select is(pg_temp.mc_balance('vnd'),(select(v->>'vnd')::bigint from mc where k='multi-before'),'bundle reversal restores native VND once');
 select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint from mc where k='multi-before'),'bundle reversal restores native MYR once');
 select is((select status from expenses where id=(select(v->>'expense_id')::uuid from mc where k='multi')),'active','private reversal does not cancel immutable shared expense authority');
+
+-- Native movement command; the amounts below are observed test facts, no FX rate.
+create function pg_temp.mc_coverage(k text) returns jsonb language sql as $$ select jsonb_build_object('anchor_id',a.id,'included_in_anchor',case when a.id is null then null else false end) from (select 1)q left join lateral(select id from public.personal_account_balance_anchors where account_id=pg_temp.mc_id($1) order by anchor_sequence desc limit 1)a on true $$;
+create function pg_temp.mc_move(kind text,source text,target text,total_out bigint,net_in bigint,mode text default null,fee_source text default null,fee_minor bigint default null) returns jsonb language sql as $$
+select jsonb_build_object('kind',$1,'source_account_id',a->>'id','source_version',(a->>'version')::integer,'source_parent_version',(a->>'parent_version')::integer,'source_total_minor',$4,'source_coverage',pg_temp.mc_coverage($2),
+ 'destination_account_id',b->>'id','destination_version',(b->>'version')::integer,'destination_parent_version',(b->>'parent_version')::integer,'destination_net_minor',$5,'destination_coverage',pg_temp.mc_coverage($3),'occurred_on',current_date,'memo','Synthetic actual movement',
+ 'fee',case when $6 is null then null else jsonb_build_object('mode',$6,'account_id',f->>'id','version',(f->>'version')::integer,'parent_version',(f->>'parent_version')::integer,'currency',f->>'currency','amount_minor',$8,'coverage',pg_temp.mc_coverage($7))end)
+ from(select pg_temp.mc_unit($2)a,pg_temp.mc_unit($3)b,case when $7 is null then null else pg_temp.mc_unit($7)end f)q $$;
+select ok(not has_function_privilege('anon','public.record_personal_money_movement(uuid,jsonb)','EXECUTE'),'anonymous cannot record movements');
+select ok(not has_table_privilege('authenticated','public.personal_money_movement_fees','INSERT,UPDATE,DELETE'),'normal client cannot fabricate fee classification');
+insert into mc values('exchange-before',jsonb_build_object('cash',pg_temp.mc_balance('cash'),'vnd',pg_temp.mc_balance('vnd'),'expenses',(select count(*)from expenses)));
+insert into mc values('exchange',public.record_personal_money_movement(gen_random_uuid(),pg_temp.mc_move('exchange','cash','vnd',10000,600000)));
+select is(pg_temp.mc_balance('cash'),(select(v->>'cash')::bigint-10000 from mc where k='exchange-before'),'same-account exchange posts actual native source');
+select is(pg_temp.mc_balance('vnd'),(select(v->>'vnd')::bigint+600000 from mc where k='exchange-before'),'same-account exchange posts actual native destination');
+select is((select count(*)from expenses),(select(v->>'expenses')::bigint from mc where k='exchange-before'),'exchange principal creates no consumption expense');
+insert into mc values('transfer-before',to_jsonb(pg_temp.mc_balance('cash')+pg_temp.mc_balance('wise')));
+insert into mc values('same-transfer',public.record_personal_money_movement(gen_random_uuid(),pg_temp.mc_move('transfer','wise','cash',1000,1000)));
+select is(pg_temp.mc_balance('cash')+pg_temp.mc_balance('wise'),(select(v#>>'{}')::bigint from mc where k='transfer-before'),'same-currency transfer conserves native holdings');
+select is((select v->>'kind'from mc where k='same-transfer'),'withdrawal','transfer to own Cash uses actual withdrawal semantics');
+select throws_ok(format('select record_personal_money_movement(gen_random_uuid(),%L::jsonb)',pg_temp.mc_move('transfer','wise','cash',1000,900)::text),'P0001','same_currency_transfer_mismatch','same currency cannot silently lose money without a known fee');
+insert into mc values('fee-before',jsonb_build_object('wise',pg_temp.mc_balance('wise'),'vnd',pg_temp.mc_balance('vnd')));
+insert into mc values('fee-request',to_jsonb(gen_random_uuid())),('fee-payload',pg_temp.mc_move('withdrawal','wise','vnd',15000,900000,'included_source','wise',200));
+insert into mc values('included-fee',public.record_personal_money_movement((select(v#>>'{}')::uuid from mc where k='fee-request'),(select v from mc where k='fee-payload')));
+select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint-15000 from mc where k='fee-before'),'C29 source total150 includingfee2 deducts150, not152');
+select is(pg_temp.mc_balance('vnd'),(select(v->>'vnd')::bigint+900000 from mc where k='fee-before'),'C29 actual received900000 is unchanged');
+select is((select total_minor from expenses where id=(select(v->>'fee_expense_id')::uuid from mc where k='included-fee')),200::bigint,'known fee2 appears once as the existing canonical expense');
+select is(public.record_personal_money_movement((select(v#>>'{}')::uuid from mc where k='fee-request'),(select v from mc where k='fee-payload')),(select v from mc where k='included-fee'),'entire movement and fee replay one authoritative result');
+select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint-15000 from mc where k='fee-before'),'movement replay cannot deduct fee twice');
+select throws_ok(format('select record_personal_money_movement(gen_random_uuid(),%L::jsonb)',pg_temp.mc_move('withdrawal','wise','vnd',15000,900000,'included_source','wise',16000)::text),'P0001','fee_exceeds_principal','fee beyond stated included source total is rejected');
+
+insert into mc values('later-movement',public.record_personal_money_movement(gen_random_uuid(),pg_temp.mc_move('withdrawal','wise','vnd',5000,300000)));
+select is((select count(*)from personal_money_movement_fees where movement_id=(select(v->>'movement_id')::uuid from mc where k='later-movement')),0::bigint,'unitemised fee is not a manufactured zero fee expense');
+insert into mc values('late-fee-before',jsonb_build_object('wise',pg_temp.mc_balance('wise'),'vnd',pg_temp.mc_balance('vnd')));
+insert into mc values('late-fee',public.itemise_personal_movement_fee(gen_random_uuid(),(select(v->>'movement_id')::uuid from mc where k='later-movement'),1,'included_source',100));
+select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint from mc where k='late-fee-before'),'C33 later fee classification takes no second source debit');
+select is(pg_temp.mc_balance('vnd'),(select(v->>'vnd')::bigint from mc where k='late-fee-before'),'later classification takes no destination debit');
+select is((select total_minor from expenses where id=(select(v->>'fee_expense_id')::uuid from mc where k='late-fee')),100::bigint,'later known fee is one canonical cost');
+select throws_ok(format('select link_expense_funding(gen_random_uuid(),%L,%L,100)',(select v->>'fee_expense_id'from mc where k='late-fee'),pg_temp.mc_id('wise')),'P0001','movement_fee_already_funded','old funding linker cannot debit an already observed later-classified fee');
+select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint from mc where k='late-fee-before'),'blocked late fee debit leaves native balance unchanged');
+
+insert into mc values('separate-before',jsonb_build_object('wise',pg_temp.mc_balance('wise'),'jpy',pg_temp.mc_balance('jpy')));
+insert into mc values('separate-fee',public.record_personal_money_movement(gen_random_uuid(),pg_temp.mc_move('withdrawal','wise','vnd',2000,120000,'separate','jpy',10)));
+select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint-2000 from mc where k='separate-before'),'separate JPY charge is not numerically added to MYR');
+select is(pg_temp.mc_balance('jpy'),(select(v->>'jpy')::bigint-10 from mc where k='separate-before'),'separate actual fee posts its own pocket exactly once');
+insert into mc values('target-before',to_jsonb(pg_temp.mc_balance('vnd')));
+insert into mc values('target-fee',public.record_personal_money_movement(gen_random_uuid(),pg_temp.mc_move('withdrawal','wise','vnd',1000,60000,'included_destination','vnd',2000)));
+select is(pg_temp.mc_balance('vnd'),(select(v#>>'{}')::bigint+60000 from mc where k='target-before'),'target included fee leaves exactly the observed net receipt');
+select is((select total_minor from expenses where id=(select(v->>'fee_expense_id')::uuid from mc where k='target-fee')),2000::bigint,'target fee classification uses target units without cross-currency subtraction');
+select lives_ok(format('select create_refund_transaction(gen_random_uuid(),%L,50,current_date,null,%L)',pg_temp.mc_id('vnd'),'Actual native refund'),'existing refund consumer accepts the real additional currency account ID');
+
+insert into mc values('reverse-before',jsonb_build_object('wise',pg_temp.mc_balance('wise'),'vnd',pg_temp.mc_balance('vnd')));
+select throws_ok(format('select reverse_personal_account_transaction(gen_random_uuid(),%L,current_date,%L)',(select v->>'transaction_id'from mc where k='included-fee'),'Partial movement reversal'),'P0001','money_movement_reversal_required','legacy principal-only reversal cannot strand a movement fee');
+select lives_ok(format('select reverse_personal_money_movement(gen_random_uuid(),%L,1,current_date,%L)',(select v->>'movement_id'from mc where k='included-fee'),'Actual recorded reversal'),'movement principal and actual fee reverse in one transaction');
+select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint+15000 from mc where k='reverse-before'),'included fee reversal refunds total150 once, not152');
+select is(pg_temp.mc_balance('vnd'),(select(v->>'vnd')::bigint-900000 from mc where k='reverse-before'),'movement reversal compensates the exact destination');
+select is((select status from expenses where id=(select(v->>'fee_expense_id')::uuid from mc where k='included-fee')),'voided','fee cancellation uses original canonical cancellation authority');
+
 set constraints all immediate;
 select * from finish();
 rollback;

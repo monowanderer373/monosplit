@@ -257,7 +257,7 @@ begin
     raise exception using message='invalid_currency',errcode='P0001';
   end if;
   select * into parent from public.personal_accounts where id=parent_account_id and owner_participant_id=actor for update;
-  if parent.id is null or exists(select 1 from public.personal_account_currencies where account_id=parent_account_id) then
+  if parent.id is null or exists(select 1 from public.personal_account_currencies c where c.account_id=parent.id) then
     raise exception using message='personal_account_not_found',errcode='P0001';
   end if;
   if parent.archived_at is not null then raise exception using message='personal_account_archived',errcode='P0001'; end if;
