@@ -1,9 +1,16 @@
 # Tabby Tally project status
 
-Checkpoint:2026-10-15 (Asia/Kuala_Lumpur).
+Checkpoint:2026-10-16 (Asia/Kuala_Lumpur).
 
 ## Resume first
 Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff and current remote main. Preserve work. Old handover release/migration claims are historical; never reset/reapply from them.
+
+## Active implementation — MultiCurrency complete handoff (2026-10-16)
+- User approved Q1–Q12 A, two design boards and active money-operation entry points. Design ZIP: TabbyTally_MultiCurrency_Complete_Handoff_2026-10-16; unpacked /workspace/design/multicurrency-2026-10-16. Read README/fullprompt/product/data/acceptance/reference;35 native screens/60parts and2boards. Never use demo balances/rates or preview mutation as production ledger.
+- Start clean latestmain25fb3e5; branchfeat/multicurrency-accounts. ExistingVercel current25fb READY/correctGitproject; remote26 migrations match. Actualschema single-currency accounts/one fundingaccount. Financial history/default original IDs and CSS-order repair retained. No new migration/apprelease yet.
+- Auditing compatibility model: retain immutable single-currency personal_accounts as accounting units, add explicit parent→extra-currency mappings and guarded owner read APIs. Old clients keep original parents/default currency; no name merge/history replay. New atomic bundle/movement/fee and coverage-aware balance commands must use existing journal/expense helpers. Account versions already increment with financial writes; validate all consumers and new endpoints before adoption.
+- Critical acceptance: unknown currency/amount defer zero debits; all-or-none multi-source; grouped DISTINCT pending intents; source150inclfee2 debit150 once; unknown baseline−20 thenobserved100=100; later16.20 included→100 ornotincluded→83.80 using explicit captured coverage. No money from publicFX into postings.
+- Next: finish current source→schema→RPC→UI map/ADR and guarded forward migrations; isolatedDB/RLS/concurrency/historical/oldclient tests before productionDDL. LocalDocker vfs unchanged, fresh diskfree but no blind repeatedpull/reset/prune; existing disposableCI available. Evidence /workspace/verification/multicurrency. Update checkpoint before interruptions.
 
 ## Completed repair — notification row CSS order (2026-10-15)
 - User-reported vertical text reproduced on main053ab16: actual production graph copy16px/~600px row; harness graph259px/64px. Root cause: late old three-track home.css overrode four-track row while unread pseudo marker remained. Scoped only notification row/tabs/dialog/form/type/meta overrides; separate form-gap FAILbefore16vs12 regression. No financial logic/schema/dependency change.
