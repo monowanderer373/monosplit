@@ -119,9 +119,9 @@ export default function HomeScreen(props: HomeScreenProps) {
   const assetAccounts = props.accounts.filter(isAvailableMoneyAccount)
   const selected = props.selectedAccountId === 'all'
     ? null
-    : assetAccounts.find((account) => account.id === props.selectedAccountId) ?? null
+    : props.accounts.find((account) => account.id === props.selectedAccountId) ?? null
   const today = localCalendarDate(new Date(), props.timezone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'))
-  const swipeIds = ['all', ...assetAccounts.map((account) => account.id)]
+  const swipeIds = ['all', ...assetAccounts.filter(account=>!account.parentAccountId||account.parentAccountId===account.id).map((account) => account.id)]
   const swipeStart = useRef<number | null>(null)
   const onSwipeDown = (event: PointerEvent<HTMLElement>) => {
     if ((event.target as HTMLElement).closest('button, [role="dialog"]')) return
@@ -165,7 +165,7 @@ export default function HomeScreen(props: HomeScreenProps) {
             <div className="home-account-target">
               <button ref={accountTrigger} type="button" className="home-account-button" data-testid="home-account-selector"
                 aria-haspopup="dialog" aria-controls={sheet === 'accounts' ? 'home-account-sheet' : undefined} aria-expanded={sheet === 'accounts'} onClick={() => setSheet(value => value === 'accounts' ? null : 'accounts')}>
-                <span>{selected?.name ?? t('home.allAccounts')}</span><Chevron />
+                <span>{selected?.name ?? t(props.selectedAccountId==='all'?'home.allAccounts':'mc.state.unavailable')}{selected?.archived?` · ${t('space.status.archived')}`:''}</span><Chevron />
               </button>
               {sheet === 'accounts' ? (
                 <AccountPaperMenu title={t('home.accountSheet')} onClose={closeSheet} testId="home-account-sheet" triggerRef={accountTrigger}>
@@ -585,7 +585,9 @@ function RecordRow({
   const t = useT()
   const lang = useStore((state) => state.lang)
   const movement = record.journalKind === 'transfer' || record.journalKind === 'settlement_in' || record.journalKind === 'settlement_out'
-  const cue = movement
+  const cue = record.cashIncludedInMovement
+    ? {sign:'',tone:'movement',label:t('mc.feeCovered')}
+    : movement
     ? { sign: record.journalKind === 'transfer' ? '' : record.direction === 'in' ? '+' : '−', tone: 'movement', label: t(record.journalKind === 'transfer' ? 'home.transfer' : 'home.settlement') }
     : record.direction === 'in'
     ? { sign: '+', tone: 'incoming', label: t('home.incoming') }
@@ -631,7 +633,7 @@ function RecordRow({
                   ? t('home.unavailable')
                   : record.fundingPending
                     ? t('home.fundingPending')
-                    : record.walletName ?? t('home.walletUnlinked')}
+                    : record.cashIncludedInMovement?t('mc.feeCovered'):record.walletName ?? t('home.walletUnlinked')}
             </p>
           </div>
         </div>

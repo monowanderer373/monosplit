@@ -30,7 +30,20 @@ export async function loadFundingMetadata() {
         if((data?.length??0)<1000)return rows
       }
     })(),
-    ownedRows<BalanceAnchor>('personal_account_balance_anchors','id,account_id,anchor_sequence,observed_at,pending_intent_ids,captured_entry_ids'),
+    ownedRows<BalanceAnchor>('personal_account_balance_anchors','id,account_id,anchor_sequence,observed_at,observed_balance_minor,pending_intent_ids,captured_entry_ids'),
   ])
   return {bundles,anchors}
+}
+export type MoneyMovement = {
+  id:string;version:number;kind:string;source_account_id:string;destination_account_id:string
+  source_total_minor:number|string;destination_net_minor:number|string;source_currency:string;destination_currency:string
+  occurred_on:string;memo:string|null;reversed_operation_id:string|null;transfer_transaction_id:string
+}
+export type MovementFee = {id:string;movement_id:string;mode:string;account_id:string;amount_minor:number|string;currency:string;expense_id:string;transaction_id:string|null}
+export async function loadMovementHistory(){
+ const [movements,fees]=await Promise.all([
+  ownedRows<MoneyMovement>('personal_money_movements','id,version,kind,source_account_id,destination_account_id,source_total_minor,destination_net_minor,source_currency,destination_currency,occurred_on,memo,reversed_operation_id,transfer_transaction_id'),
+  ownedRows<MovementFee>('personal_money_movement_fees','id,movement_id,mode,account_id,amount_minor,currency,expense_id,transaction_id'),
+ ])
+ return {movements,fees}
 }

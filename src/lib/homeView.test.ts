@@ -761,3 +761,21 @@ describe('monthly spending', () => {
     ])
   })
 })
+
+
+describe('movement fee classification in records', () => {
+  it('links a late itemised fee to its existing movement without a second cash debit or synthetic funding', () => {
+    const fee = expense({ id:'late-fee', occurredOn:'2026-10-16', scope:'personal', totalMinor:20, ownerPaidMinor:20, ownerShareMinor:20 })
+    const input = { ownerParticipantId:'owner', expenses:[fee], funding:[], accounts:[account({id:'wise',currency:'MYR',entrySumMinor:185000})],
+      people:[], spaces:[], affiliations:[], journals:[], selectedAccountId:'wise', limit:null, fundingKnown:true,
+      movementFees:[{expenseId:'late-fee',movementId:'withdrawal',accountId:'wise',amountMinor:20,currency:'MYR',includedInExistingDebit:true}] }
+    const before = JSON.stringify(input)
+    const records = buildHomeRecords(input)
+    expect(records).toHaveLength(1)
+    expect(records[0]).toMatchObject({expenseId:'late-fee',movementId:'withdrawal',amountMinor:20,currency:'MYR',accountId:'wise',cashIncludedInMovement:true,fundingPending:false,affectsPersonalSpending:true})
+    expect(monthlyPersonalSpending(derivePersonalLedgerRows([fee], 'owner'), '2026-10')).toEqual([{ currency:'MYR', amountMinor:20 }])
+    expect(JSON.stringify(input)).toBe(before)
+    expect(input.journals).toHaveLength(0)
+    expect(input.funding).toHaveLength(0)
+  })
+})

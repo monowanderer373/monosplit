@@ -14,7 +14,7 @@ import {
   deriveSharedPreviewContexts,
   groupHomeRecords,
   homeRecordAccountFilter,
-  isAvailableMoneyAccount,
+  accountRecordsFilter,
   isBookedHomeExpense,
   listActionableAccountTasks,
   monthlyPersonalSpending,
@@ -39,12 +39,7 @@ export default function useHomeModel(input: {
   const today = useLocalCalendarDate(input.timezone)
   return useMemo(() => {
     const accounts = input.home.accounts.data?.accounts ?? []
-    const chosen = accounts.find((account) => account.id === input.homeUi.selectedAccountId)
-    const selectedAccountId = input.home.accounts.status === 'ready'
-      && chosen
-      && isAvailableMoneyAccount(chosen)
-      ? chosen.id
-      : 'all'
+    const selectedAccountId = accountRecordsFilter(accounts,input.homeUi.selectedAccountId)
     const balances = input.home.accounts.status === 'ready'
       ? availableMoney(accounts, selectedAccountId)
       : []
@@ -150,6 +145,7 @@ export default function useHomeModel(input: {
         ownerParticipantId: input.participantId,
         expenses: input.expenses,
         funding: input.home.accounts.data?.funding ?? [],
+        movementFees:input.home.accounts.data?.movementFees??[],
         accounts,
         people,
         spaces,

@@ -6,9 +6,10 @@ import {
   type HomeJournalKind,
 } from './homeView'
 import { supabase } from './supabase'
-import { loadCurrencyAccounts } from './multicurrencyRepository'
+import { loadCurrencyAccounts, loadMovementHistory } from './multicurrencyRepository'
 
 export type PersonalAccountHomeSnapshot = {
+  movementFees?: Array<{expenseId:string;movementId:string;accountId:string;amountMinor:number;currency:string;includedInExistingDebit:boolean}>
   accounts: HomeAccount[]
   funding: HomeFunding[]
   journals: HomeJournalEntry[]
@@ -85,6 +86,7 @@ export async function loadPersonalAccountHome(input: {
   const client = supabase
 
   const accounts = await loadCurrencyAccounts()
+  const movementHistory=await loadMovementHistory()
 
   const fundingRows = await readAllPages(async (from, to) => {
     const fundingResult = await client
@@ -154,6 +156,7 @@ export async function loadPersonalAccountHome(input: {
         ? transaction.kind as HomeJournalKind
         : 'other'
       journals.push({
+        movementId:movementHistory.movements.find(m=>m.transfer_transaction_id===transaction.id)?.id,
         id: transaction.id as string,
         kind,
         occurredOn: transaction.occurred_on as string,
@@ -202,6 +205,8 @@ export async function loadPersonalAccountHome(input: {
   })
 
   return {
+    movementFees:movementHistory.fees.map(fee=>({expenseId:fee.expense_id,movementId:fee.movement_id,accountId:fee.account_id,
+      amountMinor:requiredMinor(fee.amount_minor),currency:fee.currency,includedInExistingDebit:fee.transaction_id==null})),
     accounts,
     funding,
     journals,

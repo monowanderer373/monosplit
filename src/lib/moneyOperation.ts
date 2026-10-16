@@ -19,7 +19,7 @@ export async function moneyOperation(name:string,args:Record<string,unknown>,ide
     guard()
     if(result)return result
   }
-  const result=await notificationRpc(name,{request_id:requestId,...args},identity,guard)
+  const result=await notificationRpc(name,{...args,request_id:requestId},identity,guard)
   guard()
   return result
 }

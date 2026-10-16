@@ -185,6 +185,7 @@ export type HomeJournalKind =
   | 'other'
 
 export type HomeJournalEntry = {
+  movementId?: string
   id: string
   kind: HomeJournalKind
   occurredOn: string
@@ -210,6 +211,8 @@ export type HomeContextChip =
   | { kind: 'space'; spaceName: string; spaceType: 'group' | 'trip' }
 
 export type HomeRecord = {
+  movementId?: string
+  cashIncludedInMovement?: boolean
   fundingLegs?: Array<{accountId:string;amountMinor:number;currency:string}>
   id: string
   expenseId: string | null
@@ -308,6 +311,11 @@ export function availableMoney(
       unknownOpeningCount: bucket.unknownCount,
     }))
     .sort((left, right) => left.currency.localeCompare(right.currency))
+}
+/** A missing or archived account is an explicit records filter, never an implicit "all". */
+export function accountRecordsFilter(accounts:readonly HomeAccount[],selected:string):string{
+  if(selected==='all')return 'all'
+  return accounts.find(a=>a.id===selected)?.parentAccountId??selected
 }
 
 export function balanceDisclosure(hidden: boolean, totals: readonly AvailableMoneyTotal[]) {
@@ -605,6 +613,7 @@ export function homeRecordAccountFilter(
 }
 
 export function buildHomeRecords(input: {
+  movementFees?: readonly {expenseId:string;movementId:string;accountId:string;amountMinor:number;currency:string;includedInExistingDebit:boolean}[]
   ownerParticipantId: string
   expenses: readonly CanonicalExpense[]
   funding: readonly HomeFunding[]
@@ -639,6 +648,7 @@ export function buildHomeRecords(input: {
     const shareMinor = expense.shares.find((item) => item.expenseParticipationId === mine.id)?.amountMinor ?? 0
     const funding = fundingByExpense.get(expense.id)
     const cash = cashLeg(expense, paidMinor, funding, accounts)
+    const movementFee=input.movementFees?.find(fee=>fee.expenseId===expense.id)
     const fundingLegs=funding?.status==='posted'?funding.legs?.filter(leg=>input.selectedAccountId==='all'||leg.accountId===input.selectedAccountId||accounts.get(leg.accountId)?.parentAccountId===input.selectedAccountId):undefined
     if (paidMinor === 0 && shareMinor === 0 && !cash.fundingPending) return []
     const record: HomeRecord = {
@@ -654,9 +664,11 @@ export function buildHomeRecords(input: {
       amountMinor: input.fundingKnown ? cash.amountMinor : 0,
       currency: cash.currency,
       accountId: cash.accountId,
+      walletName: input.fundingKnown ? cash.walletName : null,
       ...(fundingLegs?.length?{fundingLegs,accountId:fundingLegs[0].accountId,amountMinor:fundingLegs[0].amountMinor,currency:fundingLegs[0].currency,
         walletName:[...new Set(fundingLegs.map(leg=>accounts.get(leg.accountId)?.name).filter(Boolean))].join(' · ')}:{}),
-      walletName: input.fundingKnown ? cash.walletName : null,
+      ...(movementFee?{movementId:movementFee.movementId,cashIncludedInMovement:movementFee.includedInExistingDebit,
+        accountId:movementFee.accountId,amountMinor:movementFee.amountMinor,currency:movementFee.currency,walletName:accounts.get(movementFee.accountId)?.name??null}:{}),
       fundingPending: input.fundingKnown && cash.fundingPending,
       amountKnown: input.fundingKnown,
       travelMeta: { myPaidMinor: paidMinor, participantCount: expense.participations.length },
@@ -677,6 +689,7 @@ export function buildHomeRecords(input: {
     const direction = entry.amountMinor > 0 ? 'in' as const : 'out' as const
     const record: HomeRecord = {
       id: `journal:${entry.id}:${entry.accountId}`,
+      movementId:entry.movementId,
       expenseId: entry.expenseId,
       spaceId: null,
       occurredOn: entry.occurredOn,

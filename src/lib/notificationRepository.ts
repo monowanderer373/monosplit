@@ -48,18 +48,18 @@ export async function loadNotificationSnapshot(owner:string):Promise<NoticeSnaps
   finally{if(timer)clearTimeout(timer)}
 }
 
-export type NotificationAccountEntry={id:string;amountMinor:number;currency:string;date:string;description:string|null;kind:string}
+export type NotificationAccountEntry={id:string;transactionId?:string;expenseId?:string|null;reversesTransactionId?:string|null;movementId?:string;amountMinor:number;currency:string;date:string;description:string|null;kind:string}
 export async function loadNotificationAccountEntries(accountId:string):Promise<NotificationAccountEntry[]>{
  if(!supabase)throw new Error('not_configured')
  const client=supabase
  const entries=await readAllPages(async(from,to)=>{
-  const {data,error}=await client.from('personal_account_entries').select('id,amount_minor,currency,transaction:personal_account_transactions!transaction_id(kind,occurred_on,memo)').eq('account_id',accountId).order('id').range(from,to)
+  const {data,error}=await client.from('personal_account_entries').select('id,amount_minor,currency,transaction:personal_account_transactions!transaction_id(id,expense_id,reverses_transaction_id,kind,occurred_on,memo)').eq('account_id',accountId).order('id').range(from,to)
   if(error)throw error
   return data??[]
  })
  return entries.map(row=>{
   const transaction=Array.isArray(row.transaction)?row.transaction[0]:row.transaction,amount=Number(row.amount_minor)
   if(!Number.isSafeInteger(amount)||!transaction)throw new Error('amount_unavailable')
-  return {id:row.id,amountMinor:amount,currency:row.currency,date:transaction.occurred_on,description:transaction.memo,kind:transaction.kind}
+  return {id:row.id,transactionId:transaction.id,expenseId:transaction.expense_id,reversesTransactionId:transaction.reverses_transaction_id,amountMinor:amount,currency:row.currency,date:transaction.occurred_on,description:transaction.memo,kind:transaction.kind}
  }).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id))
 }

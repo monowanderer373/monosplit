@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ExpenseActionSheet from './ExpenseActionSheet'
 import { useStore } from '../store/useStore'
@@ -23,7 +23,7 @@ const description = (value: string) => fireEvent.change(screen.getByRole('textbo
 function mount(record = expense()) { return render(<ExpenseActionSheet expense={record} currentParticipantId="you" onRefresh={mocks.refresh} />) }
 beforeEach(() => {
   vi.clearAllMocks()
-  useStore.setState({ lang: 'en' })
+  useStore.setState({ lang: 'en', homeUi: { ...useStore.getState().homeUi, balanceHidden: false } })
   mocks.financial.mockReset().mockResolvedValue(2)
   mocks.metadata.mockReset().mockResolvedValue(3)
   mocks.direct.mockReset().mockResolvedValue({})
@@ -33,6 +33,27 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 describe('unified paper expense editor', () => {
+  it('conceals monetary notes and editor inputs until explicit reveal without losing the draft', () => {
+    useStore.setState({ homeUi: { ...useStore.getState().homeUi, balanceHidden: true } })
+    mount({ ...expense(), description: 'RM 6,000 private note' })
+    expect(document.body.innerHTML).not.toContain('6,000')
+    fireEvent.click(screen.getByRole('button', { name: 'Open record' }))
+    expect(screen.queryByRole('textbox', { name: 'Total amount' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Description' })).toBeNull()
+    expect(document.body.innerHTML).not.toContain('6,000')
+    fireEvent.click(screen.getByRole('button', { name: 'Show amount to continue' }))
+    description('CNY 3,450 draft')
+    amount('123.45')
+    act(() => useStore.getState().setHomeUi({ balanceHidden: true }))
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(document.body.innerHTML).not.toContain('3,450')
+    expect(document.body.innerHTML).not.toContain('123.45')
+    fireEvent.click(screen.getByRole('button', { name: 'Show amount to continue' }))
+    expect((screen.getByRole('textbox', { name: 'Description' }) as HTMLInputElement).value).toBe('CNY 3,450 draft')
+    expect((screen.getByRole('textbox', { name: 'Total amount' }) as HTMLInputElement).value).toBe('123.45')
+    expect(mocks.financial).not.toHaveBeenCalled()
+  })
+
   it('places a live split summary between the type choices and Save changes', () => {
     mount(expense('direct', true)); open()
     const summary = screen.getByTestId('expense-edit-review')

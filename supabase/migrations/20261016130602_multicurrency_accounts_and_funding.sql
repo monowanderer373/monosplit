@@ -187,6 +187,23 @@ end $$;
 create trigger personal_currency_entry_guard before insert on public.personal_account_entries
   for each row execute function private.guard_currency_unit_entry();
 
+-- Preserve the account's calendar day for observed-balance journal metadata.
+-- Coverage still comes only from explicit captured facts, never from this date.
+create or replace function private.money_account_zone(p_actor uuid)
+returns text language plpgsql stable security definer set search_path='' as $$
+declare zone text;
+begin
+ select profile.timezone into zone from public.user_profiles profile join public.participants own on own.auth_user_id=profile.id where own.id=p_actor;
+ if zone is null or not exists(select 1 from pg_catalog.pg_timezone_names z where z.name=zone) then zone:='UTC'; end if;
+ return zone;
+end $$;
+create or replace function private.money_observed_on(p_actor uuid,p_observed_at timestamptz)
+returns date language sql stable security definer set search_path='' as $$
+ select pg_catalog.timezone(private.money_account_zone(p_actor),p_observed_at)::date
+$$;
+revoke all on function private.money_account_zone(uuid) from public,anon,authenticated;
+revoke all on function private.money_observed_on(uuid,timestamptz) from public,anon,authenticated;
+
 create or replace function public.get_personal_multicurrency_accounts()
 returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare actor uuid := private.require_personal_actor(); units jsonb;
@@ -248,7 +265,7 @@ create or replace function public.add_personal_account_currency(
 )
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare actor uuid:=private.require_personal_actor(); parent public.personal_accounts%rowtype;
-  code text:=pg_catalog.upper(currency_code); result_payload jsonb; unit_id uuid;
+  code text:=pg_catalog.upper(currency_code); result_payload jsonb; unit_id uuid; operation_id uuid; anchor_id uuid; opening_entries uuid[];
 begin
   result_payload:=private.begin_money_operation(actor,request_id,'add_currency',pg_catalog.jsonb_build_object(
     'parent',parent_account_id,'currency',code,'opening',opening_balance_minor,'as_of',balance_as_of,'version',expected_version));
@@ -265,13 +282,26 @@ begin
   if parent.currency=code or exists(select 1 from public.personal_account_currencies c where c.parent_account_id=parent.id and c.currency=code) then
     raise exception using message='currency_already_exists',errcode='P0001';
   end if;
+  if opening_balance_minor is not null and (balance_as_of is null or balance_as_of>private.money_observed_on(actor,pg_catalog.now())) then
+    raise exception using message='invalid_balance_as_of',errcode='P0001';
+  end if;
   result_payload:=public.create_personal_account(private.money_child_request(request_id,'unit'),parent.name,parent.account_type,code,
     opening_balance_minor,balance_as_of,false);
   unit_id:=(result_payload->>'account_id')::uuid;
   insert into public.personal_account_currencies(account_id,parent_account_id,owner_participant_id,currency,display_order)
     values(unit_id,parent.id,actor,code,1+(select coalesce(pg_catalog.max(c.display_order),0) from public.personal_account_currencies c where c.parent_account_id=parent.id));
   update public.personal_accounts set version=version+1 where id=parent.id;
-  return private.finish_money_operation(actor,request_id,pg_catalog.jsonb_build_object('account_id',unit_id,'parent_account_id',parent.id));
+  if opening_balance_minor is not null then
+    select o.id into operation_id from public.personal_money_operations o where o.owner_participant_id=actor and o.request_id=add_personal_account_currency.request_id;
+    select coalesce(pg_catalog.array_agg(e.id order by e.id),'{}'::uuid[]) into opening_entries from public.personal_account_entries e where e.account_id=unit_id;
+    insert into public.personal_account_balance_anchors(owner_participant_id,account_id,operation_id,observed_balance_minor,observed_at,
+      captured_account_version,captured_entry_ids,included_entry_ids,pending_intent_ids,calibration_transaction_id)
+      values(actor,unit_id,operation_id,opening_balance_minor,pg_catalog.timezone(private.money_account_zone(actor),balance_as_of::timestamp),
+        (select a.version from public.personal_accounts a where a.id=unit_id),opening_entries,opening_entries,
+        array(select f.id from public.personal_funding_intents f where f.owner_participant_id=actor and f.status='pending' order by f.id),null)
+      returning id into anchor_id;
+  end if;
+  return private.finish_money_operation(actor,request_id,pg_catalog.jsonb_build_object('account_id',unit_id,'parent_account_id',parent.id,'anchor_id',anchor_id));
 end $$;
 
 create or replace function public.set_personal_currency_balance(
@@ -308,12 +338,12 @@ begin
   select coalesce(pg_catalog.array_agg(f.id order by f.id),'{}'::uuid[]) into pending_ids
     from public.personal_funding_intents f where f.owner_participant_id=actor and f.status='pending';
   if unit.opening_status='unknown' then
-    result_payload:=public.complete_account_opening(private.money_child_request(request_id,'calibration'),unit.id,delta::bigint,observed_at::date,unit.version);
+    result_payload:=public.complete_account_opening(private.money_child_request(request_id,'calibration'),unit.id,delta::bigint,private.money_observed_on(actor,observed_at),unit.version);
     calibration_id:=(result_payload->>'transaction_id')::uuid;
   elsif delta<>0 then
     if current_total+delta not between -9007199254740991 and 9007199254740991 then raise exception using message='amount_overflow',errcode='P0001'; end if;
     result_payload:=public.reconcile_account_to_stated_balance(private.money_child_request(request_id,'calibration'),unit.id,(current_total+delta)::bigint,
-      observed_at::date,'Observed balance coverage',unit.version);
+      private.money_observed_on(actor,observed_at),'Observed balance coverage',unit.version);
     calibration_id:=(result_payload->>'transaction_id')::uuid;
   else
     update public.personal_accounts set version=version+1 where id=unit.id;
@@ -488,7 +518,7 @@ begin
         select pg_catalog.sum(e.amount_minor) into baseline from public.personal_account_entries e where e.account_id=unit.id;
         if baseline+compensation not between -9007199254740991 and 9007199254740991 then raise exception using message='amount_overflow',errcode='P0001'; end if;
         result_payload:=public.reconcile_account_to_stated_balance(private.money_child_request(request_id,'coverage:'||unit.id::text),unit.id,
-          (baseline+compensation)::bigint,anchor.observed_at::date,'Previously included actual deduction',
+          (baseline+compensation)::bigint,private.money_observed_on(actor,anchor.observed_at),'Previously included actual deduction',
           (select a.version from public.personal_accounts a where a.id=unit.id));
         calibration_id:=(result_payload->>'transaction_id')::uuid;
       end if;
@@ -615,6 +645,11 @@ begin
   perform 1 from public.expenses e where e.id=intent.expense_id and e.version=expected_expense_version for update;
   if not found then raise exception using message='version_conflict',errcode='P0001'; end if;
   select amount_minor,currency into contribution,currency_code from private.owner_expense_contribution(intent.expense_id,actor);
+  -- An explicit owner review may upgrade an unposted legacy source candidate.
+  -- The original intent/expense IDs and all posted history remain unchanged.
+  insert into public.personal_funding_bundles(funding_intent_id,owner_participant_id,primary_account_id)
+    values(intent.id,actor,coalesce((select c.parent_account_id from public.personal_account_currencies c where c.account_id=intent.account_id),intent.account_id))
+    on conflict(funding_intent_id) do nothing;
   update public.personal_funding_intents set expense_amount_minor=contribution,expense_currency=currency_code,version=version+1 where id=intent.id;
   return private.finish_money_operation(actor,request_id,pg_catalog.jsonb_build_object('funding_intent_id',intent.id,'funding_status','pending','version',intent.version+1));
 end $$;

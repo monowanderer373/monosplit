@@ -12,10 +12,12 @@ grant all on table mc to authenticated;
 create function pg_temp.mc_id(k text) returns uuid language sql as $$ select (v->>'account_id')::uuid from mc where mc.k=$1 $$;
 create function pg_temp.mc_unit(k text) returns jsonb language sql as $$ select a from jsonb_array_elements(public.get_personal_multicurrency_accounts()->'accounts') a where (a->>'id')::uuid=pg_temp.mc_id($1) $$;
 create function pg_temp.mc_balance(k text) returns bigint language sql as $$ select (pg_temp.mc_unit($1)->>'entry_sum_minor')::bigint $$;
-create function pg_temp.mc_legs(k text,amount bigint,covered boolean default null) returns jsonb language sql as $$
+-- New synthetic charges default explicitly to not included; special cases pass true/null.
+create function pg_temp.mc_legs(k text,amount bigint,covered boolean default false) returns jsonb language sql as $$
  select jsonb_build_array(jsonb_build_object('account_id',u->>'id','version',(u->>'version')::integer,'parent_version',(u->>'parent_version')::integer,'amount_minor',$2,
- 'anchor_id',(select id from public.personal_account_balance_anchors where account_id=pg_temp.mc_id($1) order by anchor_sequence desc limit 1),'included_in_anchor',$3))
- from (select pg_temp.mc_unit($1) u) q $$;
+ 'anchor_id',a.id,'included_in_anchor',case when a.id is null then null else $3 end))
+ from (select pg_temp.mc_unit($1) u) q left join lateral(select id from public.personal_account_balance_anchors where account_id=pg_temp.mc_id($1) order by anchor_sequence desc limit 1)a on true $$;
+
 create function pg_temp.mc_expense(amount bigint,currency text,title text) returns jsonb language sql as $$
  select jsonb_build_object('expense_scope','personal','target_space_id',null,'total_minor',$1,'currency_code',$2,'description',$3,'category','Food','occurred_on',current_date,
  'participant_ids',jsonb_build_array(public.current_participant_id()),'contribution_amounts',jsonb_build_array($1),'share_amounts',jsonb_build_array($1)) $$;
@@ -49,6 +51,11 @@ select is(pg_temp.mc_balance('cash'),(-2000)::bigint,'unknown account still stor
 select lives_ok($$select pg_temp.mc_set('cash',10000)$$,'observed100 includes already recorded minus20');
 select is(pg_temp.mc_balance('cash'),10000::bigint,'C34 observed100 is100, not80 or120');
 select is((select count(*) from personal_account_entries e join personal_account_transactions t on t.id=e.transaction_id where e.account_id=pg_temp.mc_id('cash') and t.kind='expense_funding'),1::bigint,'late baseline does not replay the debit');
+
+select ok(not has_function_privilege('authenticated','private.money_observed_on(uuid,timestamptz)','EXECUTE'),'private observed-date helper is not a public authority bypass');
+insert into mc values('zoned-anchor',public.set_personal_currency_balance(gen_random_uuid(),pg_temp.mc_id('cash'),11000,'2026-10-15T17:00:00Z',
+ (pg_temp.mc_unit('cash')->>'version')::integer,(pg_temp.mc_unit('cash')->>'parent_version')::integer,array(select id from personal_account_entries where account_id=pg_temp.mc_id('cash'))));
+select is((select occurred_on from personal_account_transactions where id=(select(v->>'transaction_id')::uuid from mc where k='zoned-anchor')),'2026-10-16'::date,'observed balance journal keeps the account local day across UTC midnight');
 
 insert into mc values('defer-request',to_jsonb(gen_random_uuid()));
 insert into mc values('defer-payload',jsonb_build_object('expense',pg_temp.mc_expense(90000,'VND','Deferred Food'),'funding',jsonb_build_object('mode','deferred','primary_account_id',pg_temp.mc_id('wise'),'legs','[]'::jsonb)));
@@ -162,6 +169,30 @@ select lives_ok(format('select reverse_personal_money_movement(gen_random_uuid()
 select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint+15000 from mc where k='reverse-before'),'included fee reversal refunds total150 once, not152');
 select is(pg_temp.mc_balance('vnd'),(select(v->>'vnd')::bigint-900000 from mc where k='reverse-before'),'movement reversal compensates the exact destination');
 select is((select status from expenses where id=(select(v->>'fee_expense_id')::uuid from mc where k='included-fee')),'voided','fee cancellation uses original canonical cancellation authority');
+
+-- Separate actual fee from the same unit has its own observed-balance coverage.
+insert into mc values('mixed-coverage-before',to_jsonb(pg_temp.mc_balance('wise')));
+insert into mc values('mixed-coverage',public.record_personal_money_movement(gen_random_uuid(),jsonb_set(pg_temp.mc_move('withdrawal','wise','vnd',1000,60000,'separate','wise',200),'{source_coverage,included_in_anchor}','true'::jsonb)));
+select is(pg_temp.mc_balance('wise'),(select(v#>>'{}')::bigint-200 from mc where k='mixed-coverage-before'),'already included principal does not hide a separate unreflected same-unit fee');
+select is((select count(*) from personal_money_movement_coverage where movement_id=(select(v->>'movement_id')::uuid from mc where k='mixed-coverage') and account_id=pg_temp.mc_id('wise')),2::bigint,'principal and separate same-unit fee retain distinct coverage facts');
+select is((select count(*) from personal_money_movement_coverage where movement_id=(select(v->>'movement_id')::uuid from mc where k='mixed-coverage') and account_id=pg_temp.mc_id('wise') and included_in_anchor and calibration_transaction_id is not null),1::bigint,'only the included principal is calibrated; actual fee remains debited once');
+
+-- A known balance entered while adding a currency is also an observed anchor.
+insert into mc values('new-currency-pending',public.create_expense_with_multicurrency_funding(gen_random_uuid(),pg_temp.mc_expense(2000,'EUR','Pending before currency exists'),jsonb_build_object('mode','deferred','primary_account_id',pg_temp.mc_id('wise'),'legs','[]'::jsonb)));
+insert into mc values('eur',public.add_personal_account_currency(gen_random_uuid(),pg_temp.mc_id('wise'),'EUR',(pg_temp.mc_unit('wise')->>'version')::integer,10000,current_date));
+select is((select count(*) from personal_account_balance_anchors where account_id=pg_temp.mc_id('eur')),1::bigint,'new known currency opening captures observed balance coverage without a second journal');
+select throws_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='new-currency-pending'),pg_temp.mc_legs('eur',2000,null)),'P0001','balance_coverage_required','unknown source becoming a new known currency must be reviewed explicitly');
+select lives_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='new-currency-pending'),pg_temp.mc_legs('eur',2000,true)),'new currency known balance can include the earlier actual deduction');
+select is(pg_temp.mc_balance('eur'),10000::bigint,'new currency observed100 including old20 remains100, not80');
+
+-- Unposted legacy source candidates can be upgraded only by an explicit versioned review.
+insert into mc values('legacy-pending-expense',to_jsonb(public.create_expense(gen_random_uuid(),'personal',null,90000,'VND','Legacy pending source review','Food',current_date,array[current_participant_id()],array[90000::bigint],array[90000::bigint])));
+insert into mc values('legacy-pending',public.link_expense_funding(gen_random_uuid(),(select(v#>>'{}')::uuid from mc where k='legacy-pending-expense'),pg_temp.mc_id('wise'),null));
+select throws_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->>'funding_intent_id'from mc where k='legacy-pending'),pg_temp.mc_legs('vnd',90000,false)),'P0001','funding_account_changed','legacy source candidate cannot silently change before explicit review');
+select lives_ok(format('select review_changed_personal_funding(gen_random_uuid(),%L,1,1)',(select v->>'funding_intent_id'from mc where k='legacy-pending')),'owner explicitly upgrades the pending source candidate without a cash write');
+select is((select count(*) from personal_account_transactions where expense_id=(select(v#>>'{}')::uuid from mc where k='legacy-pending-expense')),0::bigint,'legacy source review does not post money or recreate the expense');
+select lives_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,2,1,%L::jsonb,true)',(select v->>'funding_intent_id'from mc where k='legacy-pending'),pg_temp.mc_legs('vnd',90000,false)),'explicitly reviewed legacy expense may use its actual owned currency source');
+select is((select id from personal_funding_intents where expense_id=(select(v#>>'{}')::uuid from mc where k='legacy-pending-expense')),(select(v->>'funding_intent_id')::uuid from mc where k='legacy-pending'),'upgrading an unposted source preserves the historical intent UUID');
 
 -- C16: bill, accepted owner payment and share are three different amounts.
 insert into mc values('direct-body',jsonb_build_object('expense_scope','direct','target_space_id',null,'total_minor',9000,'currency_code','MYR',

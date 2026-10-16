@@ -4,16 +4,28 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import UniversalQuickAddSheet from './UniversalQuickAddSheet'
 import { createUniversalQuickAddSession, updateUniversalQuickAddValues } from '../lib/universalQuickAdd'
-const mocked=vi.hoisted(()=>({submit:vi.fn()}))
+const mocked=vi.hoisted(()=>({submit:vi.fn(),accounts:vi.fn()}))
 vi.mock('../hooks/useAuth',()=>({useAuth:()=>({authUser:{participantId:'self'}})}))
 vi.mock('../lib/moneyContextCatalog',()=>({EMPTY_MONEY_CONTEXT_CATALOG:{people:[],groups:[],trips:[],peopleParticipants:[]},loadMoneyContextCatalog:async()=>({people:[],groups:[],trips:[],peopleParticipants:[]})}))
-vi.mock('../lib/quickAccounts',()=>({loadQuickAccounts:async()=>[{id:'wallet',parentAccountId:'wallet',name:'Touch n Go',currency:'MYR',account_type:'ewallet',accountType:'ewallet',accountClass:'asset',archived:false,openingStatus:'unknown',entrySumMinor:0,version:1,parentVersion:1,displayOrder:0,isDefault:true,is_default:true}]}))
+vi.mock('../lib/quickAccounts',()=>({loadQuickAccounts:mocked.accounts}))
 vi.mock('../lib/multicurrencyRepository',()=>({loadFundingMetadata:async()=>({bundles:[],anchors:[]})}))
 const self={id:'self',displayName:'Me',kind:'account' as const}
 function Harness({shared=false}:{shared?:boolean}={}){const [session,setSession]=useState(()=>createUniversalQuickAddSession({identityKey:'u',sessionId:'s',clientRequestId:'r',startedAtMs:1,entryPoint:'global',context:{ref:shared?{kind:'space',spaceId:'g',spaceType:'group',displayName:'Group'}:{kind:'personal'},currentParticipantId:'self',availableParticipants:shared?[self,{id:'friend',displayName:'Alex',kind:'manual'}]:[self],defaultCurrency:'MYR'}}));return <UniversalQuickAddSheet session={session} expenses={[]} onUpdate={patch=>setSession(s=>updateUniversalQuickAddValues(s,patch))} onClose={()=>{}} onCommitContext={async()=>({ok:false})} onPickerOpenChange={()=>{}} onConfigureSplit={async()=>true} onSubmit={mocked.submit}/>}
-beforeEach(()=>{localStorage.clear();mocked.submit.mockReset();mocked.submit.mockResolvedValue({ok:true});render(<Harness/>)})
-afterEach(cleanup)
+beforeEach(()=>{mocked.accounts.mockReset();mocked.accounts.mockResolvedValue([{id:'wallet',parentAccountId:'wallet',name:'Touch n Go',currency:'MYR',account_type:'ewallet',accountType:'ewallet',accountClass:'asset',archived:false,openingStatus:'unknown',entrySumMinor:0,version:1,parentVersion:1,displayOrder:0,isDefault:true,is_default:true}]);localStorage.clear();mocked.submit.mockReset();mocked.submit.mockResolvedValue({ok:true});render(<Harness/>)})
+afterEach(()=>{cleanup();vi.restoreAllMocks()})
 describe('Quick Add capture',()=>{
+ it('preserves a never-dispatched offline expense draft when account reads are unavailable',async()=>{
+  cleanup();vi.spyOn(navigator,'onLine','get').mockReturnValue(false);mocked.accounts.mockRejectedValue(new Error('offline'));render(<Harness/>)
+  fireEvent.click(screen.getByRole('button',{name:'Food'}));fireEvent.click(screen.getByRole('button',{name:'1'}));fireEvent.click(screen.getByRole('button',{name:'2'}))
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Save and close'}).hasAttribute('disabled')).toBe(false));fireEvent.click(screen.getByRole('button',{name:'Save and close'}))
+  await waitFor(()=>expect(mocked.submit).toHaveBeenCalledOnce());expect(mocked.submit.mock.calls[0][0].values).toMatchObject({amount:'12.00',fundingPlan:{mode:'deferred',primary_account_id:null,legs:[]}})
+ })
+ it('blocks an unavailable online account capability instead of retrying a legacy debit path',async()=>{
+  cleanup();mocked.accounts.mockRejectedValue(new Error('missing capability'));render(<Harness/>)
+  fireEvent.click(screen.getByRole('button',{name:'Food'}));fireEvent.click(screen.getByRole('button',{name:'1'}));await screen.findByText(/Accounts unavailable/)
+  expect(screen.getByRole('button',{name:'Save and close'}).hasAttribute('disabled')).toBe(true);expect(mocked.submit).not.toHaveBeenCalled()
+ })
+
  it('groups calculator operands and results while saving the original exact amount',async()=>{
   fireEvent.click(screen.getByRole('button',{name:'Food'}))
   for(const name of ['9','0','0','0','0'])fireEvent.click(screen.getByRole('button',{name}))

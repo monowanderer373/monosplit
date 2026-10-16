@@ -21,9 +21,10 @@ export type FundingPlan = {
 export type BalanceAnchor = {
   id: string; account_id: string; anchor_sequence: number | string
   observed_at: string; pending_intent_ids: string[]; captured_entry_ids: string[]
+  observed_balance_minor?: number|string
 }
 export type FundingBundle = { funding_intent_id: string; primary_account_id: string | null; confirmed_operation_id: string | null }
-export type SourceDraft = { key: string; accountId: string; amount: string; coverage: '' | 'included' | 'excluded' }
+export type SourceDraft = { key: string; accountId: string; amount: string; coverage: '' | 'included' | 'excluded'; coverageAnchorId?:string|null }
 const accountTypes = new Set(['cash', 'bank', 'ewallet', 'credit_card', 'paylater', 'loan'])
 function safeInteger(value: unknown): number {
   if (typeof value !== 'number' && typeof value !== 'string') throw new Error('invalid_account_snapshot')
@@ -82,16 +83,16 @@ export function compileFundingSources(drafts: readonly SourceDraft[], accounts: 
     const a = accounts.find(a => a.id === d.accountId && !a.archived)
     if (!a) throw new Error('personal_account_archived')
     const amount = parseMajorAmount(d.amount,a.currency), anchor = latestAnchor(anchors,a.id)
-    if (amount <= 0 || anchor && !d.coverage) throw new Error('funding_coverage_required')
+    if (amount <= 0 || anchor && (!d.coverage||d.coverageAnchorId!==anchor.id)) throw new Error('funding_coverage_required')
     return {account_id:a.id,version:a.version,parent_version:a.parentVersion,amount_minor:amount,
       anchor_id:anchor?.id??null,included_in_anchor:anchor ? d.coverage === 'included' : null}
   })
 }
 /** Display only. Unknown balances and unavailable rates are excluded and explicitly counted. */
-export function accountValuation(accounts: readonly CurrencyAccount[], snapshot: FxSnapshot) {
+export function accountValuation(accounts: readonly CurrencyAccount[], snapshot: FxSnapshot,includeArchived=false) {
   let total = fraction(0n), known = 0, unknown = 0, missingRates = 0
   for (const a of accounts) {
-    if (a.archived) continue
+    if (a.archived&&!includeArchived) continue
     if (a.openingStatus !== 'posted') { unknown++; continue }
     if (a.currency === 'MYR') total = addFraction(total,fraction(BigInt(a.entrySumMinor)))
     else {

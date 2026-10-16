@@ -1,4 +1,13 @@
 export const multicurrencyTranslations = {
+  "mc.reviewSources":{"en":"Review payment sources","zh":"重新核对付款来源"},
+  "mc.balanceCoverage":{"en":"Which recorded entries are already included in this observed balance?","zh":"此实际余额已包含哪些已记录流水？"},
+  "mc.coverageAll":{"en":"All listed entries are included","zh":"已包含全部已记录流水"},
+  "mc.coverageNone":{"en":"None of these entries are included","zh":"尚未包含这些流水"},
+  "mc.coverageCustom":{"en":"Choose the included entries","zh":"逐项选择已包含流水"},
+  "mc.deviceTime":{"en":"Time zone: {{timezone}}","zh":"输入时区：{{timezone}}"},
+  "mc.recordsMore":{"en":"Show more records","zh":"显示更多记录"},
+  "mc.offlineDraft":{"en":"Offline · save on this device. Balances update only after the original save is confirmed.","zh":"当前离线，可先保存在此设备。原保存操作确认成功后才会更新余额。"},
+  "mc.feeCovered":{"en":"Included in recorded movement","zh":"已包含在已记录的资金移动中"},
   "mc.currencyBalances": {"en":"Currency balances","zh":"原币余额"},
   "mc.account.recordedValue": {
     "en": "Recorded value",

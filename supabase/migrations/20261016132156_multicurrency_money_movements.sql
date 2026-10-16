@@ -39,11 +39,14 @@ create table public.personal_money_movement_coverage (
   owner_participant_id uuid not null references public.participants(id),
   movement_id uuid not null references public.personal_money_movements(id),
   account_id uuid not null references public.personal_accounts(id),
+  transaction_id uuid not null references public.personal_account_transactions(id),
   anchor_id uuid not null references public.personal_account_balance_anchors(id),
   included_in_anchor boolean not null,
-  calibration_transaction_id uuid unique references public.personal_account_transactions(id),
-  primary key(movement_id,account_id)
+  calibration_transaction_id uuid references public.personal_account_transactions(id),
+  primary key(movement_id,account_id,transaction_id)
 );
+
+create index personal_movement_coverage_calibration_idx on public.personal_money_movement_coverage(calibration_transaction_id) where calibration_transaction_id is not null;
 
 do $$ declare t text; begin
   foreach t in array array['personal_money_movements','personal_money_movement_fees','personal_money_movement_coverage'] loop
@@ -102,7 +105,7 @@ declare actor uuid:=private.require_personal_actor(); result_payload jsonb;
   source_principal bigint; target_gross bigint; fee_amount bigint; fee_id uuid; fee_expense uuid; fee_transaction uuid;
   movement_date date:=(movement_payload->>'occurred_on')::date; fee jsonb:=movement_payload->'fee'; fee_mode text;
   movement_kind text:=movement_payload->>'kind'; movement_memo text:=nullif(pg_catalog.btrim(movement_payload->>'memo'),'');
-  movement_id uuid:=gen_random_uuid(); operation_id uuid; transfer_id uuid; unit record; coverage jsonb; delta numeric; calibration_id uuid; baseline numeric;
+  movement_id uuid:=gen_random_uuid(); operation_id uuid; transfer_id uuid; unit record; component record; covered_amount numeric; coverage_rows jsonb; coverage jsonb; delta numeric; calibration_id uuid; baseline numeric;
 begin
   result_payload:=private.begin_money_operation(actor,request_id,'record_movement',movement_payload);
   if result_payload is not null then return result_payload; end if;
@@ -156,7 +159,7 @@ begin
   end if;
   perform private.assert_money_anchor(source_id,movement_payload->'source_coverage');
   perform private.assert_money_anchor(target_id,movement_payload->'destination_coverage');
-  if fee_id is not null and fee_id<>source_id and fee_id<>target_id then perform private.assert_money_anchor(fee_id,fee->'coverage'); end if;
+  if fee_id is not null and fee_mode='separate' then perform private.assert_money_anchor(fee_id,fee->'coverage'); end if;
   result_payload:=public.create_transfer_transaction(private.money_child_request(request_id,'principal'),source_id,source_principal,target_id,target_gross,movement_date,movement_memo);
   transfer_id:=(result_payload->>'transaction_id')::uuid;
   select o.id into operation_id from public.personal_money_operations o where o.owner_participant_id=actor and o.request_id=record_personal_money_movement.request_id;
@@ -171,22 +174,33 @@ begin
   end if;
   -- Compensate only when the user explicitly declares the actual movement was
   -- already included in an observed balance. Never infer coverage from a date.
-  for unit in select e.account_id,pg_catalog.sum(e.amount_minor) amount
-    from public.personal_account_entries e where e.transaction_id in(transfer_id,fee_transaction) group by e.account_id loop
-    coverage:=case when unit.account_id=source_id then movement_payload->'source_coverage'
-      when unit.account_id=target_id then movement_payload->'destination_coverage' else fee->'coverage' end;
-    anchor:=private.assert_money_anchor(unit.account_id,coverage);calibration_id:=null;
-    if anchor.id is not null then
-      if (coverage->>'included_in_anchor')::boolean and unit.amount<>0 then
+  for unit in select distinct e.account_id from public.personal_account_entries e where e.transaction_id in(transfer_id,fee_transaction) loop
+    coverage_rows:='[]'::jsonb;covered_amount:=0;calibration_id:=null;
+    for component in select e.transaction_id,pg_catalog.sum(e.amount_minor) amount from public.personal_account_entries e
+      where e.account_id=unit.account_id and e.transaction_id in(transfer_id,fee_transaction) group by e.transaction_id loop
+      coverage:=case when component.transaction_id=fee_transaction and fee_mode='separate' then fee->'coverage'
+        when unit.account_id=source_id then movement_payload->'source_coverage'
+        when unit.account_id=target_id then movement_payload->'destination_coverage' else fee->'coverage' end;
+      anchor:=private.assert_money_anchor(unit.account_id,coverage);
+      if anchor.id is not null then
+        if (coverage->>'included_in_anchor')::boolean then covered_amount:=covered_amount+component.amount; end if;
+        coverage_rows:=coverage_rows||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('transaction_id',component.transaction_id,
+          'anchor_id',anchor.id,'included',(coverage->>'included_in_anchor')::boolean));
+      end if;
+    end loop;
+    if pg_catalog.jsonb_array_length(coverage_rows)>0 then
+      if covered_amount<>0 then
         select coalesce(pg_catalog.sum(e.amount_minor),0) into baseline from public.personal_account_entries e where e.account_id=unit.account_id;
-        delta:=baseline-unit.amount;
+        delta:=baseline-covered_amount;
         if delta not between -9007199254740991 and 9007199254740991 then raise exception using message='amount_overflow',errcode='P0001'; end if;
         result_payload:=public.reconcile_account_to_stated_balance(private.money_child_request(request_id,'coverage:'||unit.account_id::text),unit.account_id,delta::bigint,
-          anchor.observed_at::date,'Previously included actual movement',(select a.version from public.personal_accounts a where a.id=unit.account_id));
+          private.money_observed_on(actor,anchor.observed_at),'Previously included actual movement',(select a.version from public.personal_accounts a where a.id=unit.account_id));
         calibration_id:=(result_payload->>'transaction_id')::uuid;
       end if;
-      insert into public.personal_money_movement_coverage(owner_participant_id,movement_id,account_id,anchor_id,included_in_anchor,calibration_transaction_id)
-        values(actor,movement_id,unit.account_id,anchor.id,(coverage->>'included_in_anchor')::boolean,calibration_id);
+      insert into public.personal_money_movement_coverage(owner_participant_id,movement_id,account_id,transaction_id,anchor_id,included_in_anchor,calibration_transaction_id)
+        select actor,movement_id,unit.account_id,(item.value->>'transaction_id')::uuid,(item.value->>'anchor_id')::uuid,(item.value->>'included')::boolean,
+          case when (item.value->>'included')::boolean then calibration_id else null end
+        from pg_catalog.jsonb_array_elements(coverage_rows) as item(value);
     end if;
     perform private.assert_native_balance_range(unit.account_id);
   end loop;

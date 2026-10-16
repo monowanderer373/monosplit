@@ -2,13 +2,18 @@ import { t } from './i18n'
 import { describe, it, expect } from 'vitest'
 import { accountValuation, validateMovementAmounts, compileFundingSources, currencyGroups, parseCurrencyAccounts, parseObservedBalance, type CurrencyAccount, type BalanceAnchor } from './multicurrency'
 import { unavailableFx, type FxSnapshot } from './fx'
-import { availableMoney } from './homeView'
+import { availableMoney, accountRecordsFilter } from './homeView'
 import { buildHomeNotifications, pendingFundingGroups, resolveNotice } from './homeNotifications'
 import { noticeSnapshot } from '../test/notificationFixtures'
 const unit=(id:string,parent=id,currency='MYR',balance=10000):CurrencyAccount=>({id,parentAccountId:parent,name:'Same name',currency,accountClass:'asset',accountType:'ewallet',archived:false,openingStatus:'posted',entrySumMinor:balance,version:2,parentVersion:4,displayOrder:id===parent?0:1,isDefault:false,openingBalanceAsOf:null})
 const anchor:BalanceAnchor={id:'anchor',account_id:'myr',anchor_sequence:'2',observed_at:'2026-10-16',pending_intent_ids:[],captured_entry_ids:[]}
 const rates:FxSnapshot={...unavailableFx,id:'snapshot',status:'cached',rates:{VND:{currency:'VND',quote:'MYR',direction:'MYR-per-foreign',numerator:'0.00018',denominator:'1',rateDate:'2026-10-15',fetchedAt:'2026-10-16T00:00:00Z',provider:'Frankfurter'}}}
 describe('native currency units and display-only valuations',()=>{
+ it('keeps archived, deleted and unknown record scopes explicit, while grouping a selected child under its real parent',()=>{
+  const accounts=[{...unit('old'),archived:true},unit('vnd','old','VND')]
+  expect(accountRecordsFilter(accounts,'old')).toBe('old');expect(accountRecordsFilter(accounts,'deleted')).toBe('deleted');expect(accountRecordsFilter(accounts,'vnd')).toBe('old')
+  expect(accountValuation([accounts[0]],unavailableFx).minor).toBeNull();expect(accountValuation([accounts[0]],unavailableFx,true).minor).toBe(10000n)
+ })
  it('retains exact display aggregates above one account bound and never reports all-unknown pockets as zero',()=>{
   expect(availableMoney([unit('large','large','MYR',Number.MAX_SAFE_INTEGER),unit('small')],'all')[0]).toMatchObject({amountMinor:null,amountMinorExact:'9007199254750991'})
   expect(availableMoney([{...unit('u1'),openingStatus:'unknown'},{...unit('u2'),openingStatus:'unknown'}],'all')[0]).toMatchObject({amountMinor:null,unknownOpeningCount:2})
@@ -40,7 +45,8 @@ describe('native currency units and display-only valuations',()=>{
  it('requires explicit latest-anchor coverage and immutable current versions for every leg',()=>{
   const accounts=[unit('myr')],draft={key:'a',accountId:'myr',amount:'16.20',coverage:'' as const}
   expect(()=>compileFundingSources([draft],accounts,[anchor])).toThrow('funding_coverage_required')
-  expect(compileFundingSources([{...draft,coverage:'included'}],accounts,[anchor])).toEqual([{account_id:'myr',version:2,parent_version:4,amount_minor:1620,anchor_id:'anchor',included_in_anchor:true}])
+  expect(compileFundingSources([{...draft,coverage:'included',coverageAnchorId:anchor.id}],accounts,[anchor])).toEqual([{account_id:'myr',version:2,parent_version:4,amount_minor:1620,anchor_id:'anchor',included_in_anchor:true}])
+  expect(()=>compileFundingSources([{...draft,coverage:'included',coverageAnchorId:'superseded-anchor'}],accounts,[anchor])).toThrow('funding_coverage_required')
   expect(()=>compileFundingSources([draft,draft],accounts,[])).toThrow('invalid_funding_bundle')
   expect(()=>compileFundingSources([draft],[{...accounts[0],archived:true}],[])).toThrow('personal_account_archived')
  })

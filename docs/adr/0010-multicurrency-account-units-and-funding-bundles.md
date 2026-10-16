@@ -69,6 +69,14 @@ not a canonical consumption expense. Included fees split the native containing
 leg internally, not an extra deduction: total150 with fee2 remains −150. Separate
 fees use an explicitly selected real unit and additional native debit. A linked
 canonical fee contributes to spending once through existing expense authority.
+Balance coverage is recorded per immutable journal component. A separate actual
+fee from the same currency unit can have different inclusion from its principal.
+The command sums only explicitly covered native components and creates one linked
+calibration per unit, avoiding both mixed-currency arithmetic and intermediate
+range/order errors. Included source/target fees share their containing physical
+leg's coverage. A coverage choice in the app is pinned to the observed anchor ID;
+a refreshed anchor requires a new explicit choice.
+
 Later itemisation of an already observed fee is classification only and must
 prevent ordinary funding from taking that fee again. Reversal/correction is an
 explicit atomic append operation, never mutation or fake Undo of accepted facts.
