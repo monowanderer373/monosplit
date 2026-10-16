@@ -48,7 +48,7 @@ The table maps requirements to implementation/tests. It does **not** declare eve
 | C21 | VerificationList waits for receipt and fresh authority before selecting next; NOTICE/REAL clear next actual fields |
 | C22 | HOOK frozen original request after lost response/failed refresh; NOTICE unknown commit/read retry; DB idempotency |
 | C23 | Original resolver reads current state; NOTICE handled/withdrawn/no-visibility; real existing notification backend suite |
-| C24 | Current account/parent versions and archive guards; U compiled-source archive rejection; DB original archive tests |
+| C24 | Current account/parent versions and archive guards; U compiled-source archive rejection; DB parent→child archive/stale native source/history preservation |
 | C25 | FundingSources clears actual amount/coverage on source switch; movement selectors clear incompatible amounts |
 | C26 | DB actual same-parent FX legs, no canonical principal expense; UI exchange payload; REAL native final balances |
 | C27 | DB same-unit transfer conservation and rejection of unclassified missing principal |
@@ -65,7 +65,7 @@ The table maps requirements to implementation/tests. It does **not** declare eve
 | C38 | Original transactional correction/version authority retained; full existing shared/change pgTAP/browser regression |
 | C39 | Original cancellation/receipt semantics; bundle reversal leaves canonical expense untouched; movement reversal cancels only linked fee through original command |
 | C40 | DB owner/other/anon grants and RLS; original complete financial permission suites |
-| C41 | HOOK invalidates late identity/target callbacks; original notification preflight/frozen JWT guards |
+| C41 | HOOK invalidates late identity/target callbacks; original notification preflight/frozen JWT guards; NOTICE held read then explicit dismiss prevents late reopening |
 | C42 | AccountsPage unknown movement kind unavailable; existing safe typed notification/login destinations; encoded internal parameters |
 | C43 | UI movement conceal retains draft, NOTICE financial review gate, ExpenseActionSheet unit excludes DOM/ARIA/input values |
 | C44 | Original identity-scoped notification origin; NOTICE Back/Escape/focus; deleted rows safe origin fallback |
@@ -73,13 +73,13 @@ The table maps requirements to implementation/tests. It does **not** declare eve
 | C46 | Central account reader exposes native IDs to original cash-leg consumers; all original recurring/installment/settlement/refund suites; DB real child refund |
 | C47 | UniversalQuickAdd offline unit and original outbox journeys; HOOK same command recovery; opaque receipt metadata, locked absent-request fences after reload, no fake local posted balance |
 | C48 | Real production module graph plus harness suites; retained strict 4-column notification widths/64px row/centered dialog geometry |
-| C49 | UI native account 320/360/390/430 ×100/125/150/200 root text; NOTICE long labels/keyboard-height/safe-inset simulations. Desktop/other form screenshots pending |
+| C49 | UI native account 320/360/390/430 ×100/125/150/200 root text; NOTICE long labels/keyboard-height/safe-inset simulations. Additional six-case long payment/movement/management form matrix (narrow200% and desktop) passed after the direct-link dialog CSS repair; final complete run pending |
 | C50 | DB old default-currency client reads/posts still valid; historical fixture upgrade; actual retained production PWA update pending |
 | C51 | Strict schema-version parser and normal online unavailable save gate; QuickAdd unit; no legacy write fallback |
 | C52 | U display-only rational valuation and unchanged original input; UI FX missing/native preservation; normal shared persistent provider snapshot |
 | C53 | DB exact request replay/fingerprint conflict; RACE overlapping same-request both sessions →one complete bundle |
 | C54 | RACE two request IDs on same current target →one result/one stale rejection; current native versions prevent lost updates |
-| C55 | Original allow-negative policy unchanged; DB unknown delta/native balances; ordinary Home negative warning remains |
+| C55 | Original allow-negative policy unchanged; DB unknown delta/native balances; ordinary Home negative warning remains; new actual-native funding/movement warnings retain valid allow-negative saves |
 | C56 | NOTICE money-in-note conceal, ExpenseActionSheet monetary title/inputs gate, hidden Home descriptions and notification detail free text |
 
 ## Visual review and limitations

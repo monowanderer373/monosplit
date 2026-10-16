@@ -212,7 +212,7 @@ select is((select state from expense_participations where expense_id=(select(v->
 -- Its actual source still needs explicit coverage, never an inferred date rule.
 insert into mc values('backdated-before',jsonb_build_object('balance',pg_temp.mc_balance('wise')));
 insert into mc values('backdated-new',create_expense_with_multicurrency_funding(gen_random_uuid(),pg_temp.mc_expense(1620,'MYR','Backdated actual source after observed balance')||jsonb_build_object('occurred_on',current_date-7),jsonb_build_object('mode','deferred','primary_account_id',pg_temp.mc_id('wise'),'legs','[]'::jsonb)));
-select throws_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='backdated-new'),pg_temp.mc_legs('wise',1620,null)),'P0001','funding_coverage_required','C37 newly created backdated charge still requires explicit native coverage');
+select throws_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='backdated-new'),pg_temp.mc_legs('wise',1620,null)),'P0001','balance_coverage_required','C37 newly created backdated charge still requires explicit native coverage');
 select lives_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='backdated-new'),pg_temp.mc_legs('wise',1620,true)),'C37 owner may explicitly include a newly recorded old deduction');
 select is(pg_temp.mc_balance('wise'),(select(v->>'balance')::bigint from mc where k='backdated-before'),'C37 explicit already included backdated charge preserves the observed stock');
 
@@ -231,6 +231,14 @@ select is(get_personal_money_operation((select(v->>'request_id')::uuid from mc w
 set local "request.jwt.claims"='{"role":"authenticated","sub":"d0160000-0000-4000-8000-000000000001","is_anonymous":false}';
 select is(get_personal_money_operation((select(v->>'request_id')::uuid from mc where k='owner-recovery-receipt')),(select v->'result'from mc where k='owner-recovery-receipt'),'C40 other-owner request fence cannot retire or alter my receipt');
 
+
+-- Archive after the actual-source form captured native versions.
+insert into mc values('archive-inflight',create_expense_with_multicurrency_funding(gen_random_uuid(),pg_temp.mc_expense(1000,'EUR','Source archived on another device'),jsonb_build_object('mode','deferred','primary_account_id',pg_temp.mc_id('wise'),'legs','[]'::jsonb)));
+insert into mc values('archive-legs',pg_temp.mc_legs('eur',1000,false)),('archive-balance',jsonb_build_object('amount',pg_temp.mc_balance('eur')));
+select lives_ok(format('select archive_personal_account(gen_random_uuid(),%L,null,%s)',pg_temp.mc_id('wise'),(pg_temp.mc_unit('wise')->>'version')::integer),'C24 original parent archive remains available');
+select ok((pg_temp.mc_unit('eur')->>'archived_at')is not null,'C24 parent archive propagates to its explicit native currency units');
+select throws_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='archive-inflight'),(select v from mc where k='archive-legs')),'P0001','personal_account_archived','C24 stale native source form cannot post after parent archive');
+select is(pg_temp.mc_balance('eur'),(select(v->>'amount')::bigint from mc where k='archive-balance'),'C24 archive preserves native history and failed stale completion debits nothing');
 
 set constraints all immediate;
 select * from finish();

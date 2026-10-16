@@ -1,7 +1,7 @@
 import AmountInput from '../AmountInput'
 import { useT } from '../../lib/i18n'
 import { generateId } from '../../lib/id'
-import { formatMinorAmount } from '../../lib/money'
+import { formatMinorAmount, parseMajorAmount } from '../../lib/money'
 import { useStore } from '../../store/useStore'
 import { localeForLang } from '../../lib/locale'
 import { latestAnchor, type BalanceAnchor, type CurrencyAccount, type SourceDraft } from '../../lib/multicurrency'
@@ -12,6 +12,10 @@ export default function FundingSources({accounts,anchors,sources,onChange,busy=f
   return <div className="ttmc-module ttmc-sources">
     {sources.map((source,index)=>{
       const unit=accounts.find(a=>a.id===source.accountId),anchor=unit?latestAnchor(anchors,unit.id):null
+      let negative=false
+      if(unit?.accountClass==='asset'&&unit.openingStatus==='posted'&&(!anchor||source.coverageAnchorId===anchor.id&&!!source.coverage)){
+        try{negative=BigInt(unit.entrySumMinor)-(anchor&&source.coverage==='included'?0n:BigInt(parseMajorAmount(source.amount,unit.currency)))<0n}catch{/* No projection from an incomplete actual amount. */}
+      }
       return <fieldset className="ttmc-paper" key={source.key} disabled={busy}>
         <label>{t('mc.funding.source')}<select value={source.accountId} onChange={e=>change(index,{accountId:e.target.value,amount:'',coverage:'',coverageAnchorId:null})}>
           <option value="">{t('mc.funding.chooseBalance')}</option>
@@ -19,6 +23,7 @@ export default function FundingSources({accounts,anchors,sources,onChange,busy=f
         </select></label>
         {unit?<p className="ttmc-selected-unit" aria-hidden="true">{unit.name} · {unit.currency}</p>:null}
         {unit?<label>{t('mc.funding.actual',{currency:unit.currency})}<AmountInput value={source.amount} onValueChange={amount=>change(index,{amount})} inputMode="decimal" /></label>:null}
+        {negative?<p role="status">{t('mc.negativeBalance')}</p>:null}
         {anchor?<fieldset className="ttmc-coverage"><legend>{t('mc.verify.coverage')}</legend><p>{t('mc.account.asOf')} · {new Intl.DateTimeFormat(localeForLang(lang),{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(anchor.observed_at))}{unit&&anchor.observed_balance_minor!=null?` · ${formatMinorAmount(Number(anchor.observed_balance_minor),unit.currency)}`:''}</p><p>{t('mc.coverageHelp')}</p>
           <select aria-label={t('mc.verify.coverage')} value={source.coverageAnchorId===anchor.id?source.coverage:''} onChange={e=>change(index,{coverage:e.target.value as SourceDraft['coverage'],coverageAnchorId:anchor.id})}>
             <option value="">{t('notice.pick')}</option><option value="included">{t('mc.verify.included')}</option><option value="excluded">{t('mc.verify.notIncluded')}</option>

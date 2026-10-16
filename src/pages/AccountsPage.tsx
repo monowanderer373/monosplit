@@ -11,7 +11,7 @@ import { currencyGroups, latestAnchor, parseObservedBalance, validateMovementAmo
 import { formatMinorAmount, parseMajorAmount } from '../lib/money'
 import { CURRENCIES } from '../lib/currency'
 import { localCalendarDate } from '../lib/homeView'
-import { HomeSheet } from '../components/home/HomeScreen'
+import MoneyDialog from '../components/accounts/MoneyDialog'
 import AccountBalance, { NativeBalances } from '../components/accounts/AccountBalance'
 import AmountInput from '../components/AmountInput'
 import FundingBundleForm from '../components/accounts/FundingBundleForm'
@@ -65,9 +65,9 @@ function AccountWorkspace({identity,owner,timezone,verify,manage}:{identity:stri
     {!group.parent.archived?<button className="ttmc-add-currency" onClick={()=>setDialog('currency')}>+ {t('mc.account.addCurrency')}</button>:null}
     {group.units.map(unit=><button type="button" className="ttmc-currency-row" disabled={unit.archived} key={unit.id} onClick={()=>setDialog(unit.id)}><span className="ttmc-currency-icon" aria-hidden="true">{unit.currency[0]}</span><span><strong>{unit.currency}</strong>{unit.openingStatus==='unknown'?<small>{t('mc.account.balanceUnknown')}</small>:null}</span><strong>{hidden?'••••':unit.openingStatus==='posted'?formatMinorAmount(unit.entrySumMinor,unit.currency):t('mc.account.setBalance')}</strong><span aria-hidden="true">›</span></button>)}
    </section>}
-   {dialog?<HomeSheet title={t(dialog==='currency'?'mc.account.addCurrency':'mc.account.setBalance')} onClose={()=>setDialog(null)} testId="account-currency-dialog" presentation="dialog" className="ttmc-dialog">
+   {dialog?<MoneyDialog title={t(dialog==='currency'?'mc.account.addCurrency':'mc.account.setBalance')} onClose={()=>setDialog(null)} testId="account-currency-dialog">
     {dialog==='currency'?<AddCurrency timezone={timezone} hidden={hidden} onReveal={()=>setHomeUi({balanceHidden:false})} parent={group.parent} units={group.units} identity={identity} onSaved={async guard=>{await refresh(guard);guard();setDialog(null)}}/>:current?<SetBalance hidden={hidden} onReveal={()=>setHomeUi({balanceHidden:false})} key={current.id} unit={current} identity={identity} onSaved={async guard=>{await refresh(guard);guard();setDialog(null)}}/>:null}
-   </HomeSheet>:null}
+   </MoneyDialog>:null}
   </>:null}
  </main>
 }
@@ -131,12 +131,24 @@ function MovementForm({accounts,anchors,identity,kind,initialParent,onSaved,hidd
  const action=useMoneyAction(identity,`move:${kind}`)
  const coverage=(unit:CurrencyAccount,value:string)=>{const anchor=latestAnchor(anchors,unit.id);if(anchor&&!['included','excluded'].some(choice=>value===anchor.id+':'+choice))throw new Error('funding_coverage_required');return {anchor_id:anchor?.id??null,included_in_anchor:anchor?value===anchor.id+':included':null}}
  const payload=()=>{
-  if(!source||!destination||source.id===destination.id||kind==='exchange'&&(source.parentAccountId!==destination.parentAccountId||source.currency===destination.currency)||kind==='transfer'&&source.parentAccountId===destination.parentAccountId)throw new Error('invalid_movement')
+  if(!date||!source||!destination||source.id===destination.id||kind==='exchange'&&(source.parentAccountId!==destination.parentAccountId||source.currency===destination.currency)||kind==='transfer'&&source.parentAccountId===destination.parentAccountId)throw new Error('invalid_movement')
   const result={kind:kind==='exchange'?'exchange':destination.accountType==='cash'?'withdrawal':'transfer',source_account_id:source.id,source_version:source.version,source_parent_version:source.parentVersion,source_total_minor:parseMajorAmount(out,source.currency),source_coverage:coverage(source,sourceCoverage),destination_account_id:destination.id,destination_version:destination.version,destination_parent_version:destination.parentVersion,destination_net_minor:parseMajorAmount(received,destination.currency),destination_coverage:coverage(destination,destinationCoverage),occurred_on:date,memo:note.trim()||null,fee:feeOpen?(()=>{if(!fee)throw new Error('invalid_fee');return {mode:feeMode,account_id:fee.id,version:fee.version,parent_version:fee.parentVersion,currency:fee.currency,amount_minor:parseMajorAmount(feeAmount,fee.currency),coverage:coverage(fee,feeMode==='separate'?feeCoverage:fee.id===source.id?sourceCoverage:destinationCoverage)}})():null}
   validateMovementAmounts(result.source_total_minor,result.destination_net_minor,source.currency,destination.currency,result.fee)
   return result
  }
- let valid=false;try{payload();valid=true}catch{/* Incomplete draft stays editable. */}
+ let preview:ReturnType<typeof payload>|null=null,validation='',negative=false
+ try{
+  preview=payload()
+  const deltas=new Map<string,bigint>()
+  const add=(id:string,delta:bigint,included:boolean|null)=>{if(!included)deltas.set(id,(deltas.get(id)??0n)+delta)}
+  add(preview.source_account_id,-BigInt(preview.source_total_minor),preview.source_coverage.included_in_anchor)
+  add(preview.destination_account_id,BigInt(preview.destination_net_minor),preview.destination_coverage.included_in_anchor)
+  if(preview.fee?.mode==='separate')add(preview.fee.account_id,-BigInt(preview.fee.amount_minor),preview.fee.coverage.included_in_anchor)
+  negative=[...deltas].some(([id,delta])=>{const unit=accounts.find(a=>a.id===id);return unit?.accountClass==='asset'&&unit.openingStatus==='posted'&&BigInt(unit.entrySumMinor)+delta<0n})
+ }catch(cause){
+  if(source&&destination&&out&&received&&(!feeOpen||feeAmount)){const code=(cause as Error).message;validation=code==='movement_same_currency_mismatch'?'mc.sameCurrencyMismatch':code==='invalid_fee'?'mc.invalidFee':['funding_coverage_required','invalid_movement'].includes(code)?'':'error.validAmount'}
+ }
+ const valid=!!preview
  if(hidden)return <Reveal onReveal={onReveal}/>
  return <form onSubmit={e=>{e.preventDefault();if(!valid)return;void action.run('record_personal_money_movement',{movement_payload:payload()},async(result,guard)=>{await onSaved(guard);guard();const r=result as {movement_id?:string};navigate(r.movement_id?`/accounts/movements/${r.movement_id}`:'/accounts',{replace:true})})}}>
   <label>{t('mc.move.from')}<select value={sourceId} disabled={action.busy} onChange={e=>{setSourceId(e.target.value);setDestinationId('');setOut('');setReceived('');setSourceCoverage('');setDestinationCoverage('')}}><option value="">{t('notice.pick')}</option>{eligible.map(a=><option value={a.id} key={a.id}>{a.name} · {a.currency}</option>)}</select></label>
@@ -155,6 +167,9 @@ function MovementForm({accounts,anchors,identity,kind,initialParent,onSaved,hidd
    {feeMode!=='separate'?<p>{t('mc.move.noDoubleFee')}</p>:null}
   </fieldset>:<p>{t('mc.move.feeUnknown')}</p>}
   <label>{t('mc.date')}<input type="date" value={date} disabled={action.busy} onChange={e=>setDate(e.target.value)}/></label><label>{t('mc.note')}<textarea value={note} maxLength={1000} disabled={action.busy} onChange={e=>setNote(e.target.value)}/></label>
+  {preview?<p>{source?.name} · {formatMinorAmount(preview.source_total_minor,source!.currency)} → {destination?.name} · {formatMinorAmount(preview.destination_net_minor,destination!.currency)}</p>:null}
+  {negative?<p role="status">{t('mc.negativeBalance')}</p>:null}
+  {validation?<p role="alert">{t(validation as 'mc.sameCurrencyMismatch'|'mc.invalidFee'|'error.validAmount')}</p>:null}
   <MoneyFailure action={action}/><button className="ttmc-primary" disabled={!valid||action.busy}>{t(action.busy?'mc.common.saving':kind==='exchange'?'mc.move.recordExchange':destination?.accountType==='cash'?'mc.move.recordWithdrawal':'mc.move.recordTransfer')}</button>
  </form>
 }
@@ -183,9 +198,9 @@ function VerificationList({snapshot,identity,parent,hidden,onReveal,onRefresh}:{
  return <>
   <p>{t('mc.verify.notDeducted')}</p>
   {!ids.length?<p role="status">{t(saved?'mc.verify.done':'mc.state.empty')}</p>:<section className="ttmc-paper"><h2>{t('mc.verify.choose')}</h2>{ids.map(id=>{const funding=snapshot.funding.find(f=>f.id===id),e=snapshot.expenses.find(e=>e.id===funding?.expense_id);return <button type="button" key={id} onClick={()=>select(id)}>{hidden?'••••':e?.description||e?.category||t('mc.verify.single')} · {e?.occurredOn}</button>})}</section>}
-  {activeId&&row&&expense&&ids.includes(activeId)?<HomeSheet key={activeId} title={t('mc.verify.single')} onClose={()=>select('')} testId="verify-deduction" presentation="dialog" className="ttmc-dialog">
+  {activeId&&row&&expense&&ids.includes(activeId)?<MoneyDialog key={activeId} title={t('mc.verify.single')} onClose={()=>select('')} testId="verify-deduction">
    <p>{hidden?'••••':expense.description||expense.category} · {expense.occurredOn}</p><FundingBundleForm hidden={hidden} onReveal={onReveal} key={`${row.id}:${row.version}`} row={row} snapshot={snapshot} identity={identity} busy={busy||failed} onSubmit={perform} onReview={work=>perform(work,false)} next={ids.length>1}/><Failure failed={failed}/>{failed?<button type="button" onClick={()=>void perform(async guard=>{await onRefresh(guard)},false)}>{t('mc.state.latest')}</button>:null}
-  </HomeSheet>:null}
+  </MoneyDialog>:null}
  </>
 }
 type RecordedMovement={id:string;version:number;kind:string;source_account_id:string;destination_account_id:string;source_total_minor:number|string;destination_net_minor:number|string;source_currency:string;destination_currency:string;occurred_on:string;memo:string|null;reversed_operation_id:string|null}
