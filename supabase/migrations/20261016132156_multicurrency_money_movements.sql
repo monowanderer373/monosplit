@@ -251,7 +251,7 @@ create or replace function public.reverse_personal_money_movement(
 )
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare actor uuid:=private.require_personal_actor(); result_payload jsonb; movement public.personal_money_movements%rowtype;
-  fee public.personal_money_movement_fees%rowtype; operation_id uuid; expense_version integer;
+  fee public.personal_money_movement_fees%rowtype; reversal_operation_id uuid; expense_version integer;
 begin
   result_payload:=private.begin_money_operation(actor,request_id,'reverse_movement',pg_catalog.jsonb_build_object(
     'movement',target_movement_id,'version',expected_version,'date',occurred_on,'memo',transaction_memo));
@@ -259,8 +259,8 @@ begin
   select * into movement from public.personal_money_movements m where m.id=target_movement_id and m.owner_participant_id=actor for update;
   if movement.id is null then raise exception using message='movement_not_found',errcode='P0001'; end if;
   if movement.version is distinct from expected_version or movement.reversed_operation_id is not null then raise exception using message='version_conflict',errcode='P0001'; end if;
-  select o.id into operation_id from public.personal_money_operations o where o.owner_participant_id=actor and o.request_id=reverse_personal_money_movement.request_id;
-  update public.personal_money_movements m set reversed_operation_id=reverse_personal_money_movement.operation_id,version=m.version+1 where m.id=movement.id;
+  select o.id into reversal_operation_id from public.personal_money_operations o where o.owner_participant_id=actor and o.request_id=reverse_personal_money_movement.request_id;
+  update public.personal_money_movements m set reversed_operation_id=reversal_operation_id,version=m.version+1 where m.id=movement.id;
   result_payload:=public.reverse_personal_account_transaction(private.money_child_request(request_id,'principal'),movement.transfer_transaction_id,occurred_on,transaction_memo);
   select * into fee from public.personal_money_movement_fees f where f.movement_id=movement.id;
   if fee.id is not null then
