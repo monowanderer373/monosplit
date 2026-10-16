@@ -2,11 +2,17 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMoneyAction } from './useMoneyAction'
-const mock=vi.hoisted(()=>({operation:vi.fn()}))
-vi.mock('../lib/moneyOperation',()=>({moneyOperation:mock.operation,acknowledgeMoneyOperation:vi.fn()}))
+const mock=vi.hoisted(()=>({operation:vi.fn(),ack:vi.fn()}))
+vi.mock('../lib/moneyOperation',()=>({moneyOperation:mock.operation,acknowledgeMoneyOperation:mock.ack}))
 afterEach(cleanup)
-beforeEach(()=>{mock.operation.mockReset()})
+beforeEach(()=>{mock.operation.mockReset();mock.ack.mockReset()})
 describe('money command recovery and identity leases',()=>{
+ it('acknowledges a refreshed success even when its completion callback closes its own dialog',async()=>{
+  const {result,unmount}=renderHook(()=>useMoneyAction('owner','movement'))
+  mock.operation.mockResolvedValue({movement_id:'saved'})
+  await act(async()=>{await result.current.run('record',{amount:150},()=>unmount())})
+  expect(mock.ack).toHaveBeenCalledWith('owner','movement')
+ })
  it('treats a structured connection loss as uncertain rather than a rejected transaction',async()=>{
   const {result}=renderHook(()=>useMoneyAction('owner','movement'))
   mock.operation.mockRejectedValueOnce({code:'08006',message:'connection failure'})

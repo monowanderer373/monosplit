@@ -128,9 +128,11 @@ export function noticeReference(notice:HomeNotification,visible:readonly HomeNot
 
 /** Group only the owner's unresolved funding intents, never unrelated financial reviews. */
 export function pendingFundingGroups(s:NoticeSnapshot){
- const groups=new Map<string,{parentId:string|null;intentIds:string[]}>()
- for(const row of s.funding){
-  if(row.status!=='pending'||s.expenses.find(e=>e.id===row.expense_id)?.status==='voided')continue
+ const groups=new Map<string,{parentId:string|null;intentIds:string[]}>(),expenses=new Map(s.expenses.map(e=>[e.id,e]))
+ const ordered=[...s.funding].sort((a,b)=>(expenses.get(a.expense_id??'')?.occurredOn??'9999-12-31').localeCompare(expenses.get(b.expense_id??'')?.occurredOn??'9999-12-31')||a.id.localeCompare(b.id))
+ for(const row of ordered){
+  const expense=expenses.get(row.expense_id??'')
+  if(row.status!=='pending'||!expense||expense.status!=='active')continue
   const bundle=s.money?.bundles.find(b=>b.funding_intent_id===row.id)
   const unit=s.accounts.find(a=>a.id===row.account_id)
   const parentId=bundle?bundle.primary_account_id:unit?.parentAccountId??unit?.id??null,key=parentId??'unassigned'

@@ -24,8 +24,10 @@ export function useMoneyAction(identity:string,scope:string) {
     try {
       const result=await moneyOperation(name,command,identity,scope,guard)
       receiptReturned=true
-      guard();await after(result,guard);guard()
+      guard();await after(result,guard)
+      // A successful refreshed callback may close/unmount its own dialog.
       acknowledgeMoneyOperation(identity,scope)
+      guard()
       uncertain.current=false;attempt.current=null
       setStatus({context,busy:false,error:false,uncertain:false})
     }catch(cause){

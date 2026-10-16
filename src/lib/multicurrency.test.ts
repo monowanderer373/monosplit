@@ -63,6 +63,15 @@ describe('native currency units and display-only valuations',()=>{
  })
 })
 describe('parent funding reminders',()=>{
+ it('orders the current group by source calendar day then stable intent ID and omits unavailable expense targets',()=>{
+  const snapshot=noticeSnapshot();snapshot.money={bundles:snapshot.funding.map(f=>({funding_intent_id:f.id,primary_account_id:'bank',confirmed_operation_id:null})),anchors:[]}
+  snapshot.expenses[0].occurredOn='2026-10-15';snapshot.expenses[1].occurredOn='2026-10-14'
+  expect(pendingFundingGroups(snapshot)[0].intentIds).toEqual(['fund-2','fund-1'])
+  snapshot.expenses[0].occurredOn='2026-10-14';snapshot.funding.reverse()
+  expect(pendingFundingGroups(snapshot)[0].intentIds).toEqual(['fund-1','fund-2'])
+  snapshot.expenses.shift();expect(pendingFundingGroups(snapshot)[0].intentIds).toEqual(['fund-2'])
+  expect(resolveNotice(snapshot,{kind:'funding',id:'fund-1'},[]).state).toBe('unavailable')
+ })
  it('shows three grouped deductions plus an independent shared review as four distinct tasks in two rows',()=>{
   const snapshot=noticeSnapshot(),third=noticeExpense('third')
   snapshot.expenses.push(third);snapshot.funding.push(funding('third-funding',third.id))

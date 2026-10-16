@@ -25,7 +25,8 @@ type Props={reviewVersion?:number;details?:boolean;timezone?:string;sourceVersio
 export default function NotificationTarget(props:Props){
  const lang=useStore(s=>s.lang),t=useT(),navigate=useNavigate(),hidden=useStore(s=>s.homeUi.balanceHidden),setHomeUi=useStore(s=>s.setHomeUi)
  const [fundingNeedsAmount,setFundingNeedsAmount]=useState(false)
- const key=noticeKey(props.target),[reload,setReload]=useState(0),[result,setResult]=useState<{key:string;owner:string;value:NoticeResolution}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[checking,setChecking]=useState(true)
+ const key=noticeKey(props.target),[reload,setReload]=useState(0),[result,setResult]=useState<{key:string;owner:string;value:NoticeResolution}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loadingSnapshot,setChecking]=useState(true)
+ const checking=loadingSnapshot||props.sourceVersion?.startsWith('loading:')===true
  const actionEpoch=useRef(0)
  const lock=useRef(false),epoch=useRef(0),returnFocus=useRef<HTMLElement|null>(null)
  const viewed=useEffectEvent((n:HomeNotification)=>props.onViewed(n)),changed=props.onChange

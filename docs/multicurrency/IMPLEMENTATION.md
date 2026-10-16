@@ -45,8 +45,8 @@ The table maps requirements to implementation/tests. It does **not** declare eve
 | C18 | Fresh single group resolves to original exact centered target; NOTICE single-route test |
 | C19 | useOpenHomeNotice fresh zero/one; NOTICE stale2→0/1; no false user-confirmed empty state |
 | C20 | One primary group per intent, U grouping; multiple posted legs do not generate pending rows |
-| C21 | VerificationList waits for receipt and fresh authority before selecting next; NOTICE/REAL clear next actual fields |
-| C22 | HOOK frozen original request after lost response/failed refresh; NOTICE unknown commit/read retry; DB idempotency |
+| C21 | VerificationList uses oldest source-calendar/ID order and waits for receipt and fresh authority before selecting next; NOTICE/REAL clear next actual fields |
+| C22 | HOOK frozen original request after lost response/failed refresh and successful self-closing acknowledgement; NOTICE unknown commit/read retry; DB idempotency |
 | C23 | Original resolver reads current state; NOTICE handled/withdrawn/no-visibility; real existing notification backend suite |
 | C24 | Current account/parent versions and archive guards; U compiled-source archive rejection; DB parent→child archive/stale native source/history preservation |
 | C25 | FundingSources clears actual amount/coverage on source switch; movement selectors clear incompatible amounts |
@@ -65,7 +65,7 @@ The table maps requirements to implementation/tests. It does **not** declare eve
 | C38 | Original transactional correction/version authority retained; full existing shared/change pgTAP/browser regression |
 | C39 | Original cancellation/receipt semantics; bundle reversal leaves canonical expense untouched; movement reversal cancels only linked fee through original command |
 | C40 | DB owner/other/anon grants and RLS; original complete financial permission suites |
-| C41 | HOOK invalidates late identity/target callbacks; original notification preflight/frozen JWT guards; NOTICE held read then explicit dismiss prevents late reopening |
+| C41 | HOOK invalidates late identity/target callbacks; original notification preflight/frozen JWT guards; initial source-read action gate/unchanged snapshot stability; NOTICE held read then explicit dismiss prevents late reopening |
 | C42 | AccountsPage unknown movement kind unavailable; existing safe typed notification/login destinations; encoded internal parameters |
 | C43 | UI movement conceal retains draft, NOTICE financial review gate, ExpenseActionSheet unit excludes DOM/ARIA/input values |
 | C44 | Original identity-scoped notification origin; NOTICE Back/Escape/focus; deleted rows safe origin fallback |

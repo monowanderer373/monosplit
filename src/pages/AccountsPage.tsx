@@ -14,6 +14,8 @@ import { localCalendarDate } from '../lib/homeView'
 import MoneyDialog from '../components/accounts/MoneyDialog'
 import AccountBalance, { NativeBalances } from '../components/accounts/AccountBalance'
 import AmountInput from '../components/AmountInput'
+import QuickIcon from '../components/QuickIcon'
+import { formatDate } from '../lib/locale'
 import FundingBundleForm from '../components/accounts/FundingBundleForm'
 import { supabase } from '../lib/supabase'
 import { loadMovementHistory, type MovementFee } from '../lib/multicurrencyRepository'
@@ -174,7 +176,7 @@ function MovementForm({accounts,anchors,identity,kind,initialParent,onSaved,hidd
  </form>
 }
 function VerificationList({snapshot,identity,parent,hidden,onReveal,onRefresh}:{snapshot:NoticeSnapshot;identity:string;parent:string;hidden:boolean;onReveal:()=>void;onRefresh:(guard:()=>void)=>Promise<NoticeSnapshot>}){
- const t=useT(),[selected,setSelected]=useState<string|null>(null),[busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[saved,setSaved]=useState(false)
+ const t=useT(),lang=useStore(s=>s.lang),[selected,setSelected]=useState<string|null>(null),[busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[saved,setSaved]=useState(false)
  const groups=pendingFundingGroups(snapshot),ids=groups.filter(g=>parent==='all'||(g.parentId??'unassigned')===parent).flatMap(g=>g.intentIds)
  const activeId=selected===null&&ids.length===1?ids[0]:selected??'',row=snapshot.funding.find(r=>r.id===activeId),expense=snapshot.expenses.find(e=>e.id===row?.expense_id)
  const epoch=useRef(0),lock=useRef(false)
@@ -196,8 +198,16 @@ function VerificationList({snapshot,identity,parent,hidden,onReveal,onRefresh}:{
   finally{if(token===epoch.current){lock.current=false;setBusy(false)}}
  }
  return <>
-  <p>{t('mc.verify.notDeducted')}</p>
-  {!ids.length?<p role="status">{t(saved?'mc.verify.done':'mc.state.empty')}</p>:<section className="ttmc-paper"><h2>{t('mc.verify.choose')}</h2>{ids.map(id=>{const funding=snapshot.funding.find(f=>f.id===id),e=snapshot.expenses.find(e=>e.id===funding?.expense_id);return <button type="button" key={id} onClick={()=>select(id)}>{hidden?'••••':e?.description||e?.category||t('mc.verify.single')} · {e?.occurredOn}</button>})}</section>}
+  {ids.length>0?<p>{t('mc.verify.notDeducted')}</p>:null}
+  <p className="ttmc-pending-band">{parent==='all'?t('mc.verify.count',{count:ids.length}):t('mc.verify.group',{account:snapshot.accounts.find(a=>a.id===parent)?.name??t('mc.verify.unassigned'),count:ids.length})}</p>
+  {!ids.length?<p role="status">{t(saved?'mc.verify.done':'mc.state.empty')}</p>:<section className="ttmc-verification-list"><h2>{t('mc.verify.choose')}</h2><ul>{ids.map(id=>{
+   const funding=snapshot.funding.find(f=>f.id===id),e=snapshot.expenses.find(e=>e.id===funding?.expense_id),mine=e?.participations.find(p=>p.participantId===snapshot.owner&&p.state==='accepted'),paid=mine?e?.payerContributions.find(p=>p.expenseParticipationId===mine.id)?.amountMinor:undefined
+   return <li key={id}><button type="button" className="ttmc-verify-row" onClick={()=>select(id)}>
+    <span className="ttmc-verify-icon" aria-hidden="true"><QuickIcon name={({Drinks:'Drink',Transportation:'Transport',transport:'Transport'}as Record<string,string>)[e?.category??'']??e?.category??'Bills'} size={22}/></span>
+    <span className="ttmc-verify-copy"><strong>{hidden?'••••':e?.description||e?.category||t('mc.verify.single')}</strong><span>{e?.occurredOn?<time dateTime={e.occurredOn}>{formatDate(e.occurredOn,lang)}</time>:null} · {t('mc.verify.unknown')}</span></span>
+    <strong className="ttmc-verify-amount"><span className="home-sr">{t('mc.funding.yourPayment')} · </span>{hidden?'••••':paid!=null&&e?formatMinorAmount(paid,e.currency):t('mc.verify.unknown')}</strong><span aria-hidden="true">›</span>
+   </button></li>
+  })}</ul></section>}
   {activeId&&row&&expense&&ids.includes(activeId)?<MoneyDialog key={activeId} title={t('mc.verify.single')} onClose={()=>select('')} testId="verify-deduction">
    <p>{hidden?'••••':expense.description||expense.category} · {expense.occurredOn}</p><FundingBundleForm hidden={hidden} onReveal={onReveal} key={`${row.id}:${row.version}`} row={row} snapshot={snapshot} identity={identity} busy={busy||failed} onSubmit={perform} onReview={work=>perform(work,false)} next={ids.length>1}/><Failure failed={failed}/>{failed?<button type="button" onClick={()=>void perform(async guard=>{await onRefresh(guard)},false)}>{t('mc.state.latest')}</button>:null}
   </MoneyDialog>:null}

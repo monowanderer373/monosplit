@@ -19,7 +19,7 @@ export function useHomeNotifications(identity:string|null,owner:string|null,outb
   const refresh=useCallback(async()=>{
     if(!owner)return
     const token=++generation.current
-    try{const next=await loadNotificationSnapshot(owner);if(token===generation.current&&current.current===owner)setResult({owner,data:next,status:'ready',revision:token})}
+    try{const next=await loadNotificationSnapshot(owner);if(token===generation.current&&current.current===owner)setResult(old=>{const same=old.owner===owner&&JSON.stringify(old.data)===JSON.stringify(next);return {owner,data:same?old.data:next,status:'ready',revision:same?old.revision:token}})}
     catch{if(token===generation.current&&current.current===owner)setResult(old=>({owner,data:old.owner===owner?old.data:null,status:'error',revision:token}))}
   },[owner])
   useEffect(()=>{

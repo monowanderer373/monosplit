@@ -40,3 +40,18 @@ test('known negative-result warnings preserve the original allow-negative paymen
  await page.goto('/accounts/move/exchange?from=bank');await page.getByRole('combobox',{name:'To',exact:true}).selectOption('vnd-unit');await page.getByLabel(/Total deducted/).fill('150');await page.getByLabel(/You received/).fill('900000');await expect(page.getByRole('status')).toContainText('recorded cash balance below zero');await expect(page.getByRole('button',{name:'Record exchange',exact:true})).toBeEnabled()
  await page.goto('/accounts/verify?account=bank');await expect(page.getByRole('heading',{name:'Verify deductions',exact:true})).toBeVisible();await page.getByRole('button',{name:/Train ticket/}).click();const dialog=page.getByTestId('verify-deduction');await dialog.getByRole('combobox',{name:'Payment source',exact:true}).selectOption('bank');await dialog.getByRole('textbox').fill('6000');await dialog.getByRole('checkbox').check();await expect(dialog.getByRole('status')).toContainText('recorded cash balance below zero');await expect(dialog.getByRole('button',{name:'Confirm & next'})).toBeEnabled();expect(state.writes).toHaveLength(0)
 })
+test('a deliberately repeated identical movement after visible success creates a distinct new request',async({page})=>{
+ const state=await setupMulticurrency(page)
+ for(const index of [1,2]){
+  await page.goto('/accounts/move/exchange?from=bank');await page.getByRole('combobox',{name:'To',exact:true}).selectOption('vnd-unit');await page.getByLabel(/Total deducted/).fill('150');await page.getByLabel(/You received/).fill('900000');await page.getByRole('button',{name:'Record exchange',exact:true}).click();await expect(page).toHaveURL(new RegExp('accounts/movements/movement-'+index+'$'));await expect(page.getByRole('heading',{name:'Movement details',exact:true})).toBeVisible()
+ }
+ expect(state.writes).toHaveLength(2);expect(state.writes[0].request_id).not.toBe(state.writes[1].request_id)
+ expect(state.entries.filter(entry=>entry.account_id==='bank').reduce((sum,entry)=>sum+entry.amount_minor,0)).toBe(970000)
+})
+test('finishing the last pending deduction removes the no-deduction-yet message after authoritative refresh',async({page})=>{
+ const state=await setupMulticurrency(page);await page.goto('/accounts/verify?account=bank');await expect(page.getByRole('heading',{name:'Verify deductions',exact:true})).toBeVisible();await page.getByRole('button',{name:/Train ticket/}).click();const dialog=page.getByTestId('verify-deduction')
+ for(const next of [true,false]){
+  await expect(dialog.getByRole('textbox')).toHaveCount(0);await dialog.getByRole('combobox',{name:'Payment source',exact:true}).selectOption('bank');await dialog.getByRole('textbox').fill('6000');await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:next?'Confirm & next':'Confirm & finish',exact:true}).click()
+ }
+ await expect(dialog).toHaveCount(0);await expect(page.getByRole('main')).toContainText('All current items verified');await expect(page.getByRole('main')).not.toContainText('Not yet deducted from recorded balances');expect(state.writes).toHaveLength(2)
+})

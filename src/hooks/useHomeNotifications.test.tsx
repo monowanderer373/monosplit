@@ -9,6 +9,15 @@ vi.mock('../lib/supabase',()=>({supabase:null}))
 const load=vi.mocked(loadNotificationSnapshot),outbox:never[]=[]
 beforeEach(()=>{vi.resetAllMocks();localStorage.clear()});afterEach(cleanup)
 describe('identity and authority boundary for notifications',()=>{
+ it('keeps an unchanged authoritative snapshot stable without hiding real account changes',async()=>{
+  let snapshot=noticeSnapshot();load.mockImplementation(async()=>structuredClone(snapshot))
+  const hook=renderHook(()=>useHomeNotifications('identity','owner',outbox,'same'));await waitFor(()=>expect(hook.result.current.status).toBe('ready'))
+  const initial=hook.result.current.contextRevision
+  await act(async()=>{await hook.result.current.refresh()});expect(hook.result.current.contextRevision).toBe(initial)
+  snapshot=structuredClone(snapshot);snapshot.accounts[0].archived=true
+  await act(async()=>{await hook.result.current.refresh()});expect(hook.result.current.contextRevision).toBeGreaterThan(initial)
+  expect(hook.result.current.notices.some(n=>n.ref.kind==='account'&&n.ref.id===snapshot.accounts[0].id)).toBe(false)
+ })
  it('rejects a slow old identity response even after a new identity has loaded',async()=>{
   let finishOld!:(s:ReturnType<typeof noticeSnapshot>)=>void
   load.mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve}))
