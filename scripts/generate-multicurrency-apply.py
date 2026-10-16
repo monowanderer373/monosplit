@@ -39,6 +39,7 @@ for index, name in enumerate(NAMES):
 """)
 parts.append("""
  if pg_catalog.to_regprocedure('public.get_personal_multicurrency_accounts()') is null
+ or pg_catalog.to_regprocedure('public.reconcile_personal_money_operation(uuid)') is null
  or pg_catalog.to_regprocedure('public.confirm_personal_funding_bundle(uuid,uuid,integer,integer,jsonb,boolean)') is null
  or pg_catalog.to_regprocedure('public.record_personal_money_movement(uuid,jsonb)') is null
  or pg_catalog.to_regclass('public.personal_account_currencies') is null

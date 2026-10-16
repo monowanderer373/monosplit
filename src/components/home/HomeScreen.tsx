@@ -55,6 +55,7 @@ export type HomeScreenProps = {
   notificationIdentity?: string
   notificationTargetOpen?: boolean
   unreadNotifications?: ReadonlySet<string>
+  onDismissNotifications?: ()=>void
   onOpenNotification?: (notice:HomeNotification)=>void
   onRetryNotifications?: ()=>unknown
   initialAccountPanel?: 'manage'
@@ -138,14 +139,14 @@ export default function HomeScreen(props: HomeScreenProps) {
   }
 
   if (props.mode === 'travel') return <TravelHome props={{ ...props, localToday: today }}
-    notice={<AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
+    notice={<AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onDismiss={props.onDismissNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
     records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
 
   return (
     <div className="home-frame" data-density={props.density}>
       <header className="home-header" data-testid="home-header">
         <div>
-          <div className="home-title-row"><h1 className="home-title">{props.mode === 'daily' ? t('home.myDay') : t('home.modeTravel')}</h1><AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} /></div>
+          <div className="home-title-row"><h1 className="home-title">{props.mode === 'daily' ? t('home.myDay') : t('home.modeTravel')}</h1><AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onDismiss={props.onDismissNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} /></div>
           <p className="home-today">{formatDate(today, lang)}</p>
         </div>
         <ModeBookmark mode={props.mode} onChange={props.onModeChange} />

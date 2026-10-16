@@ -18,6 +18,18 @@ export async function setupNotifications(page:Page,{hidden=false,many=false,lang
   if(path.endsWith('/personal_account_balance_anchors'))return route.fulfill({json:state.snapshot.money?.anchors??[]})
   if(path.endsWith('/personal_funding_bundle_legs'))return route.fulfill({json:legs})
   if(path.endsWith('/rpc/get_personal_money_operation'))return route.fulfill({json:operations.get(route.request().postDataJSON().request_id)??null})
+  if(path.endsWith('/rpc/reconcile_personal_money_operation')){
+   const result=operations.get(route.request().postDataJSON().request_id)
+   return route.fulfill({json:result?{state:'committed',result}:{state:'not_posted'}})
+  }
+  if(path.endsWith('/rpc/review_changed_personal_funding')){
+   const body=route.request().postDataJSON(),row=state.snapshot.funding.find(f=>f.id===body.target_funding_intent_id)!
+   row.version++
+   state.snapshot.money??={bundles:[],anchors:[]}
+   state.snapshot.money.bundles.push({funding_intent_id:row.id,primary_account_id:row.account_id as string|null,confirmed_operation_id:null})
+   const result={funding_intent_id:row.id,funding_status:'pending',version:row.version};operations.set(body.request_id,result)
+   return route.fulfill({json:result})
+  }
   if(path.endsWith('/rpc/confirm_personal_funding_bundle')){
    const body=route.request().postDataJSON();state.writes.push(body)
    if(state.failWrite)return route.abort('failed')
@@ -40,8 +52,9 @@ export async function setupNotifications(page:Page,{hidden=false,many=false,lang
   if(path.endsWith('/personal_funding_intents')){
    if(state.failRead)return route.fulfill({status:503,json:{message:'Test-only unavailable',code:'test'}})
    const response=structuredClone(state.snapshot.funding)
+   const delayed=state.delayFirst>0
    if(state.delayFirst){const delay=state.delayFirst;state.delayFirst=0;await new Promise(r=>setTimeout(r,delay))}
-   return route.fulfill({json:response})
+   return route.fulfill({headers:delayed?{'x-qa-held':'1'}:{},json:response})
   }
   if(path.endsWith('/rpc/complete_pending_funding')){
    const body=route.request().postDataJSON();state.writes.push(body)

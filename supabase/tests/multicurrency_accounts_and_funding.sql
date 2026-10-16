@@ -208,6 +208,30 @@ select lives_ok(format('select confirm_personal_funding_bundle(gen_random_uuid()
 select is(pg_temp.mc_balance('wise'),(select(v#>>'{}')::bigint-6000 from mc where k='direct-before'),'C16 only60 is debited once');
 select is((select state from expense_participations where expense_id=(select(v->>'expense_id')::uuid from mc where k='direct') and participant_id<>current_participant_id()),'pending','C16 private funding does not accept another participant or expand shared authority');
 
+-- A newly created backdated charge was not in the anchor's pending-ID cutoff.
+-- Its actual source still needs explicit coverage, never an inferred date rule.
+insert into mc values('backdated-before',jsonb_build_object('balance',pg_temp.mc_balance('wise')));
+insert into mc values('backdated-new',create_expense_with_multicurrency_funding(gen_random_uuid(),pg_temp.mc_expense(1620,'MYR','Backdated actual source after observed balance')||jsonb_build_object('occurred_on',current_date-7),jsonb_build_object('mode','deferred','primary_account_id',pg_temp.mc_id('wise'),'legs','[]'::jsonb)));
+select throws_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='backdated-new'),pg_temp.mc_legs('wise',1620,null)),'P0001','funding_coverage_required','C37 newly created backdated charge still requires explicit native coverage');
+select lives_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='backdated-new'),pg_temp.mc_legs('wise',1620,true)),'C37 owner may explicitly include a newly recorded old deduction');
+select is(pg_temp.mc_balance('wise'),(select(v->>'balance')::bigint from mc where k='backdated-before'),'C37 explicit already included backdated charge preserves the observed stock');
+
+-- Recovery after close/reload never guesses whether an earlier command committed.
+insert into mc values('recovery-request',jsonb_build_object('request_id',gen_random_uuid(),'before',pg_temp.mc_balance('wise')));
+select is(reconcile_personal_money_operation((select(v->>'request_id')::uuid from mc where k='recovery-request'))->>'state','not_posted','C47 unresolved absent request is fenced without a financial posting');
+select is(reconcile_personal_money_operation((select(v->>'request_id')::uuid from mc where k='recovery-request'))->>'state','not_posted','C47 request fence is idempotent');
+select throws_ok(format('select add_personal_account_currency(%L,%L,%L,%s,null,null)',(select v->>'request_id'from mc where k='recovery-request'),pg_temp.mc_id('wise'),'JPY',(pg_temp.mc_unit('wise')->>'version')::integer),'P0001','idempotency_conflict','C47 original delayed command cannot post after its absent request was retired');
+select is(pg_temp.mc_balance('wise'),(select(v->>'before')::bigint from mc where k='recovery-request'),'C47 recovery fence preserves native balances');
+select is((reconcile_personal_money_operation((select request_id from personal_money_operations where kind='add_currency' order by created_at,id limit 1))->'result'),(select result from personal_money_operations where kind='add_currency' order by created_at,id limit 1),'C47 committed receipt is returned intact, never retired or reversed');
+select ok(not has_function_privilege('anon','public.reconcile_personal_money_operation(uuid)','EXECUTE'),'C47 recovery endpoint denies anon');
+insert into mc values('owner-recovery-receipt',(select jsonb_build_object('request_id',request_id,'result',result)from personal_money_operations where kind='add_currency'order by created_at,id limit 1));
+set local "request.jwt.claims"='{"role":"authenticated","sub":"d0160000-0000-4000-8000-000000000002","is_anonymous":false}';
+select is(reconcile_personal_money_operation((select(v->>'request_id')::uuid from mc where k='owner-recovery-receipt'))->>'state','not_posted','C40 other owner cannot recover my committed receipt through its request UUID');
+select is(get_personal_money_operation((select(v->>'request_id')::uuid from mc where k='owner-recovery-receipt'))->>'operation_not_posted','true','C40 other owner sees only its own new opaque request fence');
+set local "request.jwt.claims"='{"role":"authenticated","sub":"d0160000-0000-4000-8000-000000000001","is_anonymous":false}';
+select is(get_personal_money_operation((select(v->>'request_id')::uuid from mc where k='owner-recovery-receipt')),(select v->'result'from mc where k='owner-recovery-receipt'),'C40 other-owner request fence cannot retire or alter my receipt');
+
+
 set constraints all immediate;
 select * from finish();
 rollback;

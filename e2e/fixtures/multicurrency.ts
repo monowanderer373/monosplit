@@ -27,6 +27,7 @@ export async function setupMulticurrency(page:Page,options:{hidden?:boolean;lang
    state.entries.push({id:id+'-out',account_id:source.id,amount_minor:-p.source_total_minor,currency:source.currency},{id:id+'-in',account_id:destination.id,amount_minor:p.destination_net_minor,currency:destination.currency})
    if(p.fee)fees.push({id:id+'-fee',movement_id:id,...p.fee})
    const result={movement_id:id};state.operations.set(body.request_id,result)
+   if(state.commitThenFail)return route.abort('failed')
    return route.fulfill({json:result})
   }
   if(path.endsWith('/personal_money_movements')){

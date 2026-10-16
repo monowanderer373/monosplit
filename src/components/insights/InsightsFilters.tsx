@@ -103,7 +103,14 @@ export default function InsightsFilters({ filter, timezone, lang, update, initia
     const frame = requestAnimationFrame(() => filterRef.current?.querySelector<HTMLButtonElement>('.i-filter-button--month')?.click())
     return () => cancelAnimationFrame(frame)
   }, [initialMonthOpen])
-  const returnMonths = () => { setYears(false); requestAnimationFrame(() => yearRef.current?.focus()) }
+  const returnMonths = () => {
+    const previous=document.activeElement
+    setYears(false)
+    requestAnimationFrame(() => {
+      // Restore a removed year choice without stealing a newer keyboard focus.
+      if(document.activeElement===previous||document.activeElement===document.body)yearRef.current?.focus()
+    })
+  }
   return <>
     <div ref={filterRef} className="i-filter-row" data-layout="row">{(['month', 'scope'] as const).map(kind => <div key={kind} className={"i-field-" + kind}>
       <button type="button" className={`i-filter-button i-filter-button--${kind}`} aria-label={`${label(kind)}: ${value(kind)}`} aria-haspopup="dialog" aria-expanded={open?.kind === kind} aria-controls={open?.kind === kind ? `insights-${kind}-popover` : undefined} onClick={event => toggle(kind, event.currentTarget)}>

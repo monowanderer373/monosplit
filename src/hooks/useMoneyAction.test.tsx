@@ -3,10 +3,16 @@ import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMoneyAction } from './useMoneyAction'
 const mock=vi.hoisted(()=>({operation:vi.fn()}))
-vi.mock('../lib/moneyOperation',()=>({moneyOperation:mock.operation}))
+vi.mock('../lib/moneyOperation',()=>({moneyOperation:mock.operation,acknowledgeMoneyOperation:vi.fn()}))
 afterEach(cleanup)
 beforeEach(()=>{mock.operation.mockReset()})
 describe('money command recovery and identity leases',()=>{
+ it('treats a structured connection loss as uncertain rather than a rejected transaction',async()=>{
+  const {result}=renderHook(()=>useMoneyAction('owner','movement'))
+  mock.operation.mockRejectedValueOnce({code:'08006',message:'connection failure'})
+  await act(async()=>{await result.current.run('record',{amount:150},()=>{})})
+  expect(result.current.uncertain).toBe(true);expect(result.current.busy).toBe(true)
+ })
  it('freezes a lost-response command and checks the original attempt even if a caller supplies an edited payload',async()=>{
   const first=vi.fn(),edited=vi.fn(),{result}=renderHook(()=>useMoneyAction('owner','movement'))
   mock.operation.mockRejectedValueOnce({code:'',message:'network unavailable'}).mockResolvedValueOnce({movement_id:'committed'})

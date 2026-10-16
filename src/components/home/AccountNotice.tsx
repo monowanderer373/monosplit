@@ -7,7 +7,7 @@ import {formatDate} from '../../lib/locale'
 import {noticeCalendarDate} from '../../lib/homeNotifications'
 import {noticeRowAction,saveNoticeOrigin,takeNoticeOrigin,type NoticeOrigin} from '../../lib/notificationPresentation'
 import type {HomeNotification} from '../../lib/homeNotifications'
-export default function AccountNotice({identity,targetOpen=false,timezone='Asia/Kuala_Lumpur',notices=[],status='ready',unread=new Set<string>(),onAction,onRetry}: {identity?:string;targetOpen?:boolean;timezone?:string;notices?:readonly HomeNotification[];status?:'loading'|'ready'|'error';unread?:ReadonlySet<string>;onAction?:(notice:HomeNotification)=>void;onRetry?:()=>unknown}){
+export default function AccountNotice({identity,targetOpen=false,timezone='Asia/Kuala_Lumpur',notices=[],status='ready',unread=new Set<string>(),onAction,onRetry,onDismiss}: {identity?:string;targetOpen?:boolean;timezone?:string;notices?:readonly HomeNotification[];status?:'loading'|'ready'|'error';unread?:ReadonlySet<string>;onAction?:(notice:HomeNotification)=>void;onRetry?:()=>unknown;onDismiss?:()=>void}){
   const hidden=useStore(s=>s.homeUi.balanceHidden),lang=useStore(s=>s.lang),t=useT(),[open,setOpen]=useState(false),[tab,setTab]=useState<'tasks'|'activity'>('tasks')
   const wrapper=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLElement>(null),id=useId()
   const restore=useRef<NoticeOrigin|null>(null)
@@ -28,7 +28,7 @@ export default function AccountNotice({identity,targetOpen=false,timezone='Asia/
     })
     return()=>cancelAnimationFrame(frame)
   },[open,tab,status,notices])
-  const close=(restore=false)=>{setOpen(false);if(restore)trigger.current?.focus({preventScroll:true})}
+  const close=(restore=false)=>{onDismiss?.();setOpen(false);if(restore)trigger.current?.focus({preventScroll:true})}
   useLayoutEffect(()=>{
     if(!open||!panel.current||!wrapper.current)return
     const node=panel.current,anchor=wrapper.current

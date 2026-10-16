@@ -97,3 +97,6 @@ behavior in disposable database tests. Test both production and harness module
 graphs, current privacy and native return behavior. Expand schema first; require
 capability verification before enabling new writes. Production is the existing
 project only, with migration/history/backup checks and no reset or history replay.
+
+
+Interrupted commands retain only owner-scoped opaque request metadata in session storage. A mounted uncertain action freezes its original command. After a closed/reloaded form presents a different draft, `reconcile_personal_money_operation` acquires the same actor/request locks as posting: it returns a committed receipt intact, or records an unsubmitted-request fence before a delayed original request can post. Only then can a different request be issued. The fence creates no journal/expense/financial reversal. Successful actions acknowledge/remove local recovery metadata after the required authoritative refresh; deliberately repeating the same movement later receives a new request ID. Structured connection failures remain uncertain. Two-session tests cover both original-first and fence-first ordering.

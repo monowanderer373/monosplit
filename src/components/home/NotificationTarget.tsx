@@ -121,7 +121,7 @@ export default function NotificationTarget(props:Props){
      await notificationRpc('respond_to_direct_expense_change',{target_request_id:change.id,response,expected_request_version:change.version},props.identity,guard)
    })} onRefresh={async()=>{await changed();reloadTarget()}}/>:null}
    {!props.details&&(notice?.state==='pending'||allowScheduled)&&!hidden&&['recurring','installment'].includes(props.target.kind)&&row&&snapshot?<NotificationOccurrenceForm key={`${key}:${row.version}`} identity={props.identity} target={props.target} row={row} snapshot={snapshot} busy={busy||checking} allowScheduled={allowScheduled} onSubmit={work=>perform(work)}/>:null}
-   {notice?.state==='pending'&&!hidden&&props.target.kind==='outbox'&&draft?<section><p>{t('notice.local')}</p><PendingExpenseRecoveryActions notification item={draft} onUndoAdd={id=>{const done=props.ledger.discardLocalCreate(id);reloadTarget();return done}} onDiscardFailed={id=>{const done=props.ledger.discardFailedCreate(id);reloadTarget();return done}} onRetry={id=>perform(async guard=>{
+   {notice?.state==='pending'&&!hidden&&props.target.kind==='outbox'&&draft?<section><p>{t('notice.local')}</p><PendingExpenseRecoveryActions notification disabled={busy||checking} item={draft} onUndoAdd={id=>{const done=props.ledger.discardLocalCreate(id);reloadTarget();return done}} onDiscardFailed={id=>{const done=props.ledger.discardFailedCreate(id);reloadTarget();return done}} onRetry={id=>perform(async guard=>{
      const fresh=await loadNotificationSnapshot(props.owner)
      guard()
      if(fresh.expenses.some(e=>e.clientRequestId===id)){await props.ledger.refresh();return}

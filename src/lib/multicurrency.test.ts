@@ -4,7 +4,7 @@ import { accountValuation, validateMovementAmounts, compileFundingSources, curre
 import { unavailableFx, type FxSnapshot } from './fx'
 import { availableMoney, accountRecordsFilter } from './homeView'
 import { buildHomeNotifications, pendingFundingGroups, resolveNotice } from './homeNotifications'
-import { noticeSnapshot } from '../test/notificationFixtures'
+import { noticeExpense, funding, noticeSnapshot } from '../test/notificationFixtures'
 const unit=(id:string,parent=id,currency='MYR',balance=10000):CurrencyAccount=>({id,parentAccountId:parent,name:'Same name',currency,accountClass:'asset',accountType:'ewallet',archived:false,openingStatus:'posted',entrySumMinor:balance,version:2,parentVersion:4,displayOrder:id===parent?0:1,isDefault:false,openingBalanceAsOf:null})
 const anchor:BalanceAnchor={id:'anchor',account_id:'myr',anchor_sequence:'2',observed_at:'2026-10-16',pending_intent_ids:[],captured_entry_ids:[]}
 const rates:FxSnapshot={...unavailableFx,id:'snapshot',status:'cached',rates:{VND:{currency:'VND',quote:'MYR',direction:'MYR-per-foreign',numerator:'0.00018',denominator:'1',rateDate:'2026-10-15',fetchedAt:'2026-10-16T00:00:00Z',provider:'Frankfurter'}}}
@@ -63,6 +63,19 @@ describe('native currency units and display-only valuations',()=>{
  })
 })
 describe('parent funding reminders',()=>{
+ it('shows three grouped deductions plus an independent shared review as four distinct tasks in two rows',()=>{
+  const snapshot=noticeSnapshot(),third=noticeExpense('third')
+  snapshot.expenses.push(third);snapshot.funding.push(funding('third-funding',third.id))
+  const shared=noticeExpense('shared-review');shared.scope='direct';shared.createdBy='other';shared.participations[0].state='pending'
+  snapshot.expenses.push(shared)
+  snapshot.money={bundles:snapshot.funding.map(f=>({funding_intent_id:f.id,primary_account_id:'bank',confirmed_operation_id:null})),anchors:[]}
+  const tasks=buildHomeNotifications(snapshot,[]).filter(n=>n.tab==='tasks')
+  expect(tasks).toHaveLength(2)
+  expect(tasks.reduce((sum,n)=>sum+(n.taskCount??1),0)).toBe(4)
+  expect(tasks.find(n=>n.fundingGroup)?.fundingGroup?.intentIds).toHaveLength(3)
+  expect(tasks.find(n=>n.ref.kind==='expense')?.ref).toEqual({kind:'expense',id:'shared-review'})
+ })
+
  it('counts underlying pending intents while preserving individual resolver authority',()=>{
   const snapshot=noticeSnapshot();snapshot.money={bundles:snapshot.funding.map(f=>({funding_intent_id:f.id,primary_account_id:'wallet-1',confirmed_operation_id:null})),anchors:[]}
   const pending=snapshot.funding.filter(f=>f.status==='pending')

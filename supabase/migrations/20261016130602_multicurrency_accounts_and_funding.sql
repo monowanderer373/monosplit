@@ -234,6 +234,27 @@ begin
   return result_payload;
 end $$;
 
+-- Resolve an interrupted client before accepting a different command. The same owner
+-- and request locks order this fence against a late original HTTP request. This can
+-- only retire an uncommitted request; committed financial facts are returned intact.
+create or replace function public.reconcile_personal_money_operation(request_id uuid)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare actor uuid := private.require_personal_actor(); old_row public.personal_money_operations%rowtype;
+begin
+  if request_id is null then raise exception using message='invalid_request_id',errcode='P0001'; end if;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('tabby.personal.account:'||actor::text,0));
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('tabby.money:'||actor::text||':'||request_id::text,0));
+  select * into old_row from public.personal_money_operations o
+    where o.owner_participant_id=actor and o.request_id=reconcile_personal_money_operation.request_id;
+  if old_row.id is not null then
+    if old_row.kind='unsubmitted' then return pg_catalog.jsonb_build_object('state','not_posted'); end if;
+    return pg_catalog.jsonb_build_object('state','committed','result',old_row.result);
+  end if;
+  perform private.begin_money_operation(actor,request_id,'unsubmitted',pg_catalog.jsonb_build_object('request',request_id));
+  perform private.finish_money_operation(actor,request_id,pg_catalog.jsonb_build_object('operation_not_posted',true));
+  return pg_catalog.jsonb_build_object('state','not_posted');
+end $$;
+
 create or replace function private.assert_money_unit(actor uuid,unit_id uuid,expected_version integer,expected_parent_version integer)
 returns public.personal_accounts language plpgsql security definer set search_path='' as $$
 declare unit public.personal_accounts%rowtype; parent public.personal_accounts%rowtype;
@@ -370,10 +391,12 @@ revoke all on function private.assert_money_unit(uuid,uuid,integer,integer) from
 revoke all on function private.assert_native_balance_range(uuid) from public,anon,authenticated;
 revoke all on function public.get_personal_multicurrency_accounts() from public,anon,authenticated;
 revoke all on function public.get_personal_money_operation(uuid) from public,anon,authenticated;
+revoke all on function public.reconcile_personal_money_operation(uuid) from public,anon,authenticated;
 revoke all on function public.add_personal_account_currency(uuid,uuid,text,integer,bigint,date) from public,anon,authenticated;
 revoke all on function public.set_personal_currency_balance(uuid,uuid,bigint,timestamptz,integer,integer,uuid[]) from public,anon,authenticated;
 grant execute on function public.get_personal_multicurrency_accounts() to authenticated;
 grant execute on function public.get_personal_money_operation(uuid) to authenticated;
+grant execute on function public.reconcile_personal_money_operation(uuid) to authenticated;
 grant execute on function public.add_personal_account_currency(uuid,uuid,text,integer,bigint,date) to authenticated;
 grant execute on function public.set_personal_currency_balance(uuid,uuid,bigint,timestamptz,integer,integer,uuid[]) to authenticated;
 

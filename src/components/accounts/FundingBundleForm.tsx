@@ -4,7 +4,7 @@ import { useT } from '../../lib/i18n'
 import { formatMinorAmount } from '../../lib/money'
 import { generateId } from '../../lib/id'
 import { compileFundingSources, type CurrencyAccount, type SourceDraft } from '../../lib/multicurrency'
-import { moneyOperation } from '../../lib/moneyOperation'
+import { acknowledgeMoneyOperation, moneyOperation } from '../../lib/moneyOperation'
 import type { NoticeSnapshot, NoticeRow } from '../../lib/homeNotifications'
 import FundingSources from './FundingSources'
 import { clearFundingDraft, readFundingDraft, saveFundingDraft } from '../../lib/moneyDrafts'
@@ -28,14 +28,14 @@ export default function FundingBundleForm({identity,row,snapshot,busy,onSubmit,o
     if(busy||!expense)return
     void (onReview??onSubmit)(async guard=>{
       const result=await moneyOperation('review_changed_personal_funding',{target_funding_intent_id:row.id,expected_intent_version:row.version,expected_expense_version:expense.version},identity,`funding-review:${row.id}`,guard)
-      guard();const version=Number((result as {version?:number})?.version)
+      guard();acknowledgeMoneyOperation(identity,`funding-review:${row.id}`);const version=Number((result as {version?:number})?.version)
       if(!Number.isSafeInteger(version))throw new Error('funding_review_unconfirmed')
       saveFundingDraft(identity,row.id,{version,sources:draft,covers:false});return result
     })
   }
   if(hidden)return <section className="ttmc-module"><p>{t('notice.hiddenReview')}</p><button type="button" onClick={onReveal}>{t('mc.common.reveal')}</button></section>
   if(!accounts.some(a=>!a.archived))return <section className="ttmc-module"><p>{t('noticeA.funding.accountHelp')}</p><button type="button" disabled={busy} onClick={()=>navigate('/?'+new URLSearchParams({accountPanel:'manage',returnNotice:'funding',returnTarget:row.id}),{state:{noticeBack:true}})}>{t('noticeA.state.accounts')}</button></section>
-  if(changed&&expense)return <section className="ttmc-module"><p role="status">{t('mc.state.changed')}</p>{paid>0?<button type="button" disabled={busy} onClick={()=>void (onReview??onSubmit)(guard=>moneyOperation('review_changed_personal_funding',{target_funding_intent_id:row.id,expected_intent_version:row.version,expected_expense_version:expense.version},identity,`funding-review:${row.id}`,guard))}>{t('mc.reviewAgain')}</button>:<p>{t('mc.state.unavailable')}</p>}</section>
+  if(changed&&expense)return <section className="ttmc-module"><p role="status">{t('mc.state.changed')}</p>{paid>0?<button type="button" disabled={busy} onClick={()=>void (onReview??onSubmit)(async guard=>{const result=await moneyOperation('review_changed_personal_funding',{target_funding_intent_id:row.id,expected_intent_version:row.version,expected_expense_version:expense.version},identity,`funding-review:${row.id}`,guard);guard();acknowledgeMoneyOperation(identity,`funding-review:${row.id}`);return result})}>{t('mc.reviewAgain')}</button>:<p>{t('mc.state.unavailable')}</p>}</section>
   return <form className="ttmc-module home-notice-form" onSubmit={e=>{
     e.preventDefault();if(busy||!valid||!expense)return
     const legs=compileFundingSources(sources,accounts,snapshot.money?.anchors??[])
@@ -44,7 +44,7 @@ export default function FundingBundleForm({identity,row,snapshot,busy,onSubmit,o
         target_funding_intent_id:row.id,expected_intent_version:row.version,expected_expense_version:expense.version,
         actual_legs:legs,covers_owner_payment:covers,
       },identity,`funding:${row.id}`,guard)
-      guard();clearFundingDraft(identity,row.id);return result
+      guard();acknowledgeMoneyOperation(identity,`funding:${row.id}`);clearFundingDraft(identity,row.id);return result
     })
   }}>
     <p>{t('mc.funding.saved')}</p>

@@ -50,10 +50,17 @@ def main():
             else:
                 raise AssertionError('Lock holder failed before acquiring funding lock.')
             contender = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            contender.stdin.write(auth + "set statement_timeout='5000ms'; " + second_sql + '\n')
+            tag = 'tabby-mc-contender-' + str(uuid.uuid4())
+            contender.stdin.write(auth + f"set application_name='{tag}'; set statement_timeout='10000ms'; " + second_sql + '\n')
             contender.stdin.flush()
-            time.sleep(0.2)
-            assert contender.poll() is None, 'Competing transaction did not wait for owner operation lock.'
+            deadline = time.monotonic() + 5
+            waiting = False
+            while time.monotonic() < deadline:
+                waiting = query(f"select jsonb_build_object('waiting',exists(select 1 from pg_stat_activity where application_name='{tag}' and wait_event_type='Lock' and wait_event='advisory'));", False)[0]['waiting']
+                if waiting or contender.poll() is not None:
+                    break
+                time.sleep(0.05)
+            assert waiting and contender.poll() is None, 'Competing database session did not demonstrably wait for the owner advisory lock.'
             holder.communicate('commit;\n', timeout=10)
             assert holder.returncode == 0, 'Original transaction failed.'
             _, error = contender.communicate(timeout=10)
@@ -73,11 +80,18 @@ def main():
     original = confirmation(second, uuid.uuid4())
     competing = original.replace(original.split("'")[1], str(uuid.uuid4()), 1)
     race(original, competing, 'funding_not_pending')
+    third = pending()
+    receipt_request = str(uuid.uuid4())
+    race(confirmation(third, receipt_request), f"select reconcile_personal_money_operation('{receipt_request}');")
+    fourth = pending()
+    retired_request = str(uuid.uuid4())
+    delayed = confirmation(fourth, retired_request)
+    race(f"select reconcile_personal_money_operation('{retired_request}');", delayed, 'idempotency_conflict')
     units = query('select get_personal_multicurrency_accounts();')[0]['accounts']
-    assert all(int(a['entry_sum_minor']) == 9000 for a in units if a['id'] in account_ids), 'Duplicate or partial native debits detected.'
+    assert all(int(a['entry_sum_minor']) == 8500 for a in units if a['id'] in account_ids), 'Duplicate or partial native debits detected.'
     check = query("select jsonb_build_object('legs',(select count(*) from personal_funding_bundle_legs),'bundles',(select count(*) from personal_funding_bundles where confirmed_operation_id is not null));")[0]
-    assert check == {'legs': 4, 'bundles': 2}, 'One immutable set of legs per confirmed target required.'
-    print('PASS: overlapping same-request replay creates one complete bundle; competing new request rejects stale target; four exact native legs, no duplicate or partial debits.')
+    assert check == {'legs': 6, 'bundles': 3}, 'One immutable set of legs per confirmed target required.'
+    print('PASS: overlapping same-request replay creates one complete bundle; competing new request rejects stale target; six exact native legs; recovery waits for committed original and fences a delayed unposted request without any debit.')
 
 
 if __name__ == '__main__':
