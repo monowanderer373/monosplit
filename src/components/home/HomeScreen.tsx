@@ -1,3 +1,5 @@
+import { exactAmount } from '../../lib/fx'
+import { currencyExponent } from '../../lib/money'
 import AccountNotice from './AccountNotice'
 import type {HomeNotification} from '../../lib/homeNotifications'
 import AmountInput from '../AmountInput'
@@ -44,6 +46,8 @@ type DisplayRecord = HomeRecordPresentation & {
 }
 
 export type HomeScreenProps = {
+  accountBalance?: ReactNode
+  accountMore?: ReactNode
   localToday?: string
   timezone?: string
   notifications?: readonly HomeNotification[]
@@ -170,11 +174,11 @@ export default function HomeScreen(props: HomeScreenProps) {
                       onSelect={() => { props.onSelectAccount('all'); closeSheet() }}>
                       {props.accountsStatus !== 'ready' ? t(props.accountsStatus === 'loading' ? 'home.loading' : 'home.unavailable')
                         : <span className="home-money-lines">{allAccountBalances(assetAccounts, 'all').map(balance => <span key={balance.currency}>
-                          {balance.amountMinor == null ? t('home.balanceIncomplete') : formatMoney(balance.amountMinor, balance.currency, lang, t)}
+                          {balance.amountMinorExact ? `${balance.currency} ${exactAmount(balance.amountMinorExact,currencyExponent(balance.currency),lang)}` : balance.amountMinor == null ? t('home.balanceIncomplete') : formatMoney(balance.amountMinor, balance.currency, lang, t)}
                           {balance.knownOnly ? ` · ${t('home.knownBalance')}` : ''}
                         </span>)}</span>}
                     </AccountOption>
-                    {props.accountsStatus === 'ready' ? assetAccounts.map(account => <AccountOption key={account.id} name={account.name}
+                    {props.accountsStatus === 'ready' ? assetAccounts.filter(account=>!account.parentAccountId||account.parentAccountId===account.id).map(account => <AccountOption key={account.id} name={account.name}
                       type={account.accountType} selected={account.id === props.selectedAccountId}
                       onSelect={() => { props.onSelectAccount(account.id); closeSheet() }}>
                       {accountBalanceLabel(account, lang, t)}
@@ -186,12 +190,13 @@ export default function HomeScreen(props: HomeScreenProps) {
                 </AccountPaperMenu>
               ) : null}
             </div>
+            {props.accountMore}
             <img className="home-balance-mascot" src="/denim-paper/pocket-clear.png" width="64" height="64" alt="" aria-hidden="true" draggable={false} />
           </div>
           <div className="home-balance-panel">
             <p id="home-balance-title" className="home-balance-label">{t('home.accountBalance')}</p>
             <div className="home-balance-line">
-              <BalanceValues
+              {props.accountBalance ?? <BalanceValues
                 status={props.accountsStatus}
                 balances={props.balances}
                 hidden={props.balanceHidden}
@@ -200,7 +205,7 @@ export default function HomeScreen(props: HomeScreenProps) {
                 onAddAccount={assetAccounts.length === 0 && props.accountsStatus === 'ready'
                   ? () => setSheet('create')
                   : undefined}
-              />
+              />}
               <button
                 type="button"
                 className="home-icon-button"
@@ -468,6 +473,7 @@ function BalanceValues({
           <p key={balance.currency} className="home-balance-figure">
             {hidden
               ? '••••'
+              : balance.amountMinorExact ? <MoneyText value={`${balance.currency} ${exactAmount(balance.amountMinorExact,currencyExponent(balance.currency),lang)}`} />
               : balance.amountMinor == null
                 ? t('home.balanceIncomplete')
                 : <MoneyText value={formatMoney(balance.amountMinor, balance.currency, lang, t)} />}
@@ -554,7 +560,7 @@ export function RecentRecordList({ props, paginationKey }: { paginationKey?: str
             : formatDate(group.date, lang)}</strong>}
         {props.density === 'compact' ? <DayTotal records={group.records} hidden={props.mode === 'travel' && props.balanceHidden} /> : null}
       </div>
-      {group.records.map(record => <RecordRow key={record.id} travel={props.mode === 'travel'} hidden={props.mode === 'travel' && props.balanceHidden} accountsStatus={props.accountsStatus}
+      {group.records.map(record => <RecordRow key={record.id} travel={props.mode === 'travel'} hidden={props.balanceHidden} accountsStatus={props.accountsStatus}
         record={{ ...record, statusLabel: props.recordStatuses?.[record.id] ?? null, action: props.recordActions?.[record.id] }} />)}
     </div>)}
     <div className="home-records-end" data-testid="home-records-end">
@@ -592,7 +598,7 @@ function RecordRow({
                   : (
                     <>
                       <span className="home-sr">{cue.label}</span>
-                      {cue.sign}{<MoneyText value={formatMoney(record.amountMinor, record.currency, lang, t)} />}
+                      {record.fundingLegs&&record.fundingLegs.length>1?<span className="home-money-lines">{record.fundingLegs.map(leg=><span key={leg.accountId}>{cue.sign}<MoneyText value={formatMoney(leg.amountMinor,leg.currency,lang,t)}/></span>)}</span>:<>{cue.sign}<MoneyText value={formatMoney(record.amountMinor, record.currency, lang, t)} /></>}
                     </>
                   )}
   </>)
@@ -603,7 +609,7 @@ function RecordRow({
           <span className="home-record-icon" aria-hidden="true">{record.category.match(/^\p{Extended_Pictographic}[\p{Emoji_Modifier}\uFE0F\u200D\p{Extended_Pictographic}]*/u)?.[0] ?? <QuickIcon name={recordIconNames[record.category.trim().toLowerCase()] ?? 'Other'} size={20} />}</span>
         ) : null}
         <div className="home-record-copy">
-          <p className="home-record-title">{capitalizeDescription(record.description)}</p>
+          <p className="home-record-title">{hidden?'••••':capitalizeDescription(record.description)}</p>
           {travel || record.showChip ? <span className="home-chip">
             {record.compact && (record.chip.kind === 'direct' || record.chip.kind === 'space') ? <svg className="home-shared-mark" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="7" r="3" /><path d="M2 21v-2a7 7 0 0 1 14 0v2H2Z M16 4a3 3 0 0 1 0 6 M19 21h3v-2a7 7 0 0 0-5-6" />

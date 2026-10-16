@@ -602,6 +602,7 @@ export function UniversalQuickAddProvider({
       splitMode: values.splitMode,
       exactShareAmounts: values.exactShareAmounts,
       fundingAccountId: values.accountId,
+      fundingPlan: values.fundingPlan,
     }
     const result = await (callbacksRef.current.onSave ?? ledger.saveDraft)(
       draft,

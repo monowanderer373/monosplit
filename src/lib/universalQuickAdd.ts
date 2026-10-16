@@ -1,3 +1,4 @@
+import type { FundingPlan } from './multicurrency'
 import type { LedgerDraftParticipant } from './compileExpense'
 import type { MoneyContextRef } from './moneyContext'
 import type { TranslationKey } from './i18n'
@@ -35,6 +36,7 @@ export type UniversalQuickAddValues = Readonly<{
   payerAmounts: Record<string, string>
   detailsExpanded: boolean
   accountId?: string | null
+  fundingPlan?: FundingPlan
   calculation?: string
   items?: { id: string; name: string; amount: string; participantIds: string[] }[]
 }>

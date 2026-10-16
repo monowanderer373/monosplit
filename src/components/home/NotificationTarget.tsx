@@ -3,6 +3,7 @@ import {useCallback,useEffect,useEffectEvent,useRef,useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import NotificationSurface from './NotificationSurface'
 import FundingForm from './NotificationFundingForm'
+import FundingBundleForm from '../accounts/FundingBundleForm'
 import NotificationOccurrenceForm from './NotificationOccurrenceForm'
 import {localCalendarDate} from '../../lib/homeView'
 import {NotificationContext,NotificationObjectDetails,NotificationAccountDetails} from './NotificationDetails'
@@ -104,8 +105,8 @@ export default function NotificationTarget(props:Props){
    {error?<div role="alert"><p>{error}</p><p>{t('notice.retryInfo')}</p><button type="button" className="ms-btn-ghost" disabled={busy||checking} onClick={reloadTarget}>{t('notice.check')}</button></div>:null}
    {snapshot&&props.target.kind==='account'&&account?<NotificationAccountDetails account={account} owner={props.owner} identity={props.identity} onRecords={()=>{setHomeUi({mode:'daily',selectedAccountId:account.id});navigate('/',{replace:true})}}/>:null}
    {notice?.state==='completed'&&props.target.kind==='funding'&&row&&account?<section><p>{account.name}</p><p>{t('notice.amount',{currency:row.account_currency??account.currency})}</p><strong>{hidden?'••••':row.account_amount_minor!=null?formatMinorAmount(Number(row.account_amount_minor),row.account_currency??account.currency):t('home.amountUnavailable')}</strong></section>:null}
-   {(notice?.state==='pending'||allowScheduled)&&hidden?<section><p>{t('notice.hiddenReview')}</p><button type="button" className="ms-btn-ghost" onClick={()=>setHomeUi({balanceHidden:false})}>{t('notice.show')}</button></section>:null}
-   {!props.details&&notice?.state==='pending'&&!hidden&&props.target.kind==='funding'&&row&&snapshot&&expense?<FundingForm key={`${key}:${row.version}`} identity={props.identity} row={row} snapshot={snapshot} onModeChange={setFundingNeedsAmount} busy={busy||checking} onSubmit={work=>perform(work)} />:null}
+   {(notice?.state==='pending'||allowScheduled)&&hidden&&!(props.target.kind==='funding'&&snapshot?.money)?<section><p>{t('notice.hiddenReview')}</p><button type="button" className="ms-btn-ghost" onClick={()=>setHomeUi({balanceHidden:false})}>{t('notice.show')}</button></section>:null}
+   {!props.details&&notice?.state==='pending'&&props.target.kind==='funding'&&row&&snapshot&&expense?(snapshot.money?<FundingBundleForm hidden={hidden} onReveal={()=>setHomeUi({balanceHidden:false})} key={`${key}:${row.version}`} identity={props.identity} row={row} snapshot={snapshot} busy={busy||checking} onSubmit={work=>perform(work)}/>:!hidden?<FundingForm key={`${key}:${row.version}`} identity={props.identity} row={row} snapshot={snapshot} onModeChange={setFundingNeedsAmount} busy={busy||checking} onSubmit={work=>perform(work)} />:null):null}
    {notice?.state==='pending'&&!hidden&&props.target.kind==='expense'&&expense?<DirectExpenseReviewCard compact expense={expense} participantId={props.owner} busy={busy||checking} onRespond={(id,response,version)=>perform(async guard=>{
       const fresh=await loadNotificationSnapshot(props.owner),current=resolveNotice(fresh,props.target,props.ledger.outbox)
       guard()

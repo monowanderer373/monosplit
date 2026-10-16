@@ -7,7 +7,8 @@ import { createUniversalQuickAddSession, updateUniversalQuickAddValues } from '.
 const mocked=vi.hoisted(()=>({submit:vi.fn()}))
 vi.mock('../hooks/useAuth',()=>({useAuth:()=>({authUser:{participantId:'self'}})}))
 vi.mock('../lib/moneyContextCatalog',()=>({EMPTY_MONEY_CONTEXT_CATALOG:{people:[],groups:[],trips:[],peopleParticipants:[]},loadMoneyContextCatalog:async()=>({people:[],groups:[],trips:[],peopleParticipants:[]})}))
-vi.mock('../lib/quickAccounts',()=>({loadQuickAccounts:async()=>[{id:'wallet',name:'Touch n Go',currency:'MYR',account_type:'ewallet',is_default:true}]}))
+vi.mock('../lib/quickAccounts',()=>({loadQuickAccounts:async()=>[{id:'wallet',parentAccountId:'wallet',name:'Touch n Go',currency:'MYR',account_type:'ewallet',accountType:'ewallet',accountClass:'asset',archived:false,openingStatus:'unknown',entrySumMinor:0,version:1,parentVersion:1,displayOrder:0,isDefault:true,is_default:true}]}))
+vi.mock('../lib/multicurrencyRepository',()=>({loadFundingMetadata:async()=>({bundles:[],anchors:[]})}))
 const self={id:'self',displayName:'Me',kind:'account' as const}
 function Harness({shared=false}:{shared?:boolean}={}){const [session,setSession]=useState(()=>createUniversalQuickAddSession({identityKey:'u',sessionId:'s',clientRequestId:'r',startedAtMs:1,entryPoint:'global',context:{ref:shared?{kind:'space',spaceId:'g',spaceType:'group',displayName:'Group'}:{kind:'personal'},currentParticipantId:'self',availableParticipants:shared?[self,{id:'friend',displayName:'Alex',kind:'manual'}]:[self],defaultCurrency:'MYR'}}));return <UniversalQuickAddSheet session={session} expenses={[]} onUpdate={patch=>setSession(s=>updateUniversalQuickAddValues(s,patch))} onClose={()=>{}} onCommitContext={async()=>({ok:false})} onPickerOpenChange={()=>{}} onConfigureSplit={async()=>true} onSubmit={mocked.submit}/>}
 beforeEach(()=>{localStorage.clear();mocked.submit.mockReset();mocked.submit.mockResolvedValue({ok:true});render(<Harness/>)})

@@ -4,6 +4,7 @@ import {expenseChangeRepository} from './expenseChangeRepository'
 import {settlementRepository} from './settlementRepository'
 import {loadPersonalAccountHome,readAllPages} from './personalAccountReadRepository'
 import type {NoticeRow,NoticeSnapshot} from './homeNotifications'
+import { loadFundingMetadata } from './multicurrencyRepository'
 async function rows(table:string,columns:string):Promise<NoticeRow[]> {
   if(!supabase)throw new Error('not_configured')
   const client=supabase
@@ -14,7 +15,7 @@ async function rows(table:string,columns:string):Promise<NoticeRow[]> {
   })
 }
 async function readSnapshot(owner:string):Promise<NoticeSnapshot> {
-  const [home,expenses,changes,payments,funding,recurring,rules,installments,plans,requests]=await Promise.all([
+  const [home,expenses,changes,payments,funding,recurring,rules,installments,plans,requests,money]=await Promise.all([
     loadPersonalAccountHome(),ledgerRepository.listExpenses(),expenseChangeRepository.listDirectChanges(),settlementRepository.listSettlements(),
     rows('personal_funding_intents','id,status,version,updated_at,expense_id,account_id,account_amount_minor,expense_amount_minor,expense_currency,account_currency'),
     rows('personal_recurring_occurrences','id,status,version,updated_at,rule_id,scheduled_for,expense_id,funding_intent_id,error_code,effective_amount_minor,effective_currency,effective_account_id,effective_occurred_on'),
@@ -22,8 +23,9 @@ async function readSnapshot(owner:string):Promise<NoticeSnapshot> {
     rows('personal_installments','id,status,version,updated_at,plan_id,sequence,due_on,repayment_account_id,error_code,principal_minor,asset_payment_minor'),
     rows('personal_installment_plans','id,purchase_expense_id,funding_intent_id,currency,installment_count'),
     rows('settlement_payment_requests','id,status,version,created_at,updated_at,note,debtor_participant_id,creditor_participant_id,scope,space_id'),
+    loadFundingMetadata(),
   ])
-  return {owner,accounts:home.accounts,expenses,changes,payments,funding,recurring,rules,installments,plans,requests}
+  return {owner,accounts:home.accounts,expenses,changes,payments,funding,recurring,rules,installments,plans,requests,money}
 }
 export async function notificationRpc(name:string,args:Record<string,unknown>,identity:string,guard:()=>void){
   if(!supabase)throw new Error('not_configured')

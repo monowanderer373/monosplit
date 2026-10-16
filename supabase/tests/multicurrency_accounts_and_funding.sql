@@ -4,6 +4,9 @@ select no_plan();
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
 values('00000000-0000-0000-0000-000000000000','d0160000-0000-4000-8000-000000000001','authenticated','authenticated','mc-owner@example.test','',now(),'{"provider":"email","providers":["email"]}','{"display_name":"MC Owner"}',now(),now()),
 ('00000000-0000-0000-0000-000000000000','d0160000-0000-4000-8000-000000000002','authenticated','authenticated','mc-other@example.test','',now(),'{"provider":"email","providers":["email"]}','{"display_name":"MC Other"}',now(),now());
+insert into public.friendships(participant_low_id,participant_high_id,requested_by,status,accepted_at)
+select least(a.id,b.id),greatest(a.id,b.id),a.id,'accepted',now() from public.participants a,public.participants b
+where a.auth_user_id='d0160000-0000-4000-8000-000000000001' and b.auth_user_id='d0160000-0000-4000-8000-000000000002';
 create temp table mc(k text primary key,v jsonb);
 grant all on table mc to authenticated;
 create function pg_temp.mc_id(k text) returns uuid language sql as $$ select (v->>'account_id')::uuid from mc where mc.k=$1 $$;
@@ -159,6 +162,20 @@ select lives_ok(format('select reverse_personal_money_movement(gen_random_uuid()
 select is(pg_temp.mc_balance('wise'),(select(v->>'wise')::bigint+15000 from mc where k='reverse-before'),'included fee reversal refunds total150 once, not152');
 select is(pg_temp.mc_balance('vnd'),(select(v->>'vnd')::bigint-900000 from mc where k='reverse-before'),'movement reversal compensates the exact destination');
 select is((select status from expenses where id=(select(v->>'fee_expense_id')::uuid from mc where k='included-fee')),'voided','fee cancellation uses original canonical cancellation authority');
+
+-- C16: bill, accepted owner payment and share are three different amounts.
+insert into mc values('direct-body',jsonb_build_object('expense_scope','direct','target_space_id',null,'total_minor',9000,'currency_code','MYR',
+ 'description','Direct bill90 ownpayment60 share45','category','Food','occurred_on',current_date,
+ 'participant_ids',jsonb_build_array(current_participant_id(),(select id from participants where auth_user_id='d0160000-0000-4000-8000-000000000002')),
+ 'contribution_amounts',jsonb_build_array(6000,3000),'share_amounts',jsonb_build_array(4500,4500)));
+insert into mc values('direct',public.create_expense_with_multicurrency_funding(gen_random_uuid(),(select v from mc where k='direct-body'),jsonb_build_object('mode','deferred','primary_account_id',pg_temp.mc_id('wise'),'legs','[]'::jsonb)));
+select is((select expense_amount_minor from personal_funding_intents where id=(select(v->'funding'->>'funding_intent_id')::uuid from mc where k='direct')),6000::bigint,'C16 accepted own payment is60, neither bill90 nor share45');
+select throws_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='direct'),pg_temp.mc_legs('wise',4500,false)),'P0001','funding_contribution_mismatch','C16 share45 cannot substitute for actual ownpayment60');
+select throws_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='direct'),pg_temp.mc_legs('wise',9000,false)),'P0001','funding_contribution_mismatch','C16 bill90 cannot substitute for actual ownpayment60');
+insert into mc values('direct-before',to_jsonb(pg_temp.mc_balance('wise')));
+select lives_ok(format('select confirm_personal_funding_bundle(gen_random_uuid(),%L,1,1,%L::jsonb,true)',(select v->'funding'->>'funding_intent_id'from mc where k='direct'),pg_temp.mc_legs('wise',6000,false)),'C16 own accepted payment60 confirms');
+select is(pg_temp.mc_balance('wise'),(select(v#>>'{}')::bigint-6000 from mc where k='direct-before'),'C16 only60 is debited once');
+select is((select state from expense_participations where expense_id=(select(v->>'expense_id')::uuid from mc where k='direct') and participant_id<>current_participant_id()),'pending','C16 private funding does not accept another participant or expand shared authority');
 
 set constraints all immediate;
 select * from finish();

@@ -1,0 +1,13 @@
+# Existing-project multicurrency installation
+
+Target: Supabase `skiqsxvmxvmxfzhrzcxh`, existing Tabby Tally. No replacement project, database reset, historical migration edits, journal replay or production fixture data.
+
+Current Codex SQL connection reports `supabase_read_only_user`, `transaction_read_only=on`, and no database CREATE privilege. Repository commits do not install database functions. A writable SQL Editor session in the existing project is the remaining installation path; no credentials belong in chat.
+
+The complete file is [multicurrency-production-apply.sql](multicurrency-production-apply.sql). It is generated reproducibly by `python3 scripts/generate-multicurrency-apply.py` from the two forward migrations. It checks the exact 26-version baseline, applies both migrations in one transaction, registers their history only after each succeeds, checks installed capabilities, and reloads the API schema. A second successful execution skips installed versions. An unexpected history or any SQL error rolls the transaction back.
+
+Before production execution, finish the current implementation and verify the final CI SHA: database tests, historical upgrade, concurrent funding and the **complete generated file twice** must pass. Check the existing project's backup/recovery readiness under its established deployment runbook. Record that check without copying credentials or customer records into logs. The active status file tracks whether this gate is complete; this runbook alone is not a release claim.
+
+When the final bundle is verified, open SQL Editor in the target project, download/open the complete raw SQL file from the reviewed commit, and run its entire contents in one new query. Do not copy a shortened chat/file preview. Its last line is `END OF COMPLETE FILE — TABBY_MULTICURRENCY_APPLY_COMPLETE_20261016`; its successful result is `TABBY_MULTICURRENCY_APPLY_COMPLETE_20261016`. Report only that result or the error text. Never send secrets. If a query fails, do not add migration history manually or run individual fragments; retain the error and diagnose the transaction.
+
+After execution, Codex must independently re-read migration history, check normal authenticated capabilities/RLS and existing ledger compatibility, and only then publish the reviewed application to the existing Vercel production project. Live validation requires the actual deployment SHA/READY state, strictly tagged owned QA operations, exact native balances/fees/no double debit, grouped reminders, existing notifications, account/Records navigation and PWA update. Local/mocked/preview successes do not satisfy those production checks.

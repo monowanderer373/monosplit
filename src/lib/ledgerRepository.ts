@@ -164,25 +164,23 @@ const expenseSelect = `
 export const ledgerRepository: LedgerRepository = {
   async createExpense(command) {
     if (!supabase) throw new LedgerRepositoryError('not_configured')
-    const { data, error } = await supabase.rpc(command.fundingAccountId ? 'create_expense_with_funding' : 'create_expense', {
-      request_id: command.requestId,
-      expense_scope: command.scope,
-      target_space_id: command.spaceId,
-      total_minor: command.totalMinor,
-      currency_code: command.currency,
-      description: command.description,
-      category: command.category,
-      occurred_on: command.occurredOn,
-      participant_ids: command.participantIds,
-      contribution_amounts: command.contributionAmounts,
-      share_amounts: command.shareAmounts,
-      ...(command.fundingAccountId ? {
-        funding_request_id: command.requestId,
-        funding_account_id: command.fundingAccountId,
-        funding_account_amount_minor: null,
-      } : {}),
-    })
-    const expenseId = command.fundingAccountId ? data?.expense_id : data
+    const payload = {
+      expense_scope: command.scope, target_space_id: command.spaceId, total_minor: command.totalMinor,
+      currency_code: command.currency, description: command.description, category: command.category,
+      occurred_on: command.occurredOn, participant_ids: command.participantIds,
+      contribution_amounts: command.contributionAmounts, share_amounts: command.shareAmounts,
+    }
+    const { data, error } = command.fundingPlan
+      ? await supabase.rpc('create_expense_with_multicurrency_funding', {
+        request_id:command.requestId,expense_payload:payload,funding_plan:command.fundingPlan,
+      })
+      : await supabase.rpc(command.fundingAccountId ? 'create_expense_with_funding' : 'create_expense', {
+        request_id:command.requestId,...payload,
+        ...(command.fundingAccountId ? {
+          funding_request_id:command.requestId,funding_account_id:command.fundingAccountId,funding_account_amount_minor:null,
+        } : {}),
+      })
+    const expenseId = command.fundingPlan || command.fundingAccountId ? data?.expense_id : data
     if (error || typeof expenseId !== 'string') {
       throw new LedgerRepositoryError(
         'server_rejected',

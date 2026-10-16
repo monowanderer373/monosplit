@@ -1,4 +1,7 @@
 import NotificationTarget from '../components/home/NotificationTarget'
+import AccountBalance from '../components/accounts/AccountBalance'
+import AccountActions from '../components/accounts/AccountActions'
+import type { CurrencyAccount } from '../lib/multicurrency'
 import {useHomeNotifications} from '../hooks/useHomeNotifications'
 import {noticePath,parseNotice} from '../lib/homeNotifications'
 import {noticeDestination,parseNoticeLocation,simpleNotice} from '../lib/notificationPresentation'
@@ -198,7 +201,7 @@ export default function PersonalLedgerPage() {
     notificationIdentity:authUser.id, notificationTargetOpen:!!noticeTarget||(searchParams.get('accountPanel')==='manage'&&!!searchParams.get('returnNotice')),
     notifications: notifications.notices, notificationsStatus: notifications.status, unreadNotifications: notifications.unread,
     onRetryNotifications: notifications.refresh,
-    onOpenNotification: notice=>navigate(noticeDestination(notice.ref),{state:{noticeBack:true}}),
+    onOpenNotification: notice=>navigate(notice.fundingGroup?`/accounts/verify?account=${notice.fundingGroup.parentId??'unassigned'}`:noticeDestination(notice.ref),{state:{noticeBack:true}}),
     localToday: model.localToday,
     timezone: authUser.timezone ?? 'Asia/Kuala_Lumpur',
     initialAccountPanel: searchParams.get('accountPanel') === 'manage' ? 'manage' : undefined,
@@ -209,6 +212,8 @@ export default function PersonalLedgerPage() {
     onToggleBalanceHidden: () => setHomeUi({ balanceHidden: !homeUi.balanceHidden }),
     selectedAccountId: model.selectedAccountId, onSelectAccount: selectedAccountId => setHomeUi({ selectedAccountId }),
     accounts: model.accounts, accountsStatus: home.accounts.status,
+    accountMore: <AccountActions accountId={model.selectedAccountId}/>,
+    accountBalance: home.accounts.status==='ready'&&model.accounts.some(a=>a.parentAccountId)?<AccountBalance identity={authUser.id} accounts={model.accounts.filter(a=>!a.archived&&a.accountClass==='asset'&&(model.selectedAccountId==='all'||a.parentAccountId===model.selectedAccountId)) as CurrencyAccount[]} pending={notifications.notices.filter(n=>n.ref.kind==='funding'&&n.state==='pending'&&(model.selectedAccountId==='all'||n.fundingGroup?.parentId===model.selectedAccountId)).reduce((count,n)=>count+(n.taskCount??1),0)}/>:undefined,
     accountsRefreshing: home.refreshing && home.accounts.status === 'ready', defaultCurrency: authUser.defaultCurrency ?? 'MYR',
     onCreateAccount: async input => { await createPersonalAccount(input); setAccountReload(n => n + 1) },
     balances: model.balances, monthlySpending: model.monthlySpending, receivables: model.receivables,
