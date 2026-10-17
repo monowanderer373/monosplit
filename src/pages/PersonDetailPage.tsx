@@ -381,13 +381,17 @@ export default function PersonDetailPage() {
   return (
     <>
     <SharedRoot>
-      <BackControl label={t('sharedA.back')} onBack={() => navigate(backTo)} />
+      <BackControl
+        label={backTo.startsWith('/friends') || backTo === '/shared' || backTo.startsWith('/shared?') ? t('person.back') : t('sharedA.back')}
+        onBack={() => navigate(backTo)}
+      />
       <PersonHeading
         name={person.displayName}
         context={t('sharedA.directContext', { currency: selectedCurrency })}
         moreLabel={t('sharedA.more')}
         onMore={() => setMoreOpen(true)}
       />
+      {person.state === 'manual' ? <p className="ttsa-meta">{t('person.state.manual')}</p> : null}
       <QuietAction icon="down" onClick={() => {
         const options = [...new Set([authUser.defaultCurrency ?? 'MYR', ...remainingTracked.map((line) => line.currency)])]
         const index = options.indexOf(selectedCurrency)
@@ -415,10 +419,16 @@ export default function PersonDetailPage() {
                   {t('sharedA.repayment')}
                 </QuietAction>
               ) : null}
-              <QuietAction icon="plus" disabled={!canAdd} onClick={openCapture}>{t('sharedA.addExpense')}</QuietAction>
+              <QuietAction icon="plus" disabled={!canAdd} onClick={openCapture}>{t('person.addExpense')}</QuietAction>
+              {canSettle ? (
+                <QuietAction icon="review" onClick={() => setSettleOpen(true)}>{t('person.settleUp')}</QuietAction>
+              ) : (
+                <QuietAction icon="review" disabled onClick={() => undefined}>{t('person.settleUp')}</QuietAction>
+              )}
             </>
           )}
         />
+        {!canSettle ? <p className="ttsa-meta">{t('person.settleUpAfterLink')}</p> : null}
         {untrackedTotals.length > 0 && !hidden ? (
           <p className="ttsa-meta">{t('person.onYourRecords')}</p>
         ) : null}
@@ -594,7 +604,7 @@ export default function PersonDetailPage() {
         />
       </div>
 
-      <Disclosure label={t('sharedA.details')}>
+      <Disclosure label={t('sharedA.details')} defaultOpen>
       <section className="mx-auto mt-8 max-w-4xl" data-testid="person-manage">
         <p className="ms-label">{t('person.manage')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('person.manage')}</h2>

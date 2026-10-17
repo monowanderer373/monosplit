@@ -18,7 +18,7 @@ export async function fillQuickExpense(dialog: Locator, amount: string, descript
 }
 
 export async function openFriendTools(page: Page): Promise<void> {
-  const toggle = page.locator('main > header button[aria-expanded]')
+  const toggle = page.locator('main header button[aria-expanded]')
   await expect(toggle).toBeVisible()
   if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
   await expect(page.getByRole('button', { name: 'Copy friend invite' })).toBeVisible()

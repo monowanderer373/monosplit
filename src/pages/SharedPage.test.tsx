@@ -87,6 +87,23 @@ describe('Shared A page', () => {
     expect(screen.queryByText('People')).toBeNull()
   })
 
+  it('expands friend invite and manual-person tools from the Shared header', async () => {
+    useStore.setState({ lang: 'en' })
+    render(
+      <MemoryRouter initialEntries={['/shared']}>
+        <Routes>
+          <Route path="/shared" element={<SharedPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { name: 'Shared' })
+    expect(screen.queryByRole('button', { name: 'Copy friend invite' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'More options' }))
+    expect(screen.getByRole('button', { name: 'Copy friend invite' })).toBeTruthy()
+    expect(screen.getByPlaceholderText('Person’s name')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add person' })).toBeTruthy()
+  })
+
   it('preserves currency while switching to Groups instead of clearing the query', async () => {
     useStore.setState({ lang: 'en' })
     render(
