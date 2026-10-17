@@ -2,9 +2,9 @@ import {supabase} from './supabase'
 import {ledgerRepository} from './ledgerRepository'
 import {expenseChangeRepository} from './expenseChangeRepository'
 import {settlementRepository} from './settlementRepository'
-import {loadPersonalAccountHome,readAllPages} from './personalAccountReadRepository'
+import {readAllPages} from './personalAccountReadRepository'
 import type {NoticeRow,NoticeSnapshot} from './homeNotifications'
-import { loadFundingMetadata } from './multicurrencyRepository'
+import { loadCurrencyAccounts, loadFundingMetadata } from './multicurrencyRepository'
 async function rows(table:string,columns:string):Promise<NoticeRow[]> {
   if(!supabase)throw new Error('not_configured')
   const client=supabase
@@ -15,8 +15,8 @@ async function rows(table:string,columns:string):Promise<NoticeRow[]> {
   })
 }
 async function readSnapshot(owner:string):Promise<NoticeSnapshot> {
-  const [home,expenses,changes,payments,funding,recurring,rules,installments,plans,requests,money]=await Promise.all([
-    loadPersonalAccountHome(),ledgerRepository.listExpenses(),expenseChangeRepository.listDirectChanges(),settlementRepository.listSettlements(),
+  const [accounts,expenses,changes,payments,funding,recurring,rules,installments,plans,requests,money]=await Promise.all([
+    loadCurrencyAccounts(),ledgerRepository.listExpenses(),expenseChangeRepository.listDirectChanges(),settlementRepository.listSettlements(),
     rows('personal_funding_intents','id,status,version,updated_at,expense_id,account_id,account_amount_minor,expense_amount_minor,expense_currency,account_currency'),
     rows('personal_recurring_occurrences','id,status,version,updated_at,rule_id,scheduled_for,expense_id,funding_intent_id,error_code,effective_amount_minor,effective_currency,effective_account_id,effective_occurred_on'),
     rows('personal_recurring_rules','id,title,funding_account_id,amount_minor,currency,cadence'),
@@ -25,7 +25,7 @@ async function readSnapshot(owner:string):Promise<NoticeSnapshot> {
     rows('settlement_payment_requests','id,status,version,created_at,updated_at,note,debtor_participant_id,creditor_participant_id,scope,space_id'),
     loadFundingMetadata(),
   ])
-  return {owner,accounts:home.accounts,expenses,changes,payments,funding,recurring,rules,installments,plans,requests,money}
+  return {owner,accounts,expenses,changes,payments,funding,recurring,rules,installments,plans,requests,money}
 }
 export async function notificationRpc(name:string,args:Record<string,unknown>,identity:string,guard:()=>void){
   if(!supabase)throw new Error('not_configured')

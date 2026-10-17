@@ -3,7 +3,8 @@ import { ledgerRepository } from './ledgerRepository'
 import { personRepository } from './personRepository'
 import { spaceRepository } from './spaceRepository'
 import { settlementRepository, type SettlementPayment } from './settlementRepository'
-import { loadPersonalAccountHome, readAllPages } from './personalAccountReadRepository'
+import { readAllPages } from './personalAccountReadRepository'
+import { loadCurrencyAccounts } from './multicurrencyRepository'
 import { assertMinorAmount, parseMajorAmount } from './money'
 import { buildCollectPayItems, financialFingerprint, previewCollectPayReceipt, resolveCollectPayPreview, type CollectPayItem,
   type CollectPaySnapshot, type CashLeg, type PaymentRequest } from './collectPay'
@@ -33,15 +34,17 @@ async function rows(table: string, select: string) {
 }
 export function createCollectPayRepository(rpcCall=rpc,settlements=settlementRepository){return {
   async load(owner: string): Promise<CollectPaySnapshot> {
-    const [expenses, payments, people, spaces, accounts, requestRows, legs, metadata] = await Promise.all([
+    const spacesRead = spaceRepository.list()
+    const membersRead = spacesRead.then(spaces => Promise.all(spaces.map(s => spaceRepository.listMembers(s.space.id))))
+    const [expenses, payments, people, spaces, accounts, requestRows, legs, metadata, members] = await Promise.all([
       ledgerRepository.listExpenses(), settlements.listSettlements(), personRepository.listPeople(),
-      spaceRepository.list(), loadPersonalAccountHome(),
+      spacesRead, loadCurrencyAccounts(),
       rows('settlement_payment_requests', '*'), rows('personal_settlement_cash_legs', '*'),
       rows('settlement_payments', 'id,cash_tracking_required,overpay_disposition,source_payment_request_id,expected_outstanding_minor'),
+      membersRead,
     ])
-    const members = await Promise.all(spaces.map(s => spaceRepository.listMembers(s.space.id)))
     const accountParticipantIds = [...new Set(members.flatMap(group => group.filter(m => m.participant.kind === 'account').map(m => m.participant.id)))]
-    return { owner, accountParticipantIds, expenses, payments, people, spaces, accounts: accounts.accounts,
+    return { owner, accountParticipantIds, expenses, payments, people, spaces, accounts,
       cashTrackedPaymentIds: metadata.filter(p => p.cash_tracking_required).map(p => String(p.id)),
       paymentIntents: Object.fromEntries(metadata.map(p => [String(p.id), { overpay: p.overpay_disposition as OverpayDisposition | null,
         sourceRequestId: p.source_payment_request_id as string | null,

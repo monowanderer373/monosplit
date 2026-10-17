@@ -85,10 +85,10 @@ export async function loadPersonalAccountHome(input: {
   if (!supabase) throw new Error('not_configured')
   const client = supabase
 
-  const accounts = await loadCurrencyAccounts()
-  const movementHistory=await loadMovementHistory()
+  const accountsRead = loadCurrencyAccounts()
+  const movementRead= loadMovementHistory()
 
-  const fundingRows = await readAllPages(async (from, to) => {
+  const fundingRead = readAllPages(async (from, to) => {
     const fundingResult = await client
       .from('personal_funding_intents')
       .select('id, expense_id, status, account_id, account_amount_minor, account_currency')
@@ -98,25 +98,16 @@ export async function loadPersonalAccountHome(input: {
     if (fundingResult.error) throw fundingResult.error
     return fundingResult.data ?? []
   })
-  const legRows=await readAllPages(async(from,to)=>{
+  const legsRead= readAllPages(async(from,to)=>{
     const result=await client.from('personal_funding_bundle_legs').select('id,funding_intent_id,account_id,amount_minor,currency').order('id').range(from,to)
     if(result.error)throw result.error
     return result.data??[]
   })
-  const bundleRows=await readAllPages(async(from,to)=>{
+  const bundlesRead= readAllPages(async(from,to)=>{
     const result=await client.from('personal_funding_bundles').select('funding_intent_id,primary_account_id').order('funding_intent_id').range(from,to)
     if(result.error)throw result.error
     return result.data??[]
   })
-  const funding: HomeFunding[] = fundingRows.map((row) => ({
-    expenseId: row.expense_id as string,
-    status: row.status as HomeFunding['status'],
-    accountId: row.status==='pending'?(bundleRows.find(b=>b.funding_intent_id===row.id)?.primary_account_id??row.account_id):row.account_id,
-    accountAmountMinor: minor(row.account_amount_minor as number | string | null),
-    accountCurrency: row.account_currency ? String(row.account_currency).toUpperCase() : null,
-    legs:legRows.filter(leg=>leg.funding_intent_id===row.id).map(leg=>({accountId:leg.account_id,amountMinor:requiredMinor(leg.amount_minor),currency:leg.currency})),
-  }))
-
   const readActivityPage = async (from: number, to: number) => {
     const transactionsResult = await client
       .from('personal_account_transactions')
@@ -128,12 +119,13 @@ export async function loadPersonalAccountHome(input: {
     if (transactionsResult.error) throw transactionsResult.error
     return transactionsResult.data ?? []
   }
-  const transactions = input.includeAllActivity
-    ? await readAllPages(readActivityPage)
-    : await readActivityPage(0, 39)
-  const transactionIds = transactions.map((row) => row.id as string)
-  const journals: HomeJournalEntry[] = []
-  if (transactionIds.length > 0) {
+  // Entries depend only on transaction IDs, not on account/balance metadata.
+  // Start this two-stage chain while all other independent reads are running.
+  const activityRead = (async () => {
+    const transactions = input.includeAllActivity
+      ? await readAllPages(readActivityPage)
+      : await readActivityPage(0, 39)
+    const transactionIds = transactions.map(row => row.id as string)
     const journalEntries = []
     for (let index = 0; index < transactionIds.length; index += 100) {
       const chunk = transactionIds.slice(index, index + 100)
@@ -148,30 +140,10 @@ export async function loadPersonalAccountHome(input: {
         return journalResult.data ?? []
       }))
     }
-    const accountNames = new Map(accounts.map((account) => [account.id, account.name]))
-    for (const entry of journalEntries) {
-      const transaction = transactions.find((row) => row.id === entry.transaction_id)
-      if (!transaction) continue
-      const kind = JOURNAL_KINDS.has(transaction.kind as HomeJournalKind)
-        ? transaction.kind as HomeJournalKind
-        : 'other'
-      journals.push({
-        movementId:movementHistory.movements.find(m=>m.transfer_transaction_id===transaction.id)?.id,
-        id: transaction.id as string,
-        kind,
-        occurredOn: transaction.occurred_on as string,
-        createdAt: transaction.created_at as string,
-        amountMinor: requiredMinor(entry.amount_minor as number | string),
-        currency: String(entry.currency).toUpperCase(),
-        accountId: entry.account_id as string,
-        accountName: accountNames.get(entry.account_id as string) ?? '',
-        expenseId: (transaction.expense_id as string | null) ?? null,
-        memo: (transaction.memo as string | null) ?? null,
-      })
-    }
-  }
+    return { transactions, journalEntries }
+  })()
 
-  const recurringRows = await readAllPages(async (from, to) => {
+  const recurringRead = readAllPages(async (from, to) => {
     const recurringResult = await client
       .from('personal_recurring_occurrences')
       .select('id, status')
@@ -182,7 +154,7 @@ export async function loadPersonalAccountHome(input: {
     return recurringResult.data ?? []
   })
 
-  const installmentRows = await readAllPages(async (from, to) => {
+  const installmentsRead = readAllPages(async (from, to) => {
     const installmentResult = await client
       .from('personal_installments')
       .select('id, status')
@@ -193,7 +165,7 @@ export async function loadPersonalAccountHome(input: {
     return installmentResult.data ?? []
   })
 
-  const planRows = await readAllPages(async (from, to) => {
+  const plansRead = readAllPages(async (from, to) => {
     const plansResult = await client
       .from('personal_installment_plans')
       .select('id')
@@ -203,6 +175,46 @@ export async function loadPersonalAccountHome(input: {
     if (plansResult.error) throw plansResult.error
     return plansResult.data ?? []
   })
+
+  // Return one complete financial snapshot; errors still reject the entire
+  // account slice rather than showing partial balances as verified.
+  const [accounts, movementHistory, fundingRows, legRows, bundleRows, activity,
+    recurringRows, installmentRows, planRows] = await Promise.all([
+    accountsRead, movementRead, fundingRead, legsRead, bundlesRead, activityRead,
+    recurringRead, installmentsRead, plansRead,
+  ])
+  const funding: HomeFunding[] = fundingRows.map((row) => ({
+    expenseId: row.expense_id as string,
+    status: row.status as HomeFunding['status'],
+    accountId: row.status==='pending'?(bundleRows.find(b=>b.funding_intent_id===row.id)?.primary_account_id??row.account_id):row.account_id,
+    accountAmountMinor: minor(row.account_amount_minor as number | string | null),
+    accountCurrency: row.account_currency ? String(row.account_currency).toUpperCase() : null,
+    legs:legRows.filter(leg=>leg.funding_intent_id===row.id).map(leg=>({accountId:leg.account_id,amountMinor:requiredMinor(leg.amount_minor),currency:leg.currency})),
+  }))
+
+  const { transactions, journalEntries } = activity
+  const journals: HomeJournalEntry[] = []
+  const accountNames = new Map(accounts.map((account) => [account.id, account.name]))
+  for (const entry of journalEntries) {
+    const transaction = transactions.find((row) => row.id === entry.transaction_id)
+    if (!transaction) continue
+    const kind = JOURNAL_KINDS.has(transaction.kind as HomeJournalKind)
+      ? transaction.kind as HomeJournalKind
+      : 'other'
+    journals.push({
+      movementId:movementHistory.movements.find(m=>m.transfer_transaction_id===transaction.id)?.id,
+      id: transaction.id as string,
+      kind,
+      occurredOn: transaction.occurred_on as string,
+      createdAt: transaction.created_at as string,
+      amountMinor: requiredMinor(entry.amount_minor as number | string),
+      currency: String(entry.currency).toUpperCase(),
+      accountId: entry.account_id as string,
+      accountName: accountNames.get(entry.account_id as string) ?? '',
+      expenseId: (transaction.expense_id as string | null) ?? null,
+      memo: (transaction.memo as string | null) ?? null,
+    })
+  }
 
   return {
     movementFees:movementHistory.fees.map(fee=>({expenseId:fee.expense_id,movementId:fee.movement_id,accountId:fee.account_id,

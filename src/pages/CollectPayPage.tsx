@@ -47,14 +47,20 @@ function CollectPayController({ owner, timezone }: { owner: string; timezone: st
   const refresh = useCallback(async () => {
     const token = ++epoch.current
     try {
-      const [next] = await Promise.all([collectPayService.load(owner), refreshLedger()])
+      const next = await collectPayService.load(owner)
       if (token !== epoch.current) return
-      resetVerifiedHomeCache(); setSnapshot(next); setStatus('ready')
+      setSnapshot(next); setStatus('ready')
     } catch { if (token === epoch.current) setStatus('error') }
-  }, [owner, refreshLedger])
+  }, [owner])
   const invalidate = useCallback(() => { epoch.current++ }, [])
   useEffect(() => { let active = true; queueMicrotask(() => { if (active) void refresh() }); return () => { active = false; invalidate() } }, [refresh, invalidate])
-  return <CollectPayScreen snapshot={snapshot} status={status} onRefresh={refresh} timezone={timezone} notificationIdentity={authUser?.id} />
+  // Entry is read-only: keep Home's verified display for the return journey.
+  // Explicit refresh/mutation callbacks still invalidate and reread both views.
+  const refreshAfterChange = useCallback(async () => {
+    resetVerifiedHomeCache()
+    await Promise.all([refresh(), refreshLedger()])
+  }, [refresh, refreshLedger])
+  return <CollectPayScreen snapshot={snapshot} status={status} onRefresh={refreshAfterChange} timezone={timezone} notificationIdentity={authUser?.id} />
 }
 
 export function CollectPayScreen({ snapshot, status, onRefresh, timezone, service:providedService = collectPayService, notificationIdentity }: {

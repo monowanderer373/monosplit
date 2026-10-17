@@ -27,8 +27,9 @@ vi.mock('../lib/spaceRepository', () => ({
   spaceRepository: { list: async () => [] },
 }))
 
+const affiliations = vi.hoisted(() => ({ list: vi.fn() }))
 vi.mock('../lib/personalExpenseAffiliationRepository', () => ({
-  personalExpenseAffiliationRepository: { list: async () => [] },
+  personalExpenseAffiliationRepository: affiliations,
 }))
 
 import { resetVerifiedHomeCache, useHomeData } from './useHomeData'
@@ -58,11 +59,29 @@ function Probe({ id, refreshKey = 'refresh' }: { id: string; refreshKey?: string
 describe('home data identity switch', () => {
   beforeEach(() => {
     accountCalls.length = 0
+    affiliations.list.mockReset().mockResolvedValue([])
     resetVerifiedHomeCache()
   })
 
   afterEach(() => {
     cleanup()
+  })
+
+  it('publishes verified accounts without waiting for unrelated trip affiliations', async () => {
+    let finish!: (value: never[]) => void
+    affiliations.list.mockReturnValue(new Promise<never[]>(resolve => { finish = resolve }))
+    render(<Probe id="owner-a" />)
+    await act(async () => { accountCalls[0]?.resolve({ accounts: [{ name: 'Ready wallet' }] }) })
+    expect(screen.getByText('Ready wallet')).toBeTruthy()
+    await act(async () => { finish([]) })
+  })
+
+  it('ignores the older same-owner refresh after a newer request succeeds', async () => {
+    const view = render(<Probe id="owner-a" />)
+    view.rerender(<Probe id="owner-a" refreshKey="newer" />)
+    await act(async () => { accountCalls[1]?.resolve({ accounts: [{ name: 'New wallet' }] }) })
+    await act(async () => { accountCalls[0]?.reject(new Error('old read failed')) })
+    expect(screen.getByText('New wallet')).toBeTruthy()
   })
 
   it('drops an in-flight account snapshot after the participant changes', async () => {
