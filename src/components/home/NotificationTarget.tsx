@@ -25,8 +25,9 @@ type Props={reviewVersion?:number;details?:boolean;timezone?:string;sourceVersio
 export default function NotificationTarget(props:Props){
  const lang=useStore(s=>s.lang),t=useT(),navigate=useNavigate(),hidden=useStore(s=>s.homeUi.balanceHidden),setHomeUi=useStore(s=>s.setHomeUi)
  const [fundingNeedsAmount,setFundingNeedsAmount]=useState(false)
- const key=noticeKey(props.target),[reload,setReload]=useState(0),[result,setResult]=useState<{key:string;owner:string;value:NoticeResolution}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loadingSnapshot,setChecking]=useState(true)
- const checking=loadingSnapshot||props.sourceVersion?.startsWith('loading:')===true
+ const key=noticeKey(props.target),[reload,setReload]=useState(0),[result,setResult]=useState<{key:string;owner:string;sourceVersion?:string;value:NoticeResolution}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loadingSnapshot,setChecking]=useState(true)
+ // Pause synchronously on an authority revision; passive effects run after paint.
+ const checking=loadingSnapshot||props.sourceVersion?.startsWith('loading:')===true||!!props.sourceVersion&&result?.sourceVersion!==props.sourceVersion
  const actionEpoch=useRef(0)
  const lock=useRef(false),epoch=useRef(0),returnFocus=useRef<HTMLElement|null>(null)
  const viewed=useEffectEvent((n:HomeNotification)=>props.onViewed(n)),changed=props.onChange
@@ -39,8 +40,8 @@ export default function NotificationTarget(props:Props){
   setChecking(true);setError('')
   void loadNotificationSnapshot(props.owner).then(snapshot=>{
     if(cancelled||token!==epoch.current)return
-    const value=resolveNotice(snapshot,props.target,outbox());setResult({key,owner:props.owner,value});setChecking(false)
-  }).catch(cause=>{if(!cancelled&&token===epoch.current){setResult({key,owner:props.owner,value:noticeQueryFailure(cause)});setChecking(false)}})
+    const value=resolveNotice(snapshot,props.target,outbox());setResult({key,owner:props.owner,sourceVersion:props.sourceVersion,value});setChecking(false)
+  }).catch(cause=>{if(!cancelled&&token===epoch.current){setResult({key,owner:props.owner,sourceVersion:props.sourceVersion,value:noticeQueryFailure(cause)});setChecking(false)}})
   return()=>{cancelled=true;invalidate()}
  },[key,props.owner,props.target,reload,props.sourceVersion,invalidate])
  const resolution=result?.key===key&&result.owner===props.owner?result.value:null
@@ -78,9 +79,9 @@ export default function NotificationTarget(props:Props){
     const fresh=await collectPayService.load(props.owner)
     if(token!==actionEpoch.current)return
     const item=buildCollectPayItems(fresh).find(i=>props.target.kind==='payment'?i.payments.some(p=>p.id===props.target.id):i.requests.some(p=>p.id===props.target.id))
-    if(!item){setResult({key,owner:props.owner,value:{state:'unavailable'}});return}
+    if(!item){setResult({key,owner:props.owner,sourceVersion:props.sourceVersion,value:{state:'unavailable'}});return}
     navigate(`/collect-pay/${item.direction}?${new URLSearchParams({item:item.key,noticeType:props.target.kind,noticeTarget:props.target.id,noticeVersion:notice?.version??''})}`,{replace:true,state:{cpBack:true}})
-  }catch(cause){if(token===actionEpoch.current){if(noticeQueryFailure(cause).state==='login')setResult({key,owner:props.owner,value:{state:'login'}});else setError(t('notice.error'))}}finally{lock.current=false;setBusy(false)}
+  }catch(cause){if(token===actionEpoch.current){if(noticeQueryFailure(cause).state==='login')setResult({key,owner:props.owner,sourceVersion:props.sourceVersion,value:{state:'login'}});else setError(t('notice.error'))}}finally{lock.current=false;setBusy(false)}
  }
  const followPayment=useEffectEvent(()=>{void openPayment()})
  useEffect(()=>{if(notice&&!checking&&!hidden&&['payment','request'].includes(notice.ref.kind))followPayment()},[notice,hidden,checking])

@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import {useLayoutEffect} from 'react'
 import {act,cleanup,render,screen,waitFor} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {MemoryRouter} from 'react-router-dom'
@@ -108,4 +109,19 @@ it('keeps financial controls disabled until both current target and initial Home
  expect((screen.getByRole('combobox',{name:'Choose account'}) as HTMLSelectElement).disabled).toBe(true)
  view.rerender(tree('ready:1:1'));await waitFor(()=>expect((screen.getByRole('combobox',{name:'Choose account'}) as HTMLSelectElement).disabled).toBe(false))
  expect(rpc).not.toHaveBeenCalled()
+})
+
+it('disables the old financial control in the same commit as a new authority revision, before passive reads start',async()=>{
+ const seen:boolean[]=[]
+ const props={identity:'identity',owner:'owner',target:{kind:'funding' as const,id:'fund-1'},ledger,onChange:vi.fn(async()=>{}),onViewed:vi.fn(),onClose:()=>{}}
+ function Harness({version}:{version:string}){
+  useLayoutEffect(()=>{seen.push((document.querySelector('.home-notice-target select') as HTMLSelectElement|null)?.disabled??true)},[version])
+  return <MemoryRouter><NotificationTarget {...props} sourceVersion={version}/></MemoryRouter>
+ }
+ const view=render(<Harness version="ready:1:1"/>);await screen.findByRole('combobox');await waitFor(()=>expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false))
+ let finish!:(s:ReturnType<typeof noticeSnapshot>)=>void
+ load.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ view.rerender(<Harness version="ready:2:1"/>);expect(seen.at(-1)).toBe(true)
+ expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(true);expect(rpc).not.toHaveBeenCalled()
+ await act(async()=>finish(current));await waitFor(()=>expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false))
 })
