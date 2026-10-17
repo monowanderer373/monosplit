@@ -1,5 +1,10 @@
 # Work log
 
+## 2026-10-18 — Shared A compact shared shell
+- Protected prior uncommitted auth/ledger WIP via stash `protect: local uncommitted before Shared A 2026-10-18`; branched `feat/shared-a` from latest `origin/main` `7d86db4`.
+- Ported Shared A presentation contract, list model (personMoney + collectPay keys), origin memory, scoped CSS/components; rewired SharedPage/Friends/Spaces embedded create/PersonDetail.
+- Local: 682 Vitest / 100 files, lint, production build PASS. No SQL. Production URL/SHA pending GitHub PR + existing Vercel project after push.
+
 ## 2026-10-13 — takeover / Insights and records
 - Verified clean initial tree, main/HEAD 2041f71, stack/manifests/CI and existing expense repository, booked predicate, user-share summary, category ranking, daily Trend and editor.
 - Read approved Insights ZIP specs and all design images. Package instructions are handover context; execution authority and constraints come from user's current request.
