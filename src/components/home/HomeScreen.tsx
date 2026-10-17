@@ -191,8 +191,7 @@ export default function HomeScreen(props: HomeScreenProps) {
                 </AccountPaperMenu>
               ) : null}
             </div>
-            {props.accountMore}
-            <img className="home-balance-mascot" src="/denim-paper/pocket-clear.png" width="64" height="64" alt="" aria-hidden="true" draggable={false} />
+            {props.accountMore ?? <img className="home-balance-mascot" src="/denim-paper/pocket-clear.png" width="64" height="64" alt="" aria-hidden="true" draggable={false} />}
           </div>
           <div className="home-balance-panel">
             <p id="home-balance-title" className="home-balance-label">{t('home.accountBalance')}</p>
