@@ -125,3 +125,14 @@ it('disables the old financial control in the same commit as a new authority rev
  expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(true);expect(rpc).not.toHaveBeenCalled()
  await act(async()=>finish(current));await waitFor(()=>expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false))
 })
+
+it('renders the compact verify deduction form without the extra bill context row',async()=>{
+ current.money={bundles:[],anchors:[]}
+ setup()
+ await screen.findByRole('heading',{name:'Verify deduction'})
+ expect(document.querySelector('.ttmc-verify-compact')).toBeTruthy()
+ expect(screen.queryByText('Expense saved. Verify the deduction when ready.')).toBeNull()
+ expect(screen.getByText('Your payment')).toBeTruthy()
+ expect(screen.getByRole('combobox',{name:'Payment source'})).toBeTruthy()
+  expect(screen.getByRole('button',{name:'Confirm & finish'})).toBeTruthy()
+})

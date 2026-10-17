@@ -707,9 +707,13 @@ export function HomeSheet({
   const ref = useAccessibleDialog<HTMLElement>(requestClose, undefined, returnFocusRef)
   useEffect(() => {
     const overflow = document.body.style.overflow
+    const paddingRight = document.body.style.paddingRight
+    const gutter = window.innerWidth - document.documentElement.clientWidth
     document.body.style.overflow = 'hidden'
+    if (gutter > 0 && gutter <= 64) document.body.style.paddingRight = `${gutter}px`
     return () => {
       document.body.style.overflow = overflow
+      document.body.style.paddingRight = paddingRight
       if (closeTimer.current) clearTimeout(closeTimer.current)
     }
   }, [])

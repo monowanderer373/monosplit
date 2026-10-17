@@ -209,7 +209,7 @@ function VerificationList({snapshot,identity,parent,hidden,onReveal,onRefresh}:{
    </button></li>
   })}</ul></section>}
   {activeId&&row&&expense&&ids.includes(activeId)?<MoneyDialog key={activeId} title={t('mc.verify.single')} onClose={()=>select('')} testId="verify-deduction">
-   <p>{hidden?'••••':expense.description||expense.category} · {expense.occurredOn}</p><FundingBundleForm hidden={hidden} onReveal={onReveal} key={`${row.id}:${row.version}`} row={row} snapshot={snapshot} identity={identity} busy={busy||failed} onSubmit={perform} onReview={work=>perform(work,false)} next={ids.length>1}/><Failure failed={failed}/>{failed?<button type="button" onClick={()=>void perform(async guard=>{await onRefresh(guard)},false)}>{t('mc.state.latest')}</button>:null}
+   <FundingBundleForm hidden={hidden} onReveal={onReveal} key={`${row.id}:${row.version}`} row={row} snapshot={snapshot} identity={identity} busy={busy||failed} onSubmit={perform} onReview={work=>perform(work,false)} next={ids.length>1}/><Failure failed={failed}/>{failed?<button type="button" onClick={()=>void perform(async guard=>{await onRefresh(guard)},false)}>{t('mc.state.latest')}</button>:null}
   </MoneyDialog>:null}
  </>
 }
