@@ -444,6 +444,7 @@ describe('HomeScreen', () => {
     await waitFor(() => expect(screen.queryByTestId('home-review-sheet')).toBeNull())
     expect(document.activeElement).toBe(trigger)
     expect(document.body.style.overflow).toBe('')
+    expect(document.body.style.paddingRight).toBe('')
   })
 
   it('hides only the balance value and remembers the eye through local state', async () => {

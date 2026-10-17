@@ -59,6 +59,22 @@
 #root .home-sheet.home-paper-dialog.ttmc-dialog h2{font-size:1.0625rem;line-height:1.4;font-weight:650;overflow-wrap:anywhere}
 #root .ttmc-dialog .home-icon-button{flex:none;min-width:44px;min-height:44px;margin:-8px -8px 0 0}
 
+.ttmc-verify-compact{display:grid;gap:8px;justify-items:center;text-align:center;margin:0}
+.ttmc-verify-compact .ttmc-verify-kicker,.ttmc-verify-compact .ttmc-verify-caption{margin:0;font-size:.75rem;line-height:1.4;color:var(--ttmc-muted)}
+.ttmc-verify-compact .ttmc-verify-hero{margin:2px 0 0;font-size:1.375rem;line-height:1.25;font-weight:650;font-variant-numeric:tabular-nums}
+.ttmc-verify-compact .ttmc-verify-link{min-height:44px;padding:8px 0;width:100%;text-align:center;font-size:.75rem}
+.ttmc-verify-compact .ttmc-sources{width:100%;gap:8px}
+.ttmc-verify-compact .ttmc-paper{padding:12px;gap:8px;border-radius:12px}
+.ttmc-verify-compact label{gap:4px;text-align:start;font-size:.6875rem;color:var(--ttmc-muted)}
+.ttmc-verify-compact :where(input:not([type=checkbox]),select){min-height:44px;padding:8px 12px;border-radius:8px}
+.ttmc-verify-compact .ttmc-check{width:100%;justify-content:center;align-items:flex-start;font-size:.75rem;color:var(--ttmc-muted);text-align:start}
+.ttmc-verify-compact .ttmc-sources>p{margin:0;font-size:.6875rem;line-height:1.4}
+.ttmc-verify-compact .ttmc-sources>p:not([role]){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.ttmc-verify-compact .ttmc-sources>button{width:100%;min-height:44px;padding:8px 0;text-align:center}
+.ttmc-verify-compact .ms-btn-primary{width:100%;min-height:44px;border-radius:9px;text-align:center}
+#root .home-sheet.home-paper-dialog.ttmc-dialog:has(.ttmc-verify-compact){width:min(320px,100%);padding:14px 16px 16px;margin:0 auto}
+#root .home-sheet.home-paper-dialog.ttmc-dialog:has(.ttmc-verify-compact)>header{padding:0 0 8px}
+
 .ttmc-verification-list{container-type:inline-size}
 .ttmc-verification-list ul{list-style:none;margin:12px 0;padding:0}
 .ttmc-module .ttmc-verify-row{display:grid;grid-template-columns:24px minmax(0,1fr) minmax(0,auto) 12px;align-items:center;column-gap:10px;row-gap:4px;width:100%;min-height:64px;border-bottom:1px dashed #c9d5da;padding:10px 0;color:#24394a}

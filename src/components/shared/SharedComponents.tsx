@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import type { AmountView, SharedTab } from '../../lib/sharedAPresentation'
 import './shared-a.css'
 
@@ -21,8 +21,8 @@ const paths: Record<IconName, string> = {
   more: 'M5 12h.1M12 12h.1M19 12h.1',
 }
 
-export function SharedRoot({ children }: { children: ReactNode }) {
-  return <section className="tt-shared-a"><div className="ttsa-content">{children}</div></section>
+export function SharedRoot({ children, as: Tag = 'section' }: { children: ReactNode; as?: 'section' | 'main' }) {
+  return <Tag className="tt-shared-a"><div className="ttsa-content">{children}</div></Tag>
 }
 
 export function SharedIcon({ name, className = '' }: { name: IconName; className?: string }) {
@@ -34,10 +34,17 @@ export function SharedIcon({ name, className = '' }: { name: IconName; className
 }
 
 export function IconButton({
-  label, icon, onClick, disabled = false,
-}: { label: string; icon: IconName; onClick: () => void; disabled?: boolean }) {
+  label, icon, onClick, disabled = false, expanded,
+}: { label: string; icon: IconName; onClick: () => void; disabled?: boolean; expanded?: boolean }) {
   return (
-    <button type="button" className="ttsa-icon-button" aria-label={label} onClick={onClick} disabled={disabled}>
+    <button
+      type="button"
+      className="ttsa-icon-button"
+      aria-label={label}
+      {...(expanded === undefined ? {} : { 'aria-expanded': expanded })}
+      onClick={onClick}
+      disabled={disabled}
+    >
       <SharedIcon name={icon} />
     </button>
   )
@@ -57,19 +64,25 @@ export function QuietAction({
 }
 
 export function SharedHeader({
-  title, addLabel, searchLabel, onSearch, onAdd,
+  title, addLabel, searchLabel, onSearch, onAdd, toolsOpen, toolsLabel, onToggleTools,
 }: {
   title: string
   addLabel: string
   searchLabel: string
   onSearch: () => void
   onAdd: () => void
+  toolsOpen?: boolean
+  toolsLabel?: string
+  onToggleTools?: () => void
 }) {
   return (
     <header className="ttsa-header">
       <h1 className="ttsa-title">{title}</h1>
+      {onToggleTools && toolsLabel ? (
+        <IconButton label={toolsLabel} icon="more" expanded={toolsOpen} onClick={onToggleTools} />
+      ) : null}
       <IconButton label={searchLabel} icon="search" onClick={onSearch} />
-      <QuietAction icon="plus" onClick={onAdd}>{addLabel}</QuietAction>
+      {addLabel ? <QuietAction icon="plus" onClick={onAdd}>{addLabel}</QuietAction> : null}
     </header>
   )
 }
@@ -410,9 +423,14 @@ export function SpaceRow({
   )
 }
 
-export function Disclosure({ label, children }: { label: string; children: ReactNode }) {
+export function Disclosure({ label, children, defaultOpen = false }: { label: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
-    <details className="ttsa-disclosure">
+    <details
+      className="ttsa-disclosure"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary>{label}</summary>
       {children}
     </details>

@@ -36,7 +36,7 @@ export default function FundingBundleForm({identity,row,snapshot,busy,onSubmit,o
   if(hidden)return <section className="ttmc-module"><p>{t('notice.hiddenReview')}</p><button type="button" onClick={onReveal}>{t('mc.common.reveal')}</button></section>
   if(!accounts.some(a=>!a.archived))return <section className="ttmc-module"><p>{t('noticeA.funding.accountHelp')}</p><button type="button" disabled={busy} onClick={()=>navigate('/?'+new URLSearchParams({accountPanel:'manage',returnNotice:'funding',returnTarget:row.id}),{state:{noticeBack:true}})}>{t('noticeA.state.accounts')}</button></section>
   if(changed&&expense)return <section className="ttmc-module"><p role="status">{t('mc.state.changed')}</p>{paid>0?<button type="button" disabled={busy} onClick={()=>void (onReview??onSubmit)(async guard=>{const result=await moneyOperation('review_changed_personal_funding',{target_funding_intent_id:row.id,expected_intent_version:row.version,expected_expense_version:expense.version},identity,`funding-review:${row.id}`,guard);guard();acknowledgeMoneyOperation(identity,`funding-review:${row.id}`);return result})}>{t('mc.reviewAgain')}</button>:<p>{t('mc.state.unavailable')}</p>}</section>
-  return <form className="ttmc-module home-notice-form" onSubmit={e=>{
+  return <form className="ttmc-module home-notice-form ttmc-verify-compact" onSubmit={e=>{
     e.preventDefault();if(busy||!valid||!expense)return
     const legs=compileFundingSources(sources,accounts,snapshot.money?.anchors??[])
     void onSubmit(async guard=>{
@@ -47,9 +47,12 @@ export default function FundingBundleForm({identity,row,snapshot,busy,onSubmit,o
       guard();acknowledgeMoneyOperation(identity,`funding:${row.id}`);clearFundingDraft(identity,row.id);return result
     })
   }}>
-    <p>{t('mc.funding.saved')}</p>
-    {row.expense_amount_minor!=null&&row.expense_currency?<dl><dt>{t('mc.funding.yourPayment')}</dt><dd>{formatMinorAmount(Number(row.expense_amount_minor),row.expense_currency)}</dd></dl>:null}
-    {!bundle&&row.account_id?<button type="button" disabled={busy} onClick={()=>reviewSources(sources)}>{t('mc.reviewSources')}</button>:null}
+    {expense?<p className="ttmc-verify-kicker">{expense.description||expense.category} · {expense.occurredOn}</p>:null}
+    {row.expense_amount_minor!=null&&row.expense_currency?<>
+      <p className="ttmc-verify-hero">{formatMinorAmount(Number(row.expense_amount_minor),row.expense_currency)}</p>
+      <p className="ttmc-verify-caption">{t('mc.funding.yourPayment')}</p>
+    </>:null}
+    {!bundle&&row.account_id?<button type="button" className="ttmc-verify-link" disabled={busy} onClick={()=>reviewSources(sources)}>{t('mc.reviewSources')}</button>:null}
     <FundingSources accounts={accounts} anchors={snapshot.money?.anchors??[]} sources={sources} onAddSource={!bundle&&row.account_id?()=>reviewSources([...sources,{key:generateId(),accountId:'',amount:'',coverage:''}]):undefined} onChange={next=>{
       if(!bundle&&row.account_id&&next.some(s=>s.accountId&&s.accountId!==row.account_id)){reviewSources(next);return}
       setSources(next);setCovers(false);remember(next,false)

@@ -29,7 +29,8 @@ test('keeps Person Detail money-first and inherits that Person', async ({
     const target = targetBrowser.page
 
     await owner.goto('/friends')
-    await expect(owner.getByRole('heading', { name: 'Friends' })).toBeVisible()
+    await expect(owner.getByRole('heading', { name: 'Shared' })).toBeVisible()
+    await expect(owner.getByRole('tab', { name: 'Friends' })).toHaveAttribute('aria-selected', 'true')
     await expect(owner.getByRole('heading', { name: 'Direct splits' })).toHaveCount(0)
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
     await expect(owner.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
