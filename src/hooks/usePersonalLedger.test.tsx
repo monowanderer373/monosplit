@@ -13,6 +13,13 @@ function deferred() { let resolve!: (data: CanonicalExpense[]) => void; const pr
 beforeEach(() => { mocks.identity = 'first'; mocks.list.mockReset(); useStore.setState({ ledgerByIdentity: {} }); vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false) })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 describe('authoritative ledger read isolation', () => {
+  it('performs one startup expense read for an online identity with no outbox', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
+    mocks.list.mockResolvedValue([])
+    const view = renderHook(() => usePersonalLedger(), { wrapper: PersonalLedgerProvider })
+    await waitFor(() => expect(view.result.current.expensesStatus).toBe('ready'))
+    expect(mocks.list).toHaveBeenCalledTimes(1)
+  })
   it('discards an older refresh arriving after a newer verified result', async () => {
     const old = deferred(), latest = deferred()
     mocks.list.mockReturnValueOnce(old.promise).mockReturnValueOnce(latest.promise)

@@ -114,19 +114,25 @@ export function useHomeData(
     let cancelled = false
     setRefreshing(hasVerifiedHome(requestParticipantId))
     void (async () => {
-      const [nextAccounts, nextPeople, nextSettlements, nextSpaces, nextAffiliations] = await Promise.all([
-        settle(loadPersonalAccountHome({ includeAllActivity })),
-        settle(personRepository.listPeople()),
-        settle(settlementRepository.listSettlements()),
-        settle(spaceRepository.list()),
-        settle(personalExpenseAffiliationRepository.list()),
+      // Publish independent slices immediately. A slow trip/people query must
+      // not hold the verified balance behind a whole-page Promise.all barrier.
+      const publish = async <K extends keyof VerifiedHomeCache>(
+        key: K,
+        work: Promise<NonNullable<VerifiedHomeCache[K]>>,
+        setSlice: (value: Ready<NonNullable<VerifiedHomeCache[K]>>) => void,
+      ) => {
+        const next = await settle(work)
+        if (cancelled || !shouldApplyHomeResult(requestParticipantId, currentParticipantRef.current)) return
+        applySlice(requestParticipantId, key, next, setSlice)
+      }
+      await Promise.all([
+        publish('accounts', loadPersonalAccountHome({ includeAllActivity }), setAccounts),
+        publish('people', personRepository.listPeople(), setPeople),
+        publish('settlements', settlementRepository.listSettlements(), setSettlements),
+        publish('spaces', spaceRepository.list(), setSpaces),
+        publish('affiliations', personalExpenseAffiliationRepository.list(), setAffiliations),
       ])
       if (cancelled || !shouldApplyHomeResult(requestParticipantId, currentParticipantRef.current)) return
-      applySlice(requestParticipantId, 'accounts', nextAccounts, setAccounts)
-      applySlice(requestParticipantId, 'people', nextPeople, setPeople)
-      applySlice(requestParticipantId, 'settlements', nextSettlements, setSettlements)
-      applySlice(requestParticipantId, 'spaces', nextSpaces, setSpaces)
-      applySlice(requestParticipantId, 'affiliations', nextAffiliations, setAffiliations)
       setRefreshing(false)
     })()
     return () => {

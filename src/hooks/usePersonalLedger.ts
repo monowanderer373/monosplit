@@ -161,7 +161,10 @@ function usePersonalLedgerController() {
     activeIdentity.current = identityId
     setExpensesStatus('loading')
     void refresh()
-    void flush()
+    // An empty outbox has nothing to reconcile or dispatch. Calling flush here
+    // also performs a second full expense read and restarts Home/notice loads.
+    // Reconnect and actual queued commands retain the original flush path.
+    if (identityId && useStore.getState().ledgerByIdentity[identityId]?.outbox.length) void flush()
     const handleOnline = () => void flush()
     window.addEventListener('online', handleOnline)
     let refreshTimer: ReturnType<typeof setTimeout> | undefined
