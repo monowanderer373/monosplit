@@ -27,13 +27,12 @@ test('real isolated DB: two debit targets, exact cross-currency completion, immu
  try{
   await signIn(page,s.account);const bell=page.getByTestId('home-account-notice');await expect(bell).toHaveAccessibleName(/2 to do/)
   for(const [index,label,value]of [[0,'Train ticket notification','1.25'],[1,'Dinner notification','12.34']]as const){
-   if(await bell.getAttribute('aria-expanded')!=='true')await bell.click();await page.getByTestId('home-notice-popover').getByRole('button',{name:new RegExp(label)}).click();const target=page.getByTestId('notification-target');await expect(page).toHaveURL(new RegExp('target='+s.tasks[index].funding));await expect(target.getByRole('heading',{name:label})).toBeVisible();await target.getByRole('combobox').selectOption(s.bank)
-   if(index===0){await expect(target.getByRole('textbox')).toHaveCount(0);await expect(target).toContainText(value)}
-   else{await expect(target).toContainText('Use the amount shown by your wallet');await expect(target.getByRole('textbox')).toHaveValue('');await target.getByRole('textbox').fill(value)}
-   await target.getByRole('button',{name:'Update balance'}).dblclick();await expect(target).toContainText('already been handled');await expect(target.getByRole('button',{name:'Update balance'})).toHaveCount(0)
+   await page.goto('/?'+new URLSearchParams({notice:'funding',target:s.tasks[index].funding}));const target=page.getByTestId('notification-target');await expect(page).toHaveURL(new RegExp('target='+s.tasks[index].funding));await expect(target.getByRole('heading',{name:label})).toBeVisible();await target.getByRole('combobox').selectOption(s.bank)
+   await expect(target.getByRole('textbox')).toHaveValue('');await target.getByRole('textbox').fill(value);await target.getByRole('checkbox').check()
+   await target.getByRole('button',{name:'Confirm & finish'}).dblclick();await expect(target).toContainText('already been handled');await expect(target.getByRole('button',{name:'Confirm & finish'})).toHaveCount(0)
    const intents=await s.client.from('personal_funding_intents').select('status,account_amount_minor,account_currency').eq('id',s.tasks[index].funding).single();expect(intents.error).toBeNull();expect(intents.data).toEqual({status:'posted',account_amount_minor:index===0?125:1234,account_currency:'MYR'})
    const journal=await s.client.from('personal_account_transactions').select('id').eq('expense_id',s.tasks[index].expense).eq('kind','expense_funding');expect(journal.error).toBeNull();expect(journal.data).toHaveLength(1)
-   await page.keyboard.press('Escape');await expect(target).toHaveCount(0);await expect(page.getByTestId('home-notice-popover')).toBeVisible();await expect(bell).toHaveAccessibleName(new RegExp(`${1-index} to do`))
+   await page.keyboard.press('Escape');await expect(target).toHaveCount(0);if(await bell.getAttribute('aria-expanded')!=='true')await bell.click();await expect(page.getByTestId('home-notice-popover')).toBeVisible();await expect(bell).toHaveAccessibleName(new RegExp(`${1-index} to do`))
   }
   const after=await s.client.from('expenses').select('id,total_minor,currency,version,status').order('id');expect(after.data).toEqual(before.data)
   if(await bell.getAttribute('aria-expanded')!=='true')await bell.click();await page.getByRole('tab',{name:'Activity'}).click();await page.getByRole('button',{name:/Touch n Go test/}).click();await expect(page.getByTestId('notification-target')).toContainText('12.50');await expect(page.getByTestId('notification-target').locator('.notification-a-entry')).toHaveCount(1)
@@ -50,9 +49,9 @@ test('real isolated DB: login restores intent; another device completes it; anot
   await signIn(page,s.account,intent);const target=page.getByTestId('notification-target');await expect(target.getByRole('combobox')).toBeVisible()
   await rpc(s.client,'complete_pending_funding',{request_id:randomUUID(),target_funding_intent_id:s.tasks[0].funding,target_account_id:s.bank,account_amount_minor:125})
   // Fresh direct intent lookup, not an event arrival, establishes completion.
-  await page.reload();await expect(target).toContainText('already been handled');await expect(target.getByRole('button',{name:'Update balance'})).toHaveCount(0)
+  await page.reload();await expect(target).toContainText('already been handled');await expect(target.getByRole('button',{name:'Confirm & finish'})).toHaveCount(0)
   const denied=await otherClient.from('personal_funding_intents').select('id').eq('id',s.tasks[0].funding);expect(denied.error).toBeNull();expect(denied.data).toEqual([])
-  await page.evaluate(()=>{localStorage.clear();sessionStorage.clear()});await signIn(page,other,intent);await expect(target).toContainText('no longer available');await expect(target.getByRole('button',{name:'Update balance'})).toHaveCount(0)
+  await page.evaluate(()=>{localStorage.clear();sessionStorage.clear()});await signIn(page,other,intent);await expect(target).toContainText('no longer available');await expect(target.getByRole('button',{name:'Confirm & finish'})).toHaveCount(0)
  }finally{await s.client.auth.signOut();await otherClient.auth.signOut()}
 })
 
@@ -66,8 +65,8 @@ test('real isolated DB: same-currency funding posts accepted paid contribution, 
   const linked=await rpc(s.client,'link_expense_funding',{request_id:randomUUID(),target_expense_id:expense,target_account_id:null,supplied_account_amount_minor:null})
   const before=await s.client.from('expenses').select('id,total_minor,currency,version,status').eq('id',expense).single();expect(before.error).toBeNull()
   await signIn(page,s.account);await page.goto('/?'+new URLSearchParams({notice:'funding',target:linked.funding_intent_id}));const target=page.getByTestId('notification-target');await target.getByRole('combobox').selectOption(s.bank)
-  await expect(target).toContainText('Your payment');await expect(target).toContainText('30.00');await expect(target).toContainText('72.00');await expect(target.getByRole('textbox')).toHaveCount(0)
-  await target.getByRole('button',{name:'Update balance'}).dblclick();await expect(target).toContainText('already been handled')
+  await expect(target).toContainText('Your payment');await expect(target).toContainText('30.00');await expect(target).toContainText('72.00');await expect(target.getByRole('textbox')).toHaveValue('');await target.getByRole('textbox').fill('30.00');await target.getByRole('checkbox').check()
+  await target.getByRole('button',{name:'Confirm & finish'}).dblclick();await expect(target).toContainText('already been handled')
   const result=await s.client.from('personal_funding_intents').select('expense_amount_minor,account_amount_minor,status').eq('id',linked.funding_intent_id).single();expect(result.error).toBeNull();expect(result.data).toEqual({expense_amount_minor:3000,account_amount_minor:3000,status:'posted'})
   const journals=await s.client.from('personal_account_transactions').select('id').eq('expense_id',expense).eq('kind','expense_funding');expect(journals.error).toBeNull();expect(journals.data).toHaveLength(1)
   const after=await s.client.from('expenses').select('id,total_minor,currency,version,status').eq('id',expense).single();expect(after.data).toEqual(before.data)

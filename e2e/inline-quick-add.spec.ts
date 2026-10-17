@@ -51,7 +51,7 @@ for(const width of [320,360,390,430])test(`Inline ledger selection and real frie
   await capture(page,`more-results-${width}`)
   await quick.getByRole('searchbox').fill('Mountain weekend');await quick.getByRole('button',{name:/Mountain weekend/}).click()
   await expect(header).toContainText('Mountain weekend');await expect(header).toHaveAttribute('aria-expanded','false')
-  await expect(quick.getByLabel('Currency',{exact:true})).toHaveValue('MYR');await expect(quick.getByRole('textbox',{name:'Amount'})).toHaveValue('12+8')
+  await expect(quick.getByLabel('Currency',{exact:true})).toHaveValue('MYR');await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('12+8')
   await expect(quick.getByRole('button',{name:'Coffee',exact:true})).toHaveAttribute('aria-pressed','true')
   await header.click();await quick.getByRole('tab',{name:'Groups',exact:true}).click();await expect(quick.getByRole('button',{name:/Household/})).toBeVisible()
   await expect(header).toContainText('Mountain weekend');await capture(page,`03-groups-${width}`)
@@ -81,7 +81,7 @@ for(const width of [320,360,390,430])test(`Inline ledger selection and real frie
   const {data:participants}=await client.from('expense_participations').select('participant_id').eq('expense_id',saved![0].id);expect(participants).toHaveLength(4);expect(participants?.some(row=>row.participant_id===self)).toBe(true)
   const {data:tripMembers}=await client.from('space_members').select('participant_id').eq('space_id',trips[0]);expect(tripMembers?.map(row=>row.participant_id)).toEqual([self])
   // Page context still restores the original Trip draft, independently of the direct save.
-  await page.goto(`/travel/trip/${trips[0]}`);await page.getByRole('button',{name:'Quick add expense',exact:true}).click();await expect(header).toContainText('Mountain weekend');await expect(quick.getByRole('textbox',{name:'Amount'})).toHaveValue('12+8')
+  await page.goto(`/travel/trip/${trips[0]}`);await page.getByRole('button',{name:'Quick add expense',exact:true}).click();await expect(header).toContainText('Mountain weekend');await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('12+8')
   await header.click();await quick.getByRole('tab',{name:'Trips',exact:true}).click();await quick.getByRole('button',{name:'More trips ↓',exact:true}).click();await capture(page,`long-names-${width}`)
   await page.evaluate(()=>{document.documentElement.style.fontSize='200%'})
   await capture(page,`text-200-percent-${width}`)

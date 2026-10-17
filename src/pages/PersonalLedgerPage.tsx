@@ -1,7 +1,12 @@
 import NotificationTarget from '../components/home/NotificationTarget'
+import AccountBalance from '../components/accounts/AccountBalance'
+import AccountActions from '../components/accounts/AccountActions'
+import MovementRecordAction from '../components/accounts/MovementRecordAction'
+import type { CurrencyAccount } from '../lib/multicurrency'
 import {useHomeNotifications} from '../hooks/useHomeNotifications'
 import {noticePath,parseNotice} from '../lib/homeNotifications'
-import {noticeDestination,parseNoticeLocation,simpleNotice} from '../lib/notificationPresentation'
+import { useOpenHomeNotice } from '../hooks/useOpenHomeNotice'
+import {parseNoticeLocation,simpleNotice} from '../lib/notificationPresentation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
@@ -51,6 +56,7 @@ export default function PersonalLedgerPage() {
     return()=>cancelAnimationFrame(frame)
   },[noticeTarget])
   const notifications=useHomeNotifications(authUser?.id??null,ledger.participantId,ledger.outbox,homeRefreshKey)
+  const openNotice=useOpenHomeNotice(ledger.participantId,authUser?.id??null,location.key)
   const refreshNotices=notifications.refresh
   const refreshLedger=ledger.refresh
   const refreshAfterTask=useCallback(async()=>{
@@ -154,6 +160,7 @@ export default function PersonalLedgerPage() {
 
   const recordActions = Object.fromEntries(
     model.flatRecords.flatMap((record) => {
+      if(record.movementId)return [[record.id,<MovementRecordAction key={record.id} id={record.movementId}/>]]
       if (!record.expenseId || !ledger.participantId) return []
       const expense = ledger.expenses.find((item) => item.id === record.expenseId)
       if (!expense) return []
@@ -198,7 +205,8 @@ export default function PersonalLedgerPage() {
     notificationIdentity:authUser.id, notificationTargetOpen:!!noticeTarget||(searchParams.get('accountPanel')==='manage'&&!!searchParams.get('returnNotice')),
     notifications: notifications.notices, notificationsStatus: notifications.status, unreadNotifications: notifications.unread,
     onRetryNotifications: notifications.refresh,
-    onOpenNotification: notice=>navigate(noticeDestination(notice.ref),{state:{noticeBack:true}}),
+    onDismissNotifications: openNotice.cancel,
+    onOpenNotification: notice=>{void openNotice.open(notice)},
     localToday: model.localToday,
     timezone: authUser.timezone ?? 'Asia/Kuala_Lumpur',
     initialAccountPanel: searchParams.get('accountPanel') === 'manage' ? 'manage' : undefined,
@@ -209,6 +217,11 @@ export default function PersonalLedgerPage() {
     onToggleBalanceHidden: () => setHomeUi({ balanceHidden: !homeUi.balanceHidden }),
     selectedAccountId: model.selectedAccountId, onSelectAccount: selectedAccountId => setHomeUi({ selectedAccountId }),
     accounts: model.accounts, accountsStatus: home.accounts.status,
+    accountMore: <AccountActions accountId={model.selectedAccountId}/>,
+    accountBalance: home.accounts.status==='ready'&&model.accounts.some(a=>a.parentAccountId)?<AccountBalance
+      identity={authUser.id} includeArchived={model.accounts.find(a=>a.id===model.selectedAccountId)?.archived??false}
+      accounts={model.accounts.filter(a=>model.selectedAccountId==='all'?!a.archived&&a.accountClass==='asset':a.parentAccountId===model.selectedAccountId) as CurrencyAccount[]}
+      pending={notifications.notices.filter(n=>n.ref.kind==='funding'&&n.state==='pending'&&(model.selectedAccountId==='all'||n.fundingGroup?.parentId===model.selectedAccountId)).reduce((count,n)=>count+(n.taskCount??1),0)}/>:undefined,
     accountsRefreshing: home.refreshing && home.accounts.status === 'ready', defaultCurrency: authUser.defaultCurrency ?? 'MYR',
     onCreateAccount: async input => { await createPersonalAccount(input); setAccountReload(n => n + 1) },
     balances: model.balances, monthlySpending: model.monthlySpending, receivables: model.receivables,

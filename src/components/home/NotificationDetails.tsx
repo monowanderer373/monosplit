@@ -14,8 +14,8 @@ import ExpenseHistoryList from '../ExpenseHistoryList'
 import QuickIcon from '../QuickIcon'
 
 export function NotificationContext({name,amount,currency,date,icon='Bills'}:{name:string;amount?:number|string|null;currency?:string|null;date?:string;icon?:string}){
- const hidden=useStore(s=>s.homeUi.balanceHidden),lang=useStore(s=>s.lang)
- return <div className="notification-a-context"><span className="notification-a-context-icon"><QuickIcon name={icon} size={22}/></span><div><h3>{name}</h3><p className="home-meta">{amount!=null&&currency?<>{hidden?'••••':formatMinorAmount(Number(amount),currency)}{date?' · ':''}</>:null}{date?formatDate(date,lang):null}</p></div></div>
+ const hidden=useStore(s=>s.homeUi.balanceHidden),lang=useStore(s=>s.lang),t=useT()
+ return <div className="notification-a-context"><span className="notification-a-context-icon"><QuickIcon name={icon} size={22}/></span><div><h3>{hidden&&icon!=='wallet'?t('noticeA.recordSummary'):name}</h3><p className="home-meta">{amount!=null&&currency?<>{hidden?'••••':formatMinorAmount(Number(amount),currency)}{date?' · ':''}</>:null}{date?formatDate(date,lang):null}</p></div></div>
 }
 export function NotificationObjectDetails({snapshot,target,onRefresh,timezone='Asia/Kuala_Lumpur'}:{timezone?:string;snapshot:NoticeSnapshot;target:NoticeRef;onRefresh:()=>Promise<unknown>}){
  const t=useT(),navigate=useNavigate(),lang=useStore(s=>s.lang),hidden=useStore(s=>s.homeUi.balanceHidden),setHomeUi=useStore(s=>s.setHomeUi)
@@ -41,7 +41,7 @@ export function NotificationAccountDetails({account,identity,owner,onRecords}:{a
  const current=result?.key===key?result:null
  return <section className="notification-a-panel"><NotificationContext name={account.name} icon="wallet"/><p>{t('notice.balance')}</p><strong className={`notification-a-account-balance ${account.entrySumMinor<0?'notification-a-negative':''}`}>{hidden?'••••':account.openingStatus==='posted'?formatMinorAmount(account.entrySumMinor,account.currency):t('home.balanceIncomplete')}</strong>
   {!account.archived&&account.openingStatus==='posted'&&account.entrySumMinor<0?<p className="notification-a-highlight">{t('noticeA.account.negative')}</p>:null}<p className="notification-a-helper">{t('noticeA.account.help')}</p>
-  {!current?<p role="status">{t('home.loading')}</p>:current.error?<section role="alert"><p>{t('noticeA.account.recordsError')}</p><button type="button" className="ms-btn-ghost" onClick={()=>setEpoch(n=>n+1)}>{t('common.retry')}</button></section>:<div>{current.data.length?current.data.slice(0,5).map(entry=><div className="notification-a-entry" key={entry.id}><span>{entry.description??t('noticeA.recordSummary')}</span><strong>{hidden?'••••':formatMinorAmount(entry.amountMinor,entry.currency)}</strong><small>{formatDate(noticeCalendarDate(entry.date,'Asia/Kuala_Lumpur'),lang)}</small></div>):<p>{t('noticeA.noEntries')}</p>}</div>}
+  {!current?<p role="status">{t('home.loading')}</p>:current.error?<section role="alert"><p>{t('noticeA.account.recordsError')}</p><button type="button" className="ms-btn-ghost" onClick={()=>setEpoch(n=>n+1)}>{t('common.retry')}</button></section>:<div>{current.data.length?current.data.slice(0,5).map(entry=><div className="notification-a-entry" key={entry.id}><span>{hidden?'••••':entry.description??t('noticeA.recordSummary')}</span><strong>{hidden?'••••':formatMinorAmount(entry.amountMinor,entry.currency)}</strong><small>{formatDate(noticeCalendarDate(entry.date,'Asia/Kuala_Lumpur'),lang)}</small></div>):<p>{t('noticeA.noEntries')}</p>}</div>}
   {isAvailableMoneyAccount(account)?<button type="button" className="notification-a-detail-link" onClick={()=>{takeNoticeOrigin(identity);onRecords()}}>{t('noticeA.account.records')} →</button>:null}
  </section>
 }

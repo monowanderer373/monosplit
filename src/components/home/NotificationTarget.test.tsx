@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import {useLayoutEffect} from 'react'
 import {act,cleanup,render,screen,waitFor} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {MemoryRouter} from 'react-router-dom'
@@ -98,4 +99,29 @@ it.each([{due:'2026-10-14',review:2,allowed:false},{due:'2999-10-15',review:3,al
 })
 it('requires explicit reveal before notification details can open the original financial editor',async()=>{
  useStore.setState({homeUi:{...useStore.getState().homeUi,balanceHidden:true}});const user=userEvent.setup();render(<MemoryRouter><NotificationTarget details identity="identity" owner="owner" target={{kind:'funding',id:'fund-1'}} ledger={ledger} onChange={async()=>{}} onViewed={()=>{}} onClose={()=>{}}/></MemoryRouter>);await screen.findByText('Expense details');expect(screen.queryByRole('button',{name:/Edit Train ticket/})).toBeNull();expect(screen.queryByRole('textbox')).toBeNull();expect(screen.getByTestId('notification-target').textContent).not.toContain('6,000');await user.click(screen.getByText('View record',{selector:'summary'}));await user.click(screen.getAllByRole('button',{name:'Show amounts'})[0]);expect(screen.getByRole('button',{name:'Edit Train ticket'})).toBeTruthy()
+})
+
+
+it('keeps financial controls disabled until both current target and initial Home authority are ready',async()=>{
+ const props={identity:'identity',owner:'owner',target:{kind:'funding' as const,id:'fund-1'},ledger,onChange:vi.fn(async()=>{}),onViewed:vi.fn(),onClose:()=>{}}
+ const tree=(sourceVersion:string)=><MemoryRouter><NotificationTarget {...props} sourceVersion={sourceVersion}/></MemoryRouter>
+ const view=render(tree('loading:0:missing'));await screen.findByRole('combobox',{name:'Choose account'})
+ expect((screen.getByRole('combobox',{name:'Choose account'}) as HTMLSelectElement).disabled).toBe(true)
+ view.rerender(tree('ready:1:1'));await waitFor(()=>expect((screen.getByRole('combobox',{name:'Choose account'}) as HTMLSelectElement).disabled).toBe(false))
+ expect(rpc).not.toHaveBeenCalled()
+})
+
+it('disables the old financial control in the same commit as a new authority revision, before passive reads start',async()=>{
+ const seen:boolean[]=[]
+ const props={identity:'identity',owner:'owner',target:{kind:'funding' as const,id:'fund-1'},ledger,onChange:vi.fn(async()=>{}),onViewed:vi.fn(),onClose:()=>{}}
+ function Harness({version}:{version:string}){
+  useLayoutEffect(()=>{seen.push((document.querySelector('.home-notice-target select') as HTMLSelectElement|null)?.disabled??true)},[version])
+  return <MemoryRouter><NotificationTarget {...props} sourceVersion={version}/></MemoryRouter>
+ }
+ const view=render(<Harness version="ready:1:1"/>);await screen.findByRole('combobox');await waitFor(()=>expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false))
+ let finish!:(s:ReturnType<typeof noticeSnapshot>)=>void
+ load.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ view.rerender(<Harness version="ready:2:1"/>);expect(seen.at(-1)).toBe(true)
+ expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(true);expect(rpc).not.toHaveBeenCalled()
+ await act(async()=>finish(current));await waitFor(()=>expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false))
 })

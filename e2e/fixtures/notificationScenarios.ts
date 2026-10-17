@@ -11,7 +11,7 @@ export async function notificationScenario(page:Page,scene:string){
  if(['A1','A2','L1','S1','S2','S3','S4','S5','S6','S7'].includes(scene)){
   const expense=noticeExpense('fixture-expense','Morning coffee');state.snapshot.expenses=[expense]
   state.snapshot.funding=[{id:'fixture-intent',status:scene==='S1'?'posted':scene==='S2'?'cancelled':'pending',version:1,updated_at:'2026-10-15T02:00:00Z',expense_id:expense.id,expense_amount_minor:1200,expense_currency:scene==='A2'?'VND':'MYR',account_id:scene==='A2'||scene==='S1'?'bank':null,account_amount_minor:scene==='S1'?1200:null,account_currency:scene==='S1'?'MYR':null}]
-  expense.totalMinor=scene==='A2'?90000:1200;expense.currency=scene==='A2'?'VND':'MYR';expense.payerContributions[0].amountMinor=expense.totalMinor;expense.shares[0].amountMinor=expense.totalMinor
+  expense.totalMinor=scene==='A2'?90000:1200;expense.currency=scene==='A2'?'VND':'MYR';expense.payerContributions[0].amountMinor=expense.totalMinor;expense.shares[0].amountMinor=expense.totalMinor;state.snapshot.funding[0].expense_amount_minor=expense.totalMinor
   if(scene==='S3')state.snapshot.funding=[]
   if(scene==='S4')state.failRead=true
   if(scene==='S7')state.snapshot.accounts=[]

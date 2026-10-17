@@ -21,6 +21,7 @@ export async function setup(page: Page, records = fixtures, status = 200, hidden
   }, { hidden, lang })
   await page.route('http://127.0.0.1:54321/**', async route => {
     const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/rpc/get_personal_multicurrency_accounts')) return route.fulfill({json:{schema_version:1,accounts:[]}})
     if (path.endsWith('/rpc/insights_fx_snapshot')) return route.fulfill({json:autoFxSnapshot})
     if (path.includes('/user_profiles')) return route.fulfill({ json: { display_name: 'UI contract tester', default_currency: 'MYR', timezone: 'Asia/Kuala_Lumpur' } })
     if (path.includes('/participants')) return route.fulfill({ json: { id: 'you' } })

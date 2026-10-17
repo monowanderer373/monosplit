@@ -1,3 +1,4 @@
+import type { FundingPlan } from './multicurrency'
 import { capitalizeDescription } from './description'
 import type { ExpenseScope, ParticipantKind } from '../types'
 import { normalizeCategory } from './categories'
@@ -25,6 +26,7 @@ export type LedgerExpenseDraft = {
   splitMode: 'equal' | 'exact'
   exactShareAmounts: Record<string, string>
   fundingAccountId?: string | null
+  fundingPlan?: FundingPlan
 }
 
 export type CreateExpenseCommand = {
@@ -40,6 +42,7 @@ export type CreateExpenseCommand = {
   contributionAmounts: number[]
   shareAmounts: number[]
   fundingAccountId?: string | null
+  fundingPlan?: FundingPlan
 }
 
 export type LedgerCompileErrorCode =
@@ -139,7 +142,8 @@ export function compileLedgerExpense(draft: LedgerExpenseDraft): LedgerCompileRe
         participantIds,
         contributionAmounts: participantIds.map((id) => payerAmounts[id]),
         shareAmounts: participantIds.map((id) => shares[id]),
-        ...(draft.fundingAccountId && payerAmounts[draft.currentParticipantId] > 0
+        ...(draft.fundingPlan && payerAmounts[draft.currentParticipantId] > 0 ? {fundingPlan:draft.fundingPlan} : {}),
+        ...(draft.fundingAccountId && !draft.fundingPlan && payerAmounts[draft.currentParticipantId] > 0
           ? { fundingAccountId: draft.fundingAccountId } : {}),
       },
     }

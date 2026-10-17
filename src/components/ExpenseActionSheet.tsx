@@ -45,6 +45,7 @@ export default function ExpenseActionSheet({
   const t = useT()
   const lang = useStore(state => state.lang)
   const hidden = useStore(state => state.homeUi.balanceHidden)
+  const setHomeUi = useStore(state => state.setHomeUi)
   const zh = lang === 'zh'
   const copy = (en: string, cn: string) => zh ? cn : en
   const [open, setOpen] = useState(false)
@@ -284,8 +285,8 @@ export default function ExpenseActionSheet({
 
   return <>
     <button type="button" className={triggerClassName ?? 'ms-btn-ghost min-h-10 px-3 py-2 text-xs'} aria-haspopup="dialog" aria-expanded={open}
-      aria-label={mode === 'read_only' ? copy(`View ${expenseName}`, `查看 ${expenseName}`) : copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)} onClick={openSheet}>
-      {triggerClassName === 'home-record-trigger' ? <span className="home-sr">{copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)}</span> : trigger ?? <QuickIcon name="edit" size={16} />}
+      aria-label={hidden ? copy('Open record', '打开记录') : mode === 'read_only' ? copy(`View ${expenseName}`, `查看 ${expenseName}`) : copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)} onClick={openSheet}>
+      {triggerClassName === 'home-record-trigger' ? <span className="home-sr">{hidden ? copy('Open record', '打开记录') : copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)}</span> : trigger ?? <QuickIcon name="edit" size={16} />}
     </button>
     {open ? createPortal(<EditorDialog titleId={`expense-action-${expense.id}`} closing={closing} onClose={requestClose}>
       <header className="expense-editor-header">
@@ -293,7 +294,10 @@ export default function ExpenseActionSheet({
         <div><h2 id={`expense-action-${expense.id}`}>{mode === 'read_only' ? copy('Record details', '记录详情') : editing ? copy('Edit record', '编辑记录') : mode === 'view_request' ? t('expenseAction.viewRequest') : t('expenseAction.cancelExpense')}</h2><p>{subtitle}</p></div>
         <button type="button" className="expense-editor-close" onClick={requestClose} disabled={saving} aria-label={t('common.close')}><QuickIcon name="close" size={18} /></button>
       </header>
-      <form className="expense-editor-form" onSubmit={event => { event.preventDefault(); if (editing) submit(); else if (mode === 'cancel' || mode === 'request_cancellation') void cancel() }}>
+      {hidden ? <section className="expense-editor-form">
+        <p>{t('notice.hiddenReview')}</p>
+        <button type="button" className="ms-btn-primary" onClick={() => setHomeUi({ balanceHidden: false })}>{t('mc.common.reveal')}</button>
+      </section> : <form className="expense-editor-form" onSubmit={event => { event.preventDefault(); if (editing) submit(); else if (mode === 'cancel' || mode === 'request_cancellation') void cancel() }}>
         {partialSave ? <p className="expense-editor-notice" role="status">{copy('Amount and split saved. Details are not saved yet; retry saves only the remaining details.', '金额与分摊已保存，资料尚未保存；重试只会保存剩余资料。')}</p> : null}
         {notice ? <p className="expense-editor-notice" role="status">{notice}</p> : null}
         {error || statusNotice ? <p className="expense-editor-error" role="alert">{error ? t(error) : statusNotice}</p> : null}
@@ -360,8 +364,8 @@ export default function ExpenseActionSheet({
           </button>
           {editing && cancellationAction ? <button type="button" className="expense-editor-cancel-link" disabled={saving || mutationBlocked} onClick={() => beginCancellation(cancellationAction)}>{t(cancellationAction === 'cancel' ? 'expenseAction.cancelExpense' : 'expenseAction.requestCancellation')}</button> : null}
         </footer>}
-      </form>
-      {splitOpen && splitDraft ? <div className="expense-split-host"><div className="qa-main expense-split-surface"><QuickPanel title={copy('Split expense', '分摊消费')} onClose={() => setSplitOpen(false)}><div className="qa-panel-body">
+      </form>}
+      {!hidden && splitOpen && splitDraft ? <div className="expense-split-host"><div className="qa-main expense-split-surface"><QuickPanel title={copy('Split expense', '分摊消费')} onClose={() => setSplitOpen(false)}><div className="qa-panel-body">
         {canChangeType && friendsState === 'loading' ? <p className="qa-helper">{copy('Loading friends…', '正在加载朋友…')}</p> : null}
         {canChangeType && friendsState === 'ready' && splitPeople.length < 2 ? <p className="qa-helper">{copy('Add a friend in Shared first.', '先到共享页面添加朋友。')}</p> : null}
         {canChangeType && friendsState === 'error' ? <p role="alert" className="qa-error">{copy('Friends could not load. Close and reopen the editor to retry.', '朋友加载失败，请重新打开编辑页面重试。')}</p> : null}

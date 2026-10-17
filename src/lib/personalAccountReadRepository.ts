@@ -1,14 +1,15 @@
 import {
   addMinor,
   type HomeAccount,
-  type HomeAccountType,
   type HomeFunding,
   type HomeJournalEntry,
   type HomeJournalKind,
 } from './homeView'
 import { supabase } from './supabase'
+import { loadCurrencyAccounts, loadMovementHistory } from './multicurrencyRepository'
 
 export type PersonalAccountHomeSnapshot = {
+  movementFees?: Array<{expenseId:string;movementId:string;accountId:string;amountMinor:number;currency:string;includedInExistingDebit:boolean}>
   accounts: HomeAccount[]
   funding: HomeFunding[]
   journals: HomeJournalEntry[]
@@ -17,15 +18,6 @@ export type PersonalAccountHomeSnapshot = {
   installments: Array<{ id: string; status: string }>
   pendingPrincipalPlanIds: string[]
 }
-
-const ACCOUNT_TYPES = new Set<HomeAccountType>([
-  'cash',
-  'bank',
-  'ewallet',
-  'credit_card',
-  'paylater',
-  'loan',
-])
 
 const JOURNAL_KINDS = new Set<HomeJournalKind>([
   'income',
@@ -93,53 +85,8 @@ export async function loadPersonalAccountHome(input: {
   if (!supabase) throw new Error('not_configured')
   const client = supabase
 
-  const accountsResult = await client
-    .from('personal_accounts')
-    .select('id, name, account_class, account_type, currency, archived_at, opening_status')
-  if (accountsResult.error) throw accountsResult.error
-
-  const accountRows = accountsResult.data ?? []
-  const accountIds = accountRows.map((row) => row.id as string)
-  const sums = new Map<string, number>()
-  const entryCounts = new Map<string,number>()
-  if (accountIds.length > 0) {
-    const entryRows = await readAllPages(async (from, to) => {
-      const entriesResult = await client
-        .from('personal_account_entries')
-        .select('account_id, amount_minor')
-        .in('account_id', accountIds)
-        .order('id')
-        .range(from, to)
-      if (entriesResult.error) throw entriesResult.error
-      return entriesResult.data ?? []
-    })
-    for (const entry of entryRows) {
-      const accountId = entry.account_id as string
-      entryCounts.set(accountId,(entryCounts.get(accountId)??0)+1)
-      sums.set(
-        accountId,
-        addStoredMinor(sums.get(accountId) ?? 0, requiredMinor(entry.amount_minor as number | string)),
-      )
-    }
-  }
-
-  const accounts: HomeAccount[] = accountRows.flatMap((row) => {
-    const accountType = row.account_type as string
-    const accountClass = row.account_class as string
-    if (!ACCOUNT_TYPES.has(accountType as HomeAccountType)) return []
-    if (accountClass !== 'asset' && accountClass !== 'liability') return []
-    return [{
-      id: row.id as string,
-      name: row.name as string,
-      accountClass,
-      accountType: accountType as HomeAccountType,
-      currency: String(row.currency).toUpperCase(),
-      archived: row.archived_at != null,
-      openingStatus: row.opening_status === 'posted' ? 'posted' as const : 'unknown' as const,
-      entrySumMinor: sums.get(row.id as string) ?? 0,
-      attentionRevision:String(entryCounts.get(row.id as string)??0),
-    }]
-  })
+  const accounts = await loadCurrencyAccounts()
+  const movementHistory=await loadMovementHistory()
 
   const fundingRows = await readAllPages(async (from, to) => {
     const fundingResult = await client
@@ -151,12 +98,23 @@ export async function loadPersonalAccountHome(input: {
     if (fundingResult.error) throw fundingResult.error
     return fundingResult.data ?? []
   })
+  const legRows=await readAllPages(async(from,to)=>{
+    const result=await client.from('personal_funding_bundle_legs').select('id,funding_intent_id,account_id,amount_minor,currency').order('id').range(from,to)
+    if(result.error)throw result.error
+    return result.data??[]
+  })
+  const bundleRows=await readAllPages(async(from,to)=>{
+    const result=await client.from('personal_funding_bundles').select('funding_intent_id,primary_account_id').order('funding_intent_id').range(from,to)
+    if(result.error)throw result.error
+    return result.data??[]
+  })
   const funding: HomeFunding[] = fundingRows.map((row) => ({
     expenseId: row.expense_id as string,
     status: row.status as HomeFunding['status'],
-    accountId: (row.account_id as string | null) ?? null,
+    accountId: row.status==='pending'?(bundleRows.find(b=>b.funding_intent_id===row.id)?.primary_account_id??row.account_id):row.account_id,
     accountAmountMinor: minor(row.account_amount_minor as number | string | null),
     accountCurrency: row.account_currency ? String(row.account_currency).toUpperCase() : null,
+    legs:legRows.filter(leg=>leg.funding_intent_id===row.id).map(leg=>({accountId:leg.account_id,amountMinor:requiredMinor(leg.amount_minor),currency:leg.currency})),
   }))
 
   const readActivityPage = async (from: number, to: number) => {
@@ -198,6 +156,7 @@ export async function loadPersonalAccountHome(input: {
         ? transaction.kind as HomeJournalKind
         : 'other'
       journals.push({
+        movementId:movementHistory.movements.find(m=>m.transfer_transaction_id===transaction.id)?.id,
         id: transaction.id as string,
         kind,
         occurredOn: transaction.occurred_on as string,
@@ -246,6 +205,8 @@ export async function loadPersonalAccountHome(input: {
   })
 
   return {
+    movementFees:movementHistory.fees.map(fee=>({expenseId:fee.expense_id,movementId:fee.movement_id,accountId:fee.account_id,
+      amountMinor:requiredMinor(fee.amount_minor),currency:fee.currency,includedInExistingDebit:fee.transaction_id==null})),
     accounts,
     funding,
     journals,

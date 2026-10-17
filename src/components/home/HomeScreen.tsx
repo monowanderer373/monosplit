@@ -1,3 +1,5 @@
+import { exactAmount } from '../../lib/fx'
+import { currencyExponent } from '../../lib/money'
 import AccountNotice from './AccountNotice'
 import type {HomeNotification} from '../../lib/homeNotifications'
 import AmountInput from '../AmountInput'
@@ -44,6 +46,8 @@ type DisplayRecord = HomeRecordPresentation & {
 }
 
 export type HomeScreenProps = {
+  accountBalance?: ReactNode
+  accountMore?: ReactNode
   localToday?: string
   timezone?: string
   notifications?: readonly HomeNotification[]
@@ -51,6 +55,7 @@ export type HomeScreenProps = {
   notificationIdentity?: string
   notificationTargetOpen?: boolean
   unreadNotifications?: ReadonlySet<string>
+  onDismissNotifications?: ()=>void
   onOpenNotification?: (notice:HomeNotification)=>void
   onRetryNotifications?: ()=>unknown
   initialAccountPanel?: 'manage'
@@ -115,9 +120,9 @@ export default function HomeScreen(props: HomeScreenProps) {
   const assetAccounts = props.accounts.filter(isAvailableMoneyAccount)
   const selected = props.selectedAccountId === 'all'
     ? null
-    : assetAccounts.find((account) => account.id === props.selectedAccountId) ?? null
+    : props.accounts.find((account) => account.id === props.selectedAccountId) ?? null
   const today = localCalendarDate(new Date(), props.timezone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'))
-  const swipeIds = ['all', ...assetAccounts.map((account) => account.id)]
+  const swipeIds = ['all', ...assetAccounts.filter(account=>!account.parentAccountId||account.parentAccountId===account.id).map((account) => account.id)]
   const swipeStart = useRef<number | null>(null)
   const onSwipeDown = (event: PointerEvent<HTMLElement>) => {
     if ((event.target as HTMLElement).closest('button, [role="dialog"]')) return
@@ -134,14 +139,14 @@ export default function HomeScreen(props: HomeScreenProps) {
   }
 
   if (props.mode === 'travel') return <TravelHome props={{ ...props, localToday: today }}
-    notice={<AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
+    notice={<AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onDismiss={props.onDismissNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} />} modeSwitch={<ModeBookmark mode={props.mode} onChange={props.onModeChange} />}
     records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
 
   return (
     <div className="home-frame" data-density={props.density}>
       <header className="home-header" data-testid="home-header">
         <div>
-          <div className="home-title-row"><h1 className="home-title">{props.mode === 'daily' ? t('home.myDay') : t('home.modeTravel')}</h1><AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} /></div>
+          <div className="home-title-row"><h1 className="home-title">{props.mode === 'daily' ? t('home.myDay') : t('home.modeTravel')}</h1><AccountNotice identity={props.notificationIdentity} targetOpen={props.notificationTargetOpen} timezone={props.timezone} notices={props.notifications} status={props.notificationsStatus} unread={props.unreadNotifications} onDismiss={props.onDismissNotifications} onAction={props.onOpenNotification} onRetry={props.onRetryNotifications} /></div>
           <p className="home-today">{formatDate(today, lang)}</p>
         </div>
         <ModeBookmark mode={props.mode} onChange={props.onModeChange} />
@@ -161,7 +166,7 @@ export default function HomeScreen(props: HomeScreenProps) {
             <div className="home-account-target">
               <button ref={accountTrigger} type="button" className="home-account-button" data-testid="home-account-selector"
                 aria-haspopup="dialog" aria-controls={sheet === 'accounts' ? 'home-account-sheet' : undefined} aria-expanded={sheet === 'accounts'} onClick={() => setSheet(value => value === 'accounts' ? null : 'accounts')}>
-                <span>{selected?.name ?? t('home.allAccounts')}</span><Chevron />
+                <span>{selected?.name ?? t(props.selectedAccountId==='all'?'home.allAccounts':'mc.state.unavailable')}{selected?.archived?` · ${t('space.status.archived')}`:''}</span><Chevron />
               </button>
               {sheet === 'accounts' ? (
                 <AccountPaperMenu title={t('home.accountSheet')} onClose={closeSheet} testId="home-account-sheet" triggerRef={accountTrigger}>
@@ -170,11 +175,11 @@ export default function HomeScreen(props: HomeScreenProps) {
                       onSelect={() => { props.onSelectAccount('all'); closeSheet() }}>
                       {props.accountsStatus !== 'ready' ? t(props.accountsStatus === 'loading' ? 'home.loading' : 'home.unavailable')
                         : <span className="home-money-lines">{allAccountBalances(assetAccounts, 'all').map(balance => <span key={balance.currency}>
-                          {balance.amountMinor == null ? t('home.balanceIncomplete') : formatMoney(balance.amountMinor, balance.currency, lang, t)}
+                          {balance.amountMinorExact ? `${balance.currency} ${exactAmount(balance.amountMinorExact,currencyExponent(balance.currency),lang)}` : balance.amountMinor == null ? t('home.balanceIncomplete') : formatMoney(balance.amountMinor, balance.currency, lang, t)}
                           {balance.knownOnly ? ` · ${t('home.knownBalance')}` : ''}
                         </span>)}</span>}
                     </AccountOption>
-                    {props.accountsStatus === 'ready' ? assetAccounts.map(account => <AccountOption key={account.id} name={account.name}
+                    {props.accountsStatus === 'ready' ? assetAccounts.filter(account=>!account.parentAccountId||account.parentAccountId===account.id).map(account => <AccountOption key={account.id} name={account.name}
                       type={account.accountType} selected={account.id === props.selectedAccountId}
                       onSelect={() => { props.onSelectAccount(account.id); closeSheet() }}>
                       {accountBalanceLabel(account, lang, t)}
@@ -186,12 +191,13 @@ export default function HomeScreen(props: HomeScreenProps) {
                 </AccountPaperMenu>
               ) : null}
             </div>
+            {props.accountMore}
             <img className="home-balance-mascot" src="/denim-paper/pocket-clear.png" width="64" height="64" alt="" aria-hidden="true" draggable={false} />
           </div>
           <div className="home-balance-panel">
             <p id="home-balance-title" className="home-balance-label">{t('home.accountBalance')}</p>
             <div className="home-balance-line">
-              <BalanceValues
+              {props.accountBalance ?? <BalanceValues
                 status={props.accountsStatus}
                 balances={props.balances}
                 hidden={props.balanceHidden}
@@ -200,7 +206,7 @@ export default function HomeScreen(props: HomeScreenProps) {
                 onAddAccount={assetAccounts.length === 0 && props.accountsStatus === 'ready'
                   ? () => setSheet('create')
                   : undefined}
-              />
+              />}
               <button
                 type="button"
                 className="home-icon-button"
@@ -468,6 +474,7 @@ function BalanceValues({
           <p key={balance.currency} className="home-balance-figure">
             {hidden
               ? '••••'
+              : balance.amountMinorExact ? <MoneyText value={`${balance.currency} ${exactAmount(balance.amountMinorExact,currencyExponent(balance.currency),lang)}`} />
               : balance.amountMinor == null
                 ? t('home.balanceIncomplete')
                 : <MoneyText value={formatMoney(balance.amountMinor, balance.currency, lang, t)} />}
@@ -554,7 +561,7 @@ export function RecentRecordList({ props, paginationKey }: { paginationKey?: str
             : formatDate(group.date, lang)}</strong>}
         {props.density === 'compact' ? <DayTotal records={group.records} hidden={props.mode === 'travel' && props.balanceHidden} /> : null}
       </div>
-      {group.records.map(record => <RecordRow key={record.id} travel={props.mode === 'travel'} hidden={props.mode === 'travel' && props.balanceHidden} accountsStatus={props.accountsStatus}
+      {group.records.map(record => <RecordRow key={record.id} travel={props.mode === 'travel'} hidden={props.balanceHidden} accountsStatus={props.accountsStatus}
         record={{ ...record, statusLabel: props.recordStatuses?.[record.id] ?? null, action: props.recordActions?.[record.id] }} />)}
     </div>)}
     <div className="home-records-end" data-testid="home-records-end">
@@ -579,7 +586,9 @@ function RecordRow({
   const t = useT()
   const lang = useStore((state) => state.lang)
   const movement = record.journalKind === 'transfer' || record.journalKind === 'settlement_in' || record.journalKind === 'settlement_out'
-  const cue = movement
+  const cue = record.cashIncludedInMovement
+    ? {sign:'',tone:'movement',label:t('mc.feeCovered')}
+    : movement
     ? { sign: record.journalKind === 'transfer' ? '' : record.direction === 'in' ? '+' : '−', tone: 'movement', label: t(record.journalKind === 'transfer' ? 'home.transfer' : 'home.settlement') }
     : record.direction === 'in'
     ? { sign: '+', tone: 'incoming', label: t('home.incoming') }
@@ -592,7 +601,7 @@ function RecordRow({
                   : (
                     <>
                       <span className="home-sr">{cue.label}</span>
-                      {cue.sign}{<MoneyText value={formatMoney(record.amountMinor, record.currency, lang, t)} />}
+                      {record.fundingLegs&&record.fundingLegs.length>1?<span className="home-money-lines">{record.fundingLegs.map(leg=><span key={leg.accountId}>{cue.sign}<MoneyText value={formatMoney(leg.amountMinor,leg.currency,lang,t)}/></span>)}</span>:<>{cue.sign}<MoneyText value={formatMoney(record.amountMinor, record.currency, lang, t)} /></>}
                     </>
                   )}
   </>)
@@ -603,7 +612,7 @@ function RecordRow({
           <span className="home-record-icon" aria-hidden="true">{record.category.match(/^\p{Extended_Pictographic}[\p{Emoji_Modifier}\uFE0F\u200D\p{Extended_Pictographic}]*/u)?.[0] ?? <QuickIcon name={recordIconNames[record.category.trim().toLowerCase()] ?? 'Other'} size={20} />}</span>
         ) : null}
         <div className="home-record-copy">
-          <p className="home-record-title">{capitalizeDescription(record.description)}</p>
+          <p className="home-record-title">{hidden?'••••':capitalizeDescription(record.description)}</p>
           {travel || record.showChip ? <span className="home-chip">
             {record.compact && (record.chip.kind === 'direct' || record.chip.kind === 'space') ? <svg className="home-shared-mark" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="7" r="3" /><path d="M2 21v-2a7 7 0 0 1 14 0v2H2Z M16 4a3 3 0 0 1 0 6 M19 21h3v-2a7 7 0 0 0-5-6" />
@@ -625,7 +634,7 @@ function RecordRow({
                   ? t('home.unavailable')
                   : record.fundingPending
                     ? t('home.fundingPending')
-                    : record.walletName ?? t('home.walletUnlinked')}
+                    : record.cashIncludedInMovement?t('mc.feeCovered'):record.walletName ?? t('home.walletUnlinked')}
             </p>
           </div>
         </div>

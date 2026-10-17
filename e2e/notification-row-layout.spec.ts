@@ -6,7 +6,9 @@ const out='test-results/notification-row-layout'
 test('two short Food tasks keep a readable text column on a cold production build',async({page})=>{
  const state=await setupNotifications(page)
  state.snapshot.expenses.forEach(e=>{e.description='Food';e.category='Food'})
- state.snapshot.funding.forEach(f=>{f.account_id='bank';f.account_currency='MYR'})
+ state.snapshot.funding=[]
+ state.snapshot.rules=[1,2].map(i=>({id:'rule-'+i,title:'Food',status:'active',version:1,updated_at:'2026-10-15',amount_minor:1200,currency:'MYR',funding_account_id:'bank',cadence:'monthly'}))
+ state.snapshot.recurring=[1,2].map(i=>({id:'food-'+i,rule_id:'rule-'+i,status:'pending_review',version:1,updated_at:'2026-10-15',scheduled_for:'2026-10-15',effective_amount_minor:1200,effective_currency:'MYR',effective_account_id:'bank'}))
  await page.setViewportSize({width:390,height:844})
  await page.goto('/')
  const bell=page.getByTestId('home-account-notice')

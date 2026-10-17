@@ -14,6 +14,7 @@ const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 const PersonalLedgerPage = lazy(() => import('./pages/PersonalLedgerPage'))
 const SpendingRecordsPage = lazy(() => import('./pages/SpendingRecordsPage'))
 const InsightsPage = lazy(() => import('./pages/InsightsPage'))
+const AccountsPage = lazy(() => import('./pages/AccountsPage'))
 const CollectPayPage = lazy(() => import('./pages/CollectPayPage'))
 const SharedPage = lazy(() => import('./pages/SharedPage'))
 const SpacesPage = lazy(() => import('./pages/SpacesPage'))
@@ -79,6 +80,12 @@ function AppRoutes() {
             <Route path="/" element={<PersonalLedgerRoute />} />
             <Route path="/insights" element={<InsightsPage />} />
             <Route path="/insights/records" element={<SpendingRecordsPage />} />
+            <Route path="/accounts" element={<AccountsPage />} />
+            <Route path="/accounts/verify" element={<AccountsPage verify />} />
+            <Route path="/accounts/move/:moveKind" element={<AccountsPage />} />
+            <Route path="/accounts/movements/:movementId" element={<AccountsPage />} />
+            <Route path="/accounts/:accountId" element={<AccountsPage />} />
+            <Route path="/accounts/:accountId/currencies" element={<AccountsPage manage />} />
             <Route path="/notifications/:noticeKind/:noticeId" element={<PersonalLedgerRoute />} />
             <Route path="/collect-pay/:direction" element={<CollectPayPage />} />
             <Route path="/shared" element={<SharedPage />} />

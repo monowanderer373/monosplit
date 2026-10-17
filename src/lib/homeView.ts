@@ -23,6 +23,11 @@ export type HomeAccountType =
   | 'loan'
 
 export type HomeAccount = {
+  parentAccountId?: string
+  version?: number
+  parentVersion?: number
+  displayOrder?: number
+  isDefault?: boolean
   id: string
   name: string
   accountClass: 'asset' | 'liability'
@@ -46,6 +51,8 @@ export type CurrencyAmount = {
 }
 
 export type AvailableMoneyTotal = {
+  /** Display-only aggregate beyond one native account’s safe-integer bound. */
+  amountMinorExact?: string
   currency: string
   /**
    * Null when the selected account has an unknown opening.
@@ -154,6 +161,7 @@ export type HomeSpaceRef = {
 }
 
 export type HomeFunding = {
+  legs?: Array<{accountId:string;amountMinor:number;currency:string}>
   expenseId: string
   status: 'pending' | 'posted' | 'reversed'
   accountId: string | null
@@ -177,6 +185,7 @@ export type HomeJournalKind =
   | 'other'
 
 export type HomeJournalEntry = {
+  movementId?: string
   id: string
   kind: HomeJournalKind
   occurredOn: string
@@ -202,6 +211,9 @@ export type HomeContextChip =
   | { kind: 'space'; spaceName: string; spaceType: 'group' | 'trip' }
 
 export type HomeRecord = {
+  movementId?: string
+  cashIncludedInMovement?: boolean
+  fundingLegs?: Array<{accountId:string;amountMinor:number;currency:string}>
   id: string
   expenseId: string | null
   spaceId: string | null
@@ -268,13 +280,14 @@ export function availableMoney(
   const assets = accounts.filter(isAvailableMoneyAccount)
   const selected = selectedAccountId === 'all'
     ? assets
-    : assets.filter((account) => account.id === selectedAccountId)
-  const byCurrency = new Map<string, { knownMinor: number; unknownCount: number; singleUnknown: boolean }>()
+    : assets.filter((account) => account.id === selectedAccountId || account.parentAccountId === selectedAccountId)
+  const byCurrency = new Map<string, { knownMinor: bigint; knownCount:number; unknownCount: number; singleUnknown: boolean }>()
 
   for (const account of selected) {
     const currency = account.currency.toUpperCase()
     const bucket = byCurrency.get(currency) ?? {
-      knownMinor: 0,
+      knownMinor: 0n,
+      knownCount:0,
       unknownCount: 0,
       singleUnknown: false,
     }
@@ -282,7 +295,9 @@ export function availableMoney(
       bucket.unknownCount += 1
       bucket.singleUnknown = selected.length === 1
     } else {
-      bucket.knownMinor = addMinor(bucket.knownMinor, account.entrySumMinor)
+      if(!Number.isSafeInteger(account.entrySumMinor))throw new Error('amount_overflow')
+      bucket.knownMinor += BigInt(account.entrySumMinor)
+      bucket.knownCount++
     }
     byCurrency.set(currency, bucket)
   }
@@ -290,11 +305,17 @@ export function availableMoney(
   return [...byCurrency.entries()]
     .map(([currency, bucket]) => ({
       currency,
-      amountMinor: bucket.singleUnknown ? null : bucket.knownMinor,
-      knownOnly: bucket.unknownCount > 0 && !bucket.singleUnknown,
+      amountMinor: !bucket.knownCount || bucket.knownMinor>BigInt(Number.MAX_SAFE_INTEGER)||bucket.knownMinor<BigInt(-Number.MAX_SAFE_INTEGER) ? null : Number(bucket.knownMinor),
+      ...(bucket.knownCount&&(bucket.knownMinor>BigInt(Number.MAX_SAFE_INTEGER)||bucket.knownMinor<BigInt(-Number.MAX_SAFE_INTEGER))?{amountMinorExact:bucket.knownMinor.toString()}:{}),
+      knownOnly: bucket.unknownCount > 0 && bucket.knownCount>0,
       unknownOpeningCount: bucket.unknownCount,
     }))
     .sort((left, right) => left.currency.localeCompare(right.currency))
+}
+/** A missing or archived account is an explicit records filter, never an implicit "all". */
+export function accountRecordsFilter(accounts:readonly HomeAccount[],selected:string):string{
+  if(selected==='all')return 'all'
+  return accounts.find(a=>a.id===selected)?.parentAccountId??selected
 }
 
 export function balanceDisclosure(hidden: boolean, totals: readonly AvailableMoneyTotal[]) {
@@ -303,6 +324,7 @@ export function balanceDisclosure(hidden: boolean, totals: readonly AvailableMon
     totals: totals.map((total) => ({
       currency: total.currency,
       amountMinor: hidden ? null : total.amountMinor,
+      ...(!hidden&&total.amountMinorExact?{amountMinorExact:total.amountMinorExact}:{}),
       knownOnly: total.knownOnly,
       unknownOpeningCount: total.unknownOpeningCount,
     })),
@@ -591,6 +613,7 @@ export function homeRecordAccountFilter(
 }
 
 export function buildHomeRecords(input: {
+  movementFees?: readonly {expenseId:string;movementId:string;accountId:string;amountMinor:number;currency:string;includedInExistingDebit:boolean}[]
   ownerParticipantId: string
   expenses: readonly CanonicalExpense[]
   funding: readonly HomeFunding[]
@@ -625,6 +648,8 @@ export function buildHomeRecords(input: {
     const shareMinor = expense.shares.find((item) => item.expenseParticipationId === mine.id)?.amountMinor ?? 0
     const funding = fundingByExpense.get(expense.id)
     const cash = cashLeg(expense, paidMinor, funding, accounts)
+    const movementFee=input.movementFees?.find(fee=>fee.expenseId===expense.id)
+    const fundingLegs=funding?.status==='posted'?funding.legs?.filter(leg=>input.selectedAccountId==='all'||leg.accountId===input.selectedAccountId||accounts.get(leg.accountId)?.parentAccountId===input.selectedAccountId):undefined
     if (paidMinor === 0 && shareMinor === 0 && !cash.fundingPending) return []
     const record: HomeRecord = {
       id: `expense:${expense.id}`,
@@ -640,6 +665,10 @@ export function buildHomeRecords(input: {
       currency: cash.currency,
       accountId: cash.accountId,
       walletName: input.fundingKnown ? cash.walletName : null,
+      ...(fundingLegs?.length?{fundingLegs,accountId:fundingLegs[0].accountId,amountMinor:fundingLegs[0].amountMinor,currency:fundingLegs[0].currency,
+        walletName:[...new Set(fundingLegs.map(leg=>accounts.get(leg.accountId)?.name).filter(Boolean))].join(' · ')}:{}),
+      ...(movementFee?{movementId:movementFee.movementId,cashIncludedInMovement:movementFee.includedInExistingDebit,
+        accountId:movementFee.accountId,amountMinor:movementFee.amountMinor,currency:movementFee.currency,walletName:accounts.get(movementFee.accountId)?.name??null}:{}),
       fundingPending: input.fundingKnown && cash.fundingPending,
       amountKnown: input.fundingKnown,
       travelMeta: { myPaidMinor: paidMinor, participantCount: expense.participations.length },
@@ -660,6 +689,7 @@ export function buildHomeRecords(input: {
     const direction = entry.amountMinor > 0 ? 'in' as const : 'out' as const
     const record: HomeRecord = {
       id: `journal:${entry.id}:${entry.accountId}`,
+      movementId:entry.movementId,
       expenseId: entry.expenseId,
       spaceId: null,
       occurredOn: entry.occurredOn,
@@ -682,7 +712,8 @@ export function buildHomeRecords(input: {
 
   const visible = [...expenseRecords, ...journalRecords]
     .filter((record) =>
-      input.selectedAccountId === 'all' || record.accountId === input.selectedAccountId,
+      input.selectedAccountId === 'all' || record.accountId === input.selectedAccountId
+        || input.accounts.some(account => account.id === record.accountId && account.parentAccountId === input.selectedAccountId),
     )
     .sort((left, right) =>
       right.occurredOn.localeCompare(left.occurredOn)

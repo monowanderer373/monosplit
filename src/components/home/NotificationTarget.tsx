@@ -3,6 +3,7 @@ import {useCallback,useEffect,useEffectEvent,useRef,useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import NotificationSurface from './NotificationSurface'
 import FundingForm from './NotificationFundingForm'
+import FundingBundleForm from '../accounts/FundingBundleForm'
 import NotificationOccurrenceForm from './NotificationOccurrenceForm'
 import {localCalendarDate} from '../../lib/homeView'
 import {NotificationContext,NotificationObjectDetails,NotificationAccountDetails} from './NotificationDetails'
@@ -24,7 +25,9 @@ type Props={reviewVersion?:number;details?:boolean;timezone?:string;sourceVersio
 export default function NotificationTarget(props:Props){
  const lang=useStore(s=>s.lang),t=useT(),navigate=useNavigate(),hidden=useStore(s=>s.homeUi.balanceHidden),setHomeUi=useStore(s=>s.setHomeUi)
  const [fundingNeedsAmount,setFundingNeedsAmount]=useState(false)
- const key=noticeKey(props.target),[reload,setReload]=useState(0),[result,setResult]=useState<{key:string;owner:string;value:NoticeResolution}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[checking,setChecking]=useState(true)
+ const key=noticeKey(props.target),[reload,setReload]=useState(0),[result,setResult]=useState<{key:string;owner:string;sourceVersion?:string;value:NoticeResolution}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loadingSnapshot,setChecking]=useState(true)
+ // Pause synchronously on an authority revision; passive effects run after paint.
+ const checking=loadingSnapshot||props.sourceVersion?.startsWith('loading:')===true||!!props.sourceVersion&&result?.sourceVersion!==props.sourceVersion
  const actionEpoch=useRef(0)
  const lock=useRef(false),epoch=useRef(0),returnFocus=useRef<HTMLElement|null>(null)
  const viewed=useEffectEvent((n:HomeNotification)=>props.onViewed(n)),changed=props.onChange
@@ -37,8 +40,8 @@ export default function NotificationTarget(props:Props){
   setChecking(true);setError('')
   void loadNotificationSnapshot(props.owner).then(snapshot=>{
     if(cancelled||token!==epoch.current)return
-    const value=resolveNotice(snapshot,props.target,outbox());setResult({key,owner:props.owner,value});setChecking(false)
-  }).catch(cause=>{if(!cancelled&&token===epoch.current){setResult({key,owner:props.owner,value:noticeQueryFailure(cause)});setChecking(false)}})
+    const value=resolveNotice(snapshot,props.target,outbox());setResult({key,owner:props.owner,sourceVersion:props.sourceVersion,value});setChecking(false)
+  }).catch(cause=>{if(!cancelled&&token===epoch.current){setResult({key,owner:props.owner,sourceVersion:props.sourceVersion,value:noticeQueryFailure(cause)});setChecking(false)}})
   return()=>{cancelled=true;invalidate()}
  },[key,props.owner,props.target,reload,props.sourceVersion,invalidate])
  const resolution=result?.key===key&&result.owner===props.owner?result.value:null
@@ -76,9 +79,9 @@ export default function NotificationTarget(props:Props){
     const fresh=await collectPayService.load(props.owner)
     if(token!==actionEpoch.current)return
     const item=buildCollectPayItems(fresh).find(i=>props.target.kind==='payment'?i.payments.some(p=>p.id===props.target.id):i.requests.some(p=>p.id===props.target.id))
-    if(!item){setResult({key,owner:props.owner,value:{state:'unavailable'}});return}
+    if(!item){setResult({key,owner:props.owner,sourceVersion:props.sourceVersion,value:{state:'unavailable'}});return}
     navigate(`/collect-pay/${item.direction}?${new URLSearchParams({item:item.key,noticeType:props.target.kind,noticeTarget:props.target.id,noticeVersion:notice?.version??''})}`,{replace:true,state:{cpBack:true}})
-  }catch(cause){if(token===actionEpoch.current){if(noticeQueryFailure(cause).state==='login')setResult({key,owner:props.owner,value:{state:'login'}});else setError(t('notice.error'))}}finally{lock.current=false;setBusy(false)}
+  }catch(cause){if(token===actionEpoch.current){if(noticeQueryFailure(cause).state==='login')setResult({key,owner:props.owner,sourceVersion:props.sourceVersion,value:{state:'login'}});else setError(t('notice.error'))}}finally{lock.current=false;setBusy(false)}
  }
  const followPayment=useEffectEvent(()=>{void openPayment()})
  useEffect(()=>{if(notice&&!checking&&!hidden&&['payment','request'].includes(notice.ref.kind))followPayment()},[notice,hidden,checking])
@@ -89,7 +92,7 @@ export default function NotificationTarget(props:Props){
  const noEligible=notice?.state==='pending'&&props.target.kind==='funding'&&!row?.account_id&&!snapshot?.accounts.some(a=>!a.archived)
  const outcome=!resolution||checking?'loading':noEligible?'no-account':allowScheduled?'pending':resolution.state==='ready'?notice?.state:resolution.state
  const isPage=!!props.details||!simpleNotice(props.target)
- const title=noEligible?t('noticeA.state.noAccount'):props.details?t(props.target.kind==='recurring'?'noticeA.recurringDetails':props.target.kind==='installment'?'noticeA.installmentDetails':'noticeA.expenseDetails'):!resolution||checking?t('noticeA.state.loading'):resolution.state==='retry'?t('noticeA.state.retry'):resolution.state==='login'?t('noticeA.state.login'):resolution.state==='unavailable'?t('noticeA.state.unavailable'):props.target.kind==='account'?t('noticeA.common.account'):notice?.state==='info'&&props.target.kind==='change'?t('noticeA.awaitingApprovals'):completed&&!['payment','request'].includes(props.target.kind)?t('noticeA.state.completed'):changedState?t('noticeA.state.changed'):props.target.kind==='funding'?t(fundingNeedsAmount||row?.account_id?'noticeA.funding.addAmount':'noticeA.funding.chooseAccount'):t(props.target.kind==='expense'?'noticeA.direct.review':props.target.kind==='change'?(change?.kind==='cancellation'?'noticeA.cancel.title':'noticeA.change.title'):props.target.kind==='recurring'?'noticeA.recurring.title':props.target.kind==='installment'?'noticeA.installment.title':props.target.kind==='payment'?'noticeA.receipt.title':props.target.kind==='request'?'noticeA.payment.title':draft?.commitState==='unknown'?'noticeA.outboxUncertain':'noticeA.outbox.title')
+ const title=noEligible?t('noticeA.state.noAccount'):props.details?t(props.target.kind==='recurring'?'noticeA.recurringDetails':props.target.kind==='installment'?'noticeA.installmentDetails':'noticeA.expenseDetails'):!resolution||checking?t('noticeA.state.loading'):resolution.state==='retry'?t('noticeA.state.retry'):resolution.state==='login'?t('noticeA.state.login'):resolution.state==='unavailable'?t('noticeA.state.unavailable'):props.target.kind==='account'?t('noticeA.common.account'):notice?.state==='info'&&props.target.kind==='change'?t('noticeA.awaitingApprovals'):completed&&!['payment','request'].includes(props.target.kind)?t('noticeA.state.completed'):changedState?t('noticeA.state.changed'):props.target.kind==='funding'&&snapshot?.money?t('mc.verify.single'):props.target.kind==='funding'?t(fundingNeedsAmount||row?.account_id?'noticeA.funding.addAmount':'noticeA.funding.chooseAccount'):t(props.target.kind==='expense'?'noticeA.direct.review':props.target.kind==='change'?(change?.kind==='cancellation'?'noticeA.cancel.title':'noticeA.change.title'):props.target.kind==='recurring'?'noticeA.recurring.title':props.target.kind==='installment'?'noticeA.installment.title':props.target.kind==='payment'?'noticeA.receipt.title':props.target.kind==='request'?'noticeA.payment.title':draft?.commitState==='unknown'?'noticeA.outboxUncertain':'noticeA.outbox.title')
  const toDetails=()=>navigate(noticePagePath(props.target,true),{replace:true,state:{noticeBack:true}})
  return <NotificationSurface outcome={outcome} page={isPage} title={title} onClose={props.onClose} busy={busy} returnFocus={returnFocus}>
   <div className="home-notice-target" aria-busy={!resolution||busy||checking}>
@@ -104,8 +107,8 @@ export default function NotificationTarget(props:Props){
    {error?<div role="alert"><p>{error}</p><p>{t('notice.retryInfo')}</p><button type="button" className="ms-btn-ghost" disabled={busy||checking} onClick={reloadTarget}>{t('notice.check')}</button></div>:null}
    {snapshot&&props.target.kind==='account'&&account?<NotificationAccountDetails account={account} owner={props.owner} identity={props.identity} onRecords={()=>{setHomeUi({mode:'daily',selectedAccountId:account.id});navigate('/',{replace:true})}}/>:null}
    {notice?.state==='completed'&&props.target.kind==='funding'&&row&&account?<section><p>{account.name}</p><p>{t('notice.amount',{currency:row.account_currency??account.currency})}</p><strong>{hidden?'••••':row.account_amount_minor!=null?formatMinorAmount(Number(row.account_amount_minor),row.account_currency??account.currency):t('home.amountUnavailable')}</strong></section>:null}
-   {(notice?.state==='pending'||allowScheduled)&&hidden?<section><p>{t('notice.hiddenReview')}</p><button type="button" className="ms-btn-ghost" onClick={()=>setHomeUi({balanceHidden:false})}>{t('notice.show')}</button></section>:null}
-   {!props.details&&notice?.state==='pending'&&!hidden&&props.target.kind==='funding'&&row&&snapshot&&expense?<FundingForm key={`${key}:${row.version}`} identity={props.identity} row={row} snapshot={snapshot} onModeChange={setFundingNeedsAmount} busy={busy||checking} onSubmit={work=>perform(work)} />:null}
+   {(notice?.state==='pending'||allowScheduled)&&hidden&&!(props.target.kind==='funding'&&snapshot?.money)?<section><p>{t('notice.hiddenReview')}</p><button type="button" className="ms-btn-ghost" onClick={()=>setHomeUi({balanceHidden:false})}>{t('notice.show')}</button></section>:null}
+   {!props.details&&notice?.state==='pending'&&props.target.kind==='funding'&&row&&snapshot&&expense?(snapshot.money?<FundingBundleForm hidden={hidden} onReveal={()=>setHomeUi({balanceHidden:false})} key={`${key}:${row.version}`} identity={props.identity} row={row} snapshot={snapshot} busy={busy||checking||!!error} onSubmit={work=>perform(work)}/>:!hidden?<FundingForm key={`${key}:${row.version}`} identity={props.identity} row={row} snapshot={snapshot} onModeChange={setFundingNeedsAmount} busy={busy||checking} onSubmit={work=>perform(work)} />:null):null}
    {notice?.state==='pending'&&!hidden&&props.target.kind==='expense'&&expense?<DirectExpenseReviewCard compact expense={expense} participantId={props.owner} busy={busy||checking} onRespond={(id,response,version)=>perform(async guard=>{
       const fresh=await loadNotificationSnapshot(props.owner),current=resolveNotice(fresh,props.target,props.ledger.outbox)
       guard()
@@ -120,7 +123,7 @@ export default function NotificationTarget(props:Props){
      await notificationRpc('respond_to_direct_expense_change',{target_request_id:change.id,response,expected_request_version:change.version},props.identity,guard)
    })} onRefresh={async()=>{await changed();reloadTarget()}}/>:null}
    {!props.details&&(notice?.state==='pending'||allowScheduled)&&!hidden&&['recurring','installment'].includes(props.target.kind)&&row&&snapshot?<NotificationOccurrenceForm key={`${key}:${row.version}`} identity={props.identity} target={props.target} row={row} snapshot={snapshot} busy={busy||checking} allowScheduled={allowScheduled} onSubmit={work=>perform(work)}/>:null}
-   {notice?.state==='pending'&&!hidden&&props.target.kind==='outbox'&&draft?<section><p>{t('notice.local')}</p><PendingExpenseRecoveryActions notification item={draft} onUndoAdd={id=>{const done=props.ledger.discardLocalCreate(id);reloadTarget();return done}} onDiscardFailed={id=>{const done=props.ledger.discardFailedCreate(id);reloadTarget();return done}} onRetry={id=>perform(async guard=>{
+   {notice?.state==='pending'&&!hidden&&props.target.kind==='outbox'&&draft?<section><p>{t('notice.local')}</p><PendingExpenseRecoveryActions notification disabled={busy||checking} item={draft} onUndoAdd={id=>{const done=props.ledger.discardLocalCreate(id);reloadTarget();return done}} onDiscardFailed={id=>{const done=props.ledger.discardFailedCreate(id);reloadTarget();return done}} onRetry={id=>perform(async guard=>{
      const fresh=await loadNotificationSnapshot(props.owner)
      guard()
      if(fresh.expenses.some(e=>e.clientRequestId===id)){await props.ledger.refresh();return}
