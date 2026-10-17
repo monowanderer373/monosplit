@@ -46,6 +46,9 @@ test('Collect/Pay reads only needed accounts and returning Home keeps verified m
     await expect(page.getByTestId('home-receivable')).toHaveAttribute('data-state', 'ready')
     // Finish the initial notification/account reads before isolating route reads.
     await expect(page.getByTestId('home-account-notice')).toHaveAccessibleName(/2 to do/)
+    // A ready bell can retain its verified value while its expense-triggered
+    // reread is still queued. Drain Home traffic before counting route reads.
+    await page.waitForLoadState('networkidle')
     phase = 'collect'
     await page.getByTestId('home-receivable').click()
     await expect(page.getByTestId('collect-pay-page').locator('.cp-content')).toBeVisible()
