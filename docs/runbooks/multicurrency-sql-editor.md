@@ -2,7 +2,9 @@
 
 Target: Supabase `skiqsxvmxvmxfzhrzcxh`, existing Tabby Tally. No replacement project, database reset, historical migration edits, journal replay or production fixture data.
 
-Current Codex SQL connection reports `supabase_read_only_user`, `transaction_read_only=on`, and no database CREATE privilege. Repository commits do not install database functions. A writable SQL Editor session in the existing project is the remaining installation path; no credentials belong in chat.
+Installed release: owner SQL Editor execution succeeded and was independently verified on2026-10-17:28exact migrations, all32new function bodies match reviewed source, normal authenticated capabilities/RLS and production app/live checks passed. **Do not reinstall this release or ask the owner to repeat SQL execution.** The instructions below document its reproducible apply/recovery procedure.
+
+For future migrations, the current Codex SQL connection reports `supabase_read_only_user`, `transaction_read_only=on`, and no database CREATE privilege. Repository commits do not install database functions. A supported writable connection or an owner SQL Editor session is needed only for a genuinely new required migration; no credentials belong in chat.
 
 The complete file is [multicurrency-production-apply.sql](multicurrency-production-apply.sql). It is generated reproducibly by `python3 scripts/generate-multicurrency-apply.py` from the two forward migrations. It checks the exact 26-version baseline, applies both migrations in one transaction, registers their history only after each succeeds, checks installed capabilities, and reloads the API schema. A second successful execution skips installed versions. An unexpected history or any SQL error rolls the transaction back.
 
