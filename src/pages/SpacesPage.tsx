@@ -16,7 +16,7 @@ import { TripPeriodFields } from '../components/travel/TripPeriodEditor'
 import { validTripPeriod, tripPeriodStatus, tripPeriodStatusKeys, type TripPeriod } from '../lib/tripPeriod'
 import { useLocalCalendarDate } from '../hooks/useLocalCalendarDate'
 
-export default function SpacesPage({ preferredType }: { preferredType?: SpaceType } = {}) {
+export default function SpacesPage({ preferredType, embedded = false }: { preferredType?: SpaceType; embedded?: boolean } = {}) {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const navigate = useNavigate()
@@ -56,6 +56,14 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
     void refresh()
   }, [refresh])
 
+  useEffect(() => {
+    if (params.get('create') === '1') setShowCreate(true)
+  }, [params])
+
+  useEffect(() => {
+    if (preferredType) setType(preferredType)
+  }, [preferredType])
+
   const createSpace = async () => {
     if (!name.trim() || creating || !authUser || !periodValid) return
     setCreating(true)
@@ -94,6 +102,47 @@ export default function SpacesPage({ preferredType }: { preferredType?: SpaceTyp
           <button className="ms-btn-ghost mt-2 w-full" onClick={() => navigate('/')}>{t('spaces.backLedger')}</button>
         </section>
       </main>
+    )
+  }
+
+  if (embedded) {
+    if (authUser.isAnonymous) {
+      return (
+        <section className="ttsa-paper">
+          <p className="ttsa-meta">{t('spaces.guestHelp')}</p>
+        </section>
+      )
+    }
+    if (!showCreate) return null
+    return (
+      <section className="ttsa-paper" style={{ padding: 16, marginTop: 16 }}>
+        <label className="ttsa-field">
+          {t('spaces.name')}
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') void createSpace() }}
+            placeholder={type === 'trip' ? t('spaces.tripPlaceholder') : t('spaces.groupPlaceholder')}
+          />
+        </label>
+        <label className="ttsa-field">
+          {t('spaces.currency')}
+          <input
+            className="uppercase"
+            maxLength={3}
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+            disabled={creating}
+          />
+        </label>
+        {type === 'trip' ? <div className="mt-4"><TripPeriodFields value={period} onChange={setPeriod} disabled={creating} /></div> : null}
+        {error ? <p className="ttsa-meta" role="alert">{t(error)}</p> : null}
+        <div className="ttsa-actions">
+          <button type="button" className="ttsa-action" disabled={creating || !name.trim() || !periodValid} onClick={() => void createSpace()}>
+            <span className="ttsa-action-face">{creating ? t('common.creating') : t('spaces.create')}</span>
+          </button>
+        </div>
+      </section>
     )
   }
 

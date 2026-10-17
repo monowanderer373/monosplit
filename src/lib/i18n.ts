@@ -4,6 +4,7 @@ import { notificationTranslations } from './notificationTranslations'
 import { collectPayTranslations } from './collectPayTranslations'
 import { insightsTranslations } from './insightsTranslations'
 import { travelTranslations } from './travelTranslations'
+import { sharedATranslations } from './sharedATranslations'
 
 export type Lang = 'en' | 'zh'
 
@@ -13,6 +14,7 @@ const translations = {
   ...collectPayTranslations,
   ...travelTranslations,
   ...insightsTranslations,
+  ...sharedATranslations,
   // ── Bottom Tabs ──
   'tab.summary': { en: 'SUMMARY', zh: '摘要' },
   'tab.settle': { en: 'SETTLE UP', zh: '结算' },

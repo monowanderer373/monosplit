@@ -1,6 +1,12 @@
 # Tabby Tally project status
 
-Checkpoint:2026-10-17 (Asia/Kuala_Lumpur; execution evidence uses UTC2026-10-16).
+Checkpoint:2026-10-18 (Asia/Kuala_Lumpur). Working branch `feat/shared-a` from `origin/main` `7d86db4`. Local uncommitted work from `release/phase6-final-runbook` remains in `stash@{0}` (`protect: local uncommitted before Shared A 2026-10-18`) and backup branch `backup/local-wip-before-shared-a`.
+
+## In progress — Shared A compact shared shell (2026-10-18)
+- Implemented the approved quiet Shared A: one Shared header, Friends/Groups/Trips tabs, tab-scoped search, All/With balances, Direct currency, To review from existing shared-ledger notifications, compact person rows, compact person detail with Collect/Pay via real `item.key`.
+- CSS scoped to `.tt-shared-a`. No schema/migration. Quick Add, TripPeriodFields, settlements, history, notifications, multicurrency accounts retained.
+- Local verification: `npm test` 682 passed / 100 files; `npm run lint` pass; `npm run build` pass. Native OS keyboard / physical device / production deploy evidence recorded after push.
+- Review #1 (read-only, Task catalog lacked `tabby-reviewer`): identity-based pending counts, collect snapshot reload vs ledger revision, person-page CSS isolation, embedded space currency. Remaining: ExpenseHistoryList/ActivityFeed conceal still uses existing components; Trips from Shared open `/space/:id` per Shared A route spec (Travel manage still `/travel/trip`).
 
 ## Resume first
 Read this file/recent WORK_LOG, AGENTS, relevant CONTEXT/ADRs, git status/diff and current remote main. Preserve work. Old handover release/migration claims are historical; never reset/reapply from them.

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import {
+  BackControl,
+  CenteredDialog,
+  CompactBalanceCard,
+  Disclosure,
+  PersonHeading,
+  QuietAction,
+  SharedRoot,
+} from '../components/shared/SharedComponents'
 import ActivityFeed from '../components/ActivityFeed'
 import SettlementPanel from '../components/SettlementPanel'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
@@ -18,6 +27,8 @@ import {
   type FriendProfile,
 } from '../lib/friendRepository'
 import { personRepository } from '../lib/personRepository'
+import { collectPayService } from '../lib/collectPayRepository'
+import { buildCollectPayItems, type CollectPayItem } from '../lib/collectPay'
 import {
   canSettleTrackedPerson,
   trackedDirectContext,
@@ -26,6 +37,8 @@ import {
   untrackedPersonExpenses,
   untrackedRecordTotals,
 } from '../lib/personMoney'
+import { collectionActionCopy, resolvePersonCollectPay } from '../lib/sharedAListModel'
+import { financialActionsEnabled, safeLocalReturn } from '../lib/sharedAPresentation'
 import {
   isPersonDirectEligible,
   resolvePersonFinancialParticipant,
@@ -47,7 +60,14 @@ export default function PersonDetailPage() {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const { personId = '' } = useParams()
+  const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const hidden = useStore((state) => state.homeUi.balanceHidden)
+  const [collectItems, setCollectItems] = useState<CollectPayItem[]>([])
+  const [loadedCollectRevision, setLoadedCollectRevision] = useState<string | null>(null)
+  const [online, setOnline] = useState(() => navigator.onLine)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [chooseItems, setChooseItems] = useState<CollectPayItem[]>([])
   const { authUser, loading: authLoading } = useAuth()
   const participantId = authUser?.participantId ?? null
   const ledger = usePersonalLedger()
@@ -97,6 +117,40 @@ export default function PersonDetailPage() {
     () => personRepository.subscribeToPeople(() => void refresh()),
     [refresh],
   )
+
+  useEffect(() => {
+    const sync = () => setOnline(navigator.onLine)
+    window.addEventListener('online', sync)
+    window.addEventListener('offline', sync)
+    return () => {
+      window.removeEventListener('online', sync)
+      window.removeEventListener('offline', sync)
+    }
+  }, [])
+
+  const collectAuthority = `${participantId ?? ''}:${ledger.expenses.map((item) => `${item.id}:${item.version}:${item.updatedAt}`).join('|')}:${settlementState.settlements.map((item) => `${item.id}:${item.version}:${item.updatedAt}`).join('|')}`
+
+  useEffect(() => {
+    if (!participantId || authUser?.isAnonymous) {
+      setCollectItems([])
+      setLoadedCollectRevision(null)
+      return
+    }
+    const token = collectAuthority
+    setLoadedCollectRevision(null)
+    let cancelled = false
+    void collectPayService.load(participantId).then((snapshot) => {
+      if (cancelled) return
+      setCollectItems(buildCollectPayItems(snapshot))
+      setLoadedCollectRevision(token)
+    }).catch(() => {
+      if (!cancelled) {
+        setCollectItems([])
+        setLoadedCollectRevision(null)
+      }
+    })
+    return () => { cancelled = true }
+  }, [authUser?.isAnonymous, collectAuthority, participantId])
 
   const captureParticipants = useMemo<LedgerDraftParticipant[]>(() => {
     if (!participantId) return []
@@ -250,90 +304,132 @@ export default function PersonDetailPage() {
     }
   }
 
+  const backTo = safeLocalReturn(params.get('from'))
+  const selectedCurrency = (params.get('ccy') ?? authUser?.defaultCurrency ?? 'MYR').toUpperCase()
+  const actionsReady = financialActionsEnabled({
+    loadedRevision: loadedCollectRevision,
+    currentRevision: collectAuthority,
+    loading: loading || loadedCollectRevision !== collectAuthority,
+    identityMatches: Boolean(participantId && person && authUser && !authUser.isAnonymous),
+    online,
+  })
+
+  const openCollectPay = (direction: 'collect' | 'pay') => {
+    if (!participantId || !person || !actionsReady) return
+    const result = resolvePersonCollectPay({
+      owner: participantId,
+      personId: person.id,
+      currency: selectedCurrency,
+      direction,
+      items: collectItems,
+    })
+    if (result.resolution === 'open' && result.href) {
+      navigate(`${result.href}&from=${encodeURIComponent(backTo)}`)
+      return
+    }
+    if (result.resolution === 'choose') {
+      setChooseItems(result.candidates)
+      return
+    }
+    setChooseItems([])
+    setError('sharedA.unavailableCollect')
+  }
+
   if (authLoading || loading) {
-    return <main className="ms-page flex min-h-dvh items-center justify-center">{t('person.opening')}</main>
+    return <SharedRoot><p role="status">{t('person.opening')}</p></SharedRoot>
   }
 
   if (!authUser || authUser.isAnonymous || !participantId || !person) {
     return (
-      <main className="ms-page flex min-h-dvh items-center justify-center">
-        <section className="ms-card-hero w-full max-w-md text-center">
-          <p className="ms-label">{t('friends.title')}</p>
-          <h1 className="mt-2 text-2xl font-extrabold">{t('person.notFound')}</h1>
-          <button className="ms-btn-primary mt-5 w-full" onClick={() => navigate('/friends')}>
-            {t('person.back')}
-          </button>
-        </section>
-      </main>
+      <SharedRoot>
+        <BackControl label={t('sharedA.back')} onBack={() => navigate(backTo)} />
+        <h1>{t('person.notFound')}</h1>
+      </SharedRoot>
     )
   }
 
-  const trackedSummary = remainingTracked.length === 0
-    ? canSettle
-      ? t('person.settledUp')
-      : t('person.noConfirmedBalance')
-    : remainingTracked.map((line) => {
-      const mine = line.debtorParticipantId === participantId
-      const amount = formatMinorAmount(line.remainingMinor, line.currency)
-      return mine
-        ? `${t('settlement.youOwe', { name: person.displayName })} ${amount}`
-        : t('person.theyOweYou', { name: person.displayName, amount })
-    }).join(' · ')
+  const collectItem = collectItems.find((item) =>
+    item.personId === person.id && item.direction === 'collect' && item.currency === selectedCurrency && item.context.scope === 'direct',
+  )
+  const payItem = collectItems.find((item) =>
+    item.personId === person.id && item.direction === 'pay' && item.currency === selectedCurrency && item.context.scope === 'direct',
+  )
+  const theyOwe = Boolean(collectItem && collectItem.remainingMinor > 0)
+  const youOwe = Boolean(payItem && payItem.remainingMinor > 0)
+  const selectedLine = remainingTracked.find((line) => line.currency === selectedCurrency)
+  const otherCurrency = !theyOwe && !youOwe && (
+    collectItems.some((item) => item.personId === person.id && item.context.scope === 'direct' && item.remainingMinor > 0)
+    || remainingTracked.some((line) => line.remainingMinor > 0 && line.currency !== selectedCurrency)
+  )
+  const confirmedMinor = collectItem?.remainingMinor || payItem?.remainingMinor || selectedLine?.remainingMinor || 0
+  const balanceValue = hidden
+    ? t('sharedA.hidden')
+    : theyOwe || youOwe
+      ? formatMinorAmount(confirmedMinor, selectedCurrency)
+      : otherCurrency
+        ? t('sharedA.otherCurrencies')
+        : canSettle
+          ? t('sharedA.settled')
+          : t('sharedA.noRecords')
+  const balanceDirection = hidden ? ''
+    : selectedLine
+      ? (youOwe ? t('sharedA.youOwe') : t('sharedA.owesYou'))
+      : person.state === 'manual'
+        ? t('sharedA.manual')
+        : ''
 
   return (
-    <main className="ms-page pb-28">
-      <header className="mx-auto max-w-4xl">
-        <button className="mb-4 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate('/friends')}>
-          ← {t('person.back')}
-        </button>
-        <p className="ms-label">{t(personStateKey(person.state))}</p>
-        <h1 className="mt-1 text-3xl font-extrabold">{person.displayName}</h1>
-      </header>
+    <>
+    <SharedRoot>
+      <BackControl label={t('sharedA.back')} onBack={() => navigate(backTo)} />
+      <PersonHeading
+        name={person.displayName}
+        context={t('sharedA.directContext', { currency: selectedCurrency })}
+        moreLabel={t('sharedA.more')}
+        onMore={() => setMoreOpen(true)}
+      />
+      <QuietAction icon="down" onClick={() => {
+        const options = [...new Set([authUser.defaultCurrency ?? 'MYR', ...remainingTracked.map((line) => line.currency)])]
+        const index = options.indexOf(selectedCurrency)
+        const next = options[(index + 1) % options.length]
+        const nextParams = new URLSearchParams(params)
+        nextParams.set('ccy', next)
+        setParams(nextParams, { replace: true })
+      }}>{selectedCurrency}</QuietAction>
+      {error ? <p className="ttsa-meta" role="alert">{t(error)}</p> : null}
 
-      <ExpenseRecoveryNotices />
-
-      {error ? (
-        <p className="mx-auto mt-4 max-w-4xl rounded-xl bg-[var(--ms-danger-bg)] px-4 py-3 text-sm text-[var(--ms-danger)]">
-          {t(error)}
-        </p>
+      <div data-testid="person-position">
+        <CompactBalanceCard
+          label={t('sharedA.confirmedBalance')}
+          value={balanceValue}
+          direction={balanceDirection}
+          actions={(
+            <>
+              {canSettle && theyOwe ? (
+                <QuietAction icon="receive" disabled={!actionsReady} onClick={() => openCollectPay('collect')}>
+                  {t('sharedA.collection')}
+                </QuietAction>
+              ) : null}
+              {canSettle && youOwe ? (
+                <QuietAction icon="send" disabled={!actionsReady} onClick={() => openCollectPay('pay')}>
+                  {t('sharedA.repayment')}
+                </QuietAction>
+              ) : null}
+              <QuietAction icon="plus" disabled={!canAdd} onClick={openCapture}>{t('sharedA.addExpense')}</QuietAction>
+            </>
+          )}
+        />
+        {untrackedTotals.length > 0 && !hidden ? (
+          <p className="ttsa-meta">{t('person.onYourRecords')}</p>
+        ) : null}
+      </div>
+      {collectionActionCopy(participantId, collectItem) === 'Request payment' && theyOwe ? (
+        <p className="ttsa-meta">{t('sharedA.requestHelp')}</p>
       ) : null}
-
-      <section className="mx-auto mt-6 max-w-4xl" data-testid="person-position">
-        <p className="ms-label">{t('person.currentBalance')}</p>
-        <p className="mt-2 text-2xl font-extrabold">{trackedSummary}</p>
-        {untrackedTotals.length > 0 ? (
-          <div className="mt-3 text-sm text-[var(--ms-text-secondary)]">
-            <p className="font-bold">{t('person.onYourRecords')}</p>
-            {untrackedTotals.map((total) => (
-              <p key={total.currency} className="mt-1">
-                {t('person.untrackedAmount', {
-                  amount: formatMinorAmount(total.totalMinor, total.currency),
-                })}
-              </p>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      <section className="mx-auto mt-6 grid max-w-4xl grid-cols-2 gap-3">
-        <button className="ms-btn-primary" disabled={!canAdd} onClick={openCapture}>
-          {t('person.addExpense')}
-        </button>
-        <button
-          className="ms-btn-ghost"
-          disabled={!canSettle}
-          aria-disabled={!canSettle}
-          title={!canSettle ? t('person.settleUpAfterLink') : undefined}
-          onClick={() => {
-            if (canSettle) setSettleOpen(true)
-          }}
-        >
-          {t('person.settleUp')}
-        </button>
-        {!canSettle ? (
-          <p className="col-span-2 text-xs text-[var(--ms-text-muted)]">{t('person.settleUpAfterLink')}</p>
-        ) : null}
-      </section>
+      {payItem ? <p className="ttsa-meta">{t('sharedA.pendingHelp')}</p> : null}
+    </SharedRoot>
+    <main className="ms-page pb-28">
+      <ExpenseRecoveryNotices />
 
       {settleOpen && settleContext ? (
         <section className="mx-auto mt-6 max-w-4xl" data-testid="person-settle">
@@ -366,7 +462,7 @@ export default function PersonDetailPage() {
         <div className="ms-list tt-paper-list mt-3">
           {trackedExpenses.length === 0 ? (
             <p className="p-5 text-center text-sm text-[var(--ms-text-muted)]">{t('person.emptyActivity')}</p>
-          ) : trackedExpenses.map((item, index) => {
+          ) : trackedExpenses.slice(0, 3).map((item, index) => {
             const pending = ledger.outbox.find(
               (entry) => entry.command.requestId === item.clientRequestId,
             )
@@ -390,7 +486,7 @@ export default function PersonDetailPage() {
                   <p className="mt-1 text-xs text-[var(--ms-text-muted)]">{formatDate(item.occurredOn, lang)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-extrabold">{formatMinorAmount(item.totalMinor, item.currency)}</p>
+                  <p className="font-extrabold">{hidden ? t('sharedA.hidden') : formatMinorAmount(item.totalMinor, item.currency)}</p>
                   {pending ? (
                     <PendingExpenseRecoveryActions
                       item={pending}
@@ -450,7 +546,7 @@ export default function PersonDetailPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-extrabold">{formatMinorAmount(item.totalMinor, item.currency)}</p>
+                    <p className="font-extrabold">{hidden ? t('sharedA.hidden') : formatMinorAmount(item.totalMinor, item.currency)}</p>
                     {pending ? (
                       <PendingExpenseRecoveryActions
                         item={pending}
@@ -498,6 +594,7 @@ export default function PersonDetailPage() {
         />
       </div>
 
+      <Disclosure label={t('sharedA.details')}>
       <section className="mx-auto mt-8 max-w-4xl" data-testid="person-manage">
         <p className="ms-label">{t('person.manage')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('person.manage')}</h2>
@@ -546,6 +643,30 @@ export default function PersonDetailPage() {
           ) : null}
         </div>
       </section>
+      </Disclosure>
     </main>
+    <div className="tt-shared-a">
+      <CenteredDialog open={moreOpen} title={t('sharedA.more')} closeLabel={t('common.close')} onClose={() => setMoreOpen(false)}>
+        {canSettle ? (
+          <QuietAction icon="review" onClick={() => { setMoreOpen(false); setSettleOpen(true) }}>{t('person.settleUp')}</QuietAction>
+        ) : <p className="ttsa-meta">{t('person.settleUpAfterLink')}</p>}
+      </CenteredDialog>
+      <CenteredDialog open={chooseItems.length > 0} title={t('sharedA.chooseExact')} closeLabel={t('common.close')} onClose={() => setChooseItems([])}>
+        {chooseItems.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className="ttsa-link-row"
+            onClick={() => {
+              navigate(`/collect-pay/${item.direction}?${new URLSearchParams({ item: item.key, from: backTo })}`)
+              setChooseItems([])
+            }}
+          >
+            {item.currency} · {item.source}
+          </button>
+        ))}
+      </CenteredDialog>
+    </div>
+    </>
   )
 }
