@@ -217,11 +217,10 @@ export default function PersonalLedgerPage() {
     onToggleBalanceHidden: () => setHomeUi({ balanceHidden: !homeUi.balanceHidden }),
     selectedAccountId: model.selectedAccountId, onSelectAccount: selectedAccountId => setHomeUi({ selectedAccountId }),
     accounts: model.accounts, accountsStatus: home.accounts.status,
-    accountMore: <AccountActions accountId={model.selectedAccountId}/>,
+    accountMore: <AccountActions accountId={model.selectedAccountId} accountName={model.accounts.find(a=>a.id===model.selectedAccountId)?.name ?? t(model.selectedAccountId==='all'?'home.allAccounts':'mc.state.unavailable')}/>,
     accountBalance: home.accounts.status==='ready'&&model.accounts.some(a=>a.parentAccountId)?<AccountBalance
       identity={authUser.id} includeArchived={model.accounts.find(a=>a.id===model.selectedAccountId)?.archived??false}
-      accounts={model.accounts.filter(a=>model.selectedAccountId==='all'?!a.archived&&a.accountClass==='asset':a.parentAccountId===model.selectedAccountId) as CurrencyAccount[]}
-      pending={notifications.notices.filter(n=>n.ref.kind==='funding'&&n.state==='pending'&&(model.selectedAccountId==='all'||n.fundingGroup?.parentId===model.selectedAccountId)).reduce((count,n)=>count+(n.taskCount??1),0)}/>:undefined,
+      accounts={model.accounts.filter(a=>model.selectedAccountId==='all'?!a.archived&&a.accountClass==='asset':a.parentAccountId===model.selectedAccountId) as CurrencyAccount[]}/>:undefined,
     accountsRefreshing: home.refreshing && home.accounts.status === 'ready', defaultCurrency: authUser.defaultCurrency ?? 'MYR',
     onCreateAccount: async input => { await createPersonalAccount(input); setAccountReload(n => n + 1) },
     balances: model.balances, monthlySpending: model.monthlySpending, receivables: model.receivables,

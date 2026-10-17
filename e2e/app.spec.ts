@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import { enterQuickAmount } from './fixtures/quickAdd'
 import { createConfirmedAccount, signIn } from './fixtures/localSupabase'
@@ -43,6 +45,17 @@ test('installs the production PWA and restores its private shell offline', async
   await page.reload({ waitUntil: 'domcontentloaded' })
 
   await expect(page.getByRole('heading', { name: 'Your private ledger starts here.' })).toBeVisible()
+  // The pocket is an action entry now, so a fresh offline shell needs its art too.
+  for (const asset of ['pocket-clear.png', 'account-weave.svg', 'paper-grain.svg']) {
+    const path = '/denim-paper/' + asset
+    const expected = createHash('sha256').update(await readFile(new URL('../public' + path, import.meta.url))).digest('hex')
+    const actual = await page.evaluate(async path => {
+      const response = await fetch(path)
+      if (!response.ok) throw new Error('offline_home_asset_unavailable')
+      return [...new Uint8Array(await crypto.subtle.digest('SHA-256', await response.arrayBuffer()))].map(v => v.toString(16).padStart(2, '0')).join('')
+    }, path)
+    expect(actual).toBe(expected)
+  }
 })
 
 test('keeps an unverified email signup out of the private ledger', async ({ page }) => {

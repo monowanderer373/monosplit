@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
           // Public SVG URLs are stable: revision them when their bytes change.
           // Only Vite's content-hashed JS/CSS already carry a cache version.
           dontCacheBustURLsMatching: /(?:^|\/)assets\/.+-[A-Za-z0-9_-]{8}\.(?:js|css)$/,
-          globPatterns: ['**/*.{js,css,html,ico,woff,woff2}', 'icon-*.png', 'assets/quick-add-context/*.svg', 'assets/insights/*.svg'],
+          globPatterns: ['**/*.{js,css,html,ico,woff,woff2}', 'icon-*.png', 'assets/quick-add-context/*.svg', 'assets/insights/*.svg', 'denim-paper/pocket-clear.png', 'denim-paper/account-weave.svg', 'denim-paper/paper-grain.svg'],
           navigateFallback: 'index.html',
         },
       }),

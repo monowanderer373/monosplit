@@ -255,3 +255,18 @@ button.home-sheet-option:hover { background: var(--tt-primary-soft); }
 .home-notice-list li:first-child .home-notice-row {border-top:0;}
 
 .home-notice-popover {--notice-safe-bottom:env(safe-area-inset-bottom,0px);}
+
+/* The original pocket is the action target; it adds no row or height to the card. */
+#root .home-shell .home-account-actions { position: absolute; top: -8px; right: 18px; z-index: 3; display: grid; place-items: center; width: 64px; height: 64px; min-width: 64px; padding: 0; border: 0; border-radius: 14px; background: transparent; color: var(--tt-primary); cursor: pointer; touch-action: manipulation; transform: rotate(-3deg); }
+#root .home-shell .home-account-actions img { display: block; width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 2px 2px rgb(36 55 74 / .16)); pointer-events: none; user-select: none; }
+#root .home-shell .home-account-actions:hover, #root .home-shell .home-account-actions[aria-expanded="true"] { background: rgb(240 246 248 / .6); }
+#root .home-shell .home-account-actions:focus-visible { outline: 3px solid var(--tt-primary); outline-offset: 2px; }
+#root .home-shell button.home-account-actions:active:not(:disabled) { background: rgb(188 211 223 / .75); box-shadow: none; }
+@media (prefers-reduced-motion: no-preference) {
+  #root .home-shell .home-account-actions { transition: transform 130ms ease-out, background-color 130ms ease-out; }
+  #root .home-shell .home-account-actions:hover { transform: rotate(1deg); }
+  #root .home-shell button.home-account-actions:active:not(:disabled) { transform: translateY(2px) scale(.94); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .home-shell button.home-account-actions:active:not(:disabled) { transform: rotate(-3deg); }
+}

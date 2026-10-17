@@ -27,7 +27,6 @@
 .ttmc-page form{display:grid;gap:16px}
 #root .home-sheet.home-paper-dialog.ttmc-dialog{width:min(342px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:20px;border:1px solid #ded8ce;border-radius:16px;background:#fffcf5;overflow:auto}
 #root .home-sheet.home-paper-dialog.ttmc-dialog .ttmc-module{font-size:1rem;line-height:1.5}
-.home-account-header>.ttmc-more{flex:none;min-width:44px;min-height:44px;color:#356d91}
 @media(prefers-reduced-motion:no-preference){.ttmc-module button:active{transform:translateY(1px)}}
 .ttmc-page-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .ttmc-page-toolbar>div{display:flex;flex:none;gap:4px}
@@ -78,3 +77,20 @@
 #root .qa-main .ttmc-quick-payment button{color:#356d91;min-height:44px;padding:.65rem .8rem}
 #root .qa-main .ttmc-quick-payment .ttmc-actions>button{flex:1 1 130px;border:1px solid #ded8ce;border-radius:12px;background:#fffcf5;text-align:center}
 #root .qa-main .ttmc-quick-payment .ttmc-actions>button[aria-pressed=true]{background:#deecf2;border-color:#9eb8c8;color:#24394a;font-weight:650}
+
+/* Account actions only: cream paper, a quiet denim account tab and tactile rows. */
+#root [data-testid="account-actions"] { background: #fffcf5 url('/denim-paper/paper-grain.svg') repeat; background-size: 128px; }
+#root [data-testid="account-actions"] > header { border-bottom: 1px dashed #c9d5da; margin-bottom: 14px; }
+#root .ttmc-account-actions .ttmc-action-account { margin: 0 0 12px; padding: 7px 10px; border-radius: 6px; background: #e5eff3; color: #526e81; font-size: .8125rem; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
+#root .ttmc-account-action-list { display: grid; gap: 8px; }
+#root .ttmc-account-actions .ttmc-account-action { display: grid; grid-template-columns: 36px minmax(0,1fr) 16px; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 10px; border: 1px solid #ded8ce; border-radius: 10px; background: #fffcf5; box-shadow: 0 2px 0 rgb(36 55 74 / .06); color: #24394a; cursor: pointer; text-align: start; }
+#root .ttmc-action-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: #e5eff3; color: #356d91; }
+#root .ttmc-action-copy { display: grid; gap: 2px; min-width: 0; }
+#root .ttmc-action-copy strong { font-size: .9375rem; line-height: 1.4; font-weight: 650; }
+#root .ttmc-action-copy > span { font-size: .75rem; line-height: 1.4; color: #60788a; }
+#root .ttmc-action-chevron { color: #60788a; }
+#root .ttmc-account-actions .ttmc-account-action:hover { background: #f0f6f8; border-color: #bcd3df; }
+#root .ttmc-account-actions .ttmc-account-action:active { background: #e5eff3; box-shadow: inset 0 1px 2px rgb(36 55 74 / .12); }
+@media (prefers-reduced-motion: no-preference) {
+  #root .ttmc-account-action { transition: transform 130ms ease-out, background-color 130ms ease-out, box-shadow 130ms ease-out; }
+}

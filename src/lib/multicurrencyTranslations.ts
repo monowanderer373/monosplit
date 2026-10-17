@@ -1,4 +1,7 @@
 export const multicurrencyTranslations = {
+  "mc.account.transferHint":{"en":"Move money between your accounts","zh":"在自己的账户之间转账"},
+  "mc.account.exchangeHint":{"en":"Record your actual exchanged amounts","zh":"记录实际换出与到账金额"},
+  "mc.account.viewHint":{"en":"Balances, currencies and history","zh":"余额、币种与账户记录"},
   "mc.reviewSources":{"en":"Review payment sources","zh":"重新核对付款来源"},
   "mc.balanceCoverage":{"en":"Which recorded entries are already included in this observed balance?","zh":"此实际余额已包含哪些已记录流水？"},
   "mc.coverageAll":{"en":"All listed entries are included","zh":"已包含全部已记录流水"},
