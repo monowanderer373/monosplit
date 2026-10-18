@@ -49,7 +49,7 @@ export async function expectRecordedManualShare(page: Page, description: string,
   await editor.getByRole('button', { name: 'Shared expense', exact: true }).click()
   const split = page.getByRole('dialog', { name: 'Split expense', exact: true })
   const manualRow = split.locator('.qa-split-person').filter({ has: page.getByRole('checkbox', { name: person, exact: true }) })
-  await expect(manualRow).toContainText(amount)
+  await expect(manualRow.getByRole('textbox', { name: `Share for ${person}`, exact: true })).toHaveValue(amount)
   await expect(manualRow.getByRole('checkbox', { name: person, exact: true })).toBeChecked()
   await split.getByRole('button', { name: 'Close panel', exact: true }).click()
   await editor.getByRole('button', { name: 'Close', exact: true }).click()

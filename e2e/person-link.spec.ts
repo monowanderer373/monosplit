@@ -84,7 +84,7 @@ test('links a Person without rewriting old Manual money', async ({
     ).toHaveCount(0)
 
     await openPersonDetail(owner, 'Target cash')
-    await expectRecordedManualShare(owner, 'Manual before link', 'Target cash', 'RM 4.00')
+    await expectRecordedManualShare(owner, 'Manual before link', 'Target cash', '4.00')
 
     await owner.goto('/friends')
     await openPersonDetail(owner, 'Target cash')
