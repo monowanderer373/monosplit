@@ -203,6 +203,7 @@ export default function HomeScreen(props: HomeScreenProps) {
             </div>
           </div>
           <p id="home-balance-title" className="home-balance-label home-sr">{t('home.accountBalance')}</p>
+          <div className="home-balance-line">
           {props.accountBalance ?? <BalanceValues
             status={props.accountsStatus}
             balances={props.balances}
@@ -213,6 +214,7 @@ export default function HomeScreen(props: HomeScreenProps) {
               ? () => setSheet('create')
               : undefined}
           />}
+          </div>
         </section>
         <div className="home-stat-row ttc-summary-pair">
           {(['receivable', 'payable'] as const).map(direction => (

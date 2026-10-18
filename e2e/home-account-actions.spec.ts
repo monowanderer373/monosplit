@@ -112,6 +112,7 @@ test('concealed Chinese Home recovers privacy from the account picker without a 
   await expect(page.getByTestId('home-account-actions')).toHaveAccessibleName('更多账户操作')
   await page.screenshot({ path: `${out}/actions-zh-private.png` })
   await page.getByTestId('home-privacy-toggle').click()
-  await expect(page.getByTestId('home-balance-values')).toContainText('223')
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.home-balance-card')).toContainText('223')
   expect(state.writes).toHaveLength(0)
 })

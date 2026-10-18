@@ -210,6 +210,10 @@ export default function AccountNotice({
       const target = event.target
       if (!(target instanceof Node)) return
       if (panel.current?.contains(target) || trigger.current?.contains(target)) return
+      if (event.type === 'pointerdown') {
+        event.preventDefault()
+        event.stopPropagation()
+      }
       requestClose('outside')
     }
     const escape = (event: KeyboardEvent) => {
@@ -272,8 +276,6 @@ export default function AccountNotice({
         {pending > 0 ? <span className="home-notice-count ttc-bell-count" aria-hidden="true">{pending > 99 ? '99+' : pending}</span> : null}
       </button>
       {present && typeof document !== 'undefined' ? createPortal(
-        <>
-          <div className="ttc-ui ttc-dismiss-layer" aria-hidden="true" data-testid="home-notice-dismiss" onPointerDown={event => { event.preventDefault(); event.stopPropagation(); requestClose('outside') }} />
           <section
             ref={panel}
             id={id}
@@ -346,7 +348,7 @@ export default function AccountNotice({
                               <span className="home-notice-metadata ttc-item-meta">
                                 {notice.date ? <time dateTime={noticeCalendarDate(notice.date, timezone)}>{dateLabel}</time> : null}
                                 {notice.date ? <span aria-hidden="true"> · </span> : null}
-                                <span>{hidden ? '' : accountLabel}</span>
+                                <span>{accountLabel}</span>
                               </span>
                             </span>
                             <span aria-hidden="true" className="home-notice-arrow ttc-chevron">›</span>
@@ -363,8 +365,7 @@ export default function AccountNotice({
                 </div>
               </>
             )}
-          </section>
-        </>,
+          </section>,
         document.body,
       ) : null}
     </div>
