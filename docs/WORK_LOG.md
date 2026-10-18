@@ -3,7 +3,7 @@
 ## 2026-10-19 — Compact Home, nav blur, right notifications
 - Branched `feat/compact-home-right-notices` from `origin/main` `5199678`; did not reset to pack SHA `387387f` or pop stash.
 - Home three-card density, account actions/privacy in picker, paper nav 16px inset + blur in `paper.css`, AccountNotice body portal to the right of the bell with preview/view-all and interruptible motion.
-- Quality `39165396440`: app/production-ui/database/historical/collect-pay/travel PASS; browser 320 passed / 1 failed (`insights.spec` JPY). Root cause: Frankfurter stamped `2026-10-19` while runner UTC was still `2026-10-18`, so `normalize_rates` rejected the whole display-only batch on a cold local cache. Added `202610190001` one-UTC-day provider-date slack; far-future dates still reject. No ledger tables.
+- Quality `39165396440`: app/production-ui/database/historical/collect-pay/travel PASS; browser 320 passed / 1 failed (`insights.spec` JPY). Root cause: Frankfurter stamped `2026-10-19` while runner UTC was still `2026-10-18`, so cold `normalize_rates` rejected the whole display-only batch. Quality `39166725419` browser then passed after a migration attempt, but historical-upgrade correctly refused a 27th baseline file. Replaced that with a local last-good FX seed (127.0.0.1 only); no ledger tables and no new production migration.
 - Local: 696 Vitest / 101 files before docs; lint/build after CSS nav-blur move pending this checkpoint.
 
 ## 2026-10-18 — Shared A compact shared shell

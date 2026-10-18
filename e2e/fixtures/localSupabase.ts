@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   devices,
@@ -205,6 +207,22 @@ function localAnonKey(): string {
   const anonKey = parseEnvValue(statusOutput, 'ANON_KEY')
   if (!anonKey) throw new Error('Could not resolve the local Supabase anonymous key.')
   return anonKey
+}
+
+const LOCAL_DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+
+/** Last-good display FX for disposable local Insights. Never points at a remote database. */
+export function seedLocalInsightsDisplayFx(): void {
+  const dbUrl = process.env.LOCAL_DATABASE_URL ?? LOCAL_DATABASE_URL
+  if (!dbUrl.startsWith('postgresql://') || !(dbUrl.includes('127.0.0.1') || dbUrl.includes('localhost'))) {
+    throw new Error('Insights FX seed only accepts a local Postgres URL.')
+  }
+  const sqlFile = path.join(path.dirname(fileURLToPath(import.meta.url)), 'seedLocalInsightsFx.sql')
+  const command = process.platform === 'win32' ? process.env.ComSpec ?? 'cmd.exe' : 'npx'
+  const args = process.platform === 'win32'
+    ? ['/d', '/s', '/c', `npx supabase db query --db-url "${dbUrl}" -f "${sqlFile}"`]
+    : ['supabase', 'db', 'query', '--db-url', dbUrl, '-f', sqlFile]
+  execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 export async function copyInviteUrl(page: Page): Promise<string> {
