@@ -62,3 +62,11 @@ test('current To do verification is centered, compact and has a readable amount 
  await expect(dialog.getByRole('button',{name:'Confirm & next'})).toBeEnabled()
  await dialog.screenshot({path:`${out}/todo-390.png`});expect(state.writes).toHaveLength(0)
 })
+
+test('unavailable funding is visible at the single account entry and can retry without a guessed debit',async({page})=>{
+ const state=await setupMulticurrency(page);let unavailable=true
+ await page.route('http://127.0.0.1:54321/rest/v1/personal_account_balance_anchors*',route=>unavailable?route.fulfill({status:503,json:{message:'Test-only unavailable'}}):route.fulfill({json:[]}))
+ await page.goto('/');await page.getByRole('button',{name:'Quick add expense',exact:true}).click()
+ const quick=page.getByRole('dialog',{name:'Quick Add',exact:true});await quick.getByRole('button',{name:'Food',exact:true}).click();await enterQuickAmount(quick,'9105');await expect(quick.getByRole('button',{name:'Save and close',exact:true})).toBeDisabled();await expect(quick.locator('.qa-actions>button').nth(1)).toContainText('Review')
+ await quick.locator('.qa-actions>button').nth(1).click();const account=page.getByRole('dialog',{name:'Payment account',exact:true});await expect(account.getByRole('alert')).toBeVisible();await page.waitForLoadState('networkidle');unavailable=false;await account.getByRole('button',{name:'Retry',exact:true}).click();await expect(account.getByRole('button',{name:'Use Wise',exact:true})).toBeEnabled();await account.getByRole('button',{name:'Use Wise',exact:true}).click();await expect(quick.getByRole('button',{name:'Save and close',exact:true})).toBeEnabled();expect(state.writes).toHaveLength(0)
+})

@@ -52,6 +52,8 @@ it('blocks an unavailable funding capability instead of publishing a legacy debi
  render(<Harness accounts={accounts} parentId="wise" currency="VND" selfPaid={90000} identity="owner" busy={false} onPlan={onPlan}/>)
  await screen.findByRole('alert');expect(onPlan).toHaveBeenLastCalledWith(undefined,false)
  expect(screen.queryByRole('textbox')).toBeNull()
+ mocks.metadata.mockResolvedValue({anchors:[],bundles:[]});fireEvent.click(screen.getByRole('button',{name:'Retry'}))
+ await waitFor(()=>expect(onPlan).toHaveBeenLastCalledWith(expect.objectContaining({mode:'deferred',legs:[]}),true))
 })
 
 it('privacy conceals the actual editor and blocks its plan without discarding the draft',async()=>{

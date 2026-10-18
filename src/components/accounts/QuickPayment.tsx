@@ -11,7 +11,7 @@ export default function QuickPayment({payment,accounts,busy}:{payment:QuickPayme
  if(payment.offline&&!payment.anchors)return <p>{t('mc.offlineDraft')}</p>
  if(payment.hidden)return <section className="ttmc-module"><p>{t('notice.hiddenReview')}</p><button type="button" onClick={()=>setHomeUi({balanceHidden:false})}>{t('mc.common.reveal')}</button></section>
  return <section className="ttmc-module qa-payment-details">
-  {payment.failed?<p role="alert">{t('mc.capability')}</p>:!payment.anchors?<p role="status">{t('mc.state.loading')}</p>:<>
+  {payment.failed?<div role="alert"><p>{t('mc.capability')}</p><button type="button" disabled={busy} onClick={payment.retry}>{t('common.retry')}</button></div>:!payment.anchors?<p role="status">{t('mc.state.loading')}</p>:<>
    <button type="button" className="qa-payment-toggle" aria-expanded={payment.mode==='actual'} aria-controls={id} disabled={busy} onClick={()=>payment.setMode(payment.mode==='actual'?'deferred':'actual')}>
     <span>{zh?'实际扣款（可选）':'Actual charge (optional)'}</span><span aria-hidden="true">{payment.mode==='actual'?'−':'+'}</span>
    </button>

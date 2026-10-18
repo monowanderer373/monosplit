@@ -17,12 +17,13 @@ export function useQuickPayment({accounts,parentId,currency,selfPaid,identity,on
  const metadataKey=JSON.stringify([identity,draftKey])
  const [metadata,setMetadata]=useState<{key:string;anchors:BalanceAnchor[]}|null>(null)
  const [failed,setFailed]=useState(false)
+ const [retryVersion,retry]=useState(0)
  useEffect(()=>{
   if(!enabled)return
   let active=true
   void loadFundingMetadata().then(data=>{if(active){setMetadata({key:metadataKey,anchors:data.anchors});setFailed(false)}}).catch(()=>{if(active)setFailed(true)})
   return()=>{active=false}
- },[metadataKey,offline,enabled])
+ },[metadataKey,offline,enabled,retryVersion])
  const anchors=metadata?.key===metadataKey?metadata.anchors:null
  const sources=!draft.edited&&suggestion&&draft.sources.length===1?[{...draft.sources[0],amount:exactAmount(BigInt(selfPaid),currencyExponent(currency),'en')}]:draft.sources
  // Preserve the existing native cash suggestion; never infer a foreign debit.
@@ -37,7 +38,7 @@ export function useQuickPayment({accounts,parentId,currency,selfPaid,identity,on
  const signature=JSON.stringify(plan)
  const publish=useEffectEvent(()=>onPlan(valid?plan:undefined,valid))
  useEffect(()=>{publish()},[signature,valid])
- return {draft,restore:setDraft,mode:draft.mode,sources,accepted,anchors,failed,hidden,valid,plan:valid?plan:undefined,offline,
+ return {retry:()=>retry(version=>version+1),draft,restore:setDraft,mode:draft.mode,sources,accepted,anchors,failed,hidden,valid,plan:valid?plan:undefined,offline,
   setMode:(mode:Draft['mode'])=>setDraft({...draft,mode}),
   changeSources:(sources:SourceDraft[])=>setDraft({...draft,sources,edited:true,coveredPayment:null}),
   cover:(checked:boolean)=>setDraft({...draft,sources,edited:true,coveredPayment:checked?selfPaid:null}),
