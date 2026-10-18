@@ -45,7 +45,7 @@ test('links a Person without rewriting old Manual money', async ({
     const personUrl = owner.url()
     await expect(owner.getByText('Manual', { exact: true }).first()).toBeVisible()
     await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()
-    await expect(owner.getByText('Available after linking')).toBeVisible()
+    await expect(owner.getByTestId('person-position').getByText('Available after linking')).toBeVisible()
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Manual before link', '8.00')
     await expect(owner.getByTestId('person-untracked')).toBeVisible()

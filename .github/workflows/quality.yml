@@ -139,6 +139,9 @@ jobs:
       - run: npm run test:e2e
         env:
           COLLECT_PAY_BASELINE_URL: http://127.0.0.1:5174
+      - name: Report final browser failures without stdout or auth state
+        if: failure()
+        run: node scripts/report-browser-failures.mjs
       - name: Save collect/pay screenshots and DOM measurements
         if: always()
         uses: actions/upload-artifact@v4

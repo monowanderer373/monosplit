@@ -61,7 +61,7 @@ test('keeps Person Detail money-first and inherits that Person', async ({
     ).toHaveAttribute('aria-current', 'page')
     await expect(owner.getByText('Manual', { exact: true }).first()).toBeVisible()
     await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()
-    await expect(owner.getByText('Available after linking')).toBeVisible()
+    await expect(owner.getByTestId('person-position').getByText('Available after linking')).toBeVisible()
     await expectSectionOrder(owner, ['person-position', 'person-recent', 'person-manage'])
 
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()

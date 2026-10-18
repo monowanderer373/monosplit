@@ -61,7 +61,8 @@ export async function expectRecordedManualShare(page: Page, description: string,
 export async function openPendingDirectReview(page: Page, description: string): Promise<Locator> {
   await page.goto('/')
   const bell=page.getByTestId('home-account-notice')
-  await expect(bell).toBeEnabled();await page.waitForLoadState('networkidle');await bell.click()
+  await expect(bell).toBeEnabled();await page.waitForLoadState('networkidle');if(await bell.getAttribute('aria-expanded')!=='true')await bell.click()
+  const panel=page.getByTestId('home-notice-popover');await expect(panel).toBeVisible();await panel.getByRole('tab',{name:/To do/}).click()
   const row=page.locator('[data-notice-id^="expense:"]').filter({hasText:description})
   await expect(row).toHaveCount(1);await row.click()
   const review=page.getByTestId('notification-direct-review')
