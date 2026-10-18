@@ -1,4 +1,4 @@
-import { enterQuickAmount, openFriendTools, openQuickSplit } from './fixtures/quickAdd'
+import { openPendingDirectReview, openPersonActivity, enterQuickAmount, openFriendTools, openQuickSplit } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -51,19 +51,19 @@ test.describe('Phase 5C state-aware expense changes', () => {
     await expect(alphaPending.getByText('Current balance still uses RM 100.00.')).toBeVisible()
     await expect(alphaPending.getByText('0 of 1 approved')).toBeVisible()
 
-    await betaBrowser.page.goto('/friends')
+    await openPersonActivity(betaBrowser.page,'Alpha')
     const betaPending = changeCard(betaBrowser.page, 'Correction dinner', 'RM 80.00')
     await expect(betaPending.getByText('Current expense')).toBeVisible()
     await expect(betaPending.getByText('RM 100.00', { exact: true })).toBeVisible()
     await betaPending.getByRole('button', { name: 'Accept correction' }).click()
 
     await expect(betaPending.getByText('Current corrected expense · RM 80.00')).toBeVisible()
-    await alphaBrowser.page.goto('/friends')
+    await openPersonActivity(alphaBrowser.page,'Beta')
     await expect(changeCard(alphaBrowser.page, 'Correction dinner', 'RM 80.00')
       .getByText('Original expense · superseded · RM 100.00')).toBeVisible()
 
     await proposeCorrection(alphaBrowser.page, 'Correction dinner', '70.00')
-    await betaBrowser.page.goto('/friends')
+    await openPersonActivity(betaBrowser.page,'Alpha')
     const declined = changeCard(betaBrowser.page, 'Correction dinner', 'RM 70.00')
     await declined.getByRole('button', { name: 'Decline correction' }).click()
     await expect(declined.getByText(
@@ -86,15 +86,15 @@ test.describe('Phase 5C state-aware expense changes', () => {
 
     await alphaBrowser.page.goto('/')
     await requestCancellation(alphaBrowser.page, 'Correction dinner')
-    const cancellation = alphaBrowser.page.getByRole('article').filter({
+    const cancellation = alphaBrowser.page.getByTestId('person-expense-changes').getByRole('article').filter({
       hasText: 'Cancellation requested',
     })
     await expect(cancellation.getByText(
       'This expense remains active until all required participants approve the cancellation.',
     )).toBeVisible()
 
-    await betaBrowser.page.goto('/friends')
-    const betaCancellation = betaBrowser.page.getByRole('article').filter({
+    await openPersonActivity(betaBrowser.page,'Alpha')
+    const betaCancellation = betaBrowser.page.getByTestId('person-expense-changes').getByRole('article').filter({
       hasText: 'Correction dinner',
     }).filter({ hasText: 'Financial change request' })
     await expect(betaCancellation.getByText('Cancellation requested', { exact: true }))
@@ -105,7 +105,7 @@ test.describe('Phase 5C state-aware expense changes', () => {
     )).toBeVisible()
 
     await openFriendBalance(betaBrowser.page, 'Alpha')
-    await expect(betaBrowser.page.getByText('Alpha owes you RM 40.00')).toBeVisible()
+    await expectDebt(betaBrowser.page, 'Alpha owes You', 'RM 40.00')
     await openFriendBalance(alphaBrowser.page, 'Beta')
     await expectDebt(alphaBrowser.page, 'You owe Beta', 'RM 40.00')
   })
@@ -122,7 +122,7 @@ test.describe('Phase 5C state-aware expense changes', () => {
     await answerOrdinaryDirect(gammaBrowser.page, 'Multi approval dinner', 'Accept share')
 
     await proposeCorrection(alphaBrowser.page, 'Multi approval dinner', '60.00')
-    await betaBrowser.page.goto('/friends')
+    await openPersonActivity(betaBrowser.page,'Alpha')
     await changeCard(betaBrowser.page, 'Multi approval dinner', 'RM 60.00')
       .getByRole('button', { name: 'Accept correction' })
       .click()
@@ -131,7 +131,7 @@ test.describe('Phase 5C state-aware expense changes', () => {
     await expect(ownerPending.getByText('1 of 2 approved')).toBeVisible({ timeout: 20_000 })
     await expect(ownerPending.getByText('Current balance still uses RM 90.00.')).toBeVisible()
 
-    await gammaBrowser.page.goto('/friends')
+    await openPersonActivity(gammaBrowser.page,'Alpha')
     await changeCard(gammaBrowser.page, 'Multi approval dinner', 'RM 60.00')
       .getByRole('button', { name: 'Accept correction' })
       .click()
@@ -155,6 +155,8 @@ async function connectFriends(owner: Page, invitee: Page): Promise<void> {
   await owner.reload()
 }
 
+const recordOrigins=new WeakMap<Page,Map<string,string>>()
+
 async function createDirectExpense(
   owner: Page,
   personName: string,
@@ -164,6 +166,7 @@ async function createDirectExpense(
 ): Promise<void> {
   await owner.goto('/friends')
   await openPersonDetail(owner, personName)
+  const origins=recordOrigins.get(owner)??new Map<string,string>();origins.set(description,owner.url());recordOrigins.set(owner,origins)
   await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
   const dialog = owner.getByRole('dialog', { name: 'Quick Add' })
   await enterQuickAmount(dialog, amount)
@@ -178,27 +181,13 @@ async function createDirectExpense(
   await expect(dialog).toHaveCount(0)
 }
 
-async function answerOrdinaryDirect(
-  participant: Page,
-  description: string,
-  action: 'Accept share' | 'Decline',
-): Promise<void> {
-  await participant.goto('/friends')
-  let expense = participant.getByRole('article').filter({ hasText: description })
-  await expense.getByRole('button', { name: action, exact: true }).click()
-  const staleMessage = participant.getByText(
-    'This item changed on another device. Refresh and try again.',
-  )
-  const stale = await staleMessage
-    .waitFor({ state: 'visible', timeout: 1_500 })
-    .then(() => true)
-    .catch(() => false)
-  if (stale) {
-    await participant.reload()
-    expense = participant.getByRole('article').filter({ hasText: description })
-    await expense.getByRole('button', { name: action, exact: true }).click()
-  }
-  await expect(expense.getByRole('button', { name: action, exact: true })).toHaveCount(0)
+async function answerOrdinaryDirect(participant:Page,description:string,action:'Accept share'|'Decline'):Promise<void>{
+ let expense=await openPendingDirectReview(participant,description)
+ await expense.getByRole('button',{name:action,exact:true}).click()
+ const stale=await participant.getByText('This item changed on another device. Refresh and try again.').waitFor({state:'visible',timeout:1500}).then(()=>true).catch(()=>false)
+ if(stale){expense=await openPendingDirectReview(participant,description);await expense.getByRole('button',{name:action,exact:true}).click()}
+ await expect(expense.getByRole('button',{name:action,exact:true})).toHaveCount(0)
+ await expect(participant.locator('[data-testid="notification-target"] .home-notice-target')).toHaveAttribute('aria-busy','false')
 }
 
 async function proposeCorrection(
@@ -215,7 +204,7 @@ async function proposeCorrection(
   )).toBeVisible()
   await dialog.getByRole('button', { name: 'Save changes' }).click()
   await expect(dialog).toHaveCount(0)
-  await owner.goto('/friends')
+  const origin=recordOrigins.get(owner)?.get(description);if(!origin)throw new Error('Missing original Person context');await owner.goto(origin)
 }
 
 async function requestCancellation(owner: Page, description: string): Promise<void> {
@@ -225,11 +214,11 @@ async function requestCancellation(owner: Page, description: string): Promise<vo
   await dialog.getByRole('button', { name: 'Request cancellation' }).click()
   await dialog.getByRole('button', { name: 'Send cancellation request' }).click()
   await expect(dialog).toHaveCount(0)
-  await owner.goto('/friends')
+  const origin=recordOrigins.get(owner)?.get(description);if(!origin)throw new Error('Missing original Person context');await owner.goto(origin)
 }
 
 function changeCard(page: Page, description: string, proposedAmount: string) {
-  return page.getByRole('article')
+  return page.getByTestId('person-expense-changes').getByRole('article')
     .filter({ hasText: 'Financial change request' })
     .filter({ hasText: description })
     .filter({ hasText: proposedAmount })

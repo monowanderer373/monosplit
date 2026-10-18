@@ -1,4 +1,4 @@
-import { enterQuickAmount, openFriendTools, openCreateSpace, openQuickSplit } from './fixtures/quickAdd'
+import { openPendingDirectReview, expectRecordedManualShare, enterQuickAmount, openFriendTools, openCreateSpace, openQuickSplit } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   acceptSpaceInvite,
@@ -201,15 +201,16 @@ test.describe('local relational multi-user journey', () => {
     await saveCapture(owner, 'Direct lunch', '9.99')
     await expect(owner.getByRole('status')).toHaveText('Recorded · waiting for confirmation')
 
-    await friend.reload()
-    const pending = friend.getByRole('article').filter({ hasText: 'Direct lunch' })
-    await expect(pending.getByText('Your share RM 4.99')).toBeVisible()
-    await openPersonDetail(friend, 'Alpha')
+    let pending=await openPendingDirectReview(friend,'Direct lunch')
+    await expect(pending.locator('.notification-a-highlight dd')).toHaveText('RM 4.99')
+    await friend.goto('/friends');await openPersonDetail(friend, 'Alpha')
     await friend.getByRole('button', { name: 'Settle Up' }).click()
     await expect(friend.getByText('No confirmed amount is outstanding.')).toBeVisible()
     await friend.getByRole('button', { name: 'Back to Friends' }).click()
     await expect(friend).toHaveURL(/\/friends$/)
+    pending=await openPendingDirectReview(friend,'Direct lunch')
     await pending.getByRole('button', { name: 'Accept share' }).click()
+    await expect(friend.getByTestId('notification-target')).toContainText('already been handled')
     await openFriendBalance(friend, 'Alpha')
     await expectDebt(friend, 'You owe Alpha', 'RM 4.99')
 
@@ -222,7 +223,7 @@ test.describe('local relational multi-user journey', () => {
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Cash taxi', '8.00')
 
-    await expect(owner.getByTestId('person-position')).toContainText('RM 4.00 in recorded shares · not a confirmed balance')
+    await expectRecordedManualShare(owner, 'Cash taxi', 'Cash Guest', '4.00')
     await owner.goto('/friends')
     await openFriendBalance(owner, 'Beta')
     await expectDebt(owner, 'Beta owes You', 'RM 4.99')

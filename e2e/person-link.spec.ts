@@ -1,4 +1,4 @@
-import { enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
+import { openPendingDirectReview, expectRecordedManualShare, enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -41,11 +41,11 @@ test('links a Person without rewriting old Manual money', async ({
     await owner.getByPlaceholder('Person’s name').fill('Target cash')
     await owner.getByRole('button', { name: 'Add person' }).click()
     await openPersonDetail(owner, 'Target cash')
-    await expect(owner).toHaveURL(/\/person\/[0-9a-f-]+$/i)
+    await expect.poll(()=>new URL(owner.url()).pathname).toMatch(/^\/person\/[0-9a-f-]+$/i)
     const personUrl = owner.url()
     await expect(owner.getByText('Manual', { exact: true }).first()).toBeVisible()
     await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()
-    await expect(owner.getByText('Available after linking')).toBeVisible()
+    await expect(owner.getByTestId('person-position').getByText('Available after linking')).toBeVisible()
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Manual before link', '8.00')
     await expect(owner.getByTestId('person-untracked')).toBeVisible()
@@ -62,10 +62,9 @@ test('links a Person without rewriting old Manual money', async ({
     await expect(owner).toHaveURL(personUrl)
     await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()
 
-    await target.reload()
-    const linkRequest = target.getByRole('article').filter({
-      hasText: 'A friend wants to link an untracked person to your account.',
-    })
+    await target.goto('/friends?view=review')
+    await target.locator('.ttsa-review-row').filter({hasText:'A friend wants to link an untracked person to your account.'}).click()
+    const linkRequest = target.getByRole('dialog',{name:'Historical identity request',exact:true})
     await linkRequest.getByRole('button', { name: 'Accept link' }).click()
 
     await owner.reload()
@@ -84,7 +83,7 @@ test('links a Person without rewriting old Manual money', async ({
     ).toHaveCount(0)
 
     await openPersonDetail(owner, 'Target cash')
-    await expect(owner.getByTestId('person-position')).toContainText('RM 4.00 in recorded shares · not a confirmed balance')
+    await expectRecordedManualShare(owner, 'Manual before link', 'Target cash', '4.00')
 
     await owner.goto('/friends')
     await openPersonDetail(owner, 'Target cash')
@@ -97,11 +96,8 @@ test('links a Person without rewriting old Manual money', async ({
     await expect(owner.getByText('Linked after acceptance')).toBeVisible()
     await expect(owner.getByTestId('person-untracked')).toContainText('Manual before link')
 
-    await target.reload()
-    const pending = target.getByRole('article').filter({
-      hasText: 'Linked after acceptance',
-    })
-    await expect(pending.getByText('Your share RM 5.00')).toBeVisible()
+    const pending=await openPendingDirectReview(target,'Linked after acceptance')
+    await expect(pending.locator('.notification-a-highlight dd')).toHaveText('RM 5.00')
   } finally {
     await closeBrowsers([ownerBrowser, targetBrowser])
   }

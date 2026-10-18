@@ -22,7 +22,7 @@ test('real isolated DB: Quick Add defers unknown debit, grouped review confirms 
  try{
   const before=await s.all();await signIn(page,s.account);await page.getByRole('button',{name:'Quick add expense',exact:true}).click()
   const quick=page.getByRole('dialog',{name:'Quick Add',exact:true});await quick.getByRole('button',{name:'Food',exact:true}).click();await quick.getByLabel('Currency',{exact:true}).selectOption('VND');await enterQuickAmount(quick,'90000');await quick.getByRole('textbox',{name:'Description',exact:true}).fill('Foreign payment one')
-  await expect(quick).toContainText('No balance is deducted yet');await quick.getByRole('button',{name:'Save and close',exact:true}).click();await expect(quick).toHaveCount(0)
+  await quick.locator('.qa-actions>button').nth(1).click();const sourcePanel=page.getByRole('dialog',{name:'Payment account',exact:true});await expect(sourcePanel).toContainText('No balance is deducted yet');await sourcePanel.getByRole('button',{name:'Use Wise native QA',exact:true}).click();await quick.getByRole('button',{name:'Save and close',exact:true}).click();await expect(quick).toHaveCount(0)
   const saved=await s.client.from('expenses').select('id,total_minor,currency').eq('description','Foreign payment one').single();expect(saved.error).toBeNull();expect(saved.data).toMatchObject({total_minor:90000,currency:'VND'})
   expect((await s.all()).accounts.map((a:{id:string;entry_sum_minor:string})=>[a.id,a.entry_sum_minor])).toEqual(before.accounts.map((a:{id:string;entry_sum_minor:string})=>[a.id,a.entry_sum_minor]))
   const second=await rpc(s.client,'create_expense_with_multicurrency_funding',{request_id:randomUUID(),expense_payload:{expense_scope:'personal',target_space_id:null,total_minor:90000,currency_code:'VND',description:'Foreign payment two',category:'Food',occurred_on:'2026-10-16',participant_ids:[s.owner],contribution_amounts:[90000],share_amounts:[90000]},funding_plan:{mode:'deferred',primary_account_id:s.wise,legs:[],covers_owner_payment:false}})
@@ -60,5 +60,19 @@ test('real isolated DB: observed balance and late deduction coverage preserve 10
   }
   const unchanged=await s.client.from('expenses').select('total_minor,currency,version,status').eq('id',old.expense_id).single();expect(unchanged.error).toBeNull();expect(unchanged.data).toEqual({total_minor:2000,currency:'MYR',version:1,status:'active'})
   const journals=await s.client.from('personal_account_transactions').select('id').eq('expense_id',old.expense_id).eq('kind','expense_funding');expect(journals.error).toBeNull();expect(journals.data).toHaveLength(1)
+ }finally{await s.client.auth.signOut()}
+})
+
+test('real isolated DB: account-panel actual charge posts once; Save and next starts a fresh deferred payment',async({page})=>{
+ test.setTimeout(180_000);const s=await seed()
+ try{
+  await signIn(page,s.account);await page.getByRole('button',{name:'Quick add expense',exact:true}).click()
+  const quick=page.getByRole('dialog',{name:'Quick Add',exact:true});await quick.getByRole('button',{name:'Food',exact:true}).click();await enterQuickAmount(quick,'12.34');await quick.getByRole('textbox',{name:'Description',exact:true}).fill('Actual from account panel')
+  await quick.locator('.qa-actions>button').nth(1).click();const account=page.getByRole('dialog',{name:'Payment account',exact:true});await account.getByRole('button',{name:'Actual charge (optional)'}).click();await account.getByRole('combobox',{name:'Payment source',exact:true}).selectOption(s.wise);await account.getByRole('textbox').fill('12.34');await account.getByRole('checkbox').check();await account.getByRole('button',{name:'Use Wise native QA',exact:true}).click()
+  await quick.getByRole('button',{name:'Save and continue',exact:true}).dblclick();await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('')
+  await enterQuickAmount(quick,'12.34');await quick.getByRole('textbox',{name:'Description',exact:true}).fill('Next record remains deferred');await expect(quick.getByRole('button',{name:'Save and close',exact:true})).toBeEnabled();await quick.getByRole('button',{name:'Save and close',exact:true}).click();await expect(quick).toHaveCount(0)
+  const expenses=await s.client.from('expenses').select('id,total_minor,currency').in('description',['Actual from account panel','Next record remains deferred']);expect(expenses.error).toBeNull();expect(expenses.data).toHaveLength(2);expect(expenses.data?.every(e=>e.total_minor===1234&&e.currency==='MYR')).toBe(true)
+  const intents=await s.client.from('personal_funding_intents').select('status,expense_amount_minor,account_amount_minor').in('expense_id',expenses.data!.map(e=>e.id));expect(intents.error).toBeNull();expect(intents.data?.map(i=>i.status).sort()).toEqual(['pending','posted']);expect(intents.data?.find(i=>i.status==='posted')).toMatchObject({expense_amount_minor:1234,account_amount_minor:1234})
+  const journal=await s.client.from('personal_account_transactions').select('id').in('expense_id',expenses.data!.map(e=>e.id)).eq('kind','expense_funding');expect(journal.error).toBeNull();expect(journal.data).toHaveLength(1);expect((await s.all()).accounts.find((a:{id:string})=>a.id===s.wise).entry_sum_minor).toBe('198766')
  }finally{await s.client.auth.signOut()}
 })
