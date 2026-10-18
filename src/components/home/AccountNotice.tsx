@@ -289,7 +289,7 @@ export default function AccountNotice({
             style={position}
           >
             {place.mode === 'summary' && !fullView ? (
-              <button type="button" className="ttc-quiet" onClick={() => setFullView(true)}>{t('notice.viewAll')}<span aria-hidden="true">›</span></button>
+              <button type="button" className="ttc-quiet" data-testid="home-notice-view-all" onClick={() => setFullView(true)}>{t('notice.viewAll')}<span aria-hidden="true">›</span></button>
             ) : (
               <>
                 <div role="tablist" aria-label={t('notice.title')} className="home-notice-tabs ttc-tabs">
