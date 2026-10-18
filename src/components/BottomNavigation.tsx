@@ -24,16 +24,19 @@ export default function BottomNavigation() {
   )
 
   return (
-    <nav className="tt-nav" aria-label={t('navigation.primary')}>
-      <PaperSurface className="tt-nav-surface">
-        <div className="tt-nav-grid">
-          {item(daily)}
-          {item(shared)}
-          <span aria-hidden="true" />
-          {item(insights)}
-          {item(me)}
-        </div>
-      </PaperSurface>
-    </nav>
+    <>
+      <div className="tt-nav-blur" aria-hidden="true" data-testid="tt-nav-blur" />
+      <nav className="tt-nav" aria-label={t('navigation.primary')}>
+        <PaperSurface className="tt-nav-surface">
+          <div className="tt-nav-grid">
+            {item(daily)}
+            {item(shared)}
+            <span aria-hidden="true" />
+            {item(insights)}
+            {item(me)}
+          </div>
+        </PaperSurface>
+      </nav>
+    </>
   )
 }

@@ -1,6 +1,10 @@
 # Tabby Tally project status
 
-Checkpoint:2026-10-18 (Asia/Kuala_Lumpur). Branch main, feature release453a92968f82f51155a85fb0dc1d006b1a681992. Documentation-only checkpoint follows; always read actual current main/provider/public version rather than assuming this feature SHA stays latest. Pre-existing stash@{0} and backup/local-wip-before-shared-a remain untouched.
+Checkpoint: 2026-10-19 (Asia/Kuala_Lumpur). Working branch `feat/compact-home-right-notices` from `origin/main` `5199678`. Pre-existing stash@{0} and backup/local-wip-before-shared-a remain untouched.
+
+## In progress — Compact Home / right notifications / nav blur (2026-10-19)
+- Approved FullPack on latest main: three compact Home cards; Transfer/Exchange/View and Show/Hide amounts in the account picker (no mascot, no balance-eye); floating nav 16px inset with local backdrop blur in `paper.css`; bell-right notification portal (no ×, no Home scrim, 280/170ms motion, 3-row preview + View all).
+- Preserve Shared A, compact verify, CollectPay, integer money. No schema. Production evidence pending GitHub PR + existing Vercel Git deploy.
 
 ## Completed — compact Quick Add / centered To do (2026-10-18)
 - PR30 MERGED, validated sourceb991040e769c76b3a205b8db409f5f4a30ef4923, featuremain453a92968f82f51155a85fb0dc1d006b1a681992 exact whole tree equal. Existing tabby-tally production nativeREADYdpl_CZfd2xduuHC9HWt6UjCfY9483gpV; canonical entryindex-BS8h3OAo contains453a929. Native Vercel v6 deployments API works with the existing binding/project/team; do not reuse old403/no-connection claims.

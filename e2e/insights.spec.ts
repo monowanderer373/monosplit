@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { expect, test } from '@playwright/test'
-import { createConfirmedAccount, openAuthenticatedBrowser } from './fixtures/localSupabase'
+import { createConfirmedAccount, openAuthenticatedBrowser, seedLocalInsightsDisplayFx } from './fixtures/localSupabase'
 const anon = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
 test('real local ledger reconciles Insights/records and rejects foreign private expenses', async ({ browser }, info) => {
   test.setTimeout(120_000)
@@ -20,7 +20,8 @@ test('real local ledger reconciles Insights/records and rejects foreign private 
     const { data, error } = await client.rpc('create_expense', { request_id: randomUUID(), expense_scope: 'personal', target_space_id: null, total_minor: amount, currency_code: currency, description: `Insights controlled ${amount}`, category: 'Food', occurred_on: date, participant_ids: [self], contribution_amounts: [amount], share_amounts: [amount] })
     if (error) throw error; return data as string
   }
-  const id = await add(1200, '2026-10-02'); await add(3800, '2026-10-01'); await add(999, '2026-09-30'); await add(2500, '2026-10-02', 'JPY')
+  const id = await add(1200, '2026-10-02'); await add(3800, '2026-10-01'); await add(999, '2026-09-30')
+  seedLocalInsightsDisplayFx()
   const rpc = async (target: typeof client, name: string, args: Record<string, unknown> = {}) => { const { data, error } = await target.rpc(name, args); if (error) throw error; return data }
   const otherId = await rpc(foreign, 'current_participant_id')
   const invite = await rpc(client, 'create_friend_invite'); await rpc(foreign, 'accept_friend_invite', { raw_token: invite })
@@ -31,7 +32,7 @@ test('real local ledger reconciles Insights/records and rejects foreign private 
   const actor = await openAuthenticatedBrowser(browser, owner)
   try {
     const page = actor.page; await page.goto('/insights?month=2026-10&scope=all&currency=MYR&tab=trend')
-    await expect(page.getByTestId('spending-total')).toContainText('86.00'); await expect(page.getByText('4 records', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('spending-total')).toContainText('86.00'); await expect(page.getByText('3 records', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Month: Oct 2026' }).click()
     await page.getByRole('button', { name: 'Choose year: 2026' }).click()
     await expect(page.locator('.i-year-range')).toHaveText('2021–2032')
@@ -45,7 +46,7 @@ test('real local ledger reconciles Insights/records and rejects foreign private 
     await page.getByRole('button', { name: 'Scope: Shared' }).click()
     await page.getByRole('button', { name: 'All spending', exact: true }).click()
     await page.getByRole('link', { name: 'View records' }).click(); await expect(page.getByTestId('spending-total')).toContainText('86.00')
-    await expect(page.locator('.i-record-row')).toHaveCount(4)
+    await expect(page.locator('.i-record-row')).toHaveCount(3)
     await expect(page.getByRole('button', { name: 'Edit Insights controlled shared bill' })).toContainText('36.00')
     await expect(page.getByRole('button', { name: 'Edit Insights controlled shared bill' })).toContainText('72.00')
     await expect(page.locator('main')).not.toContainText('999')
@@ -68,6 +69,7 @@ test('real local ledger reconciles Insights/records and rejects foreign private 
     await expect(page.getByRole('dialog')).toContainText('20.00')
     await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Close', exact: true }).click()
+    await add(2500, '2026-10-02', 'JPY')
     await page.goto('/insights?month=2026-10&currency=MYR')
     await expect(page.getByRole('button', { name: /^Currency:/ })).toHaveCount(0); await expect(page.getByTestId('spending-total')).toContainText('2,500')
     const fx = await rpc(client,'insights_fx_snapshot')

@@ -15,8 +15,10 @@ test.beforeAll(async()=>{await mkdir(out,{recursive:true})})
 for(const width of [320,360,390,430])for(const scale of [100,125,150,200])test(`notification paper layout ${width}px / root text ${scale}%`,async({page})=>{
  await setupNotifications(page,{many:true,lang:width===320&&scale===200?'zh':'en'});await page.setViewportSize({width,height:844});await page.goto('/');await expect(page.getByTestId('home-account-notice')).toHaveAccessibleName(/22/,{timeout:15_000})
  await page.evaluate(scale=>document.documentElement.style.fontSize=scale+'%',scale);await openNotices(page);const panel=page.getByTestId('home-notice-popover');await expect(panel).toBeVisible();expect(await panel.ariaSnapshot()).not.toMatch(/Ref\.|fund-\d|funding:/)
- const metrics=await panel.evaluate(el=>{const b=el.getBoundingClientRect();return {x:b.x,right:b.right,bottom:b.bottom,width:innerWidth,pageWidth:document.documentElement.scrollWidth,rows:[...el.querySelectorAll<HTMLElement>('.home-notice-row')].map(r=>({height:r.getBoundingClientRect().height,width:r.getBoundingClientRect().width,copyWidth:r.querySelector('.home-notice-copy')!.getBoundingClientRect().width,nested:r.querySelectorAll('button,a,input').length})),list:!!el.querySelector('.home-notice-list')&&el.querySelector('.home-notice-list')!.scrollHeight>el.querySelector('.home-notice-list')!.clientHeight}})
- expect(metrics.x).toBeGreaterThanOrEqual(15);expect(metrics.right).toBeLessThanOrEqual(width-15);expect(metrics.pageWidth).toBeLessThanOrEqual(width+1);expect(metrics.bottom).toBeLessThanOrEqual(844);expect(metrics.rows.every(r=>r.height>=44&&r.nested===0&&r.copyWidth>=r.width-100)).toBe(true);expect(metrics.list).toBe(true)
+ const viewAll=panel.getByTestId('home-notice-view-all');if(await viewAll.count())await viewAll.click()
+ const bellBox=await page.getByTestId('home-account-notice').boundingBox()
+ const metrics=await panel.evaluate(el=>{const b=el.getBoundingClientRect();return {x:b.x,right:b.right,bottom:b.bottom,width:innerWidth,pageWidth:document.documentElement.scrollWidth,rows:[...el.querySelectorAll<HTMLElement>('.home-notice-row')].map(r=>({height:r.getBoundingClientRect().height,width:r.getBoundingClientRect().width,copyWidth:r.querySelector('.home-notice-copy')!.getBoundingClientRect().width,nested:r.querySelectorAll('button,a,input').length}))}})
+ expect(metrics.x).toBeGreaterThanOrEqual(Math.max(15,(bellBox?.x??0)+(bellBox?.width??0)-1));expect(metrics.right).toBeLessThanOrEqual(width-15);expect(metrics.pageWidth).toBeLessThanOrEqual(width+1);expect(metrics.bottom).toBeLessThanOrEqual(844);expect(metrics.rows.length).toBeGreaterThan(0);expect(metrics.rows.every(r=>r.height>=40&&r.nested===0&&r.copyWidth>=40)).toBe(true)
  if(scale===100||width===320&&scale===200)await panel.screenshot({path:`${out}/tasks-${width}-${scale}.png`})
  await writeFile(`${out}/geometry-${width}-${scale}.json`,JSON.stringify(metrics,null,2));await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);await expect(page.getByTestId('home-account-notice')).toBeFocused()
 })
@@ -60,7 +62,7 @@ test('conceal removes money embedded in free-form record notes from notification
 test('dismissing a pending fresh group resolution prevents a late task from reopening',async({page})=>{
  const state=await setupNotifications(page);await page.goto('/');await expect(page.getByTestId('home-account-notice')).toHaveAccessibleName(/2 to do/);await openNotices(page);state.delayFirst=1000
  const read=page.waitForResponse(response=>response.headers()['x-qa-held']==='1')
- await page.locator('[data-notice-id="fundinggroup:unassigned"]').click();await openNotices(page);await page.getByTestId('home-notice-popover').getByRole('button',{name:'Close',exact:true}).click();await read
+ await page.locator('[data-notice-id="fundinggroup:unassigned"]').click();await openNotices(page);await page.getByTestId('home-account-notice').click();await read
  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))
  await expect(page).toHaveURL('/');await expect(page.getByTestId('home-notice-popover')).toHaveCount(0);await expect(page.getByRole('heading',{name:'Verify deductions',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0)
 })

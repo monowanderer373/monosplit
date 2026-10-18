@@ -98,7 +98,8 @@ test('keeps the original privacy range and preserves unknown opening balances', 
   // The existing privacy preference only masks the home balance card.
   await expect(page.getByTestId('home-account-sheet')).toContainText('1,250.00')
   await page.keyboard.press('Escape')
-  await page.getByTestId('home-balance-eye').click()
+  await page.getByTestId('home-account-selector').click()
+  await page.getByTestId('home-privacy-toggle').click()
   await expect(page.getByTestId('home-balance-values')).toContainText('1,290.00')
 })
 
@@ -109,7 +110,8 @@ test('preserves notification content, zero pending and error states', async ({ p
   await expect(page.getByTestId('home-review-sheet')).toContainText('Pending confirmation')
   await page.keyboard.press('Escape')
   await page.getByTestId('home-account-notice').click()
-  await expect(page.getByTestId('home-notice-popover')).toContainText('Notifications')
+  await expect(page.getByTestId('home-notice-popover').getByRole('tab', { name: /To do/ })).toBeVisible()
+  await expect(page.getByTestId('home-notice-popover').getByRole('heading', { name: 'Notifications' })).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('home-account-notice')).toBeFocused()
   await openCase(page, 390, 'none')

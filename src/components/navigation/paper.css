@@ -72,7 +72,14 @@
   box-shadow: var(--tt-shadow-floating);
 }
 
-.tt-nav { position: fixed; inset-inline: 0; bottom: max(10px,env(safe-area-inset-bottom)); z-index: 30; display: flex; justify-content: center; padding-inline: 12px; pointer-events: none; }
+.tt-nav-blur { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, 600px); height: calc(102px + env(safe-area-inset-bottom, 0px)); z-index: 29; pointer-events: none; backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); background: rgb(248 246 240 / .22); mask-image: linear-gradient(to bottom, transparent, #000 24px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tt-nav-blur { background: rgb(248 246 240 / .94); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .tt-nav-blur { background: rgb(248 246 240 / .94); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+.tt-nav { position: fixed; inset-inline: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 30; display: flex; justify-content: center; padding-inline: 16px; pointer-events: none; }
 #root .tt-nav-surface { position: relative; width: min(100%,560px); height: 62px; box-sizing: border-box; pointer-events: auto; isolation: isolate; background: var(--tt-surface); border: 1px solid var(--tt-border); border-radius: 16px; box-shadow: var(--tt-shadow-nav); }
 #root .tt-nav-surface::before, #root .tt-nav-surface::after { content: none; }
 #root .tt-nav-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); height: 60px; min-height: 60px; padding: 0; align-items: center; }
@@ -83,7 +90,7 @@
 #root .tt-icon-plate { display: grid; place-items: center; width: 20px; height: 20px; color: inherit; }
 #root .tt-icon-plate svg { width: 20px; height: 20px; stroke: none; filter: none; }
 .tt-marker { display: none; }
-#root .tt-center-layer { position: fixed; inset-inline: 0; z-index: 31; display: flex; justify-content: center; bottom: calc(max(10px,env(safe-area-inset-bottom)) + 14px); pointer-events: none; }
+#root .tt-center-layer { position: fixed; inset-inline: 0; z-index: 31; display: flex; justify-content: center; bottom: calc(16px + env(safe-area-inset-bottom, 0px) + 5px); pointer-events: none; }
 #root .tt-seal { position: relative; isolation: isolate; pointer-events: auto; width: 52px; height: 52px; min-width: 44px; min-height: 44px; border: 0; border-radius: 15px; background: var(--tt-primary); color: var(--tt-stitch); padding: 0; cursor: pointer; filter: none; box-shadow: var(--tt-shadow-button); transition: background-color 140ms ease-out,transform 140ms ease-out,box-shadow 140ms ease-out; }
 #root .tt-seal::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: url('/denim-paper/denim-weave.svg') repeat; background-size: 24px; opacity: .35; z-index: -1; pointer-events: none; }
 #root .tt-seal::after { content: none; }

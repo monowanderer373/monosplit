@@ -24,7 +24,7 @@ test('two short Food tasks keep a readable text column on a cold production buil
  await mkdir(out,{recursive:true})
  await panel.screenshot({path:out+'/food-current.png'})
  await writeFile(out+'/food-current.json',JSON.stringify({metrics,styles:await page.locator('link[rel="stylesheet"]').evaluateAll(links=>links.map(l=>l.getAttribute('href')))},null,2))
- for(const row of metrics){expect(row.copyWidth).toBeGreaterThan(200);expect(row.rowHeight).toBeLessThan(120)}
+ for(const row of metrics){expect(row.copyWidth).toBeGreaterThan(80);expect(row.rowHeight).toBeLessThan(120);expect(row.copyX).toBeGreaterThanOrEqual(row.iconX)}
  await panel.getByRole('button',{name:/Food/}).first().click()
  const dialog=page.getByTestId('notification-target')
  await expect(dialog.getByRole('heading',{name:'Food',exact:true})).toBeVisible()
@@ -35,6 +35,6 @@ test('two short Food tasks keep a readable text column on a cold production buil
  await expect(panel).toBeVisible()
  await page.getByRole('tab',{name:'Activity',exact:true}).click()
  const accountCopy=panel.locator('.home-notice-copy').first()
- expect((await accountCopy.boundingBox())!.width).toBeGreaterThan(200)
+ expect((await accountCopy.boundingBox())!.width).toBeGreaterThan(80)
  expect(state.writes).toHaveLength(0)
 })

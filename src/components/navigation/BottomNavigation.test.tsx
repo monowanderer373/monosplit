@@ -32,6 +32,9 @@ function renderNav(path: string) {
 describe('paper bottom navigation', () => {
   it('renders the four destinations and marks the active route', () => {
     renderNav('/insights')
+    const blur = screen.getByTestId('tt-nav-blur')
+    expect(blur.getAttribute('aria-hidden')).toBe('true')
+    expect(blur.className).toContain('tt-nav-blur')
     expect(screen.getByRole('button', { name: 'Daily' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Insights' }).getAttribute('aria-current')).toBe('page')
     expect(screen.getByRole('button', { name: 'Shared' }).hasAttribute('aria-current')).toBe(false)
