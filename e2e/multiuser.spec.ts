@@ -144,7 +144,7 @@ test.describe('local relational multi-user journey', () => {
     await refreshSpace(owner)
     await refreshSpace(viewerBrowser.page)
     await refreshSpace(guestBrowser!.page)
-    await expectShare(owner, 'Exact ferry', '4.00')
+    await expectShare(owner, 'Exact ferry', 'RM 4.00')
     await expectShare(betaBrowser.page, 'Exact ferry', 'RM 5.00')
     await expectShare(viewerBrowser.page, 'Exact ferry', 'RM 2.00')
     await expectShare(guestBrowser!.page, 'Exact ferry', 'RM 1.34')
