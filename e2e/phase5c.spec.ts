@@ -105,7 +105,7 @@ test.describe('Phase 5C state-aware expense changes', () => {
     )).toBeVisible()
 
     await openFriendBalance(betaBrowser.page, 'Alpha')
-    await expect(betaBrowser.page.getByText('Alpha owes you RM 40.00')).toBeVisible()
+    await expectDebt(betaBrowser.page, 'Alpha owes You', 'RM 40.00')
     await openFriendBalance(alphaBrowser.page, 'Beta')
     await expectDebt(alphaBrowser.page, 'You owe Beta', 'RM 40.00')
   })

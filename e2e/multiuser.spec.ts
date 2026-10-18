@@ -210,6 +210,7 @@ test.describe('local relational multi-user journey', () => {
     await expect(friend).toHaveURL(/\/friends$/)
     pending=await openPendingDirectReview(friend,'Direct lunch')
     await pending.getByRole('button', { name: 'Accept share' }).click()
+    await expect(friend.getByTestId('notification-target')).toContainText('already been handled')
     await openFriendBalance(friend, 'Alpha')
     await expectDebt(friend, 'You owe Alpha', 'RM 4.99')
 
