@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(16);
 select ok(has_function_privilege('authenticated','public.insights_fx_snapshot(uuid)','execute'),'authenticated read RPC');
 select ok(not has_function_privilege('anon','public.insights_fx_snapshot(uuid)','execute'),'no anon RPC');
 select ok(not has_function_privilege('authenticated','tabby_fx.refresh(boolean)','execute'),'no client worker');
@@ -13,6 +13,7 @@ select is(tabby_fx.normalize_rates('[{"base":"MYR","quote":"VND","rate":6250,"da
 select is(tabby_fx.normalize_rates('[{"base":"MYR","quote":"USD","rate":0.2299999999999999,"date":"2026-10-10"}]','2026-10-13')#>>'{USD,denominator}','0.2299999999999999','preserves decimal rate');
 select throws_ok($q$select tabby_fx.normalize_rates('[{"base":"MYR","quote":"VND","rate":0,"date":"2026-10-10"}]','2026-10-13')$q$,'P0001','invalid FX rate','zero rejected');
 select throws_ok($q$select tabby_fx.normalize_rates('[{"base":"USD","quote":"VND","rate":1,"date":"2026-10-10"}]','2026-10-13')$q$,'P0001','invalid FX pair','wrong direction rejected');
+select is(tabby_fx.normalize_rates('[{"base":"MYR","quote":"USD","rate":1,"date":"2026-10-14"}]','2026-10-13')#>>'{USD,rateDate}','2026-10-14','one UTC day provider skew allowed');
 select throws_ok($q$select tabby_fx.normalize_rates('[{"base":"MYR","quote":"USD","rate":1,"date":"2027-01-01"}]','2026-10-13')$q$,'P0001','future FX date','future rejected');
 select throws_ok($q$select tabby_fx.normalize_rates('[]','2026-10-13')$q$,'P0001','empty FX response','empty never fake zero');
 select throws_ok('select public.insights_fx_snapshot(null)','42501','authentication required','SQL anonymous rejected');
