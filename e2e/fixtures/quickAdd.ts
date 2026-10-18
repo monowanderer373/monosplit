@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test'
+import { openPersonDetail } from './localSupabase'
 
 /** Exercise the approved calculator UI rather than writing to its readonly input. */
 export async function enterQuickAmount(dialog: Locator, amount: string): Promise<void> {
@@ -54,4 +55,21 @@ export async function expectRecordedManualShare(page: Page, description: string,
   await split.getByRole('button', { name: 'Close panel', exact: true }).click()
   await editor.getByRole('button', { name: 'Close', exact: true }).click()
   await expect(editor).toHaveCount(0)
+}
+
+/** Follow the shipped notification resolver; never submit a direct test-only RPC. */
+export async function openPendingDirectReview(page: Page, description: string): Promise<Locator> {
+  await page.goto('/')
+  const bell=page.getByTestId('home-account-notice')
+  await expect(bell).toBeEnabled();await page.waitForLoadState('networkidle');await bell.click()
+  const row=page.locator('[data-notice-id^="expense:"]').filter({hasText:description})
+  await expect(row).toHaveCount(1);await row.click()
+  const review=page.getByTestId('notification-direct-review')
+  await expect(review.getByRole('heading',{name:description,exact:true})).toBeVisible()
+  return review
+}
+
+export async function openPersonActivity(page:Page, person:string):Promise<void>{
+  await page.goto('/friends');await openPersonDetail(page,person)
+  await expect(page.getByTestId('person-expense-changes')).toBeVisible()
 }
