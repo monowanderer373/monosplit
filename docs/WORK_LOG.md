@@ -1,5 +1,10 @@
 # Work log
 
+## 2026-10-19 — Compact Home, nav blur, right notifications
+- Branched `feat/compact-home-right-notices` from `origin/main` `5199678`; did not reset to pack SHA `387387f` or pop stash.
+- Home three-card density, account actions/privacy in picker, paper nav 16px inset + blur in `paper.css`, AccountNotice body portal to the right of the bell with preview/view-all and interruptible motion.
+- Local: 696 Vitest / 101 files before docs; lint/build after CSS nav-blur move pending this checkpoint. No SQL.
+
 ## 2026-10-18 — Shared A compact shared shell
 - Protected prior uncommitted auth/ledger WIP via stash `protect: local uncommitted before Shared A 2026-10-18`; branched `feat/shared-a` from latest `origin/main` `7d86db4`.
 - Ported Shared A presentation contract, list model (personMoney + collectPay keys), origin memory, scoped CSS/components; rewired SharedPage/Friends/Spaces embedded create/PersonDetail.

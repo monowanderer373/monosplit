@@ -1,5 +1,6 @@
 import { exactAmount } from '../../lib/fx'
 import { currencyExponent } from '../../lib/money'
+import './compact-home.css'
 import AccountNotice from './AccountNotice'
 import type {HomeNotification} from '../../lib/homeNotifications'
 import AmountInput from '../AmountInput'
@@ -153,18 +154,17 @@ export default function HomeScreen(props: HomeScreenProps) {
       </header>
 
       {props.mode === 'daily' ? (
-        <>
+        <div className="ttc-ui ttc-home-stack">
         <section
-          className="home-card home-balance-card"
+          className="home-card home-balance-card ttc-account-card"
           aria-labelledby="home-balance-title"
           data-account-menu-open={sheet === 'accounts'}
           onPointerDown={onSwipeDown}
           onPointerUp={onSwipeUp}
         >
-          <span className="home-fold" aria-hidden="true" />
           <div className="home-account-header">
             <div className="home-account-target">
-              <button ref={accountTrigger} type="button" className="home-account-button" data-testid="home-account-selector"
+              <button ref={accountTrigger} type="button" className="home-account-button ttc-account-selector" data-testid="home-account-selector"
                 aria-haspopup="dialog" aria-controls={sheet === 'accounts' ? 'home-account-sheet' : undefined} aria-expanded={sheet === 'accounts'} onClick={() => setSheet(value => value === 'accounts' ? null : 'accounts')}>
                 <span>{selected?.name ?? t(props.selectedAccountId==='all'?'home.allAccounts':'mc.state.unavailable')}{selected?.archived?` · ${t('space.status.archived')}`:''}</span><Chevron />
               </button>
@@ -188,54 +188,47 @@ export default function HomeScreen(props: HomeScreenProps) {
                   <button type="button" className="home-add-account-button" data-testid="home-add-account" onClick={() => setSheet('create')}>
                     <PlusIcon /><span>{t('home.addAccount')}</span>
                   </button>
+                  <button
+                    type="button"
+                    className="ttc-account-menu-row"
+                    data-testid="home-privacy-toggle"
+                    aria-pressed={props.balanceHidden}
+                    onClick={props.onToggleBalanceHidden}
+                  >
+                    <span className="ttc-spacer">{props.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}</span>
+                  </button>
+                  {props.accountMore}
                 </AccountPaperMenu>
               ) : null}
             </div>
-            {props.accountMore ?? <img className="home-balance-mascot" src="/denim-paper/pocket-clear.png" width="64" height="64" alt="" aria-hidden="true" draggable={false} />}
           </div>
-          <div className="home-balance-panel">
-            <p id="home-balance-title" className="home-balance-label">{t('home.accountBalance')}</p>
-            <div className="home-balance-line">
-              {props.accountBalance ?? <BalanceValues
-                status={props.accountsStatus}
-                balances={props.balances}
-                hidden={props.balanceHidden}
-                emptyLabel={t('home.noAccounts')}
-                refreshing={props.accountsRefreshing}
-                onAddAccount={assetAccounts.length === 0 && props.accountsStatus === 'ready'
-                  ? () => setSheet('create')
-                  : undefined}
-              />}
-              <button
-                type="button"
-                className="home-icon-button"
-                data-testid="home-balance-eye"
-                aria-pressed={props.balanceHidden}
-                aria-label={props.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
-                onClick={props.onToggleBalanceHidden}
-              >
-                {props.balanceHidden ? <EyeOffIcon /> : <EyeIcon />}
-              </button>
-            </div>
-          </div>
+          <p id="home-balance-title" className="home-balance-label home-sr">{t('home.accountBalance')}</p>
+          {props.accountBalance ?? <BalanceValues
+            status={props.accountsStatus}
+            balances={props.balances}
+            hidden={props.balanceHidden}
+            emptyLabel={t('home.noAccounts')}
+            refreshing={props.accountsRefreshing}
+            onAddAccount={assetAccounts.length === 0 && props.accountsStatus === 'ready'
+              ? () => setSheet('create')
+              : undefined}
+          />}
         </section>
-        <div className="home-stat-row">
+        <div className="home-stat-row ttc-summary-pair">
           {(['receivable', 'payable'] as const).map(direction => (
-            <button type="button" key={direction} aria-label={t(direction === 'receivable' ? 'cp.openCollect' : 'cp.openPay')} onClick={() => props.onOpenCollectPay?.(direction === 'receivable' ? 'collect' : 'pay')} className={`home-stat home-debt-stat cp-summary-material is-${direction}`} data-testid={`home-${direction}`} data-state={props.sharedStatus} data-empty={props.sharedStatus === 'ready' && (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).every(line => line.amountMinor === 0)}>
-              <span className="home-meta">{t(direction === 'receivable' ? 'home.toCollect' : 'home.payable')}</span>
-              <span className="home-debt-value">
+            <button type="button" key={direction} aria-label={t(direction === 'receivable' ? 'cp.openCollect' : 'cp.openPay')} onClick={() => props.onOpenCollectPay?.(direction === 'receivable' ? 'collect' : 'pay')} className={`home-stat home-debt-stat ttc-summary-card cp-summary-material is-${direction}${direction === 'payable' ? ' is-pay' : ''}`} data-testid={`home-${direction}`} data-state={props.sharedStatus} data-empty={props.sharedStatus === 'ready' && (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).every(line => line.amountMinor === 0)}>
+              <span className="home-meta ttc-summary-label">{t(direction === 'receivable' ? 'home.toCollect' : 'home.payable')}</span>
+              <span className="home-debt-value ttc-summary-value">
                 {props.sharedStatus === 'error' ? t('home.unavailable')
                   : props.sharedStatus === 'loading' ? <><span className="home-sr">{t('home.loading')}</span><span className="home-debt-skeleton" aria-hidden="true" /></>
                   : <MoneyLines lines={(direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)).length > 0 ? (direction === 'receivable' ? props.receivables : payableTotals(props.sharedContexts)) : [{currency:props.defaultCurrency ?? 'MYR',amountMinor:0}]} lang={lang} t={t} />}
               </span>
-              <span className="cp-summary-corner" aria-hidden="true" />
-              <span className="cp-summary-fold" aria-hidden="true" />
             </button>
           ))}
         </div>
         {props.sharedStatus === 'ready' && (props.sharedPreviews?.length ?? 0) > 0 ?
           <UnconfirmedNotice contexts={props.sharedPreviews!} onReview={() => setSheet('review')} /> : null}
-        </>
+        </div>
       ) : null}
 
       <section className="home-section" aria-labelledby="home-records-title">
@@ -806,15 +799,6 @@ function Chevron({ className }: { className?: string }) {
   )
 }
 
-function EyeIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="10" cy="10" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  )
-}
-
 function CreateAccountSheet({
   defaultCurrency,
   onClose,
@@ -905,13 +889,5 @@ function CreateAccountSheet({
         <span>{saving ? t('home.creatingAccount') : t('home.createAccount')}</span>
       </button>
     </HomeSheet>
-  )
-}
-
-function EyeOffIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M3 3l14 14M8 8.5A3 3 0 0011.5 12M4 7.5C2.8 8.5 2 10 2 10s3 5 8 5c1.2 0 2.3-.3 3.2-.8M8.2 5.2C8.8 5.1 9.4 5 10 5c5 0 8 5 8 5s-.6 1-1.7 2.1" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
   )
 }

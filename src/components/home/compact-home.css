@@ -1,0 +1,70 @@
+/* Scope class prefix ttc- and portal root. Never override global ms-* / HomeSheet / button. */
+.ttc-ui{--ttc-paper:#F8F6F0;--ttc-surface:#FFFCF7;--ttc-ink:#24374A;--ttc-secondary:#5C7181;--ttc-blue:#35678B;--ttc-line:#DCDDD6;color:var(--ttc-ink)}
+.ttc-ui,.ttc-ui *{box-sizing:border-box}
+.ttc-ui button{font:inherit;color:inherit}
+.ttc-ui :focus-visible{outline:2px solid var(--ttc-blue);outline-offset:3px}
+.ttc-home-stack{display:grid;gap:10px}
+.ttc-ui .ttc-account-card{background:#E3EFF4;border:1px solid #C9DEE7;border-radius:12px;padding:12px 16px;box-shadow:0 2px 3px #24374a08;min-width:0}
+.ttc-ui .ttc-account-selector{display:inline-flex;align-items:center;gap:6px;min-height:44px;max-width:100%;border:0;background:transparent;padding:0;text-align:left;font-size:.75rem}
+.ttc-ui .ttc-account-selector span{overflow-wrap:anywhere}
+.ttc-ui .ttc-balance-value{font-size:1.5rem;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:0 0 2px;overflow-wrap:anywhere}
+.ttc-ui .ttc-balance-note{font-size:.6875rem;color:var(--ttc-secondary);margin:0;overflow-wrap:anywhere}
+.ttc-ui .ttc-summary-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ttc-ui .ttc-summary-card{display:block;min-width:0;min-height:70px;border:1px solid #EBD6C5;border-radius:11px;background:#FBEDE1;padding:10px 14px;box-shadow:0 2px 3px #24374a06;text-align:left}
+.ttc-ui .ttc-summary-card.is-pay{background:#E6EFF4;border-color:#CADDE6}
+.ttc-ui .ttc-summary-label{display:block;font-size:.75rem;color:var(--ttc-secondary)}
+.ttc-ui .ttc-summary-value{display:block;font-size:1.25rem;font-weight:500;font-variant-numeric:tabular-nums;margin-top:3px;overflow-wrap:anywhere}
+.ttc-ui .ttc-bell{position:relative;display:grid;place-items:center;width:44px;height:44px;flex:none;background:transparent;border:0;border-radius:10px;padding:10px}
+.ttc-ui .ttc-bell[aria-expanded=true]{background:#E3EFF4}
+.ttc-ui .ttc-bell-count{position:absolute;right:-1px;top:0;min-width:17px;min-height:17px;padding:0 3px;display:grid;place-items:center;border-radius:10px;background:#DFEDF3;color:var(--ttc-blue);font-size:.6875rem}
+.ttc-ui.ttc-popover{position:fixed;z-index:70;padding:2px 10px 3px;border:1px solid var(--ttc-line);border-radius:13px;background:var(--ttc-surface);box-shadow:0 6px 18px #24374a17,0 1px 4px #24374a06;transform-origin:0 20px;isolation:isolate;overflow-wrap:anywhere}
+.ttc-ui .ttc-tabs{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--ttc-line)}
+.ttc-ui .ttc-tab{flex:1;min-width:0;min-height:44px;margin-bottom:-1px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:transparent;font-size:.75rem;color:var(--ttc-secondary)}
+.ttc-ui .ttc-tab[aria-selected=true]{color:var(--ttc-blue);border-bottom-color:var(--ttc-blue);font-weight:500}
+.ttc-ui .ttc-list{list-style:none;margin:0;padding:0}
+.ttc-ui .ttc-item{display:grid;grid-template-columns:14px minmax(0,1fr) 10px;column-gap:6px;align-items:center;width:100%;min-height:58px;padding:9px 0;text-align:left;border:0;border-bottom:1px dotted var(--ttc-line);background:transparent}
+.ttc-ui .ttc-list>li:last-child .ttc-item{border-bottom:0}
+.ttc-ui .ttc-item-icon{width:14px;height:14px;color:var(--ttc-blue);display:flex;align-items:center;justify-content:center}
+.ttc-ui .ttc-item-icon svg{width:14px;height:14px}
+.ttc-ui .ttc-item-title{display:block;font-size:.75rem;font-weight:500;overflow-wrap:anywhere}
+.ttc-ui .ttc-item-meta{display:block;font-size:.6875rem;font-weight:400;color:var(--ttc-secondary);margin-top:3px;overflow-wrap:anywhere}
+.ttc-ui .ttc-chevron{font-size:1rem;color:var(--ttc-blue)}
+.ttc-ui .ttc-message{font-size:.75rem;color:var(--ttc-secondary);margin:0;padding:12px 2px;min-height:44px}
+.ttc-ui .ttc-quiet{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;width:100%;border:0;background:transparent;padding:8px 2px;color:var(--ttc-blue);font-size:.75rem;text-align:center;overflow-wrap:anywhere}
+.ttc-ui .ttc-skeleton{height:9px;width:75%;background:#E2E4DF;border-radius:3px;margin:7px 0}
+.ttc-ui .ttc-account-menu-row{display:flex;align-items:center;min-height:44px;gap:8px;border:0;background:transparent;width:100%;padding:10px 0;text-align:left;font-size:.8125rem}
+.ttc-ui .ttc-spacer{flex:1;min-width:0}
+@media(max-width:350px){.ttc-ui.ttc-popover{padding-inline:8px}.ttc-ui .ttc-item{grid-template-columns:minmax(0,1fr) 10px;column-gap:4px}.ttc-ui .ttc-item-icon{display:none}}
+.ttc-ui.ttc-dismiss-layer{position:fixed;inset:0;z-index:69;background:transparent;touch-action:none}
+
+#root .home-shell .ttc-home-stack .home-balance-card {
+  min-height: 0;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #E3EFF4;
+  border: 1px solid #C9DEE7;
+  box-shadow: 0 2px 3px #24374a08;
+}
+#root .home-shell .ttc-home-stack .home-balance-card::before,
+#root .home-shell .ttc-home-stack .home-fold { display: none; }
+#root .home-shell .ttc-home-stack .home-account-header { min-height: 0; }
+#root .home-shell .ttc-home-stack .home-account-header .home-account-button,
+#root .home-shell .ttc-home-stack .home-account-button { max-width: 100%; }
+#root .home-shell .ttc-home-stack .home-account-target { margin: 0; max-width: 100%; }
+#root .home-shell .ttc-home-stack .home-balance-figure {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  font-weight: 500;
+}
+#root .home-shell .ttc-home-stack .home-stat-row { margin-top: 0; gap: 10px; }
+#root .home-shell .ttc-home-stack .home-debt-stat {
+  min-height: 70px;
+  padding: 10px 14px;
+  border-radius: 11px;
+}
+#root .home-shell .ttc-home-stack .home-debt-value { font-size: 1.25rem; line-height: 1.25; font-weight: 500; }
+#root .home-shell .ttc-home-stack .cp-summary-corner,
+#root .home-shell .ttc-home-stack .cp-summary-fold { display: none; }
+#root .home-shell .home-account-actions { position: static; width: auto; height: auto; min-width: 0; transform: none; }
+#root .home-shell .home-account-actions img { display: none; }
