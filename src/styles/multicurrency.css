@@ -60,12 +60,12 @@
 #root .ttmc-dialog .home-icon-button{flex:none;min-width:44px;min-height:44px;margin:-8px -8px 0 0}
 
 .ttmc-verify-compact{display:grid;gap:8px;justify-items:center;text-align:center;margin:0}
-.ttmc-verify-compact .ttmc-verify-kicker,.ttmc-verify-compact .ttmc-verify-caption{margin:0;font-size:.75rem;line-height:1.4;color:var(--ttmc-muted)}
+.ttmc-verify-compact .ttmc-verify-kicker,.ttmc-verify-compact .ttmc-verify-caption{margin:0;font-size:.8125rem;line-height:1.4;color:var(--ttmc-muted)}
 .ttmc-verify-compact .ttmc-verify-hero{margin:2px 0 0;font-size:1.375rem;line-height:1.25;font-weight:650;font-variant-numeric:tabular-nums}
 .ttmc-verify-compact .ttmc-verify-link{min-height:44px;padding:8px 0;width:100%;text-align:center;font-size:.75rem}
 .ttmc-verify-compact .ttmc-sources{width:100%;gap:8px}
 .ttmc-verify-compact .ttmc-paper{padding:12px;gap:8px;border-radius:12px}
-.ttmc-verify-compact label{gap:4px;text-align:start;font-size:.6875rem;color:var(--ttmc-muted)}
+.ttmc-verify-compact label{gap:4px;text-align:start;font-size:.8125rem;color:var(--ttmc-muted)}
 .ttmc-verify-compact :where(input:not([type=checkbox]),select){min-height:44px;padding:8px 12px;border-radius:8px}
 .ttmc-verify-compact .ttmc-check{width:100%;justify-content:center;align-items:flex-start;font-size:.75rem;color:var(--ttmc-muted);text-align:start}
 .ttmc-verify-compact .ttmc-sources>p{margin:0;font-size:.6875rem;line-height:1.4}
@@ -110,3 +110,11 @@
 @media (prefers-reduced-motion: no-preference) {
   #root .ttmc-account-action { transition: transform 130ms ease-out, background-color 130ms ease-out, box-shadow 130ms ease-out; }
 }
+
+/* Home sheets cap generic inputs at62%. Funding needs the entire source row. */
+#root .ttmc-verify-compact .ttmc-paper :is(input:not([type=checkbox]),select){width:100%;max-width:100%}
+/* Restore a visible confirmation control after the app-wide appearance reset. */
+#root .ttmc-module .ttmc-check{min-height:44px;align-items:center}
+#root .ttmc-module .ttmc-check input[type=checkbox]{appearance:none;-webkit-appearance:none;display:block;flex:0 0 20px;width:20px;max-width:20px;height:20px;min-height:20px;margin:0;padding:0;border:1.5px solid #829aa9;border-radius:5px;background:#fffcf5;cursor:pointer}
+#root .ttmc-module .ttmc-check input[type=checkbox]:checked{background:#35678b url('/assets/quick-add-context/check.svg') center/12px 12px no-repeat;border-color:#35678b}
+#root .ttmc-module .ttmc-check input[type=checkbox]:focus-visible{outline:2px solid #35678b;outline-offset:3px}

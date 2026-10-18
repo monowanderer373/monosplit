@@ -2,6 +2,12 @@
 
 Checkpoint:2026-10-18 (Asia/Kuala_Lumpur). Working branch `feat/shared-a` from `origin/main` `7d86db4`. Local uncommitted work from `release/phase6-final-runbook` remains in `stash@{0}` (`protect: local uncommitted before Shared A 2026-10-18`) and backup branch `backup/local-wip-before-shared-a`.
 
+## Active — compact Quick Add / To do verification (2026-10-18)
+- Branch `fix/compact-quick-add-payment`, baseline current remote main `387387f` (PR28/29 retained). Existing checkout clean before changes; pre-existing stash/backup below remains untouched.
+- User requests removal of duplicate Paid from choices beneath calculator, one-phone-page primary capture, and compact centered To do deduction dialog. Latest main already contains a compact verification patch: validate it instead of replaying old layout.
+- Implementation: move original funding draft policy to a keyed hook, present optional actual/multi-source controls only in existing account panel, retain deferred/actual/native cash/coverage/privacy gates. Featured categories with full category panel keep calculator/date/account/split/save visible; original category editing retained.
+- No schema/history/RLS/service change. Validation/screenshots/GitHub/production pending; do not claim live completion. Known local Docker vfs limitation not retried; real backend validation will use disposable CI. Native phone/OS keyboard unverified.
+
 ## In progress — Shared A compact shared shell (2026-10-18)
 - Implemented the approved quiet Shared A: one Shared header, Friends/Groups/Trips tabs, tab-scoped search, All/With balances, Direct currency, To review from existing shared-ledger notifications, compact person rows, compact person detail with Collect/Pay via real `item.key`.
 - CSS scoped to `.tt-shared-a`. No schema/migration. Quick Add, TripPeriodFields, settlements, history, notifications, multicurrency accounts retained.

@@ -1,0 +1,27 @@
+/* The main capture fits the viewport; long lists and funding live in panels. */
+#root .qa-main.tt-qa-context .qa-content { overflow-y: auto; }
+#root .qa-main.tt-qa-context .qa-category-or-picker-slot:not(.is-picker-open) { flex: 1 1 auto; min-height: 150px; padding-bottom: 14px; align-items: center; }
+#root .qa-main .qa-category-or-picker-slot:not(.is-picker-open) > .qa-categories { flex: 1; min-height: 0; overflow: visible; mask-image: none; }
+#root .qa-main .qa-category-or-picker-slot:not(.is-picker-open) .qa-category-grid { gap: 7px; }
+#root .qa-main .qa-category-or-picker-slot:not(.is-picker-open) .qa-category { height: auto; min-height: 44px; padding: 6px; gap: 3px; flex-direction: column; justify-content: center; text-align: center; }
+#root .qa-main .qa-category-or-picker-slot:not(.is-picker-open) .qa-category > span { font-size: 12px; line-height: 1.25; }
+#root .qa-main .qa-category-more { color: #35678b; }
+#root .qa-main .qa-panel .qa-category-grid { gap: 8px; }
+#root .qa-main .qa-panel .qa-category { height: auto; min-height: 52px; }
+#root .qa-main .qa-keypad button { min-height: 44px; }
+#root .qa-main .qa-save-buttons > button { min-height: 48px; }
+#root .qa-main .qa-payment-details { display: grid; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #c9d5da; }
+#root .qa-main .qa-payment-details > p { margin: 0; font-size: .8125rem; line-height: 1.4; }
+#root .qa-main .qa-payment-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 0; background: transparent; color: #35678b; text-align: start; }
+#root .qa-main .qa-payment-fields { display: grid; gap: 12px; }
+#root .qa-main .qa-payment-fields .ttmc-paper { padding: 12px; gap: 10px; }
+#root .qa-main .qa-payment-fields .ttmc-check { display: flex; align-items: flex-start; gap: 8px; font-size: .8125rem; line-height: 1.4; }
+#root .qa-main .qa-payment-fields .ttmc-check input { margin-top: 2px; }
+#root .qa-main .qa-panel-footer.qa-text-button { display: flex; align-items: center; justify-content: center; gap: 8px; }
+@media (max-height: 740px) {
+ #root .qa-main.tt-qa-context .qa-header { padding-bottom: 8px; }
+ #root .qa-main.tt-qa-context .qa-category-or-picker-slot:not(.is-picker-open) { min-height: 102px; padding-bottom: 10px; }
+ #root .qa-main .qa-keypad { gap: 5px; }
+ #root .qa-main .qa-inputs { margin-bottom: 8px; }
+ #root .qa-main .qa-save-buttons { margin-top: 8px; }
+}
