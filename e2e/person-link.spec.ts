@@ -41,7 +41,7 @@ test('links a Person without rewriting old Manual money', async ({
     await owner.getByPlaceholder('Person’s name').fill('Target cash')
     await owner.getByRole('button', { name: 'Add person' }).click()
     await openPersonDetail(owner, 'Target cash')
-    await expect(owner).toHaveURL(/\/person\/[0-9a-f-]+$/i)
+    await expect.poll(()=>new URL(owner.url()).pathname).toMatch(/^\/person\/[0-9a-f-]+$/i)
     const personUrl = owner.url()
     await expect(owner.getByText('Manual', { exact: true }).first()).toBeVisible()
     await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()

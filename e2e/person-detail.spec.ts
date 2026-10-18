@@ -54,7 +54,7 @@ test('keeps Person Detail money-first and inherits that Person', async ({
 
     await openPersonDetail(owner, 'Lan cash')
     const personUrl = owner.url()
-    await expect(owner).toHaveURL(/\/person\/[0-9a-f-]+$/i)
+    await expect.poll(()=>new URL(owner.url()).pathname).toMatch(/^\/person\/[0-9a-f-]+$/i)
     await expect(
       owner.getByRole('navigation', { name: 'Primary navigation' })
         .getByRole('button', { name: 'Shared', exact: true }),

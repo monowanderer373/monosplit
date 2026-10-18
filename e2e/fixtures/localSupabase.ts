@@ -242,7 +242,7 @@ export function personCard(page: Page, personName: string) {
 
 export async function openPersonDetail(page: Page, personName: string): Promise<void> {
   await personCard(page, personName).click()
-  await expect(page).toHaveURL(/\/person\/[0-9a-f-]+$/i)
+  await expect.poll(()=>new URL(page.url()).pathname).toMatch(/^\/person\/[0-9a-f-]+$/i)
   await expect(page.getByRole('heading', { name: personName })).toBeVisible()
 }
 
