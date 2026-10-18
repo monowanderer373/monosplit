@@ -460,8 +460,8 @@ export default function PersonDetailPage() {
           currentParticipantId={participantId}
           onRefresh={changeState.refreshAuthoritative}
           include={(request) => (
-            trackedExpenses.some((expense) => expense.id === request.targetExpenseId)
-            || untrackedExpenses.some((expense) => expense.id === request.targetExpenseId)
+            // Completed corrections/cancellations retain their original voided target.
+            personHistoryExpenses.some((expense) => expense.id === request.targetExpenseId)
           )}
         />
       </section>
