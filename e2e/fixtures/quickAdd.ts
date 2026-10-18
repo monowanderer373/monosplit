@@ -38,3 +38,19 @@ export async function openQuickSplit(dialog: Locator, page: Page): Promise<Locat
   await expect(split).toBeVisible()
   return split
 }
+
+/** Check original immutable split facts, independently of the compact balance card copy. */
+export async function expectRecordedManualShare(page: Page, description: string, person: string, amount: string): Promise<void> {
+  await expect(page.getByTestId('person-position')).toContainText('On your records')
+  const original = page.getByTestId('person-untracked').getByRole('article').filter({ hasText: description })
+  await original.getByRole('button', { name: `Edit ${description}`, exact: true }).click()
+  const editor = page.getByRole('dialog', { name: 'Edit record', exact: true })
+  await editor.getByRole('button', { name: 'Shared expense', exact: true }).click()
+  const split = page.getByRole('dialog', { name: 'Split expense', exact: true })
+  const manualRow = split.locator('.qa-split-person').filter({ has: page.getByRole('checkbox', { name: person, exact: true }) })
+  await expect(manualRow).toContainText(amount)
+  await expect(manualRow.getByRole('checkbox', { name: person, exact: true })).toBeChecked()
+  await split.getByRole('button', { name: 'Close panel', exact: true }).click()
+  await editor.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(editor).toHaveCount(0)
+}

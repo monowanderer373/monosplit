@@ -1,4 +1,4 @@
-import { enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
+import { expectRecordedManualShare, enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -84,7 +84,7 @@ test('links a Person without rewriting old Manual money', async ({
     ).toHaveCount(0)
 
     await openPersonDetail(owner, 'Target cash')
-    await expect(owner.getByTestId('person-position')).toContainText('RM 4.00 in recorded shares · not a confirmed balance')
+    await expectRecordedManualShare(owner, 'Manual before link', 'Target cash', 'RM 4.00')
 
     await owner.goto('/friends')
     await openPersonDetail(owner, 'Target cash')

@@ -1,4 +1,4 @@
-import { enterQuickAmount, openFriendTools, openCreateSpace, openQuickSplit } from './fixtures/quickAdd'
+import { expectRecordedManualShare, enterQuickAmount, openFriendTools, openCreateSpace, openQuickSplit } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   acceptSpaceInvite,
@@ -222,7 +222,7 @@ test.describe('local relational multi-user journey', () => {
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     await saveCapture(owner, 'Cash taxi', '8.00')
 
-    await expect(owner.getByTestId('person-position')).toContainText('RM 4.00 in recorded shares · not a confirmed balance')
+    await expectRecordedManualShare(owner, 'Cash taxi', 'Cash Guest', 'RM 4.00')
     await owner.goto('/friends')
     await openFriendBalance(owner, 'Beta')
     await expectDebt(owner, 'Beta owes You', 'RM 4.99')
