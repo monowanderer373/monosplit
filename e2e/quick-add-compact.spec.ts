@@ -43,5 +43,22 @@ test('foreign expense remains deferred without an invented conversion and invali
  const state=await setupMulticurrency(page);const quick=await open(page);await quick.getByRole('combobox',{name:'Currency',exact:true}).selectOption('VND');await enterQuickAmount(quick,'90000');await expect(quick.getByRole('button',{name:'Save and close',exact:true})).toBeEnabled();await quick.locator('.qa-actions>button').nth(1).click();const account=page.getByRole('dialog',{name:'Payment account',exact:true});await expect(account.getByRole('textbox')).toHaveCount(0);await expect(account).toContainText('No balance is deducted yet');await account.getByRole('button',{name:'Actual charge (optional)'}).click();await account.getByRole('combobox',{name:'Payment source',exact:true}).selectOption('bank');await expect(account.getByRole('textbox')).toHaveValue('');await expect(account.getByRole('button',{name:'Use Wise',exact:true})).toBeDisabled();await account.getByRole('textbox').fill('16.20');await expect(account.getByRole('button',{name:'Use Wise',exact:true})).toBeDisabled();await account.getByRole('checkbox').check();await expect(account.getByRole('button',{name:'Use Wise',exact:true})).toBeEnabled();expect(state.writes).toHaveLength(0)
 })
 test('current To do verification is centered, compact and has a readable amount with a gated submit',async({page})=>{
- const state=await setupMulticurrency(page);await page.setViewportSize({width:390,height:844});await page.goto('/accounts/verify?account=bank');await page.getByRole('button',{name:/Train ticket/}).click();const dialog=page.getByTestId('verify-deduction');await dialog.getByRole('combobox',{name:'Payment source',exact:true}).selectOption('bank');await expect.poll(async()=>{const b=(await dialog.boundingBox())!;return Math.abs(b.y+b.height/2-422)}).toBeLessThan(2);const box=(await dialog.boundingBox())!;expect(box.height).toBeLessThan(600);expect(Math.abs(box.x+box.width/2-195)).toBeLessThan(2);expect(Math.abs(box.y+box.height/2-422)).toBeLessThan(2);await expect(dialog.getByRole('button',{name:'Confirm & next'})).toBeDisabled();const source=dialog.getByRole('combobox',{name:'Payment source',exact:true});expect((await source.boundingBox())!.width).toBeGreaterThan(box.width*.75);const check=dialog.getByRole('checkbox');expect((await check.boundingBox())!.width).toBeGreaterThanOrEqual(20);await dialog.getByRole('textbox').fill('6000');await check.check();await expect(dialog.getByRole('button',{name:'Confirm & next'})).toBeEnabled();await dialog.screenshot({path:`${out}/todo-390.png`});expect(state.writes).toHaveLength(0)
+ const state=await setupMulticurrency(page)
+ await page.setViewportSize({width:390,height:844});await page.goto('/accounts/verify?account=bank')
+ await page.getByRole('button',{name:/Train ticket/}).click()
+ const dialog=page.getByTestId('verify-deduction')
+ await dialog.getByRole('combobox',{name:'Payment source',exact:true}).selectOption('bank')
+ // Bounding boxes include the entry scale animation. Measure its completed state.
+ await dialog.evaluate(async el=>{await Promise.all(el.getAnimations({subtree:true}).map(a=>a.finished.catch(()=>{})))})
+ const box=(await dialog.boundingBox())!
+ expect(box.height).toBeLessThan(600)
+ expect(Math.abs(box.x+box.width/2-195)).toBeLessThan(2)
+ expect(Math.abs(box.y+box.height/2-422)).toBeLessThan(2)
+ await expect(dialog.getByRole('button',{name:'Confirm & next'})).toBeDisabled()
+ const source=dialog.getByRole('combobox',{name:'Payment source',exact:true})
+ expect((await source.boundingBox())!.width).toBeGreaterThan(box.width*.75)
+ const check=dialog.getByRole('checkbox');expect((await check.boundingBox())!.width).toBeGreaterThanOrEqual(20)
+ await dialog.getByRole('textbox').fill('6000');await check.check()
+ await expect(dialog.getByRole('button',{name:'Confirm & next'})).toBeEnabled()
+ await dialog.screenshot({path:`${out}/todo-390.png`});expect(state.writes).toHaveLength(0)
 })
