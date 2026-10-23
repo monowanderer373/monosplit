@@ -21,3 +21,12 @@ The actual regression audit also found completed Person requests filtered out on
 
 ## Evidence and limits
 Safe component captures and public/provider/normal-owned aggregate proofs: /workspace/verification/quick-add-compact-2026-10-18. Private credentials, browser profiles, raw financial snapshots, user attachments, signed artifact URLs and private logs are excluded from delivery. Physical Honor/native OS keyboard/system fonts/browser UI zoom are NOTRUN; viewport/root-font/height simulations are explicitly separate. No remaining user connection, SQL or generic development/deployment approval needed.
+
+## Final recovery verification —2026-10-23 (Asia/Bangkok)
+User-published Codex environment restored execution. Original documentation5199678 was confirmed already pushed; latest remote main20962995d2e27ee96ae2ea366c2851ffd7c1a2f0 additionally contains PR31. Preserve that later Home/nav/right-notification work. Quick Add/payment/compact CSS/multicurrency.css remain unchanged from this release.
+
+Fresh existing-project nativeREADYdpl_LVAj7TbLV9uLLRZUTz2th2WwVSUp, canonicalindex-DD7f_wM3 actualSHA and exact-main Quality39169082896 all7SUCCESS verified. The earlier690/169/321 counts above remain original-source evidence, not counts invented for the latest main.
+
+Normal owned QA/no interception PASS at2096299:12primary-screen geometries, grouped amount, full categories, optional account details, Escape/focus/draft and latest bell.0financial mutation RPCs/0runtime exceptions; all5financial table hashes unchanged. Retained worker activated/current entry/Records/Accounts cached;5Insights materials source-equal;4Home/checkbox assets fetched offline with exact source hashes. Signed-out Records guards4widths and offline shell PASS. One cloud transport disconnect recovered with files/evidence intact. No cloud configuration, source, migrations, production data or financial facts changed by recovery.
+
+Documentation-only checkpoint follows. Final deployment/current SHA/readback and safe evidence archive are external to Git to avoid committing their own commit SHA repeatedly. Physical device/native keyboard/browser zoom, immediate automatic PWA timing and production pending confirmation remain NOTRUN as stated above.

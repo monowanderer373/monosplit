@@ -1,10 +1,17 @@
 # Tabby Tally project status
 
-Checkpoint: 2026-10-19 (Asia/Kuala_Lumpur). Working branch `feat/compact-home-right-notices` from `origin/main` `5199678`. Pre-existing stash@{0} and backup/local-wip-before-shared-a remain untouched.
+Checkpoint: 2026-10-23 (Asia/Bangkok). Branch main; verified integrated production commit `20962995d2e27ee96ae2ea366c2851ffd7c1a2f0`. A documentation-only checkpoint follows; read actual main/provider/public version on resume. Pre-existing stash@{0} and backup/local-wip-before-shared-a remain untouched.
 
-## In progress — Compact Home / right notifications / nav blur (2026-10-19)
+## Recovery and final Quick Add readback — 2026-10-23
+- User published the existing Codex environment. Execution recovered; one transient transport disconnect occurred during screenshot retrieval, then recovered again with files/results preserved. Terminal, Node22.23.3, Chromium, GitHub, existing Vercel and normal owned Supabase QA reads now work. No cloud scripts, bindings, network rules, migrations or application source changed by this recovery.
+- Confirmed documentation commit5199678 is already in remote main. Fast-forwarded existing clean checkout to2096299/PR31; did not redeploy453a929 over newer work. Quick Add/payment/compact CSS and multicurrency.css are byte-identical to validated PR30. Latest notification helper uses shipped Escape/focus closing instead of the removed Close button; test-only helper remains outside Git.
+- Fresh normal-auth production checks on actual2096299 PASS:12width/height combinations, grouped9,105, no primary capture scroll or duplicate Paid from, all categories, optional actual controls in account panel, cancel/focus/draft restore, preserved bell and verification page. No API interception;0financial mutation RPCs/0runtime exceptions;7expenses/21entries/17transactions/4movements/5funding legs unchanged. No customer data/financial writes.
+- Retained PWA native update/current worker activated with caches retained. Entry/Records/Accounts cached;5Insights and4Home/checkbox materials match source, including offline fetches. Signed-out records guards320/360/390/430 and offline Records shell PASS. No pending owned deduction exists, so live financial confirmation NOTRUN; real disposable backend CI covers actual payments/history. Physical phone/native keyboard/browser zoom NOTRUN.
+- Current-main Quality39169082896 all7SUCCESS is distinct from original PR30 source Quality39124282448 (690units,169production UI,321authenticated browser). Do not attribute old case counts to PR31; detailed latest counts were not retrieved. Final documentation deployment metadata and allowlisted evidence go to external delivery-final.json after this checkpoint, avoiding a self-referential commit loop.
+
+## Integrated — Compact Home / right notifications / nav blur (2026-10-19)
 - Approved FullPack on latest main: three compact Home cards; Transfer/Exchange/View and Show/Hide amounts in the account picker (no mascot, no balance-eye); floating nav 16px inset with local backdrop blur in `paper.css`; bell-right notification portal (no ×, no Home scrim, 280/170ms motion, 3-row preview + View all).
-- Preserve Shared A, compact verify, CollectPay, integer money. No schema. Production evidence pending GitHub PR + existing Vercel Git deploy.
+- PR31 MERGED at `2096299`, preserving PR30. Existing production native READY `dpl_LVAj7TbLV9uLLRZUTz2th2WwVSUp`; public entry `index-DD7f_wM3.js` contains the exact main SHA. Quality39169082896 all7jobs SUCCESS, independently read on2026-10-23. Preserve Shared A, compact verify, CollectPay, integer money. No schema changes in PR31.
 
 ## Completed — compact Quick Add / centered To do (2026-10-18)
 - PR30 MERGED, validated sourceb991040e769c76b3a205b8db409f5f4a30ef4923, featuremain453a92968f82f51155a85fb0dc1d006b1a681992 exact whole tree equal. Existing tabby-tally production nativeREADYdpl_CZfd2xduuHC9HWt6UjCfY9483gpV; canonical entryindex-BS8h3OAo contains453a929. Native Vercel v6 deployments API works with the existing binding/project/team; do not reuse old403/no-connection claims.
