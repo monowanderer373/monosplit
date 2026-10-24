@@ -118,3 +118,6 @@
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 button {min-height:48px}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 input::placeholder {color:#75695f;opacity:1}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 :is(.qa-helper,.qa-payment-details>p) {color:#75695f}
+/* Date/category panels keep their original reachable scrolling on very short viewports. */
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel:not(:has(.qa-split-host)) {overflow-y:auto}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row .qa-badge {background:#f4eadf;color:#594c40}
