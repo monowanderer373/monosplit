@@ -266,7 +266,7 @@ test.describe('local relational multi-user journey', () => {
     await expect(quickAdd).toBeVisible()
     await alphaBrowser.context.setOffline(true)
     await enterQuickAmount(quickAdd, '7.77')
-    await quickAdd.getByRole('textbox', { name: 'Description', exact: true }).fill('Offline once')
+    await quickAdd.getByRole('textbox', { name: 'Note', exact: true }).fill('Offline once')
     await quickAdd.getByRole('button', { name: 'Food', exact: true }).click()
     await quickAdd.getByRole('button', { name: 'Save and close' }).click()
     await expect(owner.getByRole('status')).toHaveText('Saved on this device · pending sync')

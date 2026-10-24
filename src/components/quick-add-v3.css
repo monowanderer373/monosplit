@@ -1,0 +1,102 @@
+/* V3 extends existing capture tokens; all overrides are scoped to this sheet. */
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 {--qa-bg:#f8f3ea;--qa-card:#fffcf7;--qa-ink:#243e52;--qa-border:#e6dacb;--qa-peach:#dfeaef;background:var(--qa-bg);color:var(--qa-ink)}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-content {padding:max(12px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));gap:8px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-header {padding:0;min-height:56px;flex-shrink:0;gap:8px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-header .qa-icon-button {width:48px;height:48px;background:none;border:0;box-shadow:none;clip-path:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-button {background:none;border:0;box-shadow:none;padding:0;min-height:48px;justify-content:center;margin-right:48px;flex:1;clip-path:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-button>svg:first-child {display:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-button .qa-context-name {font-size:17px;line-height:1.3;font-weight:600;color:var(--qa-ink)}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot:not(.is-picker-open) {flex:0 0 auto;min-height:0;padding:0;display:block}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot .qa-categories {padding:0;overflow:visible}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot:not(.is-picker-open) .qa-category-grid {grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot:not(.is-picker-open) .qa-category {min-height:64px;height:auto;border:1px solid transparent;background:none;box-shadow:none;clip-path:none;border-radius:11px;gap:6px;padding:6px 2px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot .qa-category svg {width:24px;height:24px;color:var(--qa-ink)}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot .qa-category.is-selected {background:#dfeaef;border-color:#a8c3d0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category.is-suggested {border:1px dashed #a8c3d0!important;background:#dfeaef40!important}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-check {display:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-entry-zone {padding:0;border:0;flex:1;display:flex;flex-direction:column;min-height:min-content;gap:12px;background:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-row {display:flex;justify-content:space-between;gap:12px;border-block:1px solid var(--qa-border);flex-shrink:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-row button {background:none;border:0;min-height:60px;padding:4px 0;display:flex;flex-direction:column;justify-content:center;gap:4px;box-shadow:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-row button>small {font-size:11px;color:#8c7c6d}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-row button>span {display:flex;align-items:center;gap:8px;min-width:0;max-width:100%}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-row svg {width:18px;height:18px;flex-shrink:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-trigger {flex:1;min-width:0;align-items:flex-start}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-trigger>span>span:first-of-type {white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-trigger {flex:0 0 auto;align-items:flex-end}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt {border:1px solid var(--qa-border);border-radius:12px;background:var(--qa-card);padding:8px 12px;box-shadow:0 2px 1px #402c2110;flex-shrink:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt-line {display:flex;align-items:center;gap:6px;min-width:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt-line select {width:60px;min-height:48px;border:0;padding:0;background:none;font-size:16px;flex-shrink:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt-amount {flex:1;min-width:0;width:0;background:none;border:0;padding:0;font-size:clamp(26px,8vw,36px);font-weight:650;text-align:right;font-variant-numeric:tabular-nums;min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt-date {flex:0 0 48px;min-height:48px;border:0;border-left:1px solid var(--qa-border);padding:0 0 0 5px;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt-date small {font-size:11px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt-date[data-changed=true] {color:#7d5542}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-note {display:flex;align-items:center;gap:8px;border-top:1px solid var(--qa-border);margin-top:6px;color:#8c7c6d}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-note input {background:none;border:0;width:100%;padding:8px 0;font-size:14px;min-height:40px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad {margin-top:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;position:relative;padding-top:12px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad button {height:52px;min-height:48px;border:1px solid var(--qa-border);border-radius:11px;background:var(--qa-card);box-shadow:none;clip-path:none;font-size:24px;color:var(--qa-ink)}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad .qa-operator {background:#efdfd2;color:#7d5542}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad .qa-equals {background:#dceaef;color:var(--qa-ink)}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad .qa-save-key {background:#326c87;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;overflow:hidden;position:relative}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-save-key span {font-size:12px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-save-key svg {width:20px;height:20px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-save-key.is-holding:after {content:'';position:absolute;inset:auto 0 0;height:4px;background:#fff8;transform-origin:left;animation:qa-hold 1s linear}
+@keyframes qa-hold {from{transform:scaleX(0)}to{transform:scaleX(1)}}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-save-options {grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;gap:6px;color:#8c7c6d;font-size:11px;position:relative}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-save-options>button {min-width:48px;min-height:48px;background:none;border:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-save-options .qa-next-option {position:absolute;bottom:48px;right:0;z-index:2;background:var(--qa-card);padding:10px;font-size:14px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3.qa-note-editing .qa-keypad {display:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-calculated {align-self:flex-end;font-size:12px}
+@media(max-height:740px){#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad button {height:48px}#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot:not(.is-picker-open) .qa-category {min-height:56px}#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-content{gap:6px}}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel {background:#fbf6ee;color:#402c21;max-height:90dvh;display:flex;flex-direction:column;overflow:hidden;border-radius:25px 25px 0 0;padding:12px 16px max(12px,env(safe-area-inset-bottom));gap:12px;box-shadow:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel>header {flex-shrink:0;min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel .qa-icon-button {min-width:48px;min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel-body {min-height:0;overflow-y:auto;flex:1}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row,#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-person-choice,#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-person {min-height:60px;margin:4px 0;padding:8px 10px;border:1px solid var(--qa-border);border-radius:11px;background:var(--qa-card);box-shadow:none;clip-path:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row.is-selected,#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-person-choice[data-selected=true],#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-person[data-selected=true] {background:#f4eadf;border-color:#dabb9f}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row>span:nth-child(2) {min-width:0;flex:1}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row strong {overflow-wrap:anywhere;font-size:14px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row small {font-size:12px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel .qa-primary {min-height:48px;background:#326c87;color:white;border:0;border-radius:10px;box-shadow:none;clip-path:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel .qa-segment {min-height:44px;margin:8px 0;background:#f4eadf;border:1px solid var(--qa-border);padding:3px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel .qa-segment button {min-height:48px;font-size:13px;background:none;box-shadow:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel .qa-segment button[aria-pressed=true] {background:var(--qa-card);border-radius:9px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-host {display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-editor,#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-people-picker {display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-header,#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-footer {flex:0 0 auto}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-body {min-height:0;overflow-y:auto;overscroll-behavior:contain;flex:1;padding-bottom:10px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-total-row {display:flex;justify-content:space-between;align-items:center;gap:12px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-total-row>div {display:flex;flex-direction:column;gap:6px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-total-row>div:last-child {text-align:right}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-total-row small {font-size:11px;color:#8c7c6d}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-total-row strong {font-size:24px;color:#243e52}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-footer {border-top:1px solid var(--qa-border);padding-top:10px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-summary {margin:0;padding:0;border:0;background:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-summary p {margin:4px 0;display:flex;justify-content:space-between;font-size:14px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-footer>button {min-height:48px;width:100%}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-footer .qa-panel-footer {margin:12px 0 0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-people-footer {display:flex;justify-content:space-between;align-items:center;gap:12px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-people-footer>button {width:auto;padding:8px 24px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-people-picker .qa-split-header>input {width:100%;min-height:48px;margin:4px 0 8px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-person label {min-width:0;flex:1}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-person label>span:last-child {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-person input:not([type=checkbox]) {width:90px;min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-avatar {width:30px;height:30px;min-width:30px;background:#dfeaef;color:#326c87}
+
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 :is(.qa-category,.qa-keypad button,.qa-icon-button,.qa-context-button,.qa-entry-zone)::before {content:none;background:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 :is(.qa-category,.qa-icon-button,.qa-context-button)::after {content:none}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-button {display:flex;gap:6px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-button>span {min-width:0;flex:0 1 auto}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-check {display:none!important}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad button {font-weight:400}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-note input::placeholder {color:#8c7c6d}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt {position:relative}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-receipt::after {content:'';position:absolute;bottom:-3px;left:10px;right:10px;height:4px;background:url('../assets/quick-add/torn-edge.svg') center/100% 100% no-repeat;opacity:.25;pointer-events:none}
+@media(prefers-reduced-motion:reduce){#root .qa-main.qa-v3 .qa-save-key.is-holding::after{animation:none}#root .qa-main.qa-v3 button{transition:none}}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category span {color:var(--qa-ink);font-size:12px;font-weight:400}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel>header {padding:0;margin:0;min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel>header h2 {margin:0;font-size:21px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-handle {width:44px;height:5px;margin:0 auto;background:#d8c9b9;flex-shrink:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-items button.qa-primary {background:#dceaef;color:#326c87}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category.is-suggested::after {content:'';width:5px;height:5px;border-radius:50%;background:#6b9fb8;position:absolute;top:4px;right:4px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot.is-picker-open {flex:0 0 134px;min-height:134px;position:relative;overflow:visible}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot.is-picker-open .qa-picker {position:absolute;inset:0 0 auto;max-height:min(440px,70dvh);z-index:5}

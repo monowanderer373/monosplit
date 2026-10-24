@@ -1,0 +1,10 @@
+// @vitest-environment jsdom
+import {render,fireEvent,screen,cleanup,act} from '@testing-library/react'
+import {it,expect,vi,afterEach} from 'vitest'
+import QuickSaveKey from './QuickSaveKey'
+afterEach(()=>{cleanup();vi.useRealTimers()})
+function setup(){vi.useFakeTimers();const save=vi.fn();render(<QuickSaveKey zh={false} disabled={false} canContinue onSave={save}/>);const button=screen.getByRole('button',{name:'Save and close'});button.setPointerCapture=vi.fn();return{save,button}}
+it('long press and its release click submit exactly once',()=>{const {save,button}=setup();fireEvent(button,new MouseEvent('pointerdown',{bubbles:true,button:0}));act(()=>vi.advanceTimersByTime(1000));expect(save).toHaveBeenCalledExactlyOnceWith(true);fireEvent(button,new MouseEvent('pointerup',{bubbles:true}));fireEvent.click(button,{detail:1});expect(save).toHaveBeenCalledTimes(1)})
+it('cancelled pointer holds do not submit; keyboard click remains usable',()=>{const {save,button}=setup();fireEvent(button,new MouseEvent('pointerdown',{bubbles:true,button:0}));fireEvent(button,new MouseEvent('pointercancel',{bubbles:true}));act(()=>vi.advanceTimersByTime(1200));expect(save).not.toHaveBeenCalled();fireEvent.click(button,{detail:0});expect(save).toHaveBeenCalledExactlyOnceWith(false)})
+it('exposes a keyboard accessible alternative for Save and next',()=>{const {save}=setup();fireEvent.click(screen.getByRole('button',{name:'Save options'}));fireEvent.click(screen.getByRole('button',{name:'Save & next'}));expect(save).toHaveBeenCalledExactlyOnceWith(true)})
+it('opening a panel or another disabled state cancels an in-progress hold',()=>{vi.useFakeTimers();const save=vi.fn();const {rerender}=render(<QuickSaveKey zh={false} disabled={false} canContinue onSave={save}/>);const button=screen.getByRole('button',{name:'Save and close'});button.setPointerCapture=vi.fn();fireEvent(button,new MouseEvent('pointerdown',{bubbles:true,button:0}));act(()=>vi.advanceTimersByTime(500));rerender(<QuickSaveKey zh={false} disabled canContinue onSave={save}/>);act(()=>vi.advanceTimersByTime(700));expect(save).not.toHaveBeenCalled()})

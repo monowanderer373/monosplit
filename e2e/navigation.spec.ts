@@ -102,7 +102,7 @@ test('keeps the global money action above mobile form controls', async ({
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
     const capture = owner.getByRole('dialog', { name: 'Quick Add' })
     await enterQuickAmount(capture, '1.01')
-    await capture.getByRole('textbox', { name: 'Description', exact: true }).fill('Pointer overlap')
+    await capture.getByRole('textbox', { name: 'Note', exact: true }).fill('Pointer overlap')
     await capture.getByRole('button', { name: 'Food', exact: true }).click()
     await capture.getByRole('button', { name: 'Save and close' }).click()
     await expect(owner.getByRole('status')).toContainText('Expense recorded')

@@ -102,7 +102,7 @@ describe('Quick Add save lifecycle',()=>{
   expect(mocks.save.mock.calls[0][0]).toMatchObject({amount:'20.00',fundingAccountId:'wallet',scope:'space'})
   expect(quick.session!.clientRequestId).not.toBe(previous)
   expect(quick.session!.context!.ref).toEqual({kind:'personal'})
-  expect(quick.session!.values).toMatchObject({amount:'',description:'',category:'Coffee',accountId:'wallet',splitMode:'equal',payerAmounts:{},exactShareAmounts:{},selectedParticipantIds:['self']})
+  expect(quick.session!.values).toMatchObject({amount:'',description:'',category:'',accountId:'wallet',splitMode:'equal',payerAmounts:{},exactShareAmounts:{},selectedParticipantIds:['self']})
   expect(quick.session!.values.calculation).toBeUndefined()
   expect(mocks.close).not.toHaveBeenCalled()
  })

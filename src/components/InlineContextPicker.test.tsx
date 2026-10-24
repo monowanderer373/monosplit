@@ -39,7 +39,7 @@ it('expands More within the same panel and commits only a real option',async()=>
  expect(screen.getByRole('button',{name:'Journey 5'})).toBeTruthy();expect(screen.getAllByRole('dialog')).toHaveLength(1)
  fireEvent.click(screen.getByRole('button',{name:'Journey 5'}));await waitFor(()=>expect(header().getAttribute('aria-expanded')).toBe('false'))
  expect(mocks.commit).toHaveBeenCalledWith(trips[5],undefined);expect(header().textContent).toContain('Journey 5')
- expect((screen.getByRole('textbox',{name:'Description'}) as HTMLInputElement).value).toBe('Tea')
+ expect((screen.getByRole('textbox',{name:'Note'}) as HTMLInputElement).value).toBe('Tea')
 })
 it('keeps pending friends across filters and only confirmation enters the prefilled original split',async()=>{
  fireEvent.click(header());fireEvent.click(screen.getByRole('tab',{name:'Friends'}));await screen.findByRole('checkbox',{name:'Ada'})
@@ -60,7 +60,7 @@ it('shows actual split impact inline and Keep current leaves the committed confi
  cleanup();render(<Harness shared/>);fireEvent.click(header());fireEvent.click(screen.getByRole('tab',{name:'Groups'}));await screen.findByRole('button',{name:'Home group'});fireEvent.click(screen.getByRole('button',{name:'Home group'}))
  expect(screen.getByText(/replace this 2-person split/)).toBeTruthy();expect(screen.getAllByRole('dialog')).toHaveLength(1);expect(mocks.commit).not.toHaveBeenCalled()
  fireEvent.click(screen.getByRole('button',{name:'Keep current'}));expect(header().textContent).toContain('Journey 0')
- expect(screen.getByRole('button',{name:/Split/}).textContent).toContain('2 people')
+ expect(screen.getByRole('button',{name:/Split/}).textContent).toContain('Shared · 2')
 })
 it('distinguishes fetch failure from empty results and supports Retry',async()=>{
  cleanup();mocks.load.mockRejectedValueOnce(new Error('offline'));render(<Harness/>);fireEvent.click(header());fireEvent.click(screen.getByRole('tab',{name:'Trips'}))
