@@ -76,3 +76,14 @@ test('real isolated DB: account-panel actual charge posts once; Save and next st
   const journal=await s.client.from('personal_account_transactions').select('id').in('expense_id',expenses.data!.map(e=>e.id)).eq('kind','expense_funding');expect(journal.error).toBeNull();expect(journal.data).toHaveLength(1);expect((await s.all()).accounts.find((a:{id:string})=>a.id===s.wise).entry_sum_minor).toBe('198766')
  }finally{await s.client.auth.signOut()}
 })
+
+test('real isolated DB: long-press Save and release creates exactly one expense and a clean draft',async({page})=>{
+ test.setTimeout(180_000);const s=await seed()
+ try{
+  await signIn(page,s.account);await page.getByRole('button',{name:'Quick add expense',exact:true}).click();const quick=page.getByRole('dialog',{name:'Quick Add',exact:true});await quick.getByRole('button',{name:'Food',exact:true}).click();await enterQuickAmount(quick,'18.90');await quick.getByRole('textbox',{name:'Note',exact:true}).fill('Long press immutable QA')
+  const save=quick.getByRole('button',{name:'Save and close',exact:true});await expect(save).toBeEnabled();await save.scrollIntoViewIfNeeded();const box=(await save.boundingBox())!;await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('',{timeout:30_000});await page.mouse.up()
+  await expect(quick.getByRole('textbox',{name:'Note',exact:true})).toHaveValue('');await expect(quick.getByRole('alert')).toHaveCount(0);await expect(quick.getByRole('button',{name:'Food',exact:true})).toHaveAttribute('aria-pressed','false')
+  const expenses=await s.client.from('expenses').select('id,total_minor,description');expect(expenses.error).toBeNull();expect(expenses.data).toHaveLength(1);expect(expenses.data![0]).toMatchObject({total_minor:1890,description:'Long press immutable QA'})
+  const intents=await s.client.from('personal_funding_intents').select('id,status').eq('expense_id',expenses.data![0].id);expect(intents.error).toBeNull();expect(intents.data).toHaveLength(1);expect(intents.data![0].status).toBe('pending');expect((await s.all()).accounts.find((a:{id:string})=>a.id===s.wise).entry_sum_minor).toBe('200000')
+ }finally{await s.client.auth.signOut()}
+})
