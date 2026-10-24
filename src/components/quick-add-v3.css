@@ -121,3 +121,19 @@
 /* Date/category panels keep their original reachable scrolling on very short viewports. */
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel:not(:has(.qa-split-host)) {overflow-y:auto}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row .qa-badge {background:#f4eadf;color:#594c40}
+
+/* Use the visual viewport too: Android IME may leave the layout viewport unchanged. */
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-overlay {inset:var(--qa-viewport-top,0px) 0 auto;height:var(--qa-viewport-height,100%)}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-panel {max-height:min(90dvh,var(--qa-viewport-height,90dvh))}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-panel:has(.qa-split-host) {max-height:var(--qa-viewport-height,100dvh);padding:4px 12px max(4px,env(safe-area-inset-bottom));gap:4px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-handle {height:3px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-total-row>div {gap:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-total-row>div:last-child {flex-direction:row;align-items:center;gap:8px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-panel .qa-segment {margin:4px 0;padding:0;border:0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-split-footer {padding-top:4px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-split-summary {display:flex;gap:16px;justify-content:space-between}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-split-summary p {flex:1;gap:6px;flex-wrap:wrap;margin:2px 0}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-short=true] .qa-split-footer .qa-panel-footer {margin:0}
+/* Extreme landscape/large text: allow the complete panel to scroll rather than hide actions. */
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-tiny=true] .qa-panel:has(.qa-split-host) {overflow-y:auto}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3[data-viewport-tiny=true] :is(.qa-split-host,.qa-split-editor,.qa-people-picker,.qa-split-body) {overflow:visible;flex:none}

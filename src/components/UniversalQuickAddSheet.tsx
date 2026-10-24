@@ -112,8 +112,22 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
   const viewport=window.visualViewport
   if(!viewport)return
   let baseline=viewport.height
-  const resize=()=>{const node=dialogRef.current;const focused=node?.querySelector('.qa-note input')===document.activeElement;if(!focused){baseline=viewport.height;noteKeyboard.current=false;node?.classList.remove('qa-note-editing');return}baseline=Math.max(baseline,viewport.height);noteKeyboard.current=viewport.height<baseline-80;node?.classList.toggle('qa-note-editing',noteKeyboard.current)}
-  viewport.addEventListener('resize',resize);return()=>viewport.removeEventListener('resize',resize)
+  let frame=0
+  const resize=()=>{
+   const node=dialogRef.current
+   node?.style.setProperty('--qa-viewport-height',`${viewport.height}px`)
+   node?.style.setProperty('--qa-viewport-top',`${viewport.offsetTop}px`)
+   if(node){node.dataset.viewportShort=String(viewport.height<=520);node.dataset.viewportTiny=String(viewport.height<360)}
+   const active=document.activeElement
+   if(active instanceof HTMLElement&&node?.querySelector('.qa-split-body')?.contains(active)){
+    cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>active.scrollIntoView({block:'nearest'}))
+   }
+   const focused=node?.querySelector('.qa-note input')===active
+   if(!focused){baseline=viewport.height;noteKeyboard.current=false;node?.classList.remove('qa-note-editing');return}
+   baseline=Math.max(baseline,viewport.height);noteKeyboard.current=viewport.height<baseline-80;node?.classList.toggle('qa-note-editing',noteKeyboard.current)
+  }
+  resize();viewport.addEventListener('resize',resize);viewport.addEventListener('scroll',resize)
+  return()=>{cancelAnimationFrame(frame);viewport.removeEventListener('resize',resize);viewport.removeEventListener('scroll',resize)}
  },[dialogRef])
  const updateRef=useRef(onUpdate); updateRef.current=onUpdate
  const valuesRef=useRef(values);valuesRef.current=values
