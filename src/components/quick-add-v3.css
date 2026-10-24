@@ -108,3 +108,10 @@
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row.is-selected .qa-radio {background:#326c87;border-color:#326c87;color:white}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-footer>.qa-text-button {color:#a4433a;font-size:12px;background:none;border:0}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-summary p:last-child strong {color:#326c87}
+/* Keep complete label hit regions accessible without inflating controls. */
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-person label {min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-person {padding-block:6px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-total-row button {min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-note {min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 :is(.qa-context-row button>small,.qa-total-row small,.qa-note,.qa-save-options,.qa-account-row small) {color:#75695f}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-note input::placeholder {color:#75695f}
