@@ -103,7 +103,7 @@
 /* Friends are multi-select; the avatar must never inherit the old growing span slot. */
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-person-choice>.qa-avatar {flex:0 0 30px;width:30px;min-width:30px;max-width:30px;height:30px}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-person-choice>span:last-child {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-person-choice input[type=checkbox] {appearance:none;-webkit-appearance:none;flex:0 0 22px;width:22px;height:22px;min-width:22px;min-height:22px;padding:0;margin:0;border:1px solid #b49b83;border-radius:5px;background:var(--qa-card)}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-person-choice input[type=checkbox] {appearance:none;-webkit-appearance:none;flex:0 0 22px;width:22px;height:22px;min-width:22px;min-height:22px;padding:0;margin:0;border:1px solid #b49b83;border-radius:5px!important;box-shadow:none;background:var(--qa-card)}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-person-choice input[type=checkbox]:checked {background:#326c87 url('/assets/quick-add-context/check.svg') center/16px no-repeat;border-color:#326c87}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-account-row.is-selected .qa-radio {background:#326c87;border-color:#326c87;color:white}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-split-footer>.qa-text-button {color:#a4433a;font-size:12px;background:none;border:0}
