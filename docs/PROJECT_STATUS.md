@@ -1,11 +1,13 @@
 # Tabby Tally project status
 
-Checkpoint: 2026-10-23 (Asia/Bangkok). Branch main; verified integrated production commit `20962995d2e27ee96ae2ea366c2851ffd7c1a2f0`. A documentation-only checkpoint follows; read actual main/provider/public version on resume. Pre-existing stash@{0} and backup/local-wip-before-shared-a remain untouched.
+Checkpoint:2026-10-24 (Asia/Bangkok). PR32+PR33 integrated main 8f7b1c99c9479ed03a176aa1dd1b46f27cdb4cd9; final docs-only checkpoint follows. Read actual main/provider/public version on resume. Existing stash and backup/local-wip-before-shared-a preserved.
 
-## Active — Quick Add / Account / Split V3 (2026-10-24)
-- Branch feat/quick-add-split-v3 from dbd3c86. Full ZIP now received, core specs fully read and eight phone reference PNGs viewed. Implemented scoped V3 structure/account selection/people search/fixed split layout/save gesture/Note handling; draft/financial engine retained.
-- Baseline696units/101files,lint/build,29browser PASS. Current703units/103files,lint and phased build PASS; targeted36production-module browser cases PASS including20contacts and8items. Latest recapture/full exact-source CI next. Five protected money/compiler/repository/payment hook hashes unchanged, no migrations.
-- Real detailed report docs/quick-add-v3/IMPLEMENTATION_REPORT.md; per-item QA docs/quick-add-v3/QA_RESULTS.md. External input/before/golden/log evidence /workspace/verification/quick-add-v3-2026-10-24. User work/stash/backup preserved. No V3 production release claimed yet.
+## Integrated — Quick Add / Account / Split V3
+- Full ZIP/specs and eight references read. Real V3 ledger/categories/Receipt/Account/Split/Save implemented; account single-tap draft selection, empty Note/manual-confirm suggestion, Equally/Amounts/By item and all original business mechanisms retained.
+- Main PR32, followed by PR33 keyboard/legacy checkbox style fixes. Final app source0787f9358853ea4e68b6a7f87d3324aea9f5ae1d Quality40104116756 all7SUCCESS. Local704units/103files,lint,tsc/PWA build; final16captures/stress+1retained-actions browser PASS. Real disposable financial/database/history checks passed; no production test writes or migrations.
+- Split420px IME FAILbefore body10px; afterfix both layout and visual-only variants pass with48px controls. Eight actual2x screenshots and approved comparisons in external /workspace/verification/quick-add-v3-2026-10-24/gallery. Five protected business hashes unchanged.
+- Reports docs/quick-add-v3/IMPLEMENTATION_REPORT.md and QA_RESULTS.md include changed files, compatibility differences and explicit device limits. Native Honor/OSIME/systemfonts/browserUIzoom/screenreader NOTRUN. LocalDocker not retried; use disposableCI.
+- Final exactmain/nativeREADY/publicSHA/normal owned read-onlyQA/PWA/offline evidence to external delivery-final.json after docs push; do not claim final release until those checks succeed. No outstanding SQL or generic authorization needed. Resume current checkpoint, never replay old fixtures/migrations.
 
 ## Recovery and final Quick Add readback — 2026-10-23
 - User published the existing Codex environment. Execution recovered; one transient transport disconnect occurred during screenshot retrieval, then recovered again with files/results preserved. Terminal, Node22.23.3, Chromium, GitHub, existing Vercel and normal owned Supabase QA reads now work. No cloud scripts, bindings, network rules, migrations or application source changed by this recovery.
