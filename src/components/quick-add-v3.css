@@ -148,8 +148,8 @@
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-context-row .qa-split-trigger {justify-content:flex-end;align-items:center}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad {margin-top:0;padding-top:0}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-content {padding-bottom:max(10px,env(safe-area-inset-bottom))}
-#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-toast {position:absolute;z-index:6;top:max(76px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 40px);padding:10px 16px;border:1px solid var(--qa-border);border-radius:12px;background:#fffcf7;color:var(--qa-ink);box-shadow:0 3px 12px #243e5218;font-size:14px;line-height:1.4;animation:qa-toast 1.8s ease both}
-@keyframes qa-toast {0%{opacity:0;translate:0 -4px}10%,80%{opacity:1;translate:0 0}100%{opacity:0;translate:0 -2px}}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-toast {position:absolute;z-index:6;top:max(76px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 40px);padding:10px 16px;border:1px solid var(--qa-border);border-radius:12px;background:#fffcf7;color:var(--qa-ink);box-shadow:0 3px 12px #243e5218;font-size:14px;line-height:1.4;animation:qa-validation-toast 1.8s ease both}
+@keyframes qa-validation-toast {0%{opacity:0;translate:0 -4px}10%,80%{opacity:1;translate:0 0}100%{opacity:0;translate:0 -2px}}
 @media(max-height:800px){#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot:not(.is-picker-open){flex-basis:156px;min-height:156px}#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot:not(.is-picker-open) .qa-category{min-height:48px}#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad button{height:48px}}
 @media(prefers-reduced-motion:reduce){#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-toast{animation:none}}
 /* Reserve the small bottom inset when scrolling the last key into view. */
