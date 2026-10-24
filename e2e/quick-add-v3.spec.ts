@@ -14,9 +14,9 @@ async function setup(page:import('@playwright/test').Page,count=3){
 }
 test('V3 eight live component states and draft-only split',async({page})=>{
  await mkdir(out,{recursive:true});const {state,quick}=await setup(page)
- await expect(quick.getByRole('textbox',{name:'Note'})).toHaveValue('');await expect(quick.locator('.qa-category-or-picker-slot .qa-category')).toHaveCount(8);await quick.getByRole('button',{name:'Save and close',exact:true}).click();await expect(quick.getByRole('alert')).toContainText('Choose a category');expect(state.writes).toHaveLength(0)
+ await expect(quick.getByRole('textbox',{name:'Note'})).toHaveValue('');await expect(quick.locator('.qa-category-or-picker-slot .qa-category')).toHaveCount(8)
  // A suggestion is optional when no mature suggestion exists; do not fabricate one for screenshots.
- await page.screenshot({animations:'disabled',path:out+'/01_quick_add_suggested.png'})
+ await page.screenshot({animations:'disabled',path:out+'/01_quick_add_suggested.png'});await quick.getByRole('button',{name:'Save and close',exact:true}).click();await expect(quick.getByRole('alert')).toContainText('Choose a category');expect(state.writes).toHaveLength(0)
  await quick.getByRole('button',{name:'Food',exact:true}).click();await expect(quick.getByRole('textbox',{name:'Note'})).toHaveValue('')
  await page.screenshot({animations:'disabled',path:out+'/02_quick_add_category_confirmed.png'})
  await quick.locator('.qa-account-trigger').click();const account=page.getByRole('dialog',{name:'Payment account',exact:true});await page.screenshot({animations:'disabled',path:out+'/04_account_selector.png'})

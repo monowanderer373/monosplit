@@ -78,7 +78,7 @@ test('keeps Person Detail money-first and inherits that Person', async ({
     await expect(globalCapture).toBeVisible()
     await expect(owner.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
     await enterQuickAmount(globalCapture, '6.00')
-    await globalCapture.getByRole('textbox', { name: 'Description', exact: true }).fill('Untracked lunch')
+    await globalCapture.getByRole('textbox', { name: 'Note', exact: true }).fill('Untracked lunch')
     await globalCapture.getByRole('button', { name: 'Food', exact: true }).click()
     await globalCapture.getByRole('button', { name: 'Save and close' }).click()
     await expect(owner.getByTestId('person-untracked')).toContainText('Untracked lunch')

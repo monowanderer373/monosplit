@@ -19,5 +19,5 @@ export default function QuickSaveKey({disabled,canContinue,zh,onSave}:{disabled:
  onPointerCancel={()=>{cancel();consumed.current=true}} onPointerUp={cancel}
  onClick={e=>{cancel();if(consumed.current&&e.detail!==0){consumed.current=false;return}saveRef.current(false)}}>
  <QuickIcon name="check"/><span>{zh?'保存':'Save'}</span></button>
- <div className="qa-save-options"><span id="qa-save-help">{zh?'长按保存并继续':'Hold to save & next'}</span>{canContinue?<><button type="button" aria-label={zh?'保存选项':'Save options'} aria-expanded={options} disabled={disabled} onClick={()=>setOptions(v=>!v)}>⋯</button>{options?<button type="button" className="qa-next-option" disabled={disabled} onClick={()=>{setOptions(false);saveRef.current(true)}}>{zh?'保存并继续':'Save & next'}</button>:null}</>:null}</div></>
+ <div className="qa-save-options"><span id="qa-save-help">{canContinue?(zh?'长按保存并继续':'Hold to save & next'):(zh?'保存这笔消费':'Save this expense')}</span>{canContinue?<><button type="button" aria-label={zh?'保存选项':'Save options'} aria-expanded={options} disabled={disabled} onClick={()=>setOptions(v=>!v)}>⋯</button>{options?<button type="button" className="qa-next-option" disabled={disabled} onClick={()=>{setOptions(false);saveRef.current(true)}}>{zh?'保存并继续':'Save & next'}</button>:null}</>:null}</div></>
 }

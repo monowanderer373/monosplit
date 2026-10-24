@@ -15,7 +15,7 @@ export async function enterQuickAmount(dialog: Locator, amount: string): Promise
 export async function fillQuickExpense(dialog: Locator, amount: string, description: string): Promise<void> {
   await dialog.getByRole('button', { name: 'Food', exact: true }).click()
   await enterQuickAmount(dialog, amount)
-  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(description)
 }
 
 export async function openFriendTools(page: Page): Promise<void> {

@@ -170,7 +170,7 @@ async function createDirectExpense(
   await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()
   const dialog = owner.getByRole('dialog', { name: 'Quick Add' })
   await enterQuickAmount(dialog, amount)
-  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(description)
   if (extraParticipant) {
     const split = await openQuickSplit(dialog, owner)
     await split.getByRole('checkbox', { name: extraParticipant, exact: true }).check()
