@@ -350,3 +350,5 @@ ZIP received2026-10-24: extracted at /workspace/verification/quick-add-v3-2026-1
 - Local703tests/103files,lint and phased TypeScript/build PASS;36production graph cases PASS. Earlier expected copy/selector and CSS-order failures documented in report. Latest recapture and exact-source CI pending; physicaldevice NOTRUN. No release success claimed.
 
 - PR32/sourceb0c730f pushed; exact-source CI40093855302 started. Audit found remaining Quick Add Description selectors in shared backend helpers; adapted only capture controls, not historical editor fields. Original monetary/history assertions untouched. Superseded CI is not final success.
+
+- Full local production-module graph176/176 PASS4.4m (f370a52 application before final opt-in wrapper guard). Historical editor reuse audit led to explicit compact opt-in on SplitConfiguration; original non-V3 header/flow/item-expansion preserved. Typecheck and15focused unit cases PASS after guard; final CI must use guarded source.
