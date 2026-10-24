@@ -115,3 +115,6 @@
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-note {min-height:48px}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 :is(.qa-context-row button>small,.qa-total-row small,.qa-note,.qa-save-options,.qa-account-row small) {color:#75695f}
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-note input::placeholder {color:#75695f}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 button {min-height:48px}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 input::placeholder {color:#75695f;opacity:1}
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 :is(.qa-helper,.qa-payment-details>p) {color:#75695f}
