@@ -75,6 +75,15 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  const [saving,setSaving]=useState(false)
  const savingRef=useRef(false)
  const [error,setError]=useState('')
+ const [toast,setToast]=useState<{message:string;id:number}|null>(null)
+ const toastSerial=useRef(0)
+ useEffect(()=>{
+  if(!toast)return
+  const timer=setTimeout(()=>setToast(null),1800)
+  const dismiss=(event:PointerEvent)=>{if(!(event.target instanceof Element)||!event.target.closest('.qa-toast'))setToast(null)}
+  document.addEventListener('pointerdown',dismiss,true)
+  return()=>{clearTimeout(timer);document.removeEventListener('pointerdown',dismiss,true)}
+ },[toast])
  const [notice,setNotice]=useState('')
  const [categories,setCategories]=useState(()=>readQuickCategories(identity))
  const [categoryName,setCategoryName]=useState('')
@@ -154,7 +163,7 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  const payment=useQuickPayment({draftKey:session.sessionId,accounts,parentId:selectedAccount?.parentAccountId??null,currency:values.currency,selfPaid,identity,offline,enabled:accountStatus==='ready',onPlan:fundingPlan=>onUpdate({fundingPlan})})
  const fundingValid=payment.valid
  const recommendation=useMemo(()=>values.categorySource==='USER'?'':values.categorySource==='SUGGESTED'?values.category:suggestQuickAddDescriptions({expenses,context:context.ref,limit:1}).find(s=>s.score>0)?.category??'',[expenses,context.ref,values.categorySource,values.category])
- const featuredCategories=categories===QUICK_CATEGORIES?['Food','Coffee','Drink','Groceries','Transport','Shopping','Bills'].map(name=>categories.find(c=>c.name===name)!):categories.slice(0,7)
+ const featuredCategories=categories===QUICK_CATEGORIES?['Food','Coffee','Drink','Groceries','Transport','Shopping','Bills','Home','Travel','Health','Fun'].map(name=>categories.find(c=>c.name===name)!):categories.slice(0,11)
  if(currentCategory&&!featuredCategories.includes(currentCategory))featuredCategories[featuredCategories.length-1]=currentCategory
  const splitEnabled=values.selectedParticipantIds.some(id=>id!==context.currentParticipantId)
  const keypad=(key:string)=>{
@@ -175,7 +184,7 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  }
  const save=async(continueAdding:boolean)=>{
   if(panel||savingRef.current||pickerOpenRef.current||!offline&&(accountStatus!=='ready'||selfPaid>0&&!fundingValid))return
-  if(!computedAmount||!total||!values.category||values.categorySource==='SUGGESTED'){setError(copy('Choose a category and enter a valid amount.','请选择分类并输入有效金额。'));return}
+  if(!computedAmount||!total||!values.category||values.categorySource==='SUGGESTED'){setToast({message:copy('Choose a category and enter a valid amount.','请选择分类并输入有效金额。'),id:++toastSerial.current});return}
   savingRef.current=true;setSaving(true);setError('')
   try{
    const result=await onSubmit({continueAdding,beforeClose:async()=>{setClosing(true);await new Promise<void>(resolve=>setTimeout(resolve,200))},values:{...(selfPaid>0?{fundingPlan:payment.plan}:{}),...(offline&&selfPaid>0&&!fundingValid?{fundingPlan:{mode:'deferred' as const,primary_account_id:selectedAccount?.parentAccountId??null,legs:[],covers_owner_payment:false}}:{}),amount:computedAmount,calculation:computedAmount,description:capitalizeDescription(values.description.trim()|| (currentCategory?categoryLabel(currentCategory):values.category))}})
@@ -227,8 +236,8 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  <div className="qa-entry-zone">
  {notice?<p className="qa-notice" role="status"><QuickIcon name="check" size={16}/>{notice}</p>:null}
  <div className="qa-context-row">
- <button type="button" className="qa-account-trigger" onClick={()=>openPanel('account')}><small>{copy('ACCOUNT','账户')}</small><span><QuickIcon name="wallet"/><span>{selectedAccount?.name??copy('No account','无账户')}</span><span>⌄</span></span>{accountStatus==='loading'||selfPaid>0&&!fundingValid?<small>{accountStatus==='loading'?copy('Loading…','加载中…'):copy('Review','核对')}</small>:null}</button>
- <button type="button" className="qa-split-trigger" aria-label={copy('Split expense','分摊消费')} onClick={()=>void openSplit()}><small>{copy('SPLIT','分摊')}</small><span><QuickIcon name="split"/>{splitEnabled?copy(`Shared · ${selected.length}`,`共享 · ${selected.length}`):copy('Personal','个人')}<span>⌄</span></span></button>
+ <button type="button" className="qa-account-trigger" aria-label={copy(`Payment account: ${selectedAccount?.name??'No account'}`,`付款账户：${selectedAccount?.name??'无账户'}`)} onClick={()=>openPanel('account')}><span><QuickIcon name="wallet"/><span>{selectedAccount?.name??copy('No account','无账户')}</span></span>{accountStatus==='loading'||selfPaid>0&&!fundingValid?<small>{accountStatus==='loading'?copy('Loading…','加载中…'):copy('Review','核对')}</small>:null}</button>
+ <button type="button" className="qa-split-trigger" aria-label={copy('Split expense','分摊消费')} onClick={()=>void openSplit()}><span>{splitEnabled?copy(`Split · ${selected.length}`,`分摊 · ${selected.length}`):copy('Split','分摊')}</span></button>
  </div>
  <div className="qa-receipt"><div className="qa-receipt-line"><select aria-label={t('expense.currency')} value={values.currency} onChange={e=>onUpdate({currency:e.target.value})}>{CURRENCIES.map(c=><option key={c.code} value={c.code}>{c.code==='MYR'?'RM':c.code}</option>)}</select><input className="qa-receipt-amount" aria-label={t('expense.amount')} value={groupCalculation(expression)} readOnly inputMode="none" onKeyDown={e=>{if(/^[0-9.+%*/-]$/.test(e.key)){e.preventDefault();keypad(e.key)}else if(e.key==='Backspace'){e.preventDefault();keypad('⌫')}else if(e.key==='Enter'){e.preventDefault();keypad('=')}}} placeholder="0.00"/><button type="button" className="qa-receipt-date" data-changed={values.occurredOn!==todayIso()} aria-label={copy(`Date: ${values.occurredOn}`,`日期：${values.occurredOn}`)} onClick={()=>{setMonth(values.occurredOn.slice(0,7));openPanel('date')}}><QuickIcon name="calendar"/><small>{values.occurredOn===todayIso()?copy('Today','今天'):values.occurredOn.slice(5)}</small></button></div>
  {/[+×÷−%]/.test(expression)&&computedAmount?<small className="qa-calculated">= {groupAmount(computedAmount)}</small>:null}
@@ -253,5 +262,6 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  <SplitConfiguration compact values={values} participants={context.availableParticipants} currentParticipantId={context.currentParticipantId} label={context.ref.kind==='personal'?copy('Personal','个人'):context.ref.displayName} accountLabel={selectedAccount?.name??copy('No account linked','未关联账户')} zh={zh} onUpdate={onUpdate} onApply={()=>setPanel(null)} allowEmptyTotal busy={splitBusy} onChoosePeople={session.contextPolicy==='switchable'?()=>{void openSplit();setSplitStage('pick')}:undefined} onRemove={session.contextPolicy==='switchable'?()=>{void onConfigureSplit(context.ref.kind==='space'?context.ref:{kind:'personal'},context.ref.kind==='space'?[context.currentParticipantId]:undefined).then(ok=>{if(ok)setPanel(null)}).catch(()=>setError(copy('Could not remove split. Please retry.','无法取消分摊，请重试。')))}:undefined}/></>}
 
  </div>{error?<p role="alert" className="qa-error">{error}</p>:null}</QuickPanel>:null}
+ {toast?<div className="qa-toast" key={toast.id} role="alert">{toast.message}</div>:null}
  </main></div>
 }

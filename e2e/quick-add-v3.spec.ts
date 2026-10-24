@@ -14,7 +14,7 @@ async function setup(page:import('@playwright/test').Page,count=3){
 }
 test('V3 eight live component states and draft-only split',async({page})=>{
  await mkdir(out,{recursive:true});const {state,quick}=await setup(page)
- await expect(quick.getByRole('textbox',{name:'Note'})).toHaveValue('');await expect(quick.locator('.qa-category-or-picker-slot .qa-category')).toHaveCount(8)
+ await expect(quick.getByRole('textbox',{name:'Note'})).toHaveValue('');await expect(quick.locator('.qa-category-or-picker-slot .qa-category')).toHaveCount(12)
  // A suggestion is optional when no mature suggestion exists; do not fabricate one for screenshots.
  await page.screenshot({animations:'disabled',path:out+'/01_quick_add_suggested.png'});await quick.getByRole('button',{name:'Save and close',exact:true}).click();await expect(quick.getByRole('alert')).toContainText('Choose a category');expect(state.writes).toHaveLength(0)
  await quick.getByRole('button',{name:'Food',exact:true}).click();await expect(quick.getByRole('textbox',{name:'Note'})).toHaveValue('')
@@ -29,7 +29,7 @@ test('V3 eight live component states and draft-only split',async({page})=>{
  await split.getByRole('button',{name:'Amounts',exact:true}).click();await expect(split.getByRole('button',{name:'Amounts',exact:true})).toHaveAttribute('aria-pressed','true');await split.locator('.qa-split-person[data-selected=true] input:not([type=checkbox])').first().fill('6.30');await split.getByRole('textbox',{name:'Share for Alex',exact:true}).fill('6.30');await expect(split.getByRole('textbox',{name:'Share for Blair',exact:true})).toHaveValue('6.30');await split.getByRole('textbox',{name:'Share for Alex',exact:true}).blur();await page.screenshot({animations:'disabled',path:out+'/07_split_amounts.png'})
  await split.getByRole('button',{name:'By item',exact:true}).click();await expect(split.getByRole('button',{name:'By item',exact:true})).toHaveAttribute('aria-pressed','true');await page.screenshot({animations:'disabled',path:out+'/08_split_by_item.png'})
  await split.getByRole('button',{name:'Equally',exact:true}).click();await split.getByRole('button',{name:'Apply split',exact:true}).click();await expect(split).toHaveCount(0)
- await expect(quick.locator('.qa-split-trigger')).toContainText('Shared · 3');expect(state.writes).toHaveLength(0);await page.screenshot({animations:'disabled',path:out+'/03_quick_add_shared.png'})
+ await expect(quick.locator('.qa-split-trigger')).toContainText('Split · 3');expect(state.writes).toHaveLength(0);await page.screenshot({animations:'disabled',path:out+'/03_quick_add_shared.png'})
 })
 
 for(const [width,height] of [[360,800],[390,844],[393,852],[412,915],[393,700]])test(`V3 controls reachable at ${width}x${height}`,async({page})=>{
@@ -45,7 +45,7 @@ test('twenty contacts and many items retain a fixed accessible Apply footer',asy
 })
 
 for(const width of [320,360,390,430])test(`ledger picker preserves the measured receipt position at ${width}px`,async({page})=>{
- const {quick}=await setup(page);await page.setViewportSize({width,height:844});const receipt=quick.locator('.qa-receipt');const before=(await receipt.boundingBox())!.y;const header=quick.getByTestId('quick-add-ledger');await header.click();await expect(header).toHaveAttribute('aria-expanded','true');expect(Math.abs((await receipt.boundingBox())!.y-before)).toBeLessThan(2);await expect(quick.getByRole('button',{name:'Save and close',exact:true})).toBeDisabled();await expect(quick.getByRole('button',{name:'Save options',exact:true})).toBeDisabled();await header.click();await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('18.9')
+ const {quick}=await setup(page);await page.setViewportSize({width,height:844});const receipt=quick.locator('.qa-receipt');const before=(await receipt.boundingBox())!.y;const header=quick.getByTestId('quick-add-ledger');await header.click();await expect(header).toHaveAttribute('aria-expanded','true');expect(Math.abs((await receipt.boundingBox())!.y-before)).toBeLessThan(2);await expect(quick.getByRole('button',{name:'Save and close',exact:true})).toBeDisabled();await header.click();await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('18.9')
 })
 
 for(const visualOnly of [false,true])test(`Split Amounts stays reachable with ${visualOnly?'visual-only':'resized layout'} keyboard viewport`,async({page})=>{
@@ -67,4 +67,16 @@ for(const visualOnly of [false,true])test(`Split Amounts stays reachable with ${
  if(visualOnly)await page.evaluate(()=>{Reflect.deleteProperty(window.visualViewport!,'height');window.visualViewport!.dispatchEvent(new Event('resize'))})
  else await page.setViewportSize({width:393,height:852})
  await expect(split.getByRole('button',{name:'Equally',exact:true})).toBeInViewport()
+})
+
+test('compact capture has twelve category slots, simple entries and dismissible transient validation',async({page})=>{
+ const {quick,state}=await setup(page)
+ await expect(quick.locator('.qa-category-or-picker-slot .qa-category')).toHaveCount(12)
+ await expect(quick.locator('.qa-context-row')).not.toContainText('ACCOUNT');await expect(quick.locator('.qa-context-row')).not.toContainText('Personal');await expect(quick.locator('.qa-context-row')).not.toContainText('⌄')
+ await expect(quick.locator('.qa-split-trigger')).toHaveText('Split');await expect(quick.locator('.qa-split-trigger svg')).toHaveCount(0)
+ await expect(quick.getByRole('button',{name:'Save options'})).toHaveCount(0);await expect(quick.locator('.qa-save-options')).toHaveCount(0)
+ const save=quick.getByRole('button',{name:'Save and close',exact:true});await save.click();const toast=quick.locator('.qa-toast');await expect(toast).toContainText('Choose a category');await expect(toast).toHaveCount(0,{timeout:2500})
+ await save.click();await expect(toast).toBeVisible();await quick.getByRole('button',{name:'Food',exact:true}).click();await expect(toast).toHaveCount(0);await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('18.9');expect(state.writes).toHaveLength(0)
+ const receipt=await quick.locator('.qa-receipt').boundingBox(),keypad=await quick.locator('.qa-keypad').boundingBox(),bottom=await save.boundingBox();expect(keypad!.y-(receipt!.y+receipt!.height)).toBeLessThanOrEqual(14);expect(852-(bottom!.y+bottom!.height)).toBeLessThanOrEqual(14)
+ await page.screenshot({animations:'disabled',path:out+'/polished-capture-393-852.png'})
 })

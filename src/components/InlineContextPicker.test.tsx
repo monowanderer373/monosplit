@@ -60,7 +60,7 @@ it('shows actual split impact inline and Keep current leaves the committed confi
  cleanup();render(<Harness shared/>);fireEvent.click(header());fireEvent.click(screen.getByRole('tab',{name:'Groups'}));await screen.findByRole('button',{name:'Home group'});fireEvent.click(screen.getByRole('button',{name:'Home group'}))
  expect(screen.getByText(/replace this 2-person split/)).toBeTruthy();expect(screen.getAllByRole('dialog')).toHaveLength(1);expect(mocks.commit).not.toHaveBeenCalled()
  fireEvent.click(screen.getByRole('button',{name:'Keep current'}));expect(header().textContent).toContain('Journey 0')
- expect(screen.getByRole('button',{name:/Split/}).textContent).toContain('Shared · 2')
+ expect(screen.getByRole('button',{name:/Split/}).textContent).toContain('Split · 2')
 })
 it('distinguishes fetch failure from empty results and supports Retry',async()=>{
  cleanup();mocks.load.mockRejectedValueOnce(new Error('offline'));render(<Harness/>);fireEvent.click(header());fireEvent.click(screen.getByRole('tab',{name:'Trips'}))
