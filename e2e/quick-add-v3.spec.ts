@@ -22,7 +22,7 @@ test('V3 eight live component states and draft-only split',async({page})=>{
  await quick.locator('.qa-account-trigger').click();const account=page.getByRole('dialog',{name:'Payment account',exact:true});await page.screenshot({animations:'disabled',path:out+'/04_account_selector.png'})
  await account.getByRole('button',{name:/No account/}).click();await expect(account).toHaveCount(0);await expect(quick.getByRole('textbox',{name:'Amount'})).toHaveValue('18.9');await expect(quick.locator('.qa-account-trigger')).toContainText('No account');await quick.locator('.qa-account-trigger').click();await account.getByRole('button',{name:/^Wise/}).click();await expect(account).toHaveCount(0);await expect(quick.getByRole('textbox',{name:'Note'})).toHaveValue('')
  await quick.getByRole('button',{name:'Split expense',exact:true}).click();const split=page.getByRole('dialog',{name:'Split expense',exact:true});await expect(split.getByLabel('Search people')).toBeVisible()
- await split.getByRole('checkbox',{name:'Alex'}).check();await split.getByRole('checkbox',{name:'Blair'}).check();const avatar=await split.locator('.qa-person-choice .qa-avatar').first().boundingBox();expect(avatar!.width).toBe(30);expect(avatar!.height).toBe(30);await expect(split.getByRole('checkbox',{name:'Alex'})).toHaveAttribute('type','checkbox');await page.screenshot({animations:'disabled',path:out+'/05_split_people_selector.png'})
+ await split.getByRole('checkbox',{name:'Alex'}).check();await split.getByRole('checkbox',{name:'Blair'}).check();const avatar=await split.locator('.qa-person-choice .qa-avatar').first().boundingBox();expect(avatar!.width).toBe(30);expect(avatar!.height).toBe(30);await expect(split.getByRole('checkbox',{name:'Alex'})).toHaveAttribute('type','checkbox');await expect(split.getByRole('checkbox',{name:'Alex'})).toHaveCSS('border-radius','5px');await expect(split.getByRole('checkbox',{name:'Alex'})).toHaveCSS('box-shadow','none');await page.screenshot({animations:'disabled',path:out+'/05_split_people_selector.png'})
  await split.getByRole('button',{name:'Continue →',exact:true}).click();await expect(split.getByText('3 people', {exact:true})).toBeVisible()
  await expect(split.locator('.qa-split-person[data-selected=true]')).toHaveCount(3);for(const label of await split.locator('.qa-split-person label').all())expect((await label.boundingBox())!.height).toBeGreaterThanOrEqual(48)
  await page.screenshot({animations:'disabled',path:out+'/06_split_equally.png'})
@@ -46,4 +46,25 @@ test('twenty contacts and many items retain a fixed accessible Apply footer',asy
 
 for(const width of [320,360,390,430])test(`ledger picker preserves the measured receipt position at ${width}px`,async({page})=>{
  const {quick}=await setup(page);await page.setViewportSize({width,height:844});const receipt=quick.locator('.qa-receipt');const before=(await receipt.boundingBox())!.y;const header=quick.getByTestId('quick-add-ledger');await header.click();await expect(header).toHaveAttribute('aria-expanded','true');expect(Math.abs((await receipt.boundingBox())!.y-before)).toBeLessThan(2);await expect(quick.getByRole('button',{name:'Save and close',exact:true})).toBeDisabled();await expect(quick.getByRole('button',{name:'Save options',exact:true})).toBeDisabled();await header.click();await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('18.9')
+})
+
+for(const visualOnly of [false,true])test(`Split Amounts stays reachable with ${visualOnly?'visual-only':'resized layout'} keyboard viewport`,async({page})=>{
+ const {quick,state}=await setup(page)
+ await quick.getByRole('button',{name:'Food',exact:true}).click();await quick.getByRole('button',{name:'Split expense',exact:true}).click()
+ const split=page.getByRole('dialog',{name:'Split expense',exact:true})
+ for(const name of ['Alex','Blair'])await split.getByRole('checkbox',{name,exact:true}).check()
+ await split.getByRole('button',{name:'Continue →',exact:true}).click();await split.getByRole('button',{name:'Amounts',exact:true}).click()
+ const amount=split.getByRole('textbox',{name:'Share for Blair',exact:true});await amount.focus()
+ if(visualOnly)await page.evaluate(()=>{Object.defineProperty(window.visualViewport,'height',{configurable:true,get:()=>420});window.visualViewport!.dispatchEvent(new Event('resize'))})
+ else await page.setViewportSize({width:393,height:420})
+ await expect.poll(()=>split.locator('.qa-split-body').evaluate(el=>el.clientHeight)).toBeGreaterThanOrEqual(48)
+ await amount.scrollIntoViewIfNeeded();await amount.fill('6.30')
+ for(const control of [amount,split.getByRole('button',{name:'Apply split',exact:true}),split.getByRole('button',{name:'Remove split · personal expense',exact:true})]){
+  const box=(await control.boundingBox())!;expect(box.y).toBeGreaterThanOrEqual(0);expect(box.y+box.height).toBeLessThanOrEqual(420);expect(box.height).toBeGreaterThanOrEqual(48)
+ }
+ expect(state.writes).toHaveLength(0)
+ await page.screenshot({animations:'disabled',path:out+`/split-keyboard-${visualOnly?'visual':'layout'}-420.png`})
+ if(visualOnly)await page.evaluate(()=>{Reflect.deleteProperty(window.visualViewport!,'height');window.visualViewport!.dispatchEvent(new Event('resize'))})
+ else await page.setViewportSize({width:393,height:852})
+ await expect(split.getByRole('button',{name:'Equally',exact:true})).toBeInViewport()
 })
