@@ -73,6 +73,7 @@ describe('Quick Add capture',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Food'}));fireEvent.click(screen.getByRole('button',{name:'9'}))
   await waitFor(()=>expect(screen.getByRole('button',{name:'Save and close'}).hasAttribute('disabled')).toBe(false))
   fireEvent.click(screen.getByRole('button',{name:'Save and close'}))
+  await waitFor(()=>expect(mocked.submit).toHaveBeenCalledOnce())
   await screen.findByRole('alert')
   expect((screen.getByRole('textbox',{name:'Amount'}) as HTMLInputElement).value).toBe('9')
   fireEvent.click(screen.getByRole('button',{name:'Clear calculation'}))

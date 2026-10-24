@@ -1,10 +1,10 @@
-import {useEffect,useRef,useState} from 'react'
+import {useEffect,useLayoutEffect,useRef,useState} from 'react'
 import QuickIcon from './QuickIcon'
 
 /** One submission gesture; release after a hold must never become another save. */
 export default function QuickSaveKey({disabled,canContinue,zh,onSave}:{disabled:boolean;canContinue:boolean;zh:boolean;onSave:(next:boolean)=>void}) {
  const saveRef=useRef(onSave)
- useEffect(()=>{saveRef.current=onSave},[onSave])
+ useLayoutEffect(()=>{saveRef.current=onSave},[onSave])
  const timer=useRef<ReturnType<typeof setTimeout>|null>(null)
  const consumed=useRef(false)
  useEffect(()=>{if(disabled&&timer.current){clearTimeout(timer.current);timer.current=null;consumed.current=true}},[disabled])
