@@ -31,7 +31,7 @@ test('keeps four destinations and a usable global money action at 320px', async 
 
   await addButton.click()
   const capture = page.getByRole('dialog', { name: 'Quick Add' })
-  await expect(capture.getByRole('button', { name: /^Split/ })).toContainText('Personal')
+  await expect(capture.getByRole('button', { name: /^Split/ })).toHaveText('Split')
   await expect(page.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
   await expect(page.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
   await page.goBack()
