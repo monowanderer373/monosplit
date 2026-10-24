@@ -31,7 +31,7 @@ test('keeps capture history and split cancellation separate without losing the d
   await capture.getByRole('button', { name: 'Food', exact: true }).click()
   await capture.getByRole('textbox', { name: 'Note' }).fill('Dinner')
   let split = await openQuickSplit(capture, page)
-  await expect(split.getByText('History Trip', { exact: true })).toBeVisible()
+  await expect(capture.getByTestId('quick-add-ledger')).toContainText('History Trip')
   await split.getByRole('button', { name: 'Amounts', exact: true }).click()
   await split.getByRole('textbox', { name: 'Share for History Tester' }).fill('120')
   // Cancel discards panel edits, while keeping the surrounding capture draft.
