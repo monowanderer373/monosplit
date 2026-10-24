@@ -2,10 +2,10 @@
 
 Checkpoint:2026-10-24 (Asia/Bangkok). PR32+PR33 integrated main 8f7b1c99c9479ed03a176aa1dd1b46f27cdb4cd9; final docs-only checkpoint follows. Read actual main/provider/public version on resume. Existing stash and backup/local-wip-before-shared-a preserved.
 
-## Active — Quick Add screenshot refinements (2026-10-25 Asia/Bangkok)
+## Integrated — Quick Add screenshot refinements (2026-10-25 Asia/Bangkok)
 - Branch feat/quick-add-layout-polish from106d3b3. User requests supersede V3's old4x2 grid/visible save-options: eleven shortcuts + All categories (three rows), use spare category area and place Receipt directly above keypad; account name left, plain Split right, no captions/icons/chevrons for Split; no visible hold-help/options footer.
 - Existing hold-to-next retained with accessible Shift+Enter alternative and hidden help. Invalid save shows nonmodal1800ms toast with fade/outside-pointer dismissal, preserving draft. Backend write failures still retain existing recoverable error state. No finance/identity/schema changes.
-- Current local704units,lint PASS;42existing compact/V3 browser cases PASS plus new toast/layout1PASS. Screenshot reviewed; corrected legacy account centering with scoped selector. Exact-source CI/production verification next. Evidence /workspace/verification/quick-add-polish-2026-10-25; preserve stash/backup.
+- PR34 merged maind5c1381888bc585a846f3e7c02a6c7852f8bd48f, exact app tree equal to validated source2c5a648. Quality40127633901 all7SUCCESS. Local704units,lint PASS;42existing compact/V3 browser cases PASS plus new toast/layout1PASS. Screenshot reviewed; corrected legacy account centering. Final documentation-only checkpoint next; exact production READY/public SHA/owned QA/toast/PWA evidence saved externally in delivery-final.json after deployment. Evidence /workspace/verification/quick-add-polish-2026-10-25; preserve stash/backup.
 
 ## Integrated — Quick Add / Account / Split V3
 - Full ZIP/specs and eight references read. Real V3 ledger/categories/Receipt/Account/Split/Save implemented; account single-tap draft selection, empty Note/manual-confirm suggestion, Equally/Amounts/By item and all original business mechanisms retained.
