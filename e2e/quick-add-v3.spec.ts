@@ -37,7 +37,7 @@ for(const [width,height] of [[360,800],[390,844],[393,852],[412,915],[393,700]])
  const save=quick.getByRole('button',{name:'Save and close',exact:true});await save.scrollIntoViewIfNeeded();await expect(save).toBeInViewport()
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width+1)
  for(const button of await quick.locator('.qa-keypad>button').all())expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(48)
- await quick.getByRole('textbox',{name:'Note'}).focus();await page.setViewportSize({width,height:420});await expect(quick.locator('.qa-keypad')).toBeHidden();await expect(quick.locator('.qa-category-grid')).toBeVisible();await quick.getByRole('textbox',{name:'Note'}).fill('Bus');await quick.getByRole('textbox',{name:'Note'}).blur();await page.setViewportSize({width,height});await expect(quick.locator('.qa-keypad')).toBeVisible()
+ await quick.getByRole('textbox',{name:'Note'}).focus();await expect(quick.getByRole('button',{name:'Save and close',exact:true})).toBeVisible();await page.setViewportSize({width,height:420});await expect(quick.locator('.qa-keypad')).toBeHidden();await expect(quick.locator('.qa-category-grid')).toBeVisible();await quick.getByRole('textbox',{name:'Note'}).fill('Bus');await quick.getByRole('textbox',{name:'Note'}).blur();await page.setViewportSize({width,height});await expect(quick.locator('.qa-keypad')).toBeVisible()
 })
 
 test('twenty contacts and many items retain a fixed accessible Apply footer',async({page})=>{

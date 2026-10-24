@@ -106,11 +106,12 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  }
  const dialogRef=useAccessibleDialog<HTMLElement>(()=>{if(pickerOpenRef.current){closePicker();return}close()})
  useEffect(()=>()=>{if(closingTimer.current)clearTimeout(closingTimer.current)},[])
+ const noteKeyboard=useRef(false)
  useEffect(()=>{
   const viewport=window.visualViewport
   if(!viewport)return
-  let previous=viewport.height
-  const resize=()=>{const node=dialogRef.current;if(node?.querySelector('.qa-note input')===document.activeElement){if(viewport.height>previous+80)node.classList.remove('qa-note-editing');else if(viewport.height<previous-80)node.classList.add('qa-note-editing')}previous=viewport.height}
+  let baseline=viewport.height
+  const resize=()=>{const node=dialogRef.current;const focused=node?.querySelector('.qa-note input')===document.activeElement;if(!focused){baseline=viewport.height;noteKeyboard.current=false;node?.classList.remove('qa-note-editing');return}baseline=Math.max(baseline,viewport.height);noteKeyboard.current=viewport.height<baseline-80;node?.classList.toggle('qa-note-editing',noteKeyboard.current)}
   viewport.addEventListener('resize',resize);return()=>viewport.removeEventListener('resize',resize)
  },[dialogRef])
  const updateRef=useRef(onUpdate); updateRef.current=onUpdate
@@ -216,7 +217,7 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  </div>
  <div className="qa-receipt"><div className="qa-receipt-line"><select aria-label={t('expense.currency')} value={values.currency} onChange={e=>onUpdate({currency:e.target.value})}>{CURRENCIES.map(c=><option key={c.code} value={c.code}>{c.code==='MYR'?'RM':c.code}</option>)}</select><input className="qa-receipt-amount" aria-label={t('expense.amount')} value={groupCalculation(expression)} readOnly inputMode="none" onKeyDown={e=>{if(/^[0-9.+%*/-]$/.test(e.key)){e.preventDefault();keypad(e.key)}else if(e.key==='Backspace'){e.preventDefault();keypad('⌫')}else if(e.key==='Enter'){e.preventDefault();keypad('=')}}} placeholder="0.00"/><button type="button" className="qa-receipt-date" data-changed={values.occurredOn!==todayIso()} aria-label={copy(`Date: ${values.occurredOn}`,`日期：${values.occurredOn}`)} onClick={()=>{setMonth(values.occurredOn.slice(0,7));openPanel('date')}}><QuickIcon name="calendar"/><small>{values.occurredOn===todayIso()?copy('Today','今天'):values.occurredOn.slice(5)}</small></button></div>
  {/[+×÷−%]/.test(expression)&&computedAmount?<small className="qa-calculated">= {groupAmount(computedAmount)}</small>:null}
- <label className="qa-note"><QuickIcon name="edit" size={16}/><input aria-label={copy('Note','备注')} value={values.description} placeholder={copy('Add note (optional)','添加备注（可选）')} maxLength={500} autoCapitalize="sentences" onFocus={()=>dialogRef.current?.classList.add('qa-note-editing')} onBlur={()=>dialogRef.current?.classList.remove('qa-note-editing')} onChange={e=>onUpdate({description:e.target.value})}/></label></div>
+ <label className="qa-note"><QuickIcon name="edit" size={16}/><input aria-label={copy('Note','备注')} value={values.description} placeholder={copy('Add note (optional)','添加备注（可选）')} maxLength={500} autoCapitalize="sentences" enterKeyHint="done" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}} onFocus={()=>{if(noteKeyboard.current)dialogRef.current?.classList.add('qa-note-editing')}} onBlur={()=>dialogRef.current?.classList.remove('qa-note-editing')} onChange={e=>onUpdate({description:e.target.value})}/></label></div>
  <div className="qa-keypad">{['C','⌫','%','÷','7','8','9','×','4','5','6','−','1','2','3','+','0','.','='].map(key=><button type="button" key={key} className={key==='='?'qa-operator qa-equals':['÷','×','−','+','%'].includes(key)?'qa-operator':''} aria-label={key==='C'?copy('Clear calculation','清除算式'):key==='⌫'?copy('Backspace','退格'):key==='='?copy('Calculate amount','计算金额'):key} onClick={()=>keypad(key)}>{key}</button>)}<QuickSaveKey key={session.sessionId} zh={zh} disabled={panel!==null||pickerOpen||saving||(!offline&&(accountStatus!=='ready'||selfPaid>0&&!fundingValid))} canContinue={session.captureSource==='manual'&&session.contextPolicy!=='locked'} onSave={next=>void save(next)}/></div>
  {accountStatus==='error'&&!offline?<p className="qa-helper">{copy('Accounts unavailable · retry before saving.','账户暂不可用：请重试后再保存。')}</p>:null}
  {offline?<p className="qa-helper">{t('mc.offlineDraft')}</p>:null}
