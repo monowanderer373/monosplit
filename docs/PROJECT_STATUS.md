@@ -2,6 +2,11 @@
 
 Checkpoint: 2026-10-23 (Asia/Bangkok). Branch main; verified integrated production commit `20962995d2e27ee96ae2ea366c2851ffd7c1a2f0`. A documentation-only checkpoint follows; read actual main/provider/public version on resume. Pre-existing stash@{0} and backup/local-wip-before-shared-a remain untouched.
 
+## Active — Quick Add / Account / Split V3 (2026-10-24)
+- Branch feat/quick-add-split-v3 from dbd3c86. Full ZIP now received, core specs fully read and eight phone reference PNGs viewed. Implemented scoped V3 structure/account selection/people search/fixed split layout/save gesture/Note handling; draft/financial engine retained.
+- Baseline696units/101files,lint/build,29browser PASS. Current703units/103files,lint and phased build PASS; targeted36production-module browser cases PASS including20contacts and8items. Latest recapture/full exact-source CI next. Five protected money/compiler/repository/payment hook hashes unchanged, no migrations.
+- Real detailed report docs/quick-add-v3/IMPLEMENTATION_REPORT.md; per-item QA docs/quick-add-v3/QA_RESULTS.md. External input/before/golden/log evidence /workspace/verification/quick-add-v3-2026-10-24. User work/stash/backup preserved. No V3 production release claimed yet.
+
 ## Recovery and final Quick Add readback — 2026-10-23
 - User published the existing Codex environment. Execution recovered; one transient transport disconnect occurred during screenshot retrieval, then recovered again with files/results preserved. Terminal, Node22.23.3, Chromium, GitHub, existing Vercel and normal owned Supabase QA reads now work. No cloud scripts, bindings, network rules, migrations or application source changed by this recovery.
 - Confirmed documentation commit5199678 is already in remote main. Fast-forwarded existing clean checkout to2096299/PR31; did not redeploy453a929 over newer work. Quick Add/payment/compact CSS and multicurrency.css are byte-identical to validated PR30. Latest notification helper uses shipped Escape/focus closing instead of the removed Close button; test-only helper remains outside Git.

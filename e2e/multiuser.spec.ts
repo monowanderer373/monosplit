@@ -266,7 +266,7 @@ test.describe('local relational multi-user journey', () => {
     await expect(quickAdd).toBeVisible()
     await alphaBrowser.context.setOffline(true)
     await enterQuickAmount(quickAdd, '7.77')
-    await quickAdd.getByRole('textbox', { name: 'Description', exact: true }).fill('Offline once')
+    await quickAdd.getByRole('textbox', { name: 'Note', exact: true }).fill('Offline once')
     await quickAdd.getByRole('button', { name: 'Food', exact: true }).click()
     await quickAdd.getByRole('button', { name: 'Save and close' }).click()
     await expect(owner.getByRole('status')).toHaveText('Saved on this device · pending sync')
@@ -286,7 +286,7 @@ test.describe('local relational multi-user journey', () => {
     await member.getByRole('button', { name: '+ Add expense' }).click()
     const staleDialog = member.getByRole('dialog', { name: 'Quick Add' })
     await enterQuickAmount(staleDialog, '3.33')
-    await staleDialog.getByRole('textbox', { name: 'Description', exact: true }).fill('Rejected stale role')
+    await staleDialog.getByRole('textbox', { name: 'Note', exact: true }).fill('Rejected stale role')
 
     await owner.goto(spaceUrl)
     await owner.getByLabel('Access for Beta').selectOption('view')
@@ -337,7 +337,7 @@ async function addExpense(
   await page.getByRole('button', { name: '+ Add expense' }).click()
   const dialog = page.getByRole('dialog', { name: 'Quick Add' })
   await enterQuickAmount(dialog, input.amount)
-  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(input.description)
+  await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(input.description)
 
   if (input.exactShares || input.payers) {
     const split = await openQuickSplit(dialog, page)
@@ -372,7 +372,7 @@ async function addExpense(
 async function saveCapture(page: Page, description: string, amount: string): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Quick Add' })
   await enterQuickAmount(dialog, amount)
-  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(description)
   await dialog.getByRole('button', { name: 'Food', exact: true }).click()
   await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)

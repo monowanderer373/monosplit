@@ -53,18 +53,18 @@ describe('Quick Add capture',()=>{
    expect(content.inert).toBe(true);
    fireEvent.click(screen.getByRole('button',{name:'Close panel'}));
    await waitFor(()=>expect(content.inert).toBe(false));
-   fireEvent.click(screen.getByRole('button',{name:/Date$/}));
+   fireEvent.click(screen.getByRole('button',{name:/^Date:/}));
    expect(screen.getByRole('dialog',{name:'Date'})).toBeTruthy();
   } finally {
    cleanup();delete (HTMLElement.prototype as unknown as {inert?:boolean}).inert;
   }
  })
- it('uses category as an editable description and saves an expression without pressing equals',async()=>{
+ it('keeps Note empty on category selection and saves evaluated amount through the accessible next action',async()=>{
   fireEvent.click(screen.getByRole('button',{name:'Coffee'}))
-  expect((screen.getByRole('textbox',{name:'Description'}) as HTMLInputElement).value).toBe('Coffee')
+  expect((screen.getByRole('textbox',{name:'Note'}) as HTMLInputElement).value).toBe('')
   for(const name of ['1','2','+','8'])fireEvent.click(screen.getByRole('button',{name}))
-  await waitFor(()=>expect(screen.getByRole('button',{name:'Save and continue'}).hasAttribute('disabled')).toBe(false))
-  fireEvent.click(screen.getByRole('button',{name:'Save and continue'}))
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Save options'}).hasAttribute('disabled')).toBe(false));fireEvent.click(screen.getByRole('button',{name:'Save options'}))
+  fireEvent.click(screen.getByRole('button',{name:'Save & next'}))
   await waitFor(()=>expect(mocked.submit).toHaveBeenCalled())
   expect(mocked.submit.mock.calls[0][0]).toMatchObject({continueAdding:true,values:{amount:'20.00',description:'Coffee'}})
  })
@@ -73,6 +73,7 @@ describe('Quick Add capture',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Food'}));fireEvent.click(screen.getByRole('button',{name:'9'}))
   await waitFor(()=>expect(screen.getByRole('button',{name:'Save and close'}).hasAttribute('disabled')).toBe(false))
   fireEvent.click(screen.getByRole('button',{name:'Save and close'}))
+  await waitFor(()=>expect(mocked.submit).toHaveBeenCalledOnce())
   await screen.findByRole('alert')
   expect((screen.getByRole('textbox',{name:'Amount'}) as HTMLInputElement).value).toBe('9')
   fireEvent.click(screen.getByRole('button',{name:'Clear calculation'}))
@@ -139,7 +140,7 @@ it('retains a confirmed actual draft across account panel dismissal and rolls ba
  fireEvent.click(await screen.findByRole('button',{name:'Actual charge (optional)'}))
  fireEvent.change(screen.getByRole('combobox',{name:'Payment source'}),{target:{value:'wallet'}})
  fireEvent.change(screen.getByRole('textbox',{name:'Amount charged (MYR)'}),{target:{value:'9'}})
- fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Use Touch n Go'}))
+ fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Done'}))
  fireEvent.click(screen.getByRole('button',{name:/Touch n Go/}))
  expect((screen.getByRole('textbox',{name:'Amount charged (MYR)'}) as HTMLInputElement).value).toBe('9')
  fireEvent.change(screen.getByRole('textbox',{name:'Amount charged (MYR)'}),{target:{value:'10'}})

@@ -29,7 +29,7 @@ test('discards a never-dispatched offline create before reconnect', async ({
     await page.getByRole('button', { name: 'Quick add expense' }).click()
     const capture = page.getByRole('dialog', { name: 'Quick Add' })
     await enterQuickAmount(capture, '12.34')
-    await capture.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+    await capture.getByRole('textbox', { name: 'Note', exact: true }).fill(description)
     await capture.getByRole('button', { name: 'Food', exact: true }).click()
     await capture.getByRole('button', { name: 'Save and close' }).click()
 
@@ -69,7 +69,7 @@ test('committed create uses server cancellation and owner-local restore', async 
   await page.getByRole('button', { name: 'Quick add expense' }).click()
   const capture = page.getByRole('dialog', { name: 'Quick Add' })
   await enterQuickAmount(capture, '23.45')
-  await capture.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await capture.getByRole('textbox', { name: 'Note', exact: true }).fill(description)
   await capture.getByRole('button', { name: 'Food', exact: true }).click()
   await capture.getByRole('button', { name: 'Save and close' }).click()
 

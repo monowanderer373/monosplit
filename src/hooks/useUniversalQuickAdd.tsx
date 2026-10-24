@@ -626,7 +626,7 @@ export function UniversalQuickAddProvider({
       const next = createUniversalQuickAddSession({
         identityKey, sessionId: generateId(), clientRequestId: generateId(), startedAtMs: Date.now(),
         entryPoint: active.entryPoint, contextPolicy: active.contextPolicy, context: nextContext, followPageContext: active.followPageContext,
-        initialValues: { category: values.category, categorySource: values.categorySource,
+        initialValues: { category: '', categorySource: 'DEFAULT',
           occurredOn: values.occurredOn, currency: values.currency, accountId: values.accountId,
           ...(active.followPageContext && nextContext.ref.kind === 'space' ? { selectedParticipantIds: [nextContext.currentParticipantId] } : {}) },
       })

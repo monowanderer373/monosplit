@@ -110,7 +110,7 @@ async function saveCapture(
 ): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Quick Add' })
   await enterQuickAmount(dialog, amount)
-  await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(description)
+  await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(description)
   await dialog.getByRole('button', { name: 'Food', exact: true }).click()
   await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)

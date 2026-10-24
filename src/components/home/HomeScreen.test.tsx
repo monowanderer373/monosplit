@@ -444,7 +444,7 @@ describe('HomeScreen', () => {
     expect(document.body.style.overflow).toBe('hidden')
     await user.click(screen.getByRole('button', { name: 'Close' }))
     await waitFor(() => expect(screen.queryByTestId('home-review-sheet')).toBeNull())
-    expect(document.activeElement).toBe(trigger)
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
     expect(document.body.style.overflow).toBe('')
     expect(document.body.style.paddingRight).toBe('')
   })
