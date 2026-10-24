@@ -5,7 +5,7 @@ import QuickPayment from './accounts/QuickPayment'
 import { useQuickPayment, type QuickPaymentState } from '../hooks/useQuickPayment'
 import { groupCalculation, groupAmount } from '../lib/amountDisplay'
 import { capitalizeDescription } from '../lib/description'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
 import { useAuth } from '../hooks/useAuth'
 import type { CanonicalExpense } from '../types'
@@ -50,11 +50,12 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  const values=session.values, context=session.context!
  const identity=session.identityKey
  const [panel,setPanel]=useState<Panel>(null)
+ const [pickerHeight,setPickerHeight]=useState<number|null>(null)
  const [pickerOpen,setPickerOpen]=useState(false)
  const pickerOpenRef=useRef(false)
  const headerRef=useRef<HTMLButtonElement>(null)
  const closePicker=()=>{pickerOpenRef.current=false;onPickerOpenChange(false);setPickerOpen(false);window.requestAnimationFrame(()=>headerRef.current?.focus())}
- const togglePicker=()=>{if(pickerOpenRef.current){closePicker();return}pickerOpenRef.current=true;onPickerOpenChange(true);setPickerOpen(true)}
+ const togglePicker=()=>{if(pickerOpenRef.current){closePicker();return}setPickerHeight(document.getElementById('qa-context-picker')?.getBoundingClientRect().height??null);pickerOpenRef.current=true;onPickerOpenChange(true);setPickerOpen(true)}
  const pickerChangeRef=useRef(onPickerOpenChange);pickerChangeRef.current=onPickerOpenChange
  useEffect(()=>()=>pickerChangeRef.current(false),[])
  const panelSnapshot=useRef({values,ref:context.ref})
@@ -138,7 +139,7 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  const selfPaid=(()=>{try{return Object.values(values.payerAmounts).some(a=>a.trim())?zeroOrMinor(values.payerAmounts[context.currentParticipantId]??'',values.currency):total}catch{return 0}})()
  const payment=useQuickPayment({draftKey:session.sessionId,accounts,parentId:selectedAccount?.parentAccountId??null,currency:values.currency,selfPaid,identity,offline,enabled:accountStatus==='ready',onPlan:fundingPlan=>onUpdate({fundingPlan})})
  const fundingValid=payment.valid
- const recommendation=values.categorySource==='USER'?'':values.categorySource==='SUGGESTED'?values.category:suggestQuickAddDescriptions({expenses,context:context.ref,limit:1}).find(s=>s.score>0)?.category??''
+ const recommendation=useMemo(()=>values.categorySource==='USER'?'':values.categorySource==='SUGGESTED'?values.category:suggestQuickAddDescriptions({expenses,context:context.ref,limit:1}).find(s=>s.score>0)?.category??'',[expenses,context.ref,values.categorySource,values.category])
  const featuredCategories=categories===QUICK_CATEGORIES?['Food','Coffee','Drink','Groceries','Transport','Shopping','Bills'].map(name=>categories.find(c=>c.name===name)!):categories.slice(0,7)
  if(currentCategory&&!featuredCategories.includes(currentCategory))featuredCategories[featuredCategories.length-1]=currentCategory
  const splitEnabled=values.selectedParticipantIds.some(id=>id!==context.currentParticipantId)
@@ -207,7 +208,7 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  <div className="qa-content" inert={saving}>
  <h1 id="qa-title" className="qa-sr-only">{copy('Quick Add','记一笔')}</h1>
  <header className="qa-header"><button type="button" className="qa-icon-button" onClick={close} aria-label={copy('Close Quick Add','关闭快速记账')}><QuickIcon name="back"/></button><button ref={headerRef} type="button" className="qa-context-button" data-testid="quick-add-ledger" aria-label={copy(`Change ledger: ${ledgerNames}`,`切换账本：${ledgerNames}`)} aria-expanded={pickerOpen} aria-controls="qa-context-picker" onClick={togglePicker} disabled={session.contextPolicy==='locked'}><ContextIcon name={context.ref.kind==='personal'?'user':context.ref.kind==='space'&&context.ref.spaceType==='trip'?'map':'users'}/><span><span className="qa-context-name">{ledgerName}</span></span><ContextIcon name={pickerOpen?'chevron-up':'chevron-down'}/></button></header>
- <div className={`qa-category-or-picker-slot${pickerOpen?' is-picker-open':''}`} id="qa-context-picker">{pickerOpen?<InlineContextPicker session={session} expenses={expenses} zh={zh} onCommit={onCommitContext} onCancel={closePicker} onCommitted={(next,friends)=>{closePicker();if(friends){panelSnapshot.current={values:next.values,ref:next.context!.ref};setSplitStage('configure');setPanel('split');setError('')}}}/>:
+ <div className={`qa-category-or-picker-slot${pickerOpen?' is-picker-open':''}`} id="qa-context-picker" style={pickerOpen&&pickerHeight?{height:pickerHeight,flexBasis:pickerHeight,minHeight:pickerHeight}:undefined}>{pickerOpen?<InlineContextPicker session={session} expenses={expenses} zh={zh} onCommit={onCommitContext} onCancel={closePicker} onCommitted={(next,friends)=>{closePicker();if(friends){panelSnapshot.current={values:next.values,ref:next.context!.ref};setSplitStage('configure');setPanel('split');setError('')}}}/>:
  <div className="qa-categories" aria-label={copy('Expense categories','支出分类')}><div className="qa-category-grid">{featuredCategories.map(category=><button key={category.name} type="button" aria-pressed={values.category===category.name&&values.categorySource==='USER'} className={`qa-category${values.category===category.name?(values.categorySource==='USER'?' is-selected':' is-suggested'):category.name===recommendation?' is-suggested':''}`} onClick={()=>chooseCategory(category)}><QuickIcon name={category.icon}/><span>{categoryLabel(category)}</span>{values.category===category.name&&values.categorySource==='USER'?<span className="qa-category-check" aria-hidden="true"><QuickIcon name="check" size={11}/></span>:null}</button>)}<button type="button" className="qa-category qa-category-more" onClick={()=>openPanel('categoryPicker')}><QuickIcon name="Other"/><span>{copy('All categories','全部分类')}</span></button></div></div>}</div>
  <div className="qa-entry-zone">
  {notice?<p className="qa-notice" role="status"><QuickIcon name="check" size={16}/>{notice}</p>:null}
