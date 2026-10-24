@@ -80,3 +80,7 @@ test('compact capture has twelve category slots, simple entries and dismissible 
  const receipt=await quick.locator('.qa-receipt').boundingBox(),keypad=await quick.locator('.qa-keypad').boundingBox(),bottom=await save.boundingBox();expect(keypad!.y-(receipt!.y+receipt!.height)).toBeLessThanOrEqual(14);expect(852-(bottom!.y+bottom!.height)).toBeLessThanOrEqual(14)
  await page.screenshot({animations:'disabled',path:out+'/polished-capture-393-852.png'})
 })
+
+test('arithmetic receipt with expanded ledger and 200 percent text keeps Save fully visible',async({page})=>{
+ const {quick}=await setup(page);await page.setViewportSize({width:390,height:844});await quick.getByRole('button',{name:'Clear calculation',exact:true}).click();for(const c of ['1','2','+','8'])await quick.getByRole('button',{name:c,exact:true}).click();await quick.getByTestId('quick-add-ledger').click();await page.evaluate(()=>document.documentElement.style.fontSize='200%');await quick.getByRole('tab',{name:'Friends',exact:true}).click();const save=quick.getByRole('button',{name:'Save and close',exact:true});await save.scrollIntoViewIfNeeded();const box=(await save.boundingBox())!;expect(box.y+box.height).toBeLessThanOrEqual(844);expect(box.height).toBeGreaterThanOrEqual(48)
+})

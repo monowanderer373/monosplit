@@ -152,3 +152,5 @@
 @keyframes qa-toast {0%{opacity:0;translate:0 -4px}10%,80%{opacity:1;translate:0 0}100%{opacity:0;translate:0 -2px}}
 @media(max-height:800px){#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot:not(.is-picker-open){flex-basis:156px;min-height:156px}#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-category-or-picker-slot:not(.is-picker-open) .qa-category{min-height:48px}#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-keypad button{height:48px}}
 @media(prefers-reduced-motion:reduce){#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-toast{animation:none}}
+/* Reserve the small bottom inset when scrolling the last key into view. */
+#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-save-key {scroll-margin-block-end:12px}
