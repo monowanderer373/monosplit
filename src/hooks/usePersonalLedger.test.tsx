@@ -75,3 +75,18 @@ it('a failed new-account period read never republishes the previous account arch
  expect(view.result.current.periodState?.archivedExpenseIds).toEqual([])
  expect(view.result.current.periodState?.available).toBe(false)
 })
+
+it('a known period transition invalidates reports until the next authoritative read, without blocking raw Shared facts',async()=>{
+ mocks.list.mockResolvedValue([spendingExpense('history')])
+ const view=renderHook(()=>usePersonalLedger(),{wrapper:PersonalLedgerProvider})
+ await waitFor(()=>expect(view.result.current.periodStatus).toBe('ready'))
+ let done!:(value:unknown)=>void
+ mocks.periods.mockReturnValueOnce(new Promise(resolve=>{done=resolve}))
+ act(()=>window.dispatchEvent(new Event('tt:personal-period-changed')))
+ expect(view.result.current.periodStatus).toBe('loading')
+ expect(view.result.current.expensesStatus).toBe('ready')
+ expect(view.result.current.expenses[0].id).toBe('history')
+ await act(async()=>done({available:true,ownerId:'you',periods:[],archivedExpenseIds:['history'],archivedTransactionIds:[],laterFunding:[]}))
+ await waitFor(()=>expect(view.result.current.periodStatus).toBe('ready'))
+ expect(view.result.current.periodState?.archivedExpenseIds).toEqual(['history'])
+})

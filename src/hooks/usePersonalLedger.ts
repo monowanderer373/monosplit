@@ -181,8 +181,13 @@ function usePersonalLedgerController() {
     if (identityId && useStore.getState().ledgerByIdentity[identityId]?.outbox.length) void flush()
     const handleOnline = () => void flush()
     const handlePeriodRead=()=>void refreshPeriods()
+    const handlePeriodChanged=()=>{
+      setPeriodRead(old=>old.identity===identityId?{...old,status:'loading'}:old)
+      void refreshPeriods()
+    }
     window.addEventListener('focus',handlePeriodRead)
     window.addEventListener('tt:accounts-changed',handlePeriodRead)
+    window.addEventListener('tt:personal-period-changed',handlePeriodChanged)
     window.addEventListener('online', handleOnline)
     let refreshTimer: ReturnType<typeof setTimeout> | undefined
     const scheduleAuthoritativeRefresh = () => {
@@ -196,7 +201,7 @@ function usePersonalLedgerController() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_participations' }, scheduleAuthoritativeRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'payer_contributions' }, scheduleAuthoritativeRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_shares' }, scheduleAuthoritativeRefresh)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_ledger_periods' }, handlePeriodRead)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_ledger_periods' }, handlePeriodChanged)
         .subscribe()
       : null
     return () => {
@@ -207,6 +212,7 @@ function usePersonalLedgerController() {
       periodGeneration.current++
       window.removeEventListener('focus',handlePeriodRead)
       window.removeEventListener('tt:accounts-changed',handlePeriodRead)
+      window.removeEventListener('tt:personal-period-changed',handlePeriodChanged)
       window.removeEventListener('online', handleOnline)
       if (refreshTimer) clearTimeout(refreshTimer)
       if (channel && supabase) void supabase.removeChannel(channel)

@@ -84,8 +84,10 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
  }
  const completed=async(result:FreshReceipt,who:string)=>{
   if(!current(who))return
-  rememberRequest(actor,null);setUnresolved(null);setReceipt(result);setChecked(false);setPassword('')
+  window.dispatchEvent(new Event('tt:personal-period-changed'))
   window.dispatchEvent(new Event('tt:accounts-changed'));await ledger.refresh()
+  if(!current(who))return
+  rememberRequest(actor,null);setUnresolved(null);setReceipt(result);setChecked(false);setPassword('')
  }
  const reconcile=()=>void run(async who=>{
   const id=unresolved??pendingRequest(actor);if(!id)return
@@ -130,7 +132,7 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
  return <>
   <header className="me-header"><button className="me-back" aria-label={c('Back','返回')} disabled={busy} onClick={back}><MeIcon name="back"/></button><h1 tabIndex={-1}>{title}</h1></header>
   {!archived&&!receipt?<div className="me-stepper" role="progressbar" aria-valuemin={1} aria-valuemax={4} aria-valuenow={step} aria-label={c(`Step ${step} of 4`,`第 ${step} 步，共 4 步`)}>{[1,2,3,4].map(n=><i key={n} data-active={n<=step}/>)}<span>{step}/4</span></div>:null}
-  {!available?<MeNote warning>{auth.authUser?.isAnonymous?c('Link and verify your account before starting a new ledger. Your guest history will be preserved.','请先关联并验证账户，再开始新账期。访客历史会保留。'):ledger.periodStatus==='loading'?c('Checking ledger capability…','正在核验账期功能…'):c('Fresh Start is unavailable until its financial safeguards are installed and verified. Your financial history is protected; reporting needs this capability.','财务保护功能安装并核验前，暂不能重新开始。原财务历史受保护；账期报表需等待此功能。')}</MeNote>:null}
+  {!available?<MeNote warning>{auth.authUser?.isAnonymous?c('Link and verify your account before starting a new ledger. Your guest history will be preserved.','请先关联并验证账户，再开始新账期。访客历史会保留。'):ledger.periodStatus==='loading'?c('Checking ledger capability…','正在核验账期功能…'):c('Fresh Start is unavailable until its financial safeguards are installed and verified. Your financial history is protected; reporting needs this capability.','财务保护功能安装并核验前，暂不能重新开始。原财务历史受保护；账期报表需等待此功能。')}{ledger.periodStatus==='error'?<button className="me-link" disabled={busy} onClick={()=>void ledger.refreshPeriods()}>{c('Retry ledger check','重新核验账期')}</button>:null}</MeNote>:null}
   {error?<p className="me-error" role="alert">{error}</p>:null}
   {unresolved?<MePaper><h2>{c('Check the last request first','请先核对上次请求')}</h2><p>{c('The result may have committed even if the connection was interrupted. This status check waits for that request and prevents a delayed duplicate.','即使连接中断，操作仍可能已提交。状态核对会等待上次请求，并防止延迟的重复操作。')}</p><button className="me-primary" disabled={busy||!available} onClick={reconcile}>{c('Check request status','核对请求状态')}</button></MePaper>:null}
   {receipt?<MePaper><span className="me-hero-icon"><MeIcon name="check"/></span><h2>{c('Your new personal ledger is ready','新的个人账期已开启')}</h2><p>{c('History is preserved. Shared balances, identities and ongoing obligations continue unchanged.','历史已保留。共享余额、身份与持续义务继续沿用。')}</p><p className="me-help">{new Date(receipt.completed_at).toLocaleString(lang==='zh'?'zh-CN':'en-MY')}<br/>{c('Period','账期')} {receipt.period_id}</p><button className="me-primary" onClick={()=>go('archives/'+receipt.archived_period_id)}>{c('View archived ledger','查看归档账期')}</button><button className="me-link" onClick={onHome}>{c('Back to Me','返回我的')}</button></MePaper>:null}
