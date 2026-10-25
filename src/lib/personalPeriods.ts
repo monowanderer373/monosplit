@@ -3,7 +3,7 @@ import type {CanonicalExpense} from '../types'
 import {currencyExponent} from './money'
 import type {HomeJournalEntry} from './homeView'
 export type PersonalPeriod={id:string;started_at:string;ended_at:string|null;status:'active'|'archived'}
-export type PeriodState={available:boolean;ownerId:string|null;periods:PersonalPeriod[];archivedExpenseIds:string[];archivedTransactionIds:string[];laterFunding:HomeJournalEntry[]}
+export type PeriodState={freshStartSessionConfirmation?:boolean;available:boolean;ownerId:string|null;periods:PersonalPeriod[];archivedExpenseIds:string[];archivedTransactionIds:string[];laterFunding:HomeJournalEntry[]}
 export const NO_PERIOD_CAPABILITY:PeriodState={available:false,ownerId:null,periods:[],archivedExpenseIds:[],archivedTransactionIds:[],laterFunding:[]}
 export type FreshAccount={account_id:string;parent_id:string;name:string;currency:string;account_class:'asset'|'liability';account_type:string;opening_locked:boolean;known:boolean;balance_minor:string;version:number;parent_version:number}
 export type FreshPreview={schema_version:1;id:string;owner_id:string;expires_at:string;fingerprint:string;accounts:FreshAccount[];currencies:{currency:string;amount_minor:string}[];personal_count:number;protected_shared_count:number;protected_settlement_count:number;pending_funding_count:number;ongoing_installment_count:number;recurring_rule_count:number;policy:'carry_all';conflicts:string[]}
@@ -23,7 +23,7 @@ export function parsePeriodState(raw:unknown,ownerId:string):PeriodState{
  const periods=r.periods.map(value=>{const p=object(value);if(!['active','archived'].includes(String(p.status))||!Number.isFinite(Date.parse(text(p.started_at)))||p.ended_at!==null&&!Number.isFinite(Date.parse(text(p.ended_at))))throw new Error('invalid_period_response');return{id:text(p.id),started_at:text(p.started_at),ended_at:p.ended_at as string|null,status:p.status as PersonalPeriod['status']}})
  if(periods.filter(p=>p.status==='active').length>1)throw new Error('invalid_period_response')
  const laterFunding=r.later_funding.map(value=>{const j=object(value);return{id:text(j.id),kind:'expense_funding' as const,accountId:text(j.account_id),accountName:text(j.account_name),expenseId:text(j.expense_id),occurredOn:text(j.occurred_on),createdAt:text(j.created_at),currency:currency(j.currency),amountMinor:minor(j.amount_minor),memo:typeof j.memo==='string'?j.memo:null}})
- return{available:true,ownerId,periods,archivedExpenseIds:strings(r.archived_expense_ids),archivedTransactionIds:strings(r.archived_transaction_ids),laterFunding}
+ return{available:true,freshStartSessionConfirmation:r.fresh_start_confirmation_version===1,ownerId,periods,archivedExpenseIds:strings(r.archived_expense_ids),archivedTransactionIds:strings(r.archived_transaction_ids),laterFunding}
 }
 export async function loadPersonalPeriods(ownerId:string):Promise<PeriodState>{
  // A missing endpoint cannot prove there are no archived periods. Fail closed,

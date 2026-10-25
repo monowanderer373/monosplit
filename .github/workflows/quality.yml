@@ -107,15 +107,19 @@ jobs:
           exec > >(tee /tmp/tabby-history-apply.log) 2>&1
           python3 scripts/generate-multicurrency-apply.py
           python3 scripts/generate-personal-periods-apply.py
-          git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql docs/runbooks/personal-periods-production-apply.sql
+          python3 scripts/generate-personal-confirmation-apply.py
+          git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql docs/runbooks/personal-periods-production-apply.sql docs/runbooks/personal-confirmation-production-apply.sql
           mkdir /tmp/tabby-multicurrency-migrations
-          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql /tmp/tabby-multicurrency-migrations/
+          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql /tmp/tabby-multicurrency-migrations/
           trap 'mv /tmp/tabby-multicurrency-migrations/*.sql supabase/migrations/' EXIT
           npx supabase migration up --local
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-periods-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-periods-production-apply.sql
+          python3 scripts/verify-personal-confirmation-transport.py --migration-file /tmp/tabby-multicurrency-migrations/202610250003_personal_period_session_confirmation.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-confirmation-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-confirmation-production-apply.sql
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive
