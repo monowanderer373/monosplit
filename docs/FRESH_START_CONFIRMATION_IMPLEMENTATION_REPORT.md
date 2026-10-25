@@ -12,9 +12,13 @@ Source56096dcf5899fc9bc2ea1617661b5af81a91febd / [PR38](https://github.com/monow
 
 Production SQL API was actually probed with read_onlyfalse and still reports supabase_read_only_user, transaction_read_onlyon and CREATEfalse. No alternate writable DB binding or callable connector exists. The exact30-version baseline and both deployed002function bodies were read back successfully. New003is still absent; installation was requested once after disposable SQL and historical tests passed. No generic development approval is missing.
 
-## One remaining operator action
+## Corrected installer pending validation
 
-Download the entire new003-only [SQL13721bytes](https://raw.githubusercontent.com/monowanderer373/monosplit/56096dcf5899fc9bc2ea1617661b5af81a91febd/docs/runbooks/personal-confirmation-production-apply.sql) and run it in the existing [SQL Editor](https://supabase.com/dashboard/project/skiqsxvmxvmxfzhrzcxh/sql/new). Marker: TABBY_FRESH_START_SESSION_CONFIRMATION_COMPLETE_20261025. SHA256:0234bedf9760ce2139b013e760a5633f394c1e1be52e7c27085345a35969db39. It does not reinstall001/002, execute Fresh Start or alter recorded balances. It checks the exact baseline, body content and permissions and safely reruns. No secrets belong in chat.
+The initial13721-byte raw-DDL wrapper was rejected by its exact function-body check. Independent production readback confirms all30prior versions and both002function bodies remain;003rolled back. That old download is superseded.
+
+The new17862-byte wrapper reconstructs the fixed UTF-8 migration from Base64 insideSQL, checks its payload hash beforeEXECUTE and retains exact body, permission and migration-history checks. Application and003migration contents are unchanged. Production read-only decoding matches canonical SHA15a8d0c43a5d21a5f87047794ca8ed090b802d81ae0f3a78737346cafed1820f. Readable migration source remains in supabase/migrations/202610250003_personal_period_session_confirmation.sql.
+
+Disposable historical tests now reproduce the former raw-DDL indentation rejection, run LF/CRLF/indented/wrapped new scripts in rollback probes, reject corrupt payloads beforeDDL and install the canonical script twice. Wait for these exact tests before sending a corrected pinned download. New marker: TABBY_FRESH_START_SESSION_CONFIRMATION_COMPLETE_20261025_V2. The script does not execute Reset, change balances or reinstall001/002; no secret is needed in chat.
 
 After installation: independently verify31versions/9function hashes/RLS/grants; normal owned-QA capability1/safety2/preview with financial hashes unchanged; mergePR38; existing Vercel READY/exact public SHA; real logged-in confirmation-ready/reload/cancel/no-write checks and retained PWA. No production Reset is performed for QA. Scripts/checkpoints and six safe raw actual-component synthetic screenshots are under /workspace/verification/fresh-start-confirmation-2026-10-25. No private production screenshot or financial row is delivered.
 
@@ -26,6 +30,7 @@ After installation: independently verify31versions/9function hashes/RLS/grants; 
 - supabase/migrations/202610250003_personal_period_session_confirmation.sql
 - supabase/tests/personal_ledger_periods.sql
 - scripts/generate-personal-confirmation-apply.py
+- scripts/verify-personal-confirmation-transport.py
 - docs/runbooks/personal-confirmation-production-apply.sql
 - e2e/me-v2-ui.spec.ts
 - e2e/me-v2-backend.spec.ts

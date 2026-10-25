@@ -1,7 +1,8 @@
--- COMPLETE FILE: existing Tabby Tally / skiqsxvmxvmxfzhrzcxh only.
+-- COMPLETE FILE V2: existing Tabby Tally / skiqsxvmxvmxfzhrzcxh only.
 -- New003 ONLY; keeps installed001/002 intact. Does not execute Fresh Start.
 -- Policy change authorized by user: current login + explicit confirmation, no reauthentication.
--- Migration SHA256 15a8d0c43a5d21a5f87047794ca8ed090b802d81ae0f3a78737346cafed1820f
+-- Canonical UTF-8 migration payload SHA256 15a8d0c43a5d21a5f87047794ca8ed090b802d81ae0f3a78737346cafed1820f
+-- Encoding preserves function text through editor formatting; exact hashes remain required.
 begin;
 set local lock_timeout='10s';
 select pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('tabby.personal-periods.migration',0));
@@ -12,97 +13,193 @@ begin
  is distinct from array['202608300001','202608300002','202608300003','202608300004','202608300005','202608300006','202608300007','202608300008','202608300009','202608300010','202608300011','202608300012','202609080001','202609210001','202609210002','202609210003','202609210004','202609210005','202609210006','202609210007','202609240001','202610050001','202610090001','202610090002','202610130001','202610130002','20261016130602','20261016132156','202610250001','202610250002']::text[] then
   raise exception 'Unexpected Tabby migration history. Existing001+002 are required.';end if;
  if not exists(select 1 from supabase_migrations.schema_migrations where version='202610250003')then
-  migration_sql:=$tabby_session_confirmation_ddl$-- User-approved policy update: a valid permanent-owner login and explicit
--- confirmation suffice for Fresh Start. No Google/password redirect or recent
--- AMR requirement. All preview/native-opening/locking/idempotence guards remain.
--- Forward migration only; deployed001/002 are immutable. Does not run Reset.
-create or replace function public.apply_personal_fresh_start(p_request_id uuid,p_preview_id uuid,p_openings jsonb)returns jsonb
-language plpgsql security definer set search_path='' set lock_timeout='5s' set statement_timeout='30s' as $$
-declare actor uuid:=private.require_personal_actor();request_hash text;old public.personal_fresh_start_operations%rowtype;
- preview public.personal_fresh_start_previews%rowtype;snapshot jsonb;old_period uuid;new_period uuid:=gen_random_uuid();instant timestamptz:=clock_timestamp();choice jsonb;unit public.personal_accounts%rowtype;parent public.personal_accounts%rowtype;ids uuid[];opening bigint;result_payload jsonb;anchor uuid;
-begin
- if p_request_id is null or p_preview_id is null or p_openings is null or jsonb_typeof(p_openings)<>'array' then raise exception using message='invalid_fresh_start_request',errcode='P0001';end if;
- request_hash:=encode(extensions.digest(jsonb_build_object('preview',p_preview_id,'openings',p_openings)::text,'sha256'),'hex');
- perform pg_advisory_xact_lock(hashtextextended('fresh-start:'||actor::text,0));
- select * into old from public.personal_fresh_start_operations where owner_participant_id=actor and request_id=p_request_id;
- if found then
-  if old.status='fenced' then raise exception using message='fresh_start_request_fenced',errcode='P0001';end if;
-  if old.payload_fingerprint<>request_hash then raise exception using message='idempotency_conflict',errcode='P0001';end if;
-  return old.result;
- end if;
- -- Current authenticated permanent owner + explicit UI confirmation; no extra sign-in.
- -- Existing writers do not share a reset lock. Table locks provide an actual
- -- serialization boundary across expense/funding/journal/scheduler transactions.
- -- Timeout/deadlock aborts atomically; there is no client-only concurrency claim.
- lock table public.expenses,public.expense_participations,public.payer_contributions,public.expense_shares,
- public.settlement_payments,public.settlement_allocations,public.settlement_allocation_reversals,
- public.settlement_payment_requests,public.settlement_attribution_intents,public.personal_settlement_cash_legs,public.recurring_rules,public.recurring_drafts,
- public.direct_expense_change_requests,public.direct_expense_change_approvals,
- public.personal_accounts,public.personal_account_currencies,public.personal_account_transactions,public.personal_account_entries,
- public.personal_funding_intents,public.personal_funding_bundles,public.personal_funding_bundle_legs,public.personal_account_balance_anchors,
- public.personal_money_operations,public.personal_money_movements,public.personal_money_movement_fees,public.personal_money_movement_coverage,
- public.personal_installment_plans,public.personal_installments,public.personal_recurring_rules,public.personal_recurring_occurrences,public.personal_expense_affiliations,
- public.personal_ledger_periods,public.personal_period_expenses,public.personal_period_transactions in share row exclusive mode;
- select * into preview from public.personal_fresh_start_previews where id=p_preview_id and owner_participant_id=actor;
- if not found or preview.expires_at<clock_timestamp() then raise exception using message='fresh_start_preview_expired',errcode='P0001';end if;
- snapshot:=private.personal_period_snapshot(actor);
- if snapshot->>'fingerprint'<>preview.fingerprint then raise exception using message='fresh_start_preview_changed',errcode='P0001';end if;
- if jsonb_array_length(snapshot->'conflicts')<>0 then raise exception using message='fresh_start_review_required',errcode='P0001';end if;
- if jsonb_array_length(p_openings)<>jsonb_array_length(snapshot->'accounts')or(select count(distinct x->>'account_id')from jsonb_array_elements(p_openings)x)<>jsonb_array_length(p_openings)then raise exception using message='fresh_start_openings_incomplete',errcode='P0001';end if;
- if exists(select 1 from jsonb_array_elements(p_openings)x where not exists(select 1 from jsonb_array_elements(snapshot->'accounts')a where a->>'account_id'=x->>'account_id')or x->>'amount_minor' is null or not(x->>'amount_minor'~'^-?[0-9]+$')or(x->>'amount_minor')::numeric not between -9007199254740991 and 9007199254740991)then raise exception using message='invalid_opening_balance',errcode='P0001';end if;
- if exists(select 1 from jsonb_array_elements(p_openings)requested join lateral jsonb_array_elements(snapshot->'accounts')account_snapshot
- on account_snapshot->>'account_id'=requested->>'account_id'
- where(account_snapshot->>'opening_locked')::boolean and(requested->>'amount_minor')::bigint<>(account_snapshot->>'balance_minor')::bigint)then
-  raise exception using message='fresh_start_opening_linked_obligation',errcode='P0001';end if;
- instant:=clock_timestamp();
- select id into old_period from public.personal_ledger_periods where owner_participant_id=actor and status='active';
- if old_period is null then
-  insert into public.personal_ledger_periods(owner_participant_id,started_at,ended_at,status)
-  values(actor,coalesce((select min(created_at)from public.expenses where created_by=actor),instant),instant,'archived')returning id into old_period;
- else update public.personal_ledger_periods set ended_at=instant,status='archived'where id=old_period;end if;
- insert into public.personal_period_expenses(owner_participant_id,period_id,expense_id)select actor,old_period,x::uuid from jsonb_array_elements_text(snapshot->'expense_ids')x;
- insert into public.personal_period_transactions(owner_participant_id,period_id,transaction_id)select actor,old_period,x::uuid from jsonb_array_elements_text(snapshot->'transaction_ids')x;
- insert into public.personal_ledger_periods(id,owner_participant_id,started_at,status)values(new_period,actor,instant,'active');
- for choice in select * from jsonb_array_elements(p_openings)order by value->>'account_id'loop
-  select * into unit from public.personal_accounts where id=(choice->>'account_id')::uuid and owner_participant_id=actor;
-  select * into parent from public.personal_accounts where id=coalesce((select parent_account_id from public.personal_account_currencies where account_id=unit.id),unit.id);
-  opening:=(choice->>'amount_minor')::bigint;
-  select coalesce(array_agg(id order by id),'{}')into ids from public.personal_account_entries where account_id=unit.id;
-  result_payload:=public.set_personal_currency_balance(private.money_child_request(p_request_id,'fresh-start:'||unit.id::text),unit.id,opening,instant,unit.version,parent.version,ids);
-  select id into anchor from public.personal_account_balance_anchors where account_id=unit.id order by anchor_sequence desc limit 1;
-  if anchor is null then raise exception using message='fresh_start_anchor_missing',errcode='P0001';end if;
-  insert into public.personal_period_openings(owner_participant_id,period_id,account_id,currency,amount_minor,anchor_id)values(actor,new_period,unit.id,unit.currency,opening,anchor);
-  -- Baseline/calibration is not a new spending or income activity.
-  insert into public.personal_period_transactions(owner_participant_id,period_id,transaction_id)
-  select actor,old_period,b.calibration_transaction_id from public.personal_account_balance_anchors b
-  where b.id=anchor and b.calibration_transaction_id is not null
-  on conflict do nothing;
- end loop;
- result_payload:=jsonb_build_object('schema_version',1,'owner_id',actor,'request_id',p_request_id,'period_id',new_period,'archived_period_id',old_period,'completed_at',instant,'authentication_method','session','policy','carry_all');
- insert into public.personal_fresh_start_operations(owner_participant_id,request_id,status,payload_fingerprint,result)values(actor,p_request_id,'committed',request_hash,result_payload);
- return result_payload;
-end $$;
-
-
-create or replace function public.get_personal_ledger_period_state()returns jsonb language plpgsql stable security definer set search_path='' as $$
-declare actor uuid:=private.require_personal_actor();begin
- return jsonb_build_object('schema_version',1,'opening_safety_version',2,'fresh_start_confirmation_version',1,'owner_id',actor,
- 'periods',coalesce((select jsonb_agg(jsonb_build_object('id',id,'started_at',started_at,'ended_at',ended_at,'status',status)order by started_at desc,id)from public.personal_ledger_periods where owner_participant_id=actor),'[]'),
- 'archived_expense_ids',coalesce((select jsonb_agg(m.expense_id order by m.expense_id)from public.personal_period_expenses m join public.personal_ledger_periods p on p.id=m.period_id where m.owner_participant_id=actor and p.status='archived'),'[]'),
- 'archived_transaction_ids',coalesce((select jsonb_agg(m.transaction_id order by m.transaction_id)from public.personal_period_transactions m join public.personal_ledger_periods p on p.id=m.period_id where m.owner_participant_id=actor and p.status='archived'),'[]'),
- 'later_funding',coalesce((select jsonb_agg(jsonb_build_object('id',t.id,'account_id',a.id,'account_name',a.name,'expense_id',t.expense_id,'occurred_on',t.occurred_on,'created_at',t.created_at,'currency',e.currency,'amount_minor',e.amount_minor::text,'memo',t.memo)order by t.id,a.id)
- from public.personal_account_transactions t join public.personal_account_entries e on e.transaction_id=t.id join public.personal_accounts a on a.id=e.account_id
- join public.personal_period_expenses m on m.expense_id=t.expense_id and m.owner_participant_id=actor
- join public.personal_ledger_periods p on p.id=m.period_id and p.status='archived'
- join public.expenses x on x.id=t.expense_id and x.scope='personal'
- where t.owner_participant_id=actor and a.owner_participant_id=actor and t.kind in('expense_funding','liability_purchase')
- and not exists(select 1 from public.personal_period_transactions z where z.owner_participant_id=actor and z.transaction_id=t.id)),'[]'));
-end $$;
-
-revoke all on function public.apply_personal_fresh_start(uuid,uuid,jsonb),public.get_personal_ledger_period_state()from public,anon;
-grant execute on function public.apply_personal_fresh_start(uuid,uuid,jsonb),public.get_personal_ledger_period_state()to authenticated;
-notify pgrst,'reload schema';
-$tabby_session_confirmation_ddl$;
+  migration_sql:=pg_catalog.convert_from(pg_catalog.decode($tabby_session_confirmation_payload$
+LS0gVXNlci1hcHByb3ZlZCBwb2xpY3kgdXBkYXRlOiBhIHZhbGlkIHBlcm1hbmVudC1vd25lciBs
+b2dpbiBhbmQgZXhwbGljaXQKLS0gY29uZmlybWF0aW9uIHN1ZmZpY2UgZm9yIEZyZXNoIFN0YXJ0
+LiBObyBHb29nbGUvcGFzc3dvcmQgcmVkaXJlY3Qgb3IgcmVjZW50Ci0tIEFNUiByZXF1aXJlbWVu
+dC4gQWxsIHByZXZpZXcvbmF0aXZlLW9wZW5pbmcvbG9ja2luZy9pZGVtcG90ZW5jZSBndWFyZHMg
+cmVtYWluLgotLSBGb3J3YXJkIG1pZ3JhdGlvbiBvbmx5OyBkZXBsb3llZDAwMS8wMDIgYXJlIGlt
+bXV0YWJsZS4gRG9lcyBub3QgcnVuIFJlc2V0LgpjcmVhdGUgb3IgcmVwbGFjZSBmdW5jdGlvbiBw
+dWJsaWMuYXBwbHlfcGVyc29uYWxfZnJlc2hfc3RhcnQocF9yZXF1ZXN0X2lkIHV1aWQscF9wcmV2
+aWV3X2lkIHV1aWQscF9vcGVuaW5ncyBqc29uYilyZXR1cm5zIGpzb25iCmxhbmd1YWdlIHBscGdz
+cWwgc2VjdXJpdHkgZGVmaW5lciBzZXQgc2VhcmNoX3BhdGg9Jycgc2V0IGxvY2tfdGltZW91dD0n
+NXMnIHNldCBzdGF0ZW1lbnRfdGltZW91dD0nMzBzJyBhcyAkJApkZWNsYXJlIGFjdG9yIHV1aWQ6
+PXByaXZhdGUucmVxdWlyZV9wZXJzb25hbF9hY3RvcigpO3JlcXVlc3RfaGFzaCB0ZXh0O29sZCBw
+dWJsaWMucGVyc29uYWxfZnJlc2hfc3RhcnRfb3BlcmF0aW9ucyVyb3d0eXBlOwogcHJldmlldyBw
+dWJsaWMucGVyc29uYWxfZnJlc2hfc3RhcnRfcHJldmlld3Mlcm93dHlwZTtzbmFwc2hvdCBqc29u
+YjtvbGRfcGVyaW9kIHV1aWQ7bmV3X3BlcmlvZCB1dWlkOj1nZW5fcmFuZG9tX3V1aWQoKTtpbnN0
+YW50IHRpbWVzdGFtcHR6Oj1jbG9ja190aW1lc3RhbXAoKTtjaG9pY2UganNvbmI7dW5pdCBwdWJs
+aWMucGVyc29uYWxfYWNjb3VudHMlcm93dHlwZTtwYXJlbnQgcHVibGljLnBlcnNvbmFsX2FjY291
+bnRzJXJvd3R5cGU7aWRzIHV1aWRbXTtvcGVuaW5nIGJpZ2ludDtyZXN1bHRfcGF5bG9hZCBqc29u
+YjthbmNob3IgdXVpZDsKYmVnaW4KIGlmIHBfcmVxdWVzdF9pZCBpcyBudWxsIG9yIHBfcHJldmll
+d19pZCBpcyBudWxsIG9yIHBfb3BlbmluZ3MgaXMgbnVsbCBvciBqc29uYl90eXBlb2YocF9vcGVu
+aW5ncyk8PidhcnJheScgdGhlbiByYWlzZSBleGNlcHRpb24gdXNpbmcgbWVzc2FnZT0naW52YWxp
+ZF9mcmVzaF9zdGFydF9yZXF1ZXN0JyxlcnJjb2RlPSdQMDAwMSc7ZW5kIGlmOwogcmVxdWVzdF9o
+YXNoOj1lbmNvZGUoZXh0ZW5zaW9ucy5kaWdlc3QoanNvbmJfYnVpbGRfb2JqZWN0KCdwcmV2aWV3
+JyxwX3ByZXZpZXdfaWQsJ29wZW5pbmdzJyxwX29wZW5pbmdzKTo6dGV4dCwnc2hhMjU2JyksJ2hl
+eCcpOwogcGVyZm9ybSBwZ19hZHZpc29yeV94YWN0X2xvY2soaGFzaHRleHRleHRlbmRlZCgnZnJl
+c2gtc3RhcnQ6J3x8YWN0b3I6OnRleHQsMCkpOwogc2VsZWN0ICogaW50byBvbGQgZnJvbSBwdWJs
+aWMucGVyc29uYWxfZnJlc2hfc3RhcnRfb3BlcmF0aW9ucyB3aGVyZSBvd25lcl9wYXJ0aWNpcGFu
+dF9pZD1hY3RvciBhbmQgcmVxdWVzdF9pZD1wX3JlcXVlc3RfaWQ7CiBpZiBmb3VuZCB0aGVuCiAg
+aWYgb2xkLnN0YXR1cz0nZmVuY2VkJyB0aGVuIHJhaXNlIGV4Y2VwdGlvbiB1c2luZyBtZXNzYWdl
+PSdmcmVzaF9zdGFydF9yZXF1ZXN0X2ZlbmNlZCcsZXJyY29kZT0nUDAwMDEnO2VuZCBpZjsKICBp
+ZiBvbGQucGF5bG9hZF9maW5nZXJwcmludDw+cmVxdWVzdF9oYXNoIHRoZW4gcmFpc2UgZXhjZXB0
+aW9uIHVzaW5nIG1lc3NhZ2U9J2lkZW1wb3RlbmN5X2NvbmZsaWN0JyxlcnJjb2RlPSdQMDAwMSc7
+ZW5kIGlmOwogIHJldHVybiBvbGQucmVzdWx0OwogZW5kIGlmOwogLS0gQ3VycmVudCBhdXRoZW50
+aWNhdGVkIHBlcm1hbmVudCBvd25lciArIGV4cGxpY2l0IFVJIGNvbmZpcm1hdGlvbjsgbm8gZXh0
+cmEgc2lnbi1pbi4KIC0tIEV4aXN0aW5nIHdyaXRlcnMgZG8gbm90IHNoYXJlIGEgcmVzZXQgbG9j
+ay4gVGFibGUgbG9ja3MgcHJvdmlkZSBhbiBhY3R1YWwKIC0tIHNlcmlhbGl6YXRpb24gYm91bmRh
+cnkgYWNyb3NzIGV4cGVuc2UvZnVuZGluZy9qb3VybmFsL3NjaGVkdWxlciB0cmFuc2FjdGlvbnMu
+CiAtLSBUaW1lb3V0L2RlYWRsb2NrIGFib3J0cyBhdG9taWNhbGx5OyB0aGVyZSBpcyBubyBjbGll
+bnQtb25seSBjb25jdXJyZW5jeSBjbGFpbS4KIGxvY2sgdGFibGUgcHVibGljLmV4cGVuc2VzLHB1
+YmxpYy5leHBlbnNlX3BhcnRpY2lwYXRpb25zLHB1YmxpYy5wYXllcl9jb250cmlidXRpb25zLHB1
+YmxpYy5leHBlbnNlX3NoYXJlcywKIHB1YmxpYy5zZXR0bGVtZW50X3BheW1lbnRzLHB1YmxpYy5z
+ZXR0bGVtZW50X2FsbG9jYXRpb25zLHB1YmxpYy5zZXR0bGVtZW50X2FsbG9jYXRpb25fcmV2ZXJz
+YWxzLAogcHVibGljLnNldHRsZW1lbnRfcGF5bWVudF9yZXF1ZXN0cyxwdWJsaWMuc2V0dGxlbWVu
+dF9hdHRyaWJ1dGlvbl9pbnRlbnRzLHB1YmxpYy5wZXJzb25hbF9zZXR0bGVtZW50X2Nhc2hfbGVn
+cyxwdWJsaWMucmVjdXJyaW5nX3J1bGVzLHB1YmxpYy5yZWN1cnJpbmdfZHJhZnRzLAogcHVibGlj
+LmRpcmVjdF9leHBlbnNlX2NoYW5nZV9yZXF1ZXN0cyxwdWJsaWMuZGlyZWN0X2V4cGVuc2VfY2hh
+bmdlX2FwcHJvdmFscywKIHB1YmxpYy5wZXJzb25hbF9hY2NvdW50cyxwdWJsaWMucGVyc29uYWxf
+YWNjb3VudF9jdXJyZW5jaWVzLHB1YmxpYy5wZXJzb25hbF9hY2NvdW50X3RyYW5zYWN0aW9ucyxw
+dWJsaWMucGVyc29uYWxfYWNjb3VudF9lbnRyaWVzLAogcHVibGljLnBlcnNvbmFsX2Z1bmRpbmdf
+aW50ZW50cyxwdWJsaWMucGVyc29uYWxfZnVuZGluZ19idW5kbGVzLHB1YmxpYy5wZXJzb25hbF9m
+dW5kaW5nX2J1bmRsZV9sZWdzLHB1YmxpYy5wZXJzb25hbF9hY2NvdW50X2JhbGFuY2VfYW5jaG9y
+cywKIHB1YmxpYy5wZXJzb25hbF9tb25leV9vcGVyYXRpb25zLHB1YmxpYy5wZXJzb25hbF9tb25l
+eV9tb3ZlbWVudHMscHVibGljLnBlcnNvbmFsX21vbmV5X21vdmVtZW50X2ZlZXMscHVibGljLnBl
+cnNvbmFsX21vbmV5X21vdmVtZW50X2NvdmVyYWdlLAogcHVibGljLnBlcnNvbmFsX2luc3RhbGxt
+ZW50X3BsYW5zLHB1YmxpYy5wZXJzb25hbF9pbnN0YWxsbWVudHMscHVibGljLnBlcnNvbmFsX3Jl
+Y3VycmluZ19ydWxlcyxwdWJsaWMucGVyc29uYWxfcmVjdXJyaW5nX29jY3VycmVuY2VzLHB1Ymxp
+Yy5wZXJzb25hbF9leHBlbnNlX2FmZmlsaWF0aW9ucywKIHB1YmxpYy5wZXJzb25hbF9sZWRnZXJf
+cGVyaW9kcyxwdWJsaWMucGVyc29uYWxfcGVyaW9kX2V4cGVuc2VzLHB1YmxpYy5wZXJzb25hbF9w
+ZXJpb2RfdHJhbnNhY3Rpb25zIGluIHNoYXJlIHJvdyBleGNsdXNpdmUgbW9kZTsKIHNlbGVjdCAq
+IGludG8gcHJldmlldyBmcm9tIHB1YmxpYy5wZXJzb25hbF9mcmVzaF9zdGFydF9wcmV2aWV3cyB3
+aGVyZSBpZD1wX3ByZXZpZXdfaWQgYW5kIG93bmVyX3BhcnRpY2lwYW50X2lkPWFjdG9yOwogaWYg
+bm90IGZvdW5kIG9yIHByZXZpZXcuZXhwaXJlc19hdDxjbG9ja190aW1lc3RhbXAoKSB0aGVuIHJh
+aXNlIGV4Y2VwdGlvbiB1c2luZyBtZXNzYWdlPSdmcmVzaF9zdGFydF9wcmV2aWV3X2V4cGlyZWQn
+LGVycmNvZGU9J1AwMDAxJztlbmQgaWY7CiBzbmFwc2hvdDo9cHJpdmF0ZS5wZXJzb25hbF9wZXJp
+b2Rfc25hcHNob3QoYWN0b3IpOwogaWYgc25hcHNob3QtPj4nZmluZ2VycHJpbnQnPD5wcmV2aWV3
+LmZpbmdlcnByaW50IHRoZW4gcmFpc2UgZXhjZXB0aW9uIHVzaW5nIG1lc3NhZ2U9J2ZyZXNoX3N0
+YXJ0X3ByZXZpZXdfY2hhbmdlZCcsZXJyY29kZT0nUDAwMDEnO2VuZCBpZjsKIGlmIGpzb25iX2Fy
+cmF5X2xlbmd0aChzbmFwc2hvdC0+J2NvbmZsaWN0cycpPD4wIHRoZW4gcmFpc2UgZXhjZXB0aW9u
+IHVzaW5nIG1lc3NhZ2U9J2ZyZXNoX3N0YXJ0X3Jldmlld19yZXF1aXJlZCcsZXJyY29kZT0nUDAw
+MDEnO2VuZCBpZjsKIGlmIGpzb25iX2FycmF5X2xlbmd0aChwX29wZW5pbmdzKTw+anNvbmJfYXJy
+YXlfbGVuZ3RoKHNuYXBzaG90LT4nYWNjb3VudHMnKW9yKHNlbGVjdCBjb3VudChkaXN0aW5jdCB4
+LT4+J2FjY291bnRfaWQnKWZyb20ganNvbmJfYXJyYXlfZWxlbWVudHMocF9vcGVuaW5ncyl4KTw+
+anNvbmJfYXJyYXlfbGVuZ3RoKHBfb3BlbmluZ3MpdGhlbiByYWlzZSBleGNlcHRpb24gdXNpbmcg
+bWVzc2FnZT0nZnJlc2hfc3RhcnRfb3BlbmluZ3NfaW5jb21wbGV0ZScsZXJyY29kZT0nUDAwMDEn
+O2VuZCBpZjsKIGlmIGV4aXN0cyhzZWxlY3QgMSBmcm9tIGpzb25iX2FycmF5X2VsZW1lbnRzKHBf
+b3BlbmluZ3MpeCB3aGVyZSBub3QgZXhpc3RzKHNlbGVjdCAxIGZyb20ganNvbmJfYXJyYXlfZWxl
+bWVudHMoc25hcHNob3QtPidhY2NvdW50cycpYSB3aGVyZSBhLT4+J2FjY291bnRfaWQnPXgtPj4n
+YWNjb3VudF9pZCcpb3IgeC0+PidhbW91bnRfbWlub3InIGlzIG51bGwgb3Igbm90KHgtPj4nYW1v
+dW50X21pbm9yJ34nXi0/WzAtOV0rJCcpb3IoeC0+PidhbW91bnRfbWlub3InKTo6bnVtZXJpYyBu
+b3QgYmV0d2VlbiAtOTAwNzE5OTI1NDc0MDk5MSBhbmQgOTAwNzE5OTI1NDc0MDk5MSl0aGVuIHJh
+aXNlIGV4Y2VwdGlvbiB1c2luZyBtZXNzYWdlPSdpbnZhbGlkX29wZW5pbmdfYmFsYW5jZScsZXJy
+Y29kZT0nUDAwMDEnO2VuZCBpZjsKIGlmIGV4aXN0cyhzZWxlY3QgMSBmcm9tIGpzb25iX2FycmF5
+X2VsZW1lbnRzKHBfb3BlbmluZ3MpcmVxdWVzdGVkIGpvaW4gbGF0ZXJhbCBqc29uYl9hcnJheV9l
+bGVtZW50cyhzbmFwc2hvdC0+J2FjY291bnRzJylhY2NvdW50X3NuYXBzaG90CiBvbiBhY2NvdW50
+X3NuYXBzaG90LT4+J2FjY291bnRfaWQnPXJlcXVlc3RlZC0+PidhY2NvdW50X2lkJwogd2hlcmUo
+YWNjb3VudF9zbmFwc2hvdC0+PidvcGVuaW5nX2xvY2tlZCcpOjpib29sZWFuIGFuZChyZXF1ZXN0
+ZWQtPj4nYW1vdW50X21pbm9yJyk6OmJpZ2ludDw+KGFjY291bnRfc25hcHNob3QtPj4nYmFsYW5j
+ZV9taW5vcicpOjpiaWdpbnQpdGhlbgogIHJhaXNlIGV4Y2VwdGlvbiB1c2luZyBtZXNzYWdlPSdm
+cmVzaF9zdGFydF9vcGVuaW5nX2xpbmtlZF9vYmxpZ2F0aW9uJyxlcnJjb2RlPSdQMDAwMSc7ZW5k
+IGlmOwogaW5zdGFudDo9Y2xvY2tfdGltZXN0YW1wKCk7CiBzZWxlY3QgaWQgaW50byBvbGRfcGVy
+aW9kIGZyb20gcHVibGljLnBlcnNvbmFsX2xlZGdlcl9wZXJpb2RzIHdoZXJlIG93bmVyX3BhcnRp
+Y2lwYW50X2lkPWFjdG9yIGFuZCBzdGF0dXM9J2FjdGl2ZSc7CiBpZiBvbGRfcGVyaW9kIGlzIG51
+bGwgdGhlbgogIGluc2VydCBpbnRvIHB1YmxpYy5wZXJzb25hbF9sZWRnZXJfcGVyaW9kcyhvd25l
+cl9wYXJ0aWNpcGFudF9pZCxzdGFydGVkX2F0LGVuZGVkX2F0LHN0YXR1cykKICB2YWx1ZXMoYWN0
+b3IsY29hbGVzY2UoKHNlbGVjdCBtaW4oY3JlYXRlZF9hdClmcm9tIHB1YmxpYy5leHBlbnNlcyB3
+aGVyZSBjcmVhdGVkX2J5PWFjdG9yKSxpbnN0YW50KSxpbnN0YW50LCdhcmNoaXZlZCcpcmV0dXJu
+aW5nIGlkIGludG8gb2xkX3BlcmlvZDsKIGVsc2UgdXBkYXRlIHB1YmxpYy5wZXJzb25hbF9sZWRn
+ZXJfcGVyaW9kcyBzZXQgZW5kZWRfYXQ9aW5zdGFudCxzdGF0dXM9J2FyY2hpdmVkJ3doZXJlIGlk
+PW9sZF9wZXJpb2Q7ZW5kIGlmOwogaW5zZXJ0IGludG8gcHVibGljLnBlcnNvbmFsX3BlcmlvZF9l
+eHBlbnNlcyhvd25lcl9wYXJ0aWNpcGFudF9pZCxwZXJpb2RfaWQsZXhwZW5zZV9pZClzZWxlY3Qg
+YWN0b3Isb2xkX3BlcmlvZCx4Ojp1dWlkIGZyb20ganNvbmJfYXJyYXlfZWxlbWVudHNfdGV4dChz
+bmFwc2hvdC0+J2V4cGVuc2VfaWRzJyl4OwogaW5zZXJ0IGludG8gcHVibGljLnBlcnNvbmFsX3Bl
+cmlvZF90cmFuc2FjdGlvbnMob3duZXJfcGFydGljaXBhbnRfaWQscGVyaW9kX2lkLHRyYW5zYWN0
+aW9uX2lkKXNlbGVjdCBhY3RvcixvbGRfcGVyaW9kLHg6OnV1aWQgZnJvbSBqc29uYl9hcnJheV9l
+bGVtZW50c190ZXh0KHNuYXBzaG90LT4ndHJhbnNhY3Rpb25faWRzJyl4OwogaW5zZXJ0IGludG8g
+cHVibGljLnBlcnNvbmFsX2xlZGdlcl9wZXJpb2RzKGlkLG93bmVyX3BhcnRpY2lwYW50X2lkLHN0
+YXJ0ZWRfYXQsc3RhdHVzKXZhbHVlcyhuZXdfcGVyaW9kLGFjdG9yLGluc3RhbnQsJ2FjdGl2ZScp
+OwogZm9yIGNob2ljZSBpbiBzZWxlY3QgKiBmcm9tIGpzb25iX2FycmF5X2VsZW1lbnRzKHBfb3Bl
+bmluZ3Mpb3JkZXIgYnkgdmFsdWUtPj4nYWNjb3VudF9pZCdsb29wCiAgc2VsZWN0ICogaW50byB1
+bml0IGZyb20gcHVibGljLnBlcnNvbmFsX2FjY291bnRzIHdoZXJlIGlkPShjaG9pY2UtPj4nYWNj
+b3VudF9pZCcpOjp1dWlkIGFuZCBvd25lcl9wYXJ0aWNpcGFudF9pZD1hY3RvcjsKICBzZWxlY3Qg
+KiBpbnRvIHBhcmVudCBmcm9tIHB1YmxpYy5wZXJzb25hbF9hY2NvdW50cyB3aGVyZSBpZD1jb2Fs
+ZXNjZSgoc2VsZWN0IHBhcmVudF9hY2NvdW50X2lkIGZyb20gcHVibGljLnBlcnNvbmFsX2FjY291
+bnRfY3VycmVuY2llcyB3aGVyZSBhY2NvdW50X2lkPXVuaXQuaWQpLHVuaXQuaWQpOwogIG9wZW5p
+bmc6PShjaG9pY2UtPj4nYW1vdW50X21pbm9yJyk6OmJpZ2ludDsKICBzZWxlY3QgY29hbGVzY2Uo
+YXJyYXlfYWdnKGlkIG9yZGVyIGJ5IGlkKSwne30nKWludG8gaWRzIGZyb20gcHVibGljLnBlcnNv
+bmFsX2FjY291bnRfZW50cmllcyB3aGVyZSBhY2NvdW50X2lkPXVuaXQuaWQ7CiAgcmVzdWx0X3Bh
+eWxvYWQ6PXB1YmxpYy5zZXRfcGVyc29uYWxfY3VycmVuY3lfYmFsYW5jZShwcml2YXRlLm1vbmV5
+X2NoaWxkX3JlcXVlc3QocF9yZXF1ZXN0X2lkLCdmcmVzaC1zdGFydDonfHx1bml0LmlkOjp0ZXh0
+KSx1bml0LmlkLG9wZW5pbmcsaW5zdGFudCx1bml0LnZlcnNpb24scGFyZW50LnZlcnNpb24saWRz
+KTsKICBzZWxlY3QgaWQgaW50byBhbmNob3IgZnJvbSBwdWJsaWMucGVyc29uYWxfYWNjb3VudF9i
+YWxhbmNlX2FuY2hvcnMgd2hlcmUgYWNjb3VudF9pZD11bml0LmlkIG9yZGVyIGJ5IGFuY2hvcl9z
+ZXF1ZW5jZSBkZXNjIGxpbWl0IDE7CiAgaWYgYW5jaG9yIGlzIG51bGwgdGhlbiByYWlzZSBleGNl
+cHRpb24gdXNpbmcgbWVzc2FnZT0nZnJlc2hfc3RhcnRfYW5jaG9yX21pc3NpbmcnLGVycmNvZGU9
+J1AwMDAxJztlbmQgaWY7CiAgaW5zZXJ0IGludG8gcHVibGljLnBlcnNvbmFsX3BlcmlvZF9vcGVu
+aW5ncyhvd25lcl9wYXJ0aWNpcGFudF9pZCxwZXJpb2RfaWQsYWNjb3VudF9pZCxjdXJyZW5jeSxh
+bW91bnRfbWlub3IsYW5jaG9yX2lkKXZhbHVlcyhhY3RvcixuZXdfcGVyaW9kLHVuaXQuaWQsdW5p
+dC5jdXJyZW5jeSxvcGVuaW5nLGFuY2hvcik7CiAgLS0gQmFzZWxpbmUvY2FsaWJyYXRpb24gaXMg
+bm90IGEgbmV3IHNwZW5kaW5nIG9yIGluY29tZSBhY3Rpdml0eS4KICBpbnNlcnQgaW50byBwdWJs
+aWMucGVyc29uYWxfcGVyaW9kX3RyYW5zYWN0aW9ucyhvd25lcl9wYXJ0aWNpcGFudF9pZCxwZXJp
+b2RfaWQsdHJhbnNhY3Rpb25faWQpCiAgc2VsZWN0IGFjdG9yLG9sZF9wZXJpb2QsYi5jYWxpYnJh
+dGlvbl90cmFuc2FjdGlvbl9pZCBmcm9tIHB1YmxpYy5wZXJzb25hbF9hY2NvdW50X2JhbGFuY2Vf
+YW5jaG9ycyBiCiAgd2hlcmUgYi5pZD1hbmNob3IgYW5kIGIuY2FsaWJyYXRpb25fdHJhbnNhY3Rp
+b25faWQgaXMgbm90IG51bGwKICBvbiBjb25mbGljdCBkbyBub3RoaW5nOwogZW5kIGxvb3A7CiBy
+ZXN1bHRfcGF5bG9hZDo9anNvbmJfYnVpbGRfb2JqZWN0KCdzY2hlbWFfdmVyc2lvbicsMSwnb3du
+ZXJfaWQnLGFjdG9yLCdyZXF1ZXN0X2lkJyxwX3JlcXVlc3RfaWQsJ3BlcmlvZF9pZCcsbmV3X3Bl
+cmlvZCwnYXJjaGl2ZWRfcGVyaW9kX2lkJyxvbGRfcGVyaW9kLCdjb21wbGV0ZWRfYXQnLGluc3Rh
+bnQsJ2F1dGhlbnRpY2F0aW9uX21ldGhvZCcsJ3Nlc3Npb24nLCdwb2xpY3knLCdjYXJyeV9hbGwn
+KTsKIGluc2VydCBpbnRvIHB1YmxpYy5wZXJzb25hbF9mcmVzaF9zdGFydF9vcGVyYXRpb25zKG93
+bmVyX3BhcnRpY2lwYW50X2lkLHJlcXVlc3RfaWQsc3RhdHVzLHBheWxvYWRfZmluZ2VycHJpbnQs
+cmVzdWx0KXZhbHVlcyhhY3RvcixwX3JlcXVlc3RfaWQsJ2NvbW1pdHRlZCcscmVxdWVzdF9oYXNo
+LHJlc3VsdF9wYXlsb2FkKTsKIHJldHVybiByZXN1bHRfcGF5bG9hZDsKZW5kICQkOwoKCmNyZWF0
+ZSBvciByZXBsYWNlIGZ1bmN0aW9uIHB1YmxpYy5nZXRfcGVyc29uYWxfbGVkZ2VyX3BlcmlvZF9z
+dGF0ZSgpcmV0dXJucyBqc29uYiBsYW5ndWFnZSBwbHBnc3FsIHN0YWJsZSBzZWN1cml0eSBkZWZp
+bmVyIHNldCBzZWFyY2hfcGF0aD0nJyBhcyAkJApkZWNsYXJlIGFjdG9yIHV1aWQ6PXByaXZhdGUu
+cmVxdWlyZV9wZXJzb25hbF9hY3RvcigpO2JlZ2luCiByZXR1cm4ganNvbmJfYnVpbGRfb2JqZWN0
+KCdzY2hlbWFfdmVyc2lvbicsMSwnb3BlbmluZ19zYWZldHlfdmVyc2lvbicsMiwnZnJlc2hfc3Rh
+cnRfY29uZmlybWF0aW9uX3ZlcnNpb24nLDEsJ293bmVyX2lkJyxhY3RvciwKICdwZXJpb2RzJyxj
+b2FsZXNjZSgoc2VsZWN0IGpzb25iX2FnZyhqc29uYl9idWlsZF9vYmplY3QoJ2lkJyxpZCwnc3Rh
+cnRlZF9hdCcsc3RhcnRlZF9hdCwnZW5kZWRfYXQnLGVuZGVkX2F0LCdzdGF0dXMnLHN0YXR1cylv
+cmRlciBieSBzdGFydGVkX2F0IGRlc2MsaWQpZnJvbSBwdWJsaWMucGVyc29uYWxfbGVkZ2VyX3Bl
+cmlvZHMgd2hlcmUgb3duZXJfcGFydGljaXBhbnRfaWQ9YWN0b3IpLCdbXScpLAogJ2FyY2hpdmVk
+X2V4cGVuc2VfaWRzJyxjb2FsZXNjZSgoc2VsZWN0IGpzb25iX2FnZyhtLmV4cGVuc2VfaWQgb3Jk
+ZXIgYnkgbS5leHBlbnNlX2lkKWZyb20gcHVibGljLnBlcnNvbmFsX3BlcmlvZF9leHBlbnNlcyBt
+IGpvaW4gcHVibGljLnBlcnNvbmFsX2xlZGdlcl9wZXJpb2RzIHAgb24gcC5pZD1tLnBlcmlvZF9p
+ZCB3aGVyZSBtLm93bmVyX3BhcnRpY2lwYW50X2lkPWFjdG9yIGFuZCBwLnN0YXR1cz0nYXJjaGl2
+ZWQnKSwnW10nKSwKICdhcmNoaXZlZF90cmFuc2FjdGlvbl9pZHMnLGNvYWxlc2NlKChzZWxlY3Qg
+anNvbmJfYWdnKG0udHJhbnNhY3Rpb25faWQgb3JkZXIgYnkgbS50cmFuc2FjdGlvbl9pZClmcm9t
+IHB1YmxpYy5wZXJzb25hbF9wZXJpb2RfdHJhbnNhY3Rpb25zIG0gam9pbiBwdWJsaWMucGVyc29u
+YWxfbGVkZ2VyX3BlcmlvZHMgcCBvbiBwLmlkPW0ucGVyaW9kX2lkIHdoZXJlIG0ub3duZXJfcGFy
+dGljaXBhbnRfaWQ9YWN0b3IgYW5kIHAuc3RhdHVzPSdhcmNoaXZlZCcpLCdbXScpLAogJ2xhdGVy
+X2Z1bmRpbmcnLGNvYWxlc2NlKChzZWxlY3QganNvbmJfYWdnKGpzb25iX2J1aWxkX29iamVjdCgn
+aWQnLHQuaWQsJ2FjY291bnRfaWQnLGEuaWQsJ2FjY291bnRfbmFtZScsYS5uYW1lLCdleHBlbnNl
+X2lkJyx0LmV4cGVuc2VfaWQsJ29jY3VycmVkX29uJyx0Lm9jY3VycmVkX29uLCdjcmVhdGVkX2F0
+Jyx0LmNyZWF0ZWRfYXQsJ2N1cnJlbmN5JyxlLmN1cnJlbmN5LCdhbW91bnRfbWlub3InLGUuYW1v
+dW50X21pbm9yOjp0ZXh0LCdtZW1vJyx0Lm1lbW8pb3JkZXIgYnkgdC5pZCxhLmlkKQogZnJvbSBw
+dWJsaWMucGVyc29uYWxfYWNjb3VudF90cmFuc2FjdGlvbnMgdCBqb2luIHB1YmxpYy5wZXJzb25h
+bF9hY2NvdW50X2VudHJpZXMgZSBvbiBlLnRyYW5zYWN0aW9uX2lkPXQuaWQgam9pbiBwdWJsaWMu
+cGVyc29uYWxfYWNjb3VudHMgYSBvbiBhLmlkPWUuYWNjb3VudF9pZAogam9pbiBwdWJsaWMucGVy
+c29uYWxfcGVyaW9kX2V4cGVuc2VzIG0gb24gbS5leHBlbnNlX2lkPXQuZXhwZW5zZV9pZCBhbmQg
+bS5vd25lcl9wYXJ0aWNpcGFudF9pZD1hY3Rvcgogam9pbiBwdWJsaWMucGVyc29uYWxfbGVkZ2Vy
+X3BlcmlvZHMgcCBvbiBwLmlkPW0ucGVyaW9kX2lkIGFuZCBwLnN0YXR1cz0nYXJjaGl2ZWQnCiBq
+b2luIHB1YmxpYy5leHBlbnNlcyB4IG9uIHguaWQ9dC5leHBlbnNlX2lkIGFuZCB4LnNjb3BlPSdw
+ZXJzb25hbCcKIHdoZXJlIHQub3duZXJfcGFydGljaXBhbnRfaWQ9YWN0b3IgYW5kIGEub3duZXJf
+cGFydGljaXBhbnRfaWQ9YWN0b3IgYW5kIHQua2luZCBpbignZXhwZW5zZV9mdW5kaW5nJywnbGlh
+YmlsaXR5X3B1cmNoYXNlJykKIGFuZCBub3QgZXhpc3RzKHNlbGVjdCAxIGZyb20gcHVibGljLnBl
+cnNvbmFsX3BlcmlvZF90cmFuc2FjdGlvbnMgeiB3aGVyZSB6Lm93bmVyX3BhcnRpY2lwYW50X2lk
+PWFjdG9yIGFuZCB6LnRyYW5zYWN0aW9uX2lkPXQuaWQpKSwnW10nKSk7CmVuZCAkJDsKCnJldm9r
+ZSBhbGwgb24gZnVuY3Rpb24gcHVibGljLmFwcGx5X3BlcnNvbmFsX2ZyZXNoX3N0YXJ0KHV1aWQs
+dXVpZCxqc29uYikscHVibGljLmdldF9wZXJzb25hbF9sZWRnZXJfcGVyaW9kX3N0YXRlKClmcm9t
+IHB1YmxpYyxhbm9uOwpncmFudCBleGVjdXRlIG9uIGZ1bmN0aW9uIHB1YmxpYy5hcHBseV9wZXJz
+b25hbF9mcmVzaF9zdGFydCh1dWlkLHV1aWQsanNvbmIpLHB1YmxpYy5nZXRfcGVyc29uYWxfbGVk
+Z2VyX3BlcmlvZF9zdGF0ZSgpdG8gYXV0aGVudGljYXRlZDsKbm90aWZ5IHBncnN0LCdyZWxvYWQg
+c2NoZW1hJzsK
+$tabby_session_confirmation_payload$,'base64'),'UTF8');
+  if pg_catalog.encode(extensions.digest(migration_sql,'sha256'),'hex')<>'15a8d0c43a5d21a5f87047794ca8ed090b802d81ae0f3a78737346cafed1820f'then
+   raise exception 'Session confirmation migration payload checksum mismatch.';end if;
   execute migration_sql;
   insert into supabase_migrations.schema_migrations(version,name,statements)values('202610250003','personal_period_session_confirmation',array[migration_sql]);
  end if;
@@ -112,10 +209,10 @@ $tabby_session_confirmation_ddl$;
  or not pg_catalog.has_function_privilege('authenticated','public.apply_personal_fresh_start(uuid,uuid,jsonb)','EXECUTE')
  or pg_catalog.has_function_privilege('anon','public.apply_personal_fresh_start(uuid,uuid,jsonb)','EXECUTE')then
   raise exception 'Session confirmation safeguards are incomplete.';end if;
- if(select pg_catalog.encode(extensions.digest(pg_catalog.replace(prosrc,pg_catalog.chr(13)||pg_catalog.chr(10),pg_catalog.chr(10)),'sha256'),'hex')from pg_catalog.pg_proc where oid='public.apply_personal_fresh_start(uuid,uuid,jsonb)'::regprocedure)is distinct from '3de740166a999eec6617416844ca439f88e6989c8844ad134437b8d1b9a740d8'then raise exception 'Unexpected session-confirmation function body.';end if;
- if(select pg_catalog.encode(extensions.digest(pg_catalog.replace(prosrc,pg_catalog.chr(13)||pg_catalog.chr(10),pg_catalog.chr(10)),'sha256'),'hex')from pg_catalog.pg_proc where oid='public.get_personal_ledger_period_state()'::regprocedure)is distinct from 'de6c82926231f0bf3095516c1013ba7bde91e2ae9efe554b4de8c93546942345'then raise exception 'Unexpected session-confirmation function body.';end if;
+ if(select pg_catalog.encode(extensions.digest(pg_catalog.replace(prosrc,pg_catalog.chr(13)||pg_catalog.chr(10),pg_catalog.chr(10)),'sha256'),'hex')from pg_catalog.pg_proc where oid='public.apply_personal_fresh_start(uuid,uuid,jsonb)'::regprocedure)is distinct from '3de740166a999eec6617416844ca439f88e6989c8844ad134437b8d1b9a740d8'then raise exception 'Unexpected session-confirmation function body: public.apply_personal_fresh_start';end if;
+ if(select pg_catalog.encode(extensions.digest(pg_catalog.replace(prosrc,pg_catalog.chr(13)||pg_catalog.chr(10),pg_catalog.chr(10)),'sha256'),'hex')from pg_catalog.pg_proc where oid='public.get_personal_ledger_period_state()'::regprocedure)is distinct from 'de6c82926231f0bf3095516c1013ba7bde91e2ae9efe554b4de8c93546942345'then raise exception 'Unexpected session-confirmation function body: public.get_personal_ledger_period_state';end if;
 end $tabby_session_confirmation_apply$;
 notify pgrst,'reload schema';
 commit;
-select 'TABBY_FRESH_START_SESSION_CONFIRMATION_COMPLETE_20261025' as result;
+select 'TABBY_FRESH_START_SESSION_CONFIRMATION_COMPLETE_20261025_V2' as result;
 -- END OF COMPLETE FILE
