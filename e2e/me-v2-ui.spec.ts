@@ -3,13 +3,14 @@ import {mkdir} from 'node:fs/promises'
 import {setupMulticurrency} from './fixtures/multicurrency'
 
 /** Production components + intercepted synthetic API. SQL/E2E separately verify real financial writes. */
-async function setup(page:Page,{available=true,hidden=false,failPreview=false,unknown=false}={}){
+async function setup(page:Page,{available=true,hidden=false,failPreview=false,unknown=false,locked=false}={}){
  const base=await setupMulticurrency(page,{hidden})
  const state={name:'Paper Tester',commits:0,profiles:0,passwordWrites:0,failPreview,available,lostResponse:false,pending:false}
  const user={id:'ui-contract-user',aud:'authenticated',role:'authenticated',email:'paper-ui@example.test',is_anonymous:false,email_confirmed_at:'2026-10-01T00:00:00Z',user_metadata:{display_name:state.name},identities:[{provider:'email',id:'email-ui',user_id:'ui-contract-user',identity_data:{email:'paper-ui@example.test'}}]}
  const old={owner_participant_id:'owner',id:'00000000-0000-4000-8000-000000000080',started_at:'2026-01-01T00:00:00Z',ended_at:'2026-10-25T00:00:00Z',status:'archived'}
- const preview={schema_version:1,owner_id:'owner',id:'00000000-0000-4000-8000-000000000081',fingerprint:'synthetic-contract-fingerprint',expires_at:new Date(Date.now()+900000).toISOString(),policy:'carry_all',accounts:[{account_id:'cash',parent_id:'cash',name:'Cash',currency:'MYR',account_class:'asset',account_type:'cash',known:true,balance_minor:'128000',version:1,parent_version:1},{account_id:'vnd',parent_id:'wise',name:'Wise',currency:'VND',account_class:'asset',account_type:'bank',known:true,balance_minor:'-90000',version:1,parent_version:1}],currencies:[{currency:'MYR',amount_minor:'1800'},{currency:'VND',amount_minor:'90000'}],personal_count:2,protected_shared_count:3,protected_settlement_count:2,pending_funding_count:1,ongoing_installment_count:1,recurring_rule_count:1,conflicts:[]}
+ const preview={schema_version:1,owner_id:'owner',id:'00000000-0000-4000-8000-000000000081',fingerprint:'synthetic-contract-fingerprint',expires_at:new Date(Date.now()+900000).toISOString(),policy:'carry_all',accounts:[{account_id:'cash',parent_id:'cash',name:'Cash',currency:'MYR',account_class:'asset',account_type:'cash',opening_locked:false,known:true,balance_minor:'128000',version:1,parent_version:1},{account_id:'vnd',parent_id:'wise',name:'Wise',currency:'VND',account_class:'asset',account_type:'bank',opening_locked:false,known:true,balance_minor:'-90000',version:1,parent_version:1}],currencies:[{currency:'MYR',amount_minor:'1800'},{currency:'VND',amount_minor:'90000'}],personal_count:2,protected_shared_count:3,protected_settlement_count:2,pending_funding_count:1,ongoing_installment_count:1,recurring_rule_count:1,conflicts:[]}
  if(unknown)preview.accounts[1].known=false
+ if(locked){preview.accounts.forEach(a=>a.opening_locked=true);if(unknown)preview.conflicts.push('linked_obligation_unknown_balance' as never)}
  let receipt:Record<string,unknown>|null=null
  await page.route('http://127.0.0.1:54321/**',async r=>{
   const path=new URL(r.request().url()).pathname,method=r.request().method()
@@ -19,7 +20,7 @@ async function setup(page:Page,{available=true,hidden=false,failPreview=false,un
    return r.fulfill({json:{access_token,refresh_token:'test-only',expires_at:exp,expires_in:3600,token_type:'bearer',user}})
   }
   if(path.endsWith('/user_profiles')){if(method==='PATCH'){state.profiles++;state.name=r.request().postDataJSON().display_name}return r.fulfill({json:{display_name:state.name,default_currency:'MYR',timezone:'Asia/Kuala_Lumpur'}})}
-  if(path.endsWith('/rpc/get_personal_ledger_period_state'))return state.available?r.fulfill({json:{schema_version:1,owner_id:'owner',periods:[old],archived_expense_ids:[],archived_transaction_ids:[],later_funding:[]}}):r.fulfill({status:404,json:{code:'PGRST202'}})
+  if(path.endsWith('/rpc/get_personal_ledger_period_state'))return state.available?r.fulfill({json:{schema_version:1,opening_safety_version:2,owner_id:'owner',periods:[old],archived_expense_ids:[],archived_transaction_ids:[],later_funding:[]}}):r.fulfill({status:404,json:{code:'PGRST202'}})
   if(path.endsWith('/rpc/preview_personal_fresh_start'))return state.failPreview?r.fulfill({status:503,json:{message:'Synthetic unavailable'}}):r.fulfill({json:preview})
   if(path.endsWith('/rpc/get_personal_fresh_start_preview'))return r.fulfill({json:preview})
   if(path.endsWith('/rpc/apply_personal_fresh_start')){
@@ -66,5 +67,13 @@ test('unknown balances require exact native input; reload cannot silently commit
 })
 
 test('returning to opening review requires another explicit confirmation',async({page})=>{
- await setup(page);await beginReview(page);await page.getByRole('button',{name:'Review opening balances',exact:true}).click();await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('checkbox').check();await page.goBack();await expect(page.getByRole('heading',{name:'Opening balances',exact:true})).toBeVisible();await page.goForward();await expect(page.getByRole('checkbox')).not.toBeChecked();await expect(page.getByRole('button',{name:'Start new personal ledger',exact:true})).toBeDisabled()
+ await setup(page);await beginReview(page);await page.getByRole('button',{name:'Review opening balances',exact:true}).click();await page.getByRole('button',{name:'Continue',exact:true}).click();await expect(page.getByRole('heading',{name:'Confirm Fresh Start',exact:true})).toBeVisible();await page.getByRole('checkbox',{name:/I understand that personal history/}).check();await page.goBack();await expect(page.getByRole('heading',{name:'Opening balances',exact:true})).toBeVisible();await page.goForward();await expect(page.getByRole('heading',{name:'Confirm Fresh Start',exact:true})).toBeVisible();await expect(page.getByRole('checkbox',{name:/I understand that personal history/})).not.toBeChecked();await expect(page.getByRole('button',{name:'Start new personal ledger',exact:true})).toBeDisabled()
+})
+
+for(const unknown of [false,true])test(`linked obligations ${unknown?'block unknown balances':'retain recorded openings'} without inventing inclusion`,async({page})=>{
+ const{state}=await setup(page,{locked:true,unknown});await beginReview(page)
+ const next=page.getByRole('button',{name:'Review opening balances',exact:true})
+ if(unknown){await expect(next).toBeDisabled();await expect(page.getByText(/An unknown balance is linked/)).toBeVisible()}
+ else{await next.click();const boxes=page.getByRole('checkbox',{name:'Keep recorded balance',exact:true});await expect(boxes).toHaveCount(2);for(const box of await boxes.all()){await expect(box).toBeChecked();await expect(box).toBeDisabled()}await expect(page.getByRole('textbox')).toHaveCount(0);await expect(page.getByRole('button',{name:'Continue',exact:true})).toBeEnabled()}
+ await capture(page,unknown?'guard-linked-unknown':'guard-linked-recorded');expect(state.commits).toBe(0)
 })

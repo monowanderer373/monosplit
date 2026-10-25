@@ -58,6 +58,9 @@ select throws_ok($$select pg_temp.apply('e0250000-0000-4000-8000-000000000003')$
 select is((select count(*)from personal_ledger_periods),0::bigint,'stale preview cannot partly archive history');
 select pg_temp.review();
 insert into fresh values('command',jsonb_build_object('preview',(select v->>'id'from fresh where k='preview'),'openings',pg_temp.openings()));
+select ok((select(x->>'opening_locked')::boolean from jsonb_array_elements((select v->'accounts'from fresh where k='preview'))x where x->>'account_id'=(select v->>'account_id'from fresh where k='credit')),'active installment native principal is locked to the recorded baseline');
+select throws_ok($$select apply_personal_fresh_start(gen_random_uuid(),(select(v->>'id')::uuid from fresh where k='preview'),
+ (select jsonb_agg(case when x->>'account_id'=(select v->>'account_id'from fresh where k='credit')then jsonb_set(x,'{amount_minor}',to_jsonb(((x->>'amount_minor')::bigint+1)::text))else x end)from jsonb_array_elements(pg_temp.openings())x))$$,'P0001','fresh_start_opening_linked_obligation','Fresh Start cannot erase or invent an active installment principal through a changed opening');
 insert into fresh values('rollback-before',get_personal_multicurrency_accounts());
 set local test.fail_fresh='on';
 select throws_ok($$select pg_temp.apply('e0250000-0000-4000-8000-000000000006')$$,'P0001','disposable_opening_failure','failure after an earlier account opening rolls the entire operation back');
@@ -99,6 +102,25 @@ select confirm_personal_funding_bundle(gen_random_uuid(),(select(v->'funding'->>
 select is(pg_temp.balance('cash'),9000::bigint,'later actual not-included deduction reduces balance exactly once');
 select is(jsonb_array_length(get_personal_ledger_period_state()->'later_funding'),1,'late original-expense funding appears as new-period cash activity');
 select ok((get_personal_ledger_period_state()->'archived_expense_ids')? (select v->>'expense_id'from fresh where k='personal'),'later funding never repeats old personal spending');
+-- A pending shared cash movement has no safe bank-inclusion inference.
+select pg_temp.claims('d0250000-0000-4000-8000-000000000002');
+select respond_to_direct_expense((select(v->>'id')::uuid from fresh where k='shared'),'accepted',1);
+insert into fresh values('pending-shared-cash',to_jsonb(propose_settlement(gen_random_uuid(),'direct',null,'MYR',200,current_date,
+ array[(select id from participants where auth_user_id='d0250000-0000-4000-8000-000000000001')],array[200::bigint],
+ 'Continuing pending cash',null,900,array[(select(v->>'id')::uuid from fresh where k='shared')],array[200::bigint],null)));
+select pg_temp.claims('d0250000-0000-4000-8000-000000000001');
+select pg_temp.review();
+select ok((select bool_and((x->>'opening_locked')::boolean)from jsonb_array_elements((select v->'accounts'from fresh where k='preview'))x),'unbound pending shared cash conservatively locks current native balances');
+insert into fresh values('shared-cash-before',jsonb_build_object('balance',pg_temp.balance('cash'),'payment',(select to_jsonb(x)from settlement_payments x where id=(select(v#>>'{}')::uuid from fresh where k='pending-shared-cash'))));
+select throws_ok($$select apply_personal_fresh_start(gen_random_uuid(),(select(v->>'id')::uuid from fresh where k='preview'),
+ (select jsonb_agg(case when x->>'account_id'=(select v->>'account_id'from fresh where k='cash')then jsonb_set(x,'{amount_minor}',to_jsonb(((x->>'amount_minor')::bigint+200)::text))else x end)from jsonb_array_elements(pg_temp.openings())x))$$,'P0001','fresh_start_opening_linked_obligation','an observed opening cannot count a pending shared cash movement early');
+select lives_ok($$select pg_temp.apply('e0250000-0000-4000-8000-000000000010')$$,'keeping recorded balances permits Fresh Start with continuing pending shared cash');
+select is(jsonb_build_object('balance',pg_temp.balance('cash'),'payment',(select to_jsonb(x)from settlement_payments x where id=(select(v#>>'{}')::uuid from fresh where k='pending-shared-cash'))),(select v from fresh where k='shared-cash-before'),'shared pending cash and native balance stay identical after the safe new period');
+insert into fresh values('linked-unknown',add_personal_account_currency(gen_random_uuid(),(select(v->>'account_id')::uuid from fresh where k='cash'),'JPY',(pg_temp.unit('cash')->>'version')::int,null,null));
+select pg_temp.review();
+select ok((select(v->'conflicts')?'linked_obligation_unknown_balance'from fresh where k='preview'),'unknown native balance linked to pending shared cash blocks review without zero fallback');
+select throws_ok($$select pg_temp.apply('e0250000-0000-4000-8000-000000000011')$$,'P0001','fresh_start_review_required','client cannot bypass the linked unknown-balance gate');
+
 select pg_temp.claims('d0250000-0000-4000-8000-000000000001',0,true);
 select throws_ok($$select preview_personal_fresh_start()$$,'P0001','permanent_account_required','anonymous cannot start a ledger reset');
 reset role;
