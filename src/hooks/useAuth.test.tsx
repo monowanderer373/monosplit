@@ -9,7 +9,8 @@ const mock = vi.hoisted(() => ({
   getSession: vi.fn(),
   profile: vi.fn(),
   participant: vi.fn(),
-  upsert:vi.fn(),
+  update:vi.fn(),
+  write:vi.fn(),
 }))
 vi.mock('../lib/supabase', () => ({
   supabaseEnabled: true,
@@ -21,7 +22,7 @@ vi.mock('../lib/supabase', () => ({
         return { data: { subscription: { unsubscribe: () => mock.callbacks.delete(callback) } } }
       },
     },
-    from: (table: string) => ({ upsert:mock.upsert,select: () => ({ eq: () => ({
+    from: (table: string) => ({ update:mock.update,select: () => ({ eq: () => ({
       maybeSingle: table === 'participants' ? mock.participant : mock.profile,
     }) }) }),
   },
@@ -49,6 +50,7 @@ async function emit(event: string, session: unknown) {
 beforeEach(() => {
   mock.callbacks.clear()
   vi.clearAllMocks()
+  mock.update.mockReturnValue({eq:()=>({select:()=>({single:mock.write})})})
   mock.profile.mockResolvedValue({ data: { display_name: 'Dav' }, error: null })
   mock.participant.mockResolvedValue({ data: { id: 'participant-a' }, error: null })
 })
@@ -138,8 +140,8 @@ describe('session startup', () => {
 })
 
 it('a delayed display-name save cannot overwrite the next signed-in account',async()=>{
- const write=deferred<{error:null}>()
- mock.upsert.mockReturnValue(write.promise)
+ const write=deferred<{data:{display_name:string};error:null}>()
+ mock.write.mockReturnValue(write.promise)
  mock.getSession.mockResolvedValue(sessionResult(true))
  function Editor(){const auth=useAuth();return <><p>{auth.authUser?.id}:{auth.authUser?.displayName}</p><button onClick={()=>void auth.updateProfile({displayName:'Old account edit'})}>Update name</button></>}
  render(<AuthProvider><Editor/></AuthProvider>)
@@ -148,7 +150,7 @@ it('a delayed display-name save cannot overwrite the next signed-in account',asy
  mock.profile.mockResolvedValue({data:{display_name:'Name B'},error:null})
  await emit('SIGNED_IN',{user:{...user,id:'account-b',email:'b@example.test'}})
  await screen.findByText('account-b:Name B')
- await act(async()=>write.resolve({error:null}))
+ await act(async()=>write.resolve({data:{display_name:'Old account edit'},error:null}))
  expect(screen.getByText('account-b:Name B')).toBeTruthy()
- expect(mock.upsert).toHaveBeenCalledWith({id:'account-a',display_name:'Old account edit'})
+ expect(mock.update).toHaveBeenCalledWith({display_name:'Old account edit'})
 })

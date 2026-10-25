@@ -26,10 +26,10 @@ function ProfileContents(){
  useRouteScroll(!loading&&!!authUser,authUser?.id??'')
  const page=location.pathname.replace(/^\/profile\/?/,'')
  useEffect(()=>{
-  const root=mainRef.current,previous=previousPage.current;previousPage.current=page
+  const root=mainRef.current,previous=previousPage.current;if(!root||previous===page)return;previousPage.current=page
   const target=navigationType==='POP'&&previous?[...root?.querySelectorAll<HTMLElement>('[data-me-route]')??[]].find(el=>el.dataset.meRoute===previous):null
   ;(target??root?.querySelector<HTMLHeadingElement>('h1'))?.focus({preventScroll:true})
- },[page,navigationType])
+ },[page,navigationType,loading])
  const [name,setName]=useState<string|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('')
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[feedback,setFeedback]=useState('')
  const [verifiedEmail,setVerifiedEmail]=useState('')

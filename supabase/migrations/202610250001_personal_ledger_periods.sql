@@ -113,7 +113,7 @@ begin
  pieces:=pieces||jsonb_build_object('entries',part);
  select coalesce(jsonb_agg(to_jsonb(x)order by x.id),'[]') into part from public.direct_expense_change_requests x where x.target_expense_id=any(visible_ids)or x.replacement_expense_id=any(visible_ids);pieces:=pieces||jsonb_build_object('changes',part);
  select coalesce(jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text),'[]') into part from public.direct_expense_change_approvals x join public.direct_expense_change_requests q on q.id=x.request_id where q.target_expense_id=any(visible_ids)or q.replacement_expense_id=any(visible_ids);pieces:=pieces||jsonb_build_object('approvals',part);
- select coalesce(jsonb_agg(jsonb_build_object('account_id',a.id,'parent_id',coalesce(c.parent_account_id,a.id),'name',p.name,'currency',a.currency,
+ select coalesce(jsonb_agg(jsonb_build_object('account_id',a.id,'parent_id',coalesce(c.parent_account_id,a.id),'name',p.name,'currency',a.currency,'account_class',a.account_class,'account_type',a.account_type,
   'known',a.opening_status='posted','balance_minor',coalesce((select sum(e.amount_minor)from public.personal_account_entries e where e.account_id=a.id),0)::text,
   'version',a.version,'parent_version',p.version)order by p.id,a.currency,a.id),'[]') into accounts
  from public.personal_accounts a left join public.personal_account_currencies c on c.account_id=a.id join public.personal_accounts p on p.id=coalesce(c.parent_account_id,a.id)
@@ -122,7 +122,7 @@ begin
   select currency,sum(total_minor)amount from public.expenses where id=any(personal_ids) and status<>'voided'group by currency
  )a;
  return jsonb_build_object('fingerprint',encode(extensions.digest(pieces::text,'sha256'),'hex'),'expense_ids',to_jsonb(personal_ids),'transaction_ids',to_jsonb(tx_ids),
-  'accounts',accounts,'currencies',amounts,'personal_count',cardinality(personal_ids),'protected_shared_count',cardinality(protected_ids),'protected_settlement_count',cardinality(payment_ids),
+  'accounts',accounts,'currencies',amounts,'personal_count',cardinality(personal_ids),'protected_shared_count',(select count(*)from unnest(protected_ids)x where x=any(visible_ids)),'protected_settlement_count',cardinality(payment_ids),
   'pending_funding_count',(select count(*)from public.personal_funding_intents where owner_participant_id=actor and status='pending'),
   'ongoing_installment_count',(select count(*)from public.personal_installment_plans where owner_participant_id=actor and status in('pending_principal','active')),
   'recurring_rule_count',(select count(*)from public.personal_recurring_rules where owner_participant_id=actor),'policy','carry_all','conflicts',conflicts);

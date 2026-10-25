@@ -65,7 +65,7 @@ function usePersonalLedgerController() {
       const state=authUser?.isAnonymous?NO_PERIOD_CAPABILITY:await loadPersonalPeriods(participantId)
       if(generation===periodGeneration.current&&activeIdentity.current===identityId)setPeriodRead({identity:identityId,state,status:'ready'})
     }catch{
-      if(generation===periodGeneration.current&&activeIdentity.current===identityId)setPeriodRead(old=>({...old,identity:identityId,status:'error'}))
+      if(generation===periodGeneration.current&&activeIdentity.current===identityId)setPeriodRead(old=>({identity:identityId,state:old.identity===identityId?old.state:NO_PERIOD_CAPABILITY,status:'error'}))
     }
   },[identityId,participantId,authUser?.isAnonymous])
   const setLedgerExpenses = useStore((state) => state.setLedgerExpenses)

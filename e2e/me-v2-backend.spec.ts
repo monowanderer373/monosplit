@@ -65,3 +65,15 @@ test('real isolated backend: profile, language persistence and explicit password
   await page.goto('/profile');await page.getByRole('button',{name:/Language.*English/}).click();await page.getByRole('button',{name:'简体中文',exact:true}).click();await page.reload();await expect(page.getByRole('heading',{name:'我的',exact:true})).toBeVisible();await page.getByRole('button',{name:/语言/}).click();await page.getByRole('button',{name:'English',exact:true}).click();await page.getByRole('button',{name:'Sign-in & security',exact:false}).click();await expect(page.getByRole('textbox')).toHaveCount(0);await expect(page.getByRole('button',{name:/Password/})).toBeVisible()
  }finally{await s.client.auth.signOut()}
 })
+
+test('real isolated backend: guest access stays on the same identity and Fresh Start fails closed',async({page})=>{
+ const client=createClient('http://127.0.0.1:54321',anon,{auth:{persistSession:false,autoRefreshToken:false}})
+ const{data,error}=await client.auth.signInAnonymously();if(error||!data.session||!data.user)throw error??new Error('local_guest_unavailable')
+ try{
+  const guestId=data.user.id
+  await page.addInitScript(session=>localStorage.setItem('sb-127-auth-token',JSON.stringify(session)),data.session)
+  await page.goto('/profile/fresh-start');await expect(page.getByRole('button',{name:'Review Fresh Start',exact:true})).toBeDisabled();await expect(page.getByText(/Link and verify your account/)).toBeVisible()
+  const denied=await client.rpc('preview_personal_fresh_start');expect(denied.error?.message).toBe('permanent_account_required')
+  await page.goto('/profile');await page.getByRole('button',{name:'Sign Out',exact:true}).click();await expect(page.getByRole('dialog',{name:'Sign out?',exact:true})).toBeVisible();await page.getByRole('button',{name:'Keep session',exact:true}).click();await page.goto('/profile/security');await expect(page.getByRole('button',{name:/Manage your password/})).toHaveCount(0);await expect(page.getByRole('button',{name:'Send verification',exact:true})).toBeVisible();expect((await client.auth.getUser()).data.user?.id).toBe(guestId)
+ }finally{await client.auth.signOut()}
+})

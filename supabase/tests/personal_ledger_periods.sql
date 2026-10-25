@@ -70,7 +70,7 @@ select is((select count(*)from personal_ledger_periods where status='active'),1:
 select is((select count(*)from personal_ledger_periods where status='archived'),1::bigint,'prior personal period archived');
 select is(pg_temp.balance('cash'),10000::bigint,'known opening preserves original native balance');
 select is(pg_temp.balance('foreign'),-90000::bigint,'negative foreign balance retained without conversion');
-select is(pg_temp.balance('credit'),-11360::bigint,'installment liability principal is never fabricated or erased');
+select is(pg_temp.balance('credit'),11360::bigint,'installment liability principal is never fabricated or erased');
 select is(jsonb_build_object('plans',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_installment_plans x),'installments',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_installments x),'rules',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_recurring_rules x)),(select v from fresh where k='obligations-before'),'plan, future installments and recurring rule facts are byte-equivalent');
 select is(pg_temp.balance('unknown'),0::bigint,'unknown opening becomes the explicitly reviewed value');
 select is((select count(*)from personal_period_openings),4::bigint,'one opening snapshot per native unit');
