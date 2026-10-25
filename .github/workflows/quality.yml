@@ -50,8 +50,8 @@ jobs:
       - run: npm ci
       - run: npx supabase start
       - run: npx supabase db reset
-      - run: npx supabase db lint --fail-on warning 2>&1 | tee /tmp/tabby-db-lint.log
-      - run: npx supabase test db 2>&1 | tee /tmp/tabby-db-tests.log
+      - run: set -o pipefail; npx supabase db lint --fail-on warning 2>&1 | tee /tmp/tabby-db-lint.log
+      - run: set -o pipefail; npx supabase test db 2>&1 | tee /tmp/tabby-db-tests.log
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Verify collect/pay write exclusion with two sessions
@@ -65,6 +65,10 @@ jobs:
         env:
           MULTICURRENCY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: python3 supabase/tests/multicurrency_concurrency.py
+      - name: Verify Fresh Start concurrency and interrupted-request fencing
+        env:
+          PERSONAL_PERIOD_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python3 supabase/tests/personal_period_concurrency.py
       - if: always()
         run: npx supabase stop --no-backup
 

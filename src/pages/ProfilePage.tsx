@@ -13,6 +13,10 @@ import FreshStart from '../components/me/FreshStart'
 import './me-v2.css'
 
 export default function ProfilePage(){
+ const {authUser}=useAuth()
+ return <ProfileContents key={authUser?.id??'signed-out'}/>
+}
+function ProfileContents(){
  const t=useT(),navigate=useNavigate(),location=useLocation(),[params]=useSearchParams()
  const auth=useAuth(),{authUser,loading}=auth
  const lang=useStore(s=>s.lang),setLang=useStore(s=>s.setLang)
@@ -43,7 +47,7 @@ export default function ProfilePage(){
  const requestSignOut=()=>{
   if(!authUser)return
   const pending=useStore.getState().ledgerByIdentity[authUser.id]?.outbox.length??0
-  if(authUser.isAnonymous||pending||hasMeaningfulQuickDraft(authUser.id))openModal('signout')
+  if(authUser.isAnonymous||pending||hasMeaningfulQuickDraft(authUser.id)||name!==null&&name.trim()!==(authUser.displayName??''))openModal('signout')
   else signOut()
  }
  if(loading)return <main className="tt-me-v2"><p role="status">{t('expense.loading')}</p></main>

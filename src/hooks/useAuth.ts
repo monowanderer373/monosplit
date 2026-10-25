@@ -257,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .upsert({ id: authUser.id, display_name: updates.displayName })
       if (error) throw error
       setAuthUser((prev) =>
-        prev ? { ...prev, displayName: updates.displayName ?? prev.displayName } : null,
+        prev?.id === authUser.id ? { ...prev, displayName: updates.displayName ?? prev.displayName } : prev,
       )
     })
   }

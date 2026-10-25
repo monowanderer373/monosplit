@@ -30,6 +30,14 @@ select is((select(v->>'personal_count')::int from fresh where k='preview'),1,'se
 select ok((select(v->>'protected_shared_count')::int>=1 from fresh where k='preview'),'shared reference is protected');
 select is((select(v->>'pending_funding_count')::int from fresh where k='preview'),1,'pending deduction disclosed and carried');
 select is((select v->>'policy'from fresh where k='preview'),'carry_all','explicit approved ongoing policy');
+-- Ongoing obligations must survive the real reset, including their later postings.
+insert into fresh values('credit',create_personal_account(gen_random_uuid(),'Period Credit','credit_card','MYR',0,current_date,false));
+insert into fresh values('installment',create_installment_purchase(gen_random_uuid(),'personal',null,90000,'VND','Old installment purchase','Travel',current_date,array[current_participant_id()],array[90000::bigint],array[90000::bigint],gen_random_uuid(),(select(v->>'account_id')::uuid from fresh where k='credit'),11360,gen_random_uuid(),(select(v->>'account_id')::uuid from fresh where k='cash'),'n_installments',4,current_date+31,'Asia/Bangkok','00:00'));
+insert into fresh values('recurring',create_personal_recurring_rule(gen_random_uuid(),'Continuing rent','Existing recurring rule',100,'MYR','Housing',(select(v->>'account_id')::uuid from fresh where k='cash'),'monthly',extract(day from current_date+1)::int,null,'Asia/Bangkok','00:00',current_date+1,null,'auto_post'));
+insert into fresh values('obligations-before',jsonb_build_object('plans',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_installment_plans x),'installments',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_installments x),'rules',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_recurring_rules x)));
+select pg_temp.review();
+select is((select(v->>'ongoing_installment_count')::int from fresh where k='preview'),1,'preview discloses continuing active installment plan');
+select is((select(v->>'recurring_rule_count')::int from fresh where k='preview'),1,'preview discloses continuing recurring rule');
 select pg_temp.claims('d0250000-0000-4000-8000-000000000001',600);
 select throws_ok($$select pg_temp.apply('e0250000-0000-4000-8000-000000000001')$$,'P0001','fresh_start_reauthentication_required','refreshed iat cannot replace old signed AMR');
 select is((select count(*)from personal_ledger_periods),0::bigint,'reauth failure rolls back all periods');
@@ -51,19 +59,21 @@ select is((select count(*)from personal_ledger_periods where status='active'),1:
 select is((select count(*)from personal_ledger_periods where status='archived'),1::bigint,'prior personal period archived');
 select is(pg_temp.balance('cash'),10000::bigint,'known opening preserves original native balance');
 select is(pg_temp.balance('foreign'),-90000::bigint,'negative foreign balance retained without conversion');
+select is(pg_temp.balance('credit'),-11360::bigint,'installment liability principal is never fabricated or erased');
+select is(jsonb_build_object('plans',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_installment_plans x),'installments',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_installments x),'rules',(select jsonb_agg(to_jsonb(x)order by x.id)from personal_recurring_rules x)),(select v from fresh where k='obligations-before'),'plan, future installments and recurring rule facts are byte-equivalent');
 select is(pg_temp.balance('unknown'),0::bigint,'unknown opening becomes the explicitly reviewed value');
-select is((select count(*)from personal_period_openings),3::bigint,'one opening snapshot per native unit');
+select is((select count(*)from personal_period_openings),4::bigint,'one opening snapshot per native unit');
 select is((select status from personal_funding_intents where id=(select(v->'funding'->>'funding_intent_id')::uuid from fresh where k='personal')),'pending','pending deduction remains pending');
 select ok((get_personal_ledger_period_state()->'archived_expense_ids')? (select v->>'expense_id'from fresh where k='personal'),'old purely personal spending excluded from active reporting');
 select is((select count(*)from personal_period_expenses where expense_id=(select(v->>'id')::uuid from fresh where k='shared')),0::bigint,'shared membership never archived');
 select is((select total_minor from expenses where id=(select(v->>'expense_id')::uuid from fresh where k='personal')),1000::bigint,'immutable original expense unchanged');
 select is(pg_temp.apply('e0250000-0000-4000-8000-000000000004'),(select v from fresh where k='receipt'),'identical retry returns exact receipt');
-select is((select count(*)from personal_period_openings),3::bigint,'retry cannot create duplicate openings');
+select is((select count(*)from personal_period_openings),4::bigint,'retry cannot create duplicate openings');
 select throws_ok($$select apply_personal_fresh_start('e0250000-0000-4000-8000-000000000004',(select(v->>'preview')::uuid from fresh where k='command'),'[]')$$,'P0001','idempotency_conflict','changed retry payload rejected');
 select is(reconcile_personal_fresh_start('e0250000-0000-4000-8000-000000000004')->'result',(select v from fresh where k='receipt'),'lost response reconciles exact committed result');
 select is(reconcile_personal_fresh_start('e0250000-0000-4000-8000-000000000005')->>'state','fenced','unposted request safely fenced');
 select throws_ok($$select pg_temp.apply('e0250000-0000-4000-8000-000000000005')$$,'P0001','fresh_start_request_fenced','late original cannot post after reconciliation');
-select is(jsonb_array_length(get_personal_ledger_archive((select(v->>'archived_period_id')::uuid from fresh where k='receipt'))->'expenses'),2,'archive retains personal records and dates');
+select is(jsonb_array_length(get_personal_ledger_archive((select(v->>'archived_period_id')::uuid from fresh where k='receipt'))->'expenses'),3,'archive retains personal records and dates');
 select pg_temp.claims('d0250000-0000-4000-8000-000000000002');
 select throws_ok($$select get_personal_ledger_archive((select(v->>'archived_period_id')::uuid from fresh where k='receipt'))$$,'P0001','personal_archive_unavailable','other user cannot read archive');
 select is((select count(*)from personal_ledger_periods),0::bigint,'period RLS isolates financial principal');
@@ -72,6 +82,11 @@ insert into fresh values('late-expense',to_jsonb(create_expense(gen_random_uuid(
 select ok(not((get_personal_ledger_period_state()->'archived_expense_ids')? (select v#>>'{}'from fresh where k='late-expense')),'new actual posting enters active period even if backdated');
 select pg_temp.review();
 select is((select(v->>'personal_count')::int from fresh where k='preview'),1,'next review sees only new personal spending');
+select confirm_personal_funding_bundle(gen_random_uuid(),(select(v->'funding'->>'funding_intent_id')::uuid from fresh where k='personal'),1,1,
+ (select jsonb_build_array(jsonb_build_object('account_id',u->>'id','version',(u->>'version')::int,'parent_version',(u->>'parent_version')::int,'amount_minor',1000,'anchor_id',a.id,'included_in_anchor',false))from(select pg_temp.unit('cash')u)q join lateral(select id from personal_account_balance_anchors where account_id=(q.u->>'id')::uuid order by anchor_sequence desc limit 1)a on true),true);
+select is(pg_temp.balance('cash'),9000::bigint,'later actual not-included deduction reduces balance exactly once');
+select is(jsonb_array_length(get_personal_ledger_period_state()->'later_funding'),1,'late original-expense funding appears as new-period cash activity');
+select ok((get_personal_ledger_period_state()->'archived_expense_ids')? (select v->>'expense_id'from fresh where k='personal'),'later funding never repeats old personal spending');
 select pg_temp.claims('d0250000-0000-4000-8000-000000000001',0,true);
 select throws_ok($$select preview_personal_fresh_start()$$,'P0001','permanent_account_required','anonymous cannot start a ledger reset');
 reset role;

@@ -5,13 +5,13 @@ import { PersonalLedgerProvider, usePersonalLedger } from './usePersonalLedger'
 import { useStore } from '../store/useStore'
 import { spendingExpense } from '../test/spendingFixtures'
 import type { CanonicalExpense } from '../types'
-const mocks = vi.hoisted(() => ({ identity: 'first', list: vi.fn() }))
+const mocks = vi.hoisted(() => ({ identity: 'first', list: vi.fn(), periods:vi.fn() }))
 vi.mock('./useAuth', () => ({ useAuth: () => ({ authUser: { id: mocks.identity, participantId: 'you' } }) }))
-vi.mock('../lib/personalPeriods',async original=>({...await original<typeof import('../lib/personalPeriods')>(),loadPersonalPeriods:async()=>({available:false,ownerId:null,periods:[],archivedExpenseIds:[],archivedTransactionIds:[],laterFunding:[]})}))
+vi.mock('../lib/personalPeriods',async original=>({...await original<typeof import('../lib/personalPeriods')>(),loadPersonalPeriods:mocks.periods}))
 vi.mock('../lib/supabase', () => ({ supabase: null }))
 vi.mock('../lib/ledgerRepository', async original => ({ ...await original<typeof import('../lib/ledgerRepository')>(), ledgerRepository: { listExpenses: mocks.list } }))
 function deferred() { let resolve!: (data: CanonicalExpense[]) => void; const promise = new Promise<CanonicalExpense[]>(done => { resolve = done }); return { promise, resolve } }
-beforeEach(() => { mocks.identity = 'first'; mocks.list.mockReset(); useStore.setState({ ledgerByIdentity: {} }); vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false) })
+beforeEach(() => { mocks.identity = 'first'; mocks.list.mockReset(); mocks.periods.mockReset().mockResolvedValue({available:true,ownerId:'you',periods:[],archivedExpenseIds:[],archivedTransactionIds:[],laterFunding:[]}); useStore.setState({ ledgerByIdentity: {} }); vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false) })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 describe('authoritative ledger read isolation', () => {
   it('performs one startup expense read for an online identity with no outbox', async () => {
@@ -47,4 +47,20 @@ describe('authoritative ledger read isolation', () => {
     expect(view.result.current.rows[0].expense.id).toBe('private-second')
     expect(view.result.current.expensesStatus).toBe('ready')
   })
+})
+
+it('period reads fail closed and cannot leak an older identity snapshot',async()=>{
+ let release!:(value:unknown)=>void
+ const old=new Promise(done=>{release=done})
+ mocks.periods.mockReturnValueOnce(old).mockResolvedValueOnce({available:true,ownerId:'you',periods:[],archivedExpenseIds:['second-only'],archivedTransactionIds:[],laterFunding:[]})
+ mocks.list.mockResolvedValue([])
+ const view=renderHook(()=>usePersonalLedger(),{wrapper:PersonalLedgerProvider})
+ mocks.identity='second';view.rerender()
+ await waitFor(()=>expect(view.result.current.periodStatus).toBe('ready'))
+ await act(async()=>{release({available:true,ownerId:'you',periods:[],archivedExpenseIds:['first-private'],archivedTransactionIds:[],laterFunding:[]})})
+ expect(view.result.current.periodState?.archivedExpenseIds).toEqual(['second-only'])
+ mocks.periods.mockRejectedValueOnce(new Error('network'))
+ await act(async()=>{await view.result.current.refreshPeriods()})
+ expect(view.result.current.periodStatus).toBe('error')
+ expect(view.result.current.expensesStatus).toBe('ready')
 })
