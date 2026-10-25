@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { openManualPerson } from './fixtures/quickAdd'
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -337,8 +338,9 @@ test('runs the final Phase 3 production smoke journey', async ({
           throw new Error('Existing resume Person is missing; refusing to replace it.')
         }
         await pageA.goto('/friends')
-        await pageA.getByPlaceholder('Person’s name').fill(manualName)
-        await pageA.getByRole('button', { name: 'Add person' }).click()
+        await openManualPerson(pageA)
+        await pageA.getByRole('textbox', { name: 'Name', exact: true }).fill(manualName)
+        await pageA.getByRole('dialog', { name: 'Record someone manually', exact: true }).getByRole('button', { name: 'Add person', exact: true }).click()
         people = await queryRows(
           A.client
             .from('person_relationships')

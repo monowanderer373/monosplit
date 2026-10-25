@@ -2,6 +2,11 @@
 
 Checkpoint:2026-10-24 (Asia/Bangkok). PR32+PR33 integrated main 8f7b1c99c9479ed03a176aa1dd1b46f27cdb4cd9; final docs-only checkpoint follows. Read actual main/provider/public version on resume. Existing stash and backup/local-wip-before-shared-a preserved.
 
+## Active — remove Shared header tools (2026-10-25)
+- Branch fix/remove-shared-header-tools fromc4c1513. Removed Shared three-dot button/props, expanded inline invite/manual-person form and its local state. Normal Add person/search/tabs/create actions and Person detail menu retained. No financial/identity/schema changes.
+- Local704units,lint,tsc/PWA build PASS; four real-component browser widths320/360/390/430 PASS12.8s, retained manual/invite dialogs open/close, no duplicate header tools or overflow. Backend E2E helpers adapted to retained Add person dialogs with original money/identity/history assertions unchanged.
+- Exact-source full CI, merge and existing production READY/public SHA/read-onlyQA/PWA verification next. Evidence /workspace/verification/shared-remove-tools-2026-10-25. Preserve existing stash/backup.
+
 ## Integrated — Quick Add screenshot refinements (2026-10-25 Asia/Bangkok)
 - Branch feat/quick-add-layout-polish from106d3b3. User requests supersede V3's old4x2 grid/visible save-options: eleven shortcuts + All categories (three rows), use spare category area and place Receipt directly above keypad; account name left, plain Split right, no captions/icons/chevrons for Split; no visible hold-help/options footer.
 - Existing hold-to-next retained with accessible Shift+Enter alternative and hidden help. Invalid save shows nonmodal1800ms toast with fade/outside-pointer dismissal, preserving draft. Backend write failures still retain existing recoverable error state. No finance/identity/schema changes.

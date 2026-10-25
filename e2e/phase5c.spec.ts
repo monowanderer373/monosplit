@@ -1,4 +1,4 @@
-import { openPendingDirectReview, openPersonActivity, enterQuickAmount, openFriendTools, openQuickSplit } from './fixtures/quickAdd'
+import { openPendingDirectReview, openPersonActivity, enterQuickAmount, openFriendInvite, openQuickSplit } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -145,9 +145,7 @@ test.describe('Phase 5C state-aware expense changes', () => {
 
 async function connectFriends(owner: Page, invitee: Page): Promise<void> {
   await owner.goto('/friends')
-  await openFriendTools(owner)
-  await owner.getByRole('button', { name: 'Copy friend invite' }).click()
-  await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
+  await openFriendInvite(owner)
   const invite = await copyInviteUrl(owner)
   await invitee.goto(invite)
   await invitee.getByRole('button', { name: 'Accept friend invite' }).click()

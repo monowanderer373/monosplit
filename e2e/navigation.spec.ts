@@ -1,4 +1,4 @@
-import { enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
+import { enterQuickAmount, openFriendInvite, openManualPerson } from './fixtures/quickAdd'
 import { writeFileSync } from 'node:fs'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
@@ -85,16 +85,14 @@ test('keeps the global money action above mobile form controls', async ({
     const owner = ownerBrowser.page
     const target = targetBrowser.page
     await owner.goto('/friends')
-    await openFriendTools(owner)
-    await owner.getByRole('button', { name: 'Copy friend invite' }).click()
-    await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
+    await openFriendInvite(owner)
     await target.goto(await copyInviteUrl(owner))
     await target.getByRole('button', { name: 'Accept friend invite' }).click()
 
     await owner.reload()
-    await openFriendTools(owner)
-    await owner.getByPlaceholder('Person’s name').fill('Pointer Manual')
-    await owner.getByRole('button', { name: 'Add person' }).click()
+    await openManualPerson(owner)
+    await owner.getByRole('textbox', { name: 'Name', exact: true }).fill('Pointer Manual')
+    await owner.getByRole('dialog', { name: 'Record someone manually', exact: true }).getByRole('button', { name: 'Add person', exact: true }).click()
 
     await openPersonDetail(owner, 'Pointer Manual')
     const personNavigation = owner.getByRole('navigation', { name: 'Primary navigation' })

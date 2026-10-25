@@ -18,12 +18,21 @@ export async function fillQuickExpense(dialog: Locator, amount: string, descript
   await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(description)
 }
 
-export async function openFriendTools(page: Page): Promise<void> {
-  await expect(page.getByRole('dialog', { name: 'Quick Add', exact: true })).toHaveCount(0)
-  const toggle = page.locator('main:not([role="dialog"]) header button.ttsa-icon-button[aria-expanded]')
-  await expect(toggle).toBeVisible()
-  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
-  await expect(page.getByRole('button', { name: 'Copy friend invite' })).toBeVisible()
+/** Use the retained Add person dialogs; Shared no longer has duplicate header tools. */
+export async function openFriendInvite(page: Page): Promise<void> {
+  await page.locator('.ttsa-header').getByRole('button',{name:'Add person',exact:true}).click()
+  await page.getByRole('dialog',{name:'Add person',exact:true}).getByRole('button',{name:'Invite a friend',exact:true}).click()
+  const dialog=page.getByRole('dialog',{name:'Invite a friend',exact:true})
+  await dialog.getByRole('button',{name:'Copy invite link',exact:true}).click()
+  await expect(dialog.getByRole('button',{name:'Copied',exact:true})).toBeEnabled()
+  await dialog.getByRole('button',{name:'Close',exact:true}).click()
+  await expect(dialog).toHaveCount(0)
+}
+
+export async function openManualPerson(page: Page): Promise<void> {
+  await page.locator('.ttsa-header').getByRole('button',{name:'Add person',exact:true}).click()
+  await page.getByRole('dialog',{name:'Add person',exact:true}).getByRole('button',{name:'Record someone manually',exact:true}).click()
+  await expect(page.getByRole('dialog',{name:'Record someone manually',exact:true}).getByRole('textbox',{name:'Name',exact:true})).toBeVisible()
 }
 
 export async function openCreateSpace(page: Page): Promise<void> {

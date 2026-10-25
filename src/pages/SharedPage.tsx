@@ -111,10 +111,8 @@ export default function SharedPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<TranslationKey | ''>('')
   const [dialog, setDialog] = useState<'add' | 'manual' | 'invite' | 'currency' | null>(null)
-  const [toolsOpen, setToolsOpen] = useState(false)
   const [manualName, setManualName] = useState('')
   const [inviteUrl, setInviteUrl] = useState('')
-  const [inviteCopied, setInviteCopied] = useState(false)
   const [action, setAction] = useState('')
   const [linkFocus, setLinkFocus] = useState<ParticipantLinkRequest | null>(null)
 
@@ -235,13 +233,11 @@ export default function SharedPage() {
   const createInvite = async () => {
     if (action) return
     setAction('invite')
-    setInviteCopied(false)
     try {
       const token = await friendRepository.createInvite()
       const url = `${window.location.origin}/friend-invite/${token}`
       setInviteUrl(url)
       await navigator.clipboard?.writeText(url)
-      setInviteCopied(true)
     } catch (cause) {
       setError(friendlyErrorKey(cause))
     } finally {
@@ -316,17 +312,8 @@ export default function SharedPage() {
       ) : (
         <SharedHeader
           title={t('sharedA.title')}
-          addLabel={toolsOpen && tab === 'friends' ? '' : addLabel}
+          addLabel={addLabel}
           searchLabel={searchLabel}
-          toolsOpen={toolsOpen}
-          toolsLabel={t('sharedA.more')}
-          onToggleTools={() => {
-            setToolsOpen((open) => {
-              const next = !open
-              if (next && tab !== 'friends') writeParams({ create: true })
-              return next
-            })
-          }}
           onSearch={() => writeParams({ searching: true })}
           onAdd={() => {
             if (tab === 'friends') setDialog('add')
@@ -335,27 +322,6 @@ export default function SharedPage() {
         />
       )}
       {tab === 'friends' ? <h2 className="ttsa-sr-only">{t('friends.title')}</h2> : null}
-      {toolsOpen && tab === 'friends' && view === 'list' && !searching ? (
-        <section className="ttsa-paper" style={{ padding: 16, marginBottom: 16 }}>
-          <QuietAction icon="people" disabled={action === 'invite'} onClick={() => void createInvite()}>
-            {t('friends.copyInvite')}
-          </QuietAction>
-          {inviteCopied ? <p className="ttsa-meta">{t('friends.inviteCopied')}</p> : null}
-          <label className="ttsa-field">
-            {t('friends.personName')}
-            <input
-              value={manualName}
-              onChange={(event) => setManualName(event.target.value)}
-              placeholder={t('friends.personName')}
-              onKeyDown={(event) => { if (event.key === 'Enter') void addManual() }}
-            />
-          </label>
-          <QuietAction icon="plus" disabled={!manualName.trim() || action === 'manual'} onClick={() => void addManual()}>
-            {t('friends.addPerson')}
-          </QuietAction>
-        </section>
-      ) : null}
-
       {view !== 'review' ? (
         <ContextTabs
           active={tab}
