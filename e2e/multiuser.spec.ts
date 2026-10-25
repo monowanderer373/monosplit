@@ -1,4 +1,4 @@
-import { openPendingDirectReview, expectRecordedManualShare, enterQuickAmount, openFriendTools, openCreateSpace, openQuickSplit } from './fixtures/quickAdd'
+import { openPendingDirectReview, expectRecordedManualShare, enterQuickAmount, openFriendInvite, openManualPerson, openCreateSpace, openQuickSplit } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   acceptSpaceInvite,
@@ -182,9 +182,7 @@ test.describe('local relational multi-user journey', () => {
     const owner = alphaBrowser.page
     const friend = betaBrowser.page
     await owner.goto('/friends')
-    await openFriendTools(owner)
-    await owner.getByRole('button', { name: 'Copy friend invite' }).click()
-    await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
+    await openFriendInvite(owner)
     const friendInvite = await copyInviteUrl(owner)
 
     await friend.goto(friendInvite)
@@ -215,9 +213,9 @@ test.describe('local relational multi-user journey', () => {
     await expectDebt(friend, 'You owe Alpha', 'RM 4.99')
 
     await owner.goto('/friends')
-    await openFriendTools(owner)
-    await owner.getByPlaceholder('Person’s name').fill('Cash Guest')
-    await owner.getByRole('button', { name: 'Add person' }).click()
+    await openManualPerson(owner)
+    await owner.getByRole('textbox', { name: 'Name', exact: true }).fill('Cash Guest')
+    await owner.getByRole('dialog', { name: 'Record someone manually', exact: true }).getByRole('button', { name: 'Add person', exact: true }).click()
     await openPersonDetail(owner, 'Cash Guest')
     await expect(owner.getByRole('button', { name: 'Settle Up' })).toBeDisabled()
     await owner.getByRole('button', { name: 'Add Expense', exact: true }).click()

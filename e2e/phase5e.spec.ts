@@ -1,4 +1,4 @@
-import { openPendingDirectReview, openPersonActivity, enterQuickAmount, openFriendTools, openCreateSpace } from './fixtures/quickAdd'
+import { openPendingDirectReview, openPersonActivity, enterQuickAmount, openFriendInvite, openCreateSpace } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   acceptSpaceInvite,
@@ -211,9 +211,7 @@ test.describe('Phase 5E audit and history presentation', () => {
 
 async function connectFriends(owner: Page, invitee: Page): Promise<void> {
   await owner.goto('/friends')
-  await openFriendTools(owner)
-  await owner.getByRole('button', { name: 'Copy friend invite' }).click()
-  await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
+  await openFriendInvite(owner)
   await invitee.goto(await copyInviteUrl(owner))
   await invitee.getByRole('button', { name: 'Accept friend invite' }).click()
   await expect(invitee).toHaveURL(/\/friends$/)

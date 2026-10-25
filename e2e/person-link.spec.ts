@@ -1,4 +1,4 @@
-import { openPendingDirectReview, expectRecordedManualShare, enterQuickAmount, openFriendTools } from './fixtures/quickAdd'
+import { openPendingDirectReview, expectRecordedManualShare, enterQuickAmount, openFriendInvite, openManualPerson } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -28,18 +28,16 @@ test('links a Person without rewriting old Manual money', async ({
     const target = targetBrowser.page
 
     await owner.goto('/friends')
-    await openFriendTools(owner)
-    await owner.getByRole('button', { name: 'Copy friend invite' }).click()
-    await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
+    await openFriendInvite(owner)
     const inviteUrl = await copyInviteUrl(owner)
     await target.goto(inviteUrl)
     await target.getByRole('button', { name: 'Accept friend invite' }).click()
     await expect(target).toHaveURL(/\/friends$/)
 
     await owner.reload()
-    await openFriendTools(owner)
-    await owner.getByPlaceholder('Person’s name').fill('Target cash')
-    await owner.getByRole('button', { name: 'Add person' }).click()
+    await openManualPerson(owner)
+    await owner.getByRole('textbox', { name: 'Name', exact: true }).fill('Target cash')
+    await owner.getByRole('dialog', { name: 'Record someone manually', exact: true }).getByRole('button', { name: 'Add person', exact: true }).click()
     await openPersonDetail(owner, 'Target cash')
     await expect.poll(()=>new URL(owner.url()).pathname).toMatch(/^\/person\/[0-9a-f-]+$/i)
     const personUrl = owner.url()

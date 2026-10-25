@@ -64,23 +64,17 @@ export function QuietAction({
 }
 
 export function SharedHeader({
-  title, addLabel, searchLabel, onSearch, onAdd, toolsOpen, toolsLabel, onToggleTools,
+  title, addLabel, searchLabel, onSearch, onAdd,
 }: {
   title: string
   addLabel: string
   searchLabel: string
   onSearch: () => void
   onAdd: () => void
-  toolsOpen?: boolean
-  toolsLabel?: string
-  onToggleTools?: () => void
 }) {
   return (
     <header className="ttsa-header">
       <h1 className="ttsa-title">{title}</h1>
-      {onToggleTools && toolsLabel ? (
-        <IconButton label={toolsLabel} icon="more" expanded={toolsOpen} onClick={onToggleTools} />
-      ) : null}
       <IconButton label={searchLabel} icon="search" onClick={onSearch} />
       {addLabel ? <QuietAction icon="plus" onClick={onAdd}>{addLabel}</QuietAction> : null}
     </header>

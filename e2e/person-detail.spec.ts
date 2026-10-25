@@ -1,4 +1,4 @@
-import { enterQuickAmount, openFriendTools, openCreateSpace } from './fixtures/quickAdd'
+import { enterQuickAmount, openFriendInvite, openManualPerson, openCreateSpace } from './fixtures/quickAdd'
 import { expect, test, type Page } from '@playwright/test'
 import {
   closeBrowsers,
@@ -38,17 +38,15 @@ test('keeps Person Detail money-first and inherits that Person', async ({
       .getByRole('button', { name: 'Close Quick Add' })
       .click()
 
-    await openFriendTools(owner)
-    await owner.getByRole('button', { name: 'Copy friend invite' }).click()
-    await expect(owner.getByText('Invite copied', { exact: true })).toBeVisible()
+    await openFriendInvite(owner)
     await target.goto(await copyInviteUrl(owner))
     await target.getByRole('button', { name: 'Accept friend invite' }).click()
     await expect(target).toHaveURL(/\/friends$/)
 
     await owner.reload()
-    await openFriendTools(owner)
-    await owner.getByPlaceholder('Person’s name').fill('Lan cash')
-    await owner.getByRole('button', { name: 'Add person' }).click()
+    await openManualPerson(owner)
+    await owner.getByRole('textbox', { name: 'Name', exact: true }).fill('Lan cash')
+    await owner.getByRole('dialog', { name: 'Record someone manually', exact: true }).getByRole('button', { name: 'Add person', exact: true }).click()
     await expect(personCard(owner, 'Lan cash')).toBeVisible()
     await expect(personCard(owner, 'Lan cash').getByRole('button', { name: 'Split' })).toHaveCount(0)
 
