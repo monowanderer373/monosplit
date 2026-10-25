@@ -48,8 +48,8 @@ export function createPopoverMotion(
     node.style.transform = 'none'
     if (reduced || !node.animate) return
     animation = node.animate(
-      [from ?? { opacity: 0, transform: 'translateX(-6px) scale(.97)' }, { opacity: 1, transform: 'translateX(0) scale(1)' }],
-      { duration: 280, easing: 'cubic-bezier(.22,1,.36,1)' },
+      [from ?? { opacity: 0, transform: 'translateY(-4px) scale(.99)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }],
+      { duration: 200, easing: 'cubic-bezier(.22,1,.36,1)' },
     )
   }
 
@@ -64,8 +64,8 @@ export function createPopoverMotion(
       return
     }
     animation = node.animate(
-      [from ?? { opacity: 1, transform: 'translateX(0) scale(1)' }, { opacity: 0, transform: 'translateX(-4px) scale(.98)' }],
-      { duration: 170, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' },
+      [from ?? { opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(-3px) scale(.99)' }],
+      { duration: 140, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' },
     )
     animation.onfinish = () => {
       if (!disposed && token === generation) onHidden()

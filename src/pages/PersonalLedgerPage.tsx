@@ -207,7 +207,7 @@ export default function PersonalLedgerPage() {
   const props: HomeScreenProps = {
     notificationIdentity:authUser.id, notificationTargetOpen:!!noticeTarget||(searchParams.get('accountPanel')==='manage'&&!!searchParams.get('returnNotice')),
     notifications: notifications.notices, notificationsStatus: notifications.status, unreadNotifications: notifications.unread,
-    onRetryNotifications: notifications.refresh,
+    onRetryNotifications: notifications.refresh, onViewNotifications: notifications.markViewed,
     onDismissNotifications: openNotice.cancel,
     onOpenNotification: notice=>{void openNotice.open(notice)},
     localToday: model.localToday,

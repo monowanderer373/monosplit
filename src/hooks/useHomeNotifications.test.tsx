@@ -9,6 +9,28 @@ vi.mock('../lib/supabase',()=>({supabase:null}))
 const load=vi.mocked(loadNotificationSnapshot),outbox:never[]=[]
 beforeEach(()=>{vi.resetAllMocks();localStorage.clear()});afterEach(cleanup)
 describe('identity and authority boundary for notifications',()=>{
+ it('acknowledges a tray snapshot without completing tasks, persists on this device and keeps new versions unread',async()=>{
+  let snapshot=noticeSnapshot();load.mockImplementation(async()=>structuredClone(snapshot))
+  const hook=renderHook(()=>useHomeNotifications('id-one','owner',outbox,'same'));await waitFor(()=>expect(hook.result.current.status).toBe('ready'))
+  const tasks=hook.result.current.notices.filter(n=>n.tab==='tasks').map(n=>n.id)
+  act(()=>hook.result.current.markViewed(hook.result.current.notices))
+  expect(hook.result.current.unread.size).toBe(0)
+  expect(hook.result.current.notices.filter(n=>n.tab==='tasks').map(n=>n.id)).toEqual(tasks)
+  hook.unmount()
+  const again=renderHook(({identity})=>useHomeNotifications(identity,'owner',outbox,'same'),{initialProps:{identity:'id-one'}})
+  await waitFor(()=>expect(again.result.current.status).toBe('ready'));expect(again.result.current.unread.size).toBe(0)
+  snapshot=structuredClone(snapshot);snapshot.funding[0].version++
+  await act(async()=>{await again.result.current.refresh()})
+  expect(again.result.current.unread.has('funding:fund-1')).toBe(true)
+  expect(again.result.current.unread.has('funding:fund-2')).toBe(false)
+  again.rerender({identity:'id-two'});expect(again.result.current.unread.size).toBe(again.result.current.notices.length)
+ })
+ it('clears the visible unread state even if device storage rejects a write',async()=>{
+  load.mockResolvedValue(noticeSnapshot())
+  const hook=renderHook(()=>useHomeNotifications('id-one','owner',outbox,'same'));await waitFor(()=>expect(hook.result.current.status).toBe('ready'))
+  const blocked=vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('blocked')})
+  try{act(()=>hook.result.current.markViewed(hook.result.current.notices));expect(hook.result.current.unread.size).toBe(0);expect(hook.result.current.notices.filter(n=>n.tab==='tasks')).toHaveLength(2)}finally{blocked.mockRestore()}
+ })
  it('keeps an unchanged authoritative snapshot stable without hiding real account changes',async()=>{
   let snapshot=noticeSnapshot();load.mockImplementation(async()=>structuredClone(snapshot))
   const hook=renderHook(()=>useHomeNotifications('identity','owner',outbox,'same'));await waitFor(()=>expect(hook.result.current.status).toBe('ready'))

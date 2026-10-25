@@ -7,6 +7,7 @@ export const notificationTranslations = {
   'notice.activity': {en:'Activity',zh:'动态'},
   'notice.count': {en:'{{count}} to do',zh:'{{count}} 项待处理'},
   'notice.unread': {en:'New updates',zh:'有未读更新'},
+  'notice.unreadCount': {en:'{{count}} unread updates',zh:'{{count}} 项未读更新'},
   'notice.viewAll': {en:'View all notifications',zh:'查看全部通知'},
   'notice.noTasks': {en:'Nothing needs your attention.',zh:'目前没有待处理事项。'},
   'notice.noActivity': {en:'No recent updates.',zh:'暂无近期动态。'},
