@@ -24,8 +24,8 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
  const c=(en:string,zh:string)=>lang==='zh'?zh:en
  const actor=auth.authUser?.participantId??'',identity=auth.authUser?.id??''
  const [preview,setPreview]=useState<FreshPreview|null>(null),[archive,setArchive]=useState<PersonalArchive|null>(null)
- const [custom,setCustom]=useState<Record<string,string>>({}),[checked,setChecked]=useState(false),[password,setPassword]=useState('')
- const [providers,setProviders]=useState<string[]>([]),[verified,setVerified]=useState(false),[openingsReviewed,setOpeningsReviewed]=useState(false)
+ const [custom,setCustom]=useState<Record<string,string>>({})
+ const [openingsReviewed,setOpeningsReviewed]=useState(false)
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[receipt,setReceipt]=useState<FreshReceipt|null>(null)
  const [unresolved,setUnresolved]=useState(()=>actor?pendingRequest(actor):null)
  const lock=useRef(false),lease=useRef(identity),mounted=useRef(true)
@@ -35,36 +35,25 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
  const step=page==='fresh-start/impact'?2:page==='fresh-start/openings'?3:page==='fresh-start/confirm'?4:1
  const archived=page.startsWith('archives'),archiveId=archived?page.split('/')[1]:null
  const available=ledger.periodState?.available===true&&ledger.periodStatus==='ready'&&!auth.authUser?.isAnonymous
+ const canConfirm=available&&ledger.periodState?.freshStartSessionConfirmation===true
  const money=(amount:string,currency:string)=>hidden?'••••':formatMinorAmount(Number(amount),currency,lang==='zh'?'zh-CN':'en-MY')
  const explain=(cause:unknown)=>{
   const code=(cause as {message?:string})?.message??''
   if(code.includes('opening_linked_obligation'))return c('Linked obligations require the recorded balance here. Return to the impact review.','关联的持续义务要求保留记录余额，请返回重新核对影响。')
-  if(code.includes('reauthentication'))return c('Please sign in again before confirming.','请重新验证登录后再确认。')
   if(code.includes('preview_changed'))return c('Your ledger changed. Go back and review a new impact preview. Nothing was reset.','账目已有变化。请返回并重新核对影响预览，尚未重新开始。')
   if(code.includes('preview_expired'))return c('This review expired. Go back and request a new preview.','预览已过期，请返回重新核对。')
   if(code.includes('fenced'))return c('This request is closed. Review again before starting a new request.','此请求已安全关闭，请重新核对后再开始。')
-  if(code.includes('Invalid login')||code.includes('invalid_credentials'))return c('Sign-in verification failed. Check your current sign-in method and password.','登录验证失败，请核对当前登录方式和密码。')
-  return c('This action could not be verified. Check the connection and retry. Your financial history has not been deleted.','无法核验此操作，请检查连接后重试。财务历史不会被删除。')
+  if(code.includes('identity_changed')||code.includes('not_authenticated'))return c('Your session changed or ended. Sign in normally before starting again.','登录会话已变化或结束，请正常登录后再开始。')
+  return c('This action could not be completed. Check the connection and retry. Your financial history has not been deleted.','暂时无法完成，请检查连接后重试。财务历史不会被删除。')
  }
- const go=(path:string,id=preview?.id)=>{if(path.startsWith('archives'))setReceipt(null);setError('');setPassword('');navigate('/profile/'+path+(id&&path.startsWith('fresh-start/')?'?preview='+encodeURIComponent(id):''),{state:{meParent:true}})}
+ const go=(path:string,id=preview?.id)=>{if(path.startsWith('archives'))setReceipt(null);setError('');navigate('/profile/'+path+(id&&path.startsWith('fresh-start/')?'?preview='+encodeURIComponent(id):''),{state:{meParent:true}})}
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
  useEffect(()=>{
-  setPreview(null);setCustom({});setChecked(false);setVerified(false);setOpeningsReviewed(false);setPassword('');setReceipt(null);setUnresolved(actor?pendingRequest(actor):null)
+  setPreview(null);setCustom({});setOpeningsReviewed(false);setReceipt(null);setUnresolved(actor?pendingRequest(actor):null)
  },[identity,actor])
  useEffect(()=>{
-  let active=true
-  if(!supabase||!identity)return
-  void supabase.auth.getUser().then(({data,error})=>{
-   if(active&&!error&&data.user?.id===identity){
-    setProviders([...new Set((data.user.identities??[]).map(i=>i.provider))])
-    void supabase!.auth.getSession().then(({data})=>{if(!active)return;try{const token=data.session?.access_token.split('.')[1];const claims=token?JSON.parse(atob(token.replace(/-/g,'+').replace(/_/g,'/'))):{};setVerified(claims.sub===identity&&Array.isArray(claims.amr)&&claims.amr.some((a:{method:string;timestamp:number})=>['password','oauth','otp','sso/saml'].includes(a.method)&&a.timestamp>Date.now()/1000-240))}catch{setVerified(false)}})
-   }
-  }).catch(()=>{if(active)setProviders([])})
-  return()=>{active=false}
- },[identity])
- useEffect(()=>{
   if(!previewId||preview?.id===previewId||!available)return
-  let active=true;setBusy(true);setPreview(null);setCustom({});setChecked(false);setOpeningsReviewed(false)
+  let active=true;setBusy(true);setPreview(null);setCustom({});setOpeningsReviewed(false)
   void getFreshPreview(previewId,actor).then(p=>{if(active)setPreview(p)}).catch(cause=>{if(active)setError(explain(cause))}).finally(()=>{if(active)setBusy(false)})
   return()=>{active=false}
   // Errors are localized when the request settles; changing language cannot repeat a write.
@@ -77,7 +66,7 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
   return()=>{active=false}
   // eslint-disable-next-line react-hooks/exhaustive-deps
  },[archiveId,available,actor])
- useEffect(()=>{if(page!=='fresh-start/confirm')setChecked(false);if(page==='fresh-start/openings')setOpeningsReviewed(false)},[page])
+ useEffect(()=>{if(page==='fresh-start/openings')setOpeningsReviewed(false)},[page])
  const run=async(action:(who:string)=>Promise<void>)=>{
   if(lock.current)return
   lock.current=true;setBusy(true);setError('');const who=identity
@@ -88,14 +77,14 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
   window.dispatchEvent(new Event('tt:personal-period-changed'))
   window.dispatchEvent(new Event('tt:accounts-changed'));await ledger.refresh()
   if(!current(who))return
-  rememberRequest(actor,null);setUnresolved(null);setReceipt(result);setChecked(false);setPassword('')
+  rememberRequest(actor,null);setUnresolved(null);setReceipt(result)
  }
  const reconcile=()=>void run(async who=>{
   const id=unresolved??pendingRequest(actor);if(!id)return
   const result=await reconcileFreshStart(id,actor)
   if(!current(who))return
   if(result)await completed(result,who)
-  else{rememberRequest(actor,null);setUnresolved(null);setPreview(null);setCustom({});setChecked(false);setVerified(false);go('fresh-start');setError(c('No reset committed for this request. It is now safely closed; review again to start a new one.','此请求未提交重新开始，现已安全关闭。请重新核对后再开始。'))}
+  else{rememberRequest(actor,null);setUnresolved(null);setPreview(null);setCustom({});go('fresh-start');setError(c('No reset committed for this request. It is now safely closed; review again to start a new one.','此请求未提交重新开始，现已安全关闭。请重新核对后再开始。'))}
  })
  const openingValues=()=>{
   if(!preview)throw new Error('missing_preview')
@@ -108,20 +97,10 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
   if(unresolved||pendingRequest(actor))throw new Error('unresolved_request')
   const value=await previewPersonalFreshStart(actor)
   if(!current(who))return
-  setPreview(value);setCustom({});setChecked(false);setVerified(false);go('fresh-start/impact',value.id)
- })
- const reauthenticate=()=>void run(async who=>{
-  if(!supabase||!auth.authUser?.email||!password)throw new Error('missing_auth')
-  const live=await supabase.auth.getUser()
-  if(live.error||live.data.user?.id!==who||!live.data.user.email||!current(who))throw new Error('identity_changed')
-  const {data,error}=await supabase.auth.signInWithPassword({email:live.data.user.email,password})
-  setPassword('')
-  if(error)throw error
-  if(data.user?.id!==who||!current(who))throw new Error('identity_changed')
-  setVerified(true)
+  setPreview(value);setCustom({});setOpeningsReviewed(false);go('fresh-start/impact',value.id)
  })
  const apply=()=>void run(async who=>{
-  if(!preview||!checked||!openingsReviewed||!verified||!available||unresolved||pendingRequest(actor))throw new Error('invalid_confirmation')
+  if(!preview||!openingsReviewed||!canConfirm||unresolved||pendingRequest(actor))throw new Error('invalid_confirmation')
   const {data,error}=await supabase!.auth.getUser()
   if(error||data.user?.id!==who||!current(who))throw new Error('identity_changed')
   const command:FreshCommand={requestId:crypto.randomUUID(),previewId:preview.id,openings:openingValues()}
@@ -159,9 +138,10 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
   </>:null}
   {!receipt&&!archived&&preview&&step===4?<>
    <MePaper><h2>{c('Ready for a new personal period?','准备开启新的个人账期？')}</h2><p>{c('Your old personal records remain in the archive. Shared records, balances owed, settlements and ongoing obligations are protected.','旧个人记录保存在归档中。共享记录、债权债务、结算与持续义务受到保护。')}</p><p className="me-help">{c('Opening balances are recorded once per account currency. This cannot be undone from this screen.','每个账户币种的期初余额仅记录一次。此页面不提供撤销。')}</p></MePaper>
-   <MeSection title={c('Verify it is you','验证是你本人')}><MePaper>{providers.includes('email')?<><label className="me-label">{c('Current password','当前密码')}<input type="password" autoComplete="current-password" value={password} onChange={e=>{setPassword(e.target.value);setVerified(false)}}/></label><button className="me-secondary" disabled={busy||!password||!!unresolved} onClick={reauthenticate}>{c('Verify sign-in','验证登录')}</button></>:null}{providers.includes('google')?<button className="me-secondary" disabled={busy||!!unresolved} onClick={()=>void run(async()=>{await auth.signInWithGoogle('/profile/fresh-start/confirm?preview='+encodeURIComponent(preview.id))})}>{c('Verify with Google','通过 Google 验证')}</button>:null}{!providers.includes('email')&&!providers.includes('google')?<p>{c('Sign in again using your existing method before continuing.','继续前，请通过原有方式重新登录。')}</p>:null}{verified?<p role="status">{c('Sign-in verified. The server will recheck its recency.','登录已验证，服务器将再次核验时效。')}</p>:null}</MePaper></MeSection>
-   <label className="me-check"><input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)}/>{c('I understand that personal history will be archived, and shared obligations will continue unchanged.','我理解个人历史会归档，共享义务继续保持不变。')}</label>
-   {!openingsValid||!openingsReviewed?<MeNote warning>{c('Opening choices were not retained after leaving this screen. Return to Opening balances and review them again.','离开页面后未保留期初余额选择，请返回重新核对。')}</MeNote>:null}<button className="me-primary" disabled={!available||busy||!checked||!openingsValid||!openingsReviewed||!verified||!!unresolved||!!preview.conflicts.length} onClick={apply}>{busy?c('Verifying…','正在核验…'):c('Start new personal ledger','开启新的个人账期')}</button>
+   {!openingsValid||!openingsReviewed?<MeNote warning>{c('Review your opening balances again before confirming. No changes have been made.','确认前请重新核对期初余额，尚未修改账目。')}<button className="me-link" disabled={busy||!!unresolved} onClick={()=>go('fresh-start/openings')}>{c('Review opening balances','核对期初余额')}</button></MeNote>:null}
+   {!canConfirm&&available?<MeNote warning>{c('Fresh Start is temporarily unavailable. Please retry before continuing.','暂时无法重新开始，请重试后继续。')}<button className="me-link" disabled={busy} onClick={()=>void ledger.refreshPeriods()}>{c('Retry ledger check','重新核验账期')}</button></MeNote>:null}
+   <button className="me-primary" disabled={!canConfirm||busy||!openingsValid||!openingsReviewed||!!unresolved||!!preview.conflicts.length} onClick={apply}>{busy?c('Please wait…','请稍候…'):c('Yes, start new personal ledger','确认，开启新个人账期')}</button>
+   <button className="me-secondary" disabled={busy||!!unresolved} onClick={onHome}>{c('Cancel','取消')}</button>
   </>:null}
   {!receipt&&archived&&!archiveId?<>
    <p className="me-intro">{c('Read-only personal history. Shared and settlement records remain in their original views.','只读个人历史。共享和结算记录保留在原来的页面。')}</p>{available&&!ledger.periodState!.periods.some(p=>p.status==='archived')?<MeNote>{c('No archived personal ledgers yet.','尚无归档的个人账期。')}</MeNote>:null}{available&&ledger.periodState?.periods.filter(p=>p.status==='archived').map(p=><MePaper key={p.id}><MeRow icon="file" title={new Date(p.started_at).toLocaleDateString(lang==='zh'?'zh-CN':'en-MY')+' – '+new Date(p.ended_at!).toLocaleDateString(lang==='zh'?'zh-CN':'en-MY')} sub={c('Archived · read only','已归档 · 只读')} onClick={()=>go('archives/'+p.id)}/></MePaper>)}
@@ -169,6 +149,6 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
   {!receipt&&available&&archived&&archiveId&&archive?<>
    <MeNote>{c('Archived personal ledger · Read only','归档的个人账期 · 只读')}</MeNote><MeSection title={c('Opening snapshots','期初快照')}>{archive.openings.map(o=><MePaper key={o.account_id}><p className="me-native-amount">{money(o.amount_minor,o.currency)}</p></MePaper>)}</MeSection><MeSection title={c('Personal expenses','个人支出')}>{archive.expenses.map(e=><MePaper key={e.id}><h2>{e.description||e.category}</h2><div className="me-summary-line"><span>{e.occurred_on} · {e.status}</span><strong className="me-native-amount">{money(e.total_minor,e.currency)}</strong></div></MePaper>)}</MeSection><MeSection title={c('Native account activity','原币账户流水')}>{archive.transactions.map(t=><MePaper key={t.id+':'+t.account_id}><h2>{t.account_name}</h2><p>{t.occurred_on} · {t.kind}</p><p className="me-native-amount">{money(t.amount_minor,t.currency)}</p></MePaper>)}</MeSection>
   </>:null}
-  {busy?<p className="me-help" role="status">{c('Verifying with your account…','正在向服务器核验…')}</p>:null}
+  {busy?<p className="me-help" role="status">{c('Please wait…','请稍候…')}</p>:null}
  </>
 }

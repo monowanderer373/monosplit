@@ -38,3 +38,8 @@ it('reconciliation does not turn unknown outcomes into a new request',async()=>{
  mock.rpc.mockResolvedValueOnce({data:{state:'unknown'}})
  await expect(reconcileFreshStart('r','you')).rejects.toThrow()
 })
+it('distinguishes installed session confirmation from old policy without hiding valid archive reporting',()=>{
+ expect(parsePeriodState(raw,'you')).toMatchObject({available:true,freshStartSessionConfirmation:false})
+ expect(parsePeriodState({...raw,fresh_start_confirmation_version:1},'you')).toMatchObject({available:true,freshStartSessionConfirmation:true})
+ expect(parsePeriodState({...raw,fresh_start_confirmation_version:'1'},'you').freshStartSessionConfirmation).toBe(false)
+})
