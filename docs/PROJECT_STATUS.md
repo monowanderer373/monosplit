@@ -2,6 +2,11 @@
 
 Checkpoint:2026-10-24 (Asia/Bangkok). PR32+PR33 integrated main 8f7b1c99c9479ed03a176aa1dd1b46f27cdb4cd9; final docs-only checkpoint follows. Read actual main/provider/public version on resume. Existing stash and backup/local-wip-before-shared-a preserved.
 
+## Active — Me V2 + Fresh Start (2026-10-25)
+- Branch feat/me-v2 fromddb4333; uploaded primary MD/pasted execution prompt fully read, all12PNG and prototype reviewed. Baseline704units PASS; lint/build logs external /workspace/verification/me-v2-2026-10-25. Main V2 pages/real existing auth/profile/language integration and fully gated transactional period reset required.
+- User policy confirmed: all recurring bills, unfinished instalments and pending funding continue original flow; subsequent actual postings enter new period. Preserve all shared obligations/history/identities; never test-reset production.
+- Audit: persistent Set Password is unconditional non-guest UI, not trusted credential state. No existing ledger-period support; balances sum all immutable journal entries and funding/instalments/settlements share references. Reuse native reconciliation/coverage RPCs for opening snapshots, never delete/reset source facts or client-only hide records. Detailed recovery/design notes external RECOVERY.json; implementation underway, no new reset released.
+
 ## Integrated — remove Shared header tools (2026-10-25)
 - Branch fix/remove-shared-header-tools fromc4c1513. Removed Shared three-dot button/props, expanded inline invite/manual-person form and its local state. Normal Add person/search/tabs/create actions and Person detail menu retained. No financial/identity/schema changes.
 - Local704units,lint,tsc/PWA build PASS; four real-component browser widths320/360/390/430 PASS12.8s, retained manual/invite dialogs open/close, no duplicate header tools or overflow. Backend E2E helpers adapted to retained Add person dialogs with original money/identity/history assertions unchanged.

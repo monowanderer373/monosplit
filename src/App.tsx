@@ -97,7 +97,7 @@ function AppRoutes() {
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/person/:personId" element={<PersonDetailPage />} />
             <Route path="/capture" element={<SmartCapturePage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile/*" element={<ProfilePage />} />
           </Route>
           <Route path="/space-invite/:token" element={<SpaceInvitePage />} />
           <Route path="/friend-invite/:token" element={<FriendInvitePage />} />

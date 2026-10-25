@@ -1,3 +1,4 @@
+import {activePersonalExpenses,activePeriodJournals,type PeriodState} from '../lib/personalPeriods'
 import { useMemo } from 'react'
 import { useLocalCalendarDate } from './useLocalCalendarDate'
 import type { usePersonalLedger } from './usePersonalLedger'
@@ -28,6 +29,7 @@ import {
 } from '../lib/homeView'
 
 export default function useHomeModel(input: {
+  periodState?:PeriodState|null
   participantId: string | null
   timezone: string
   expensesStatus: 'loading' | 'error' | 'ready'
@@ -143,14 +145,14 @@ export default function useHomeModel(input: {
     const records = input.participantId
       ? buildHomeRecords({
         ownerParticipantId: input.participantId,
-        expenses: input.expenses,
+        expenses: activePersonalExpenses(input.expenses,input.periodState),
         funding: input.home.accounts.data?.funding ?? [],
         movementFees:input.home.accounts.data?.movementFees??[],
         accounts,
         people,
         spaces,
         affiliations,
-        journals: input.home.accounts.data?.journals ?? [],
+        journals: activePeriodJournals(input.home.accounts.data?.journals ?? [],input.periodState),
         selectedAccountId: homeRecordAccountFilter(input.homeUi.mode, selectedAccountId),
         limit: null,
         fundingKnown: input.home.accounts.status === 'ready',
@@ -160,7 +162,7 @@ export default function useHomeModel(input: {
       ? records.filter((record) => record.expenseId != null && travelIds.has(record.expenseId))
       : records
     const bookedRows = input.participantId
-      ? input.rows.filter((row) => isBookedHomeExpense(row.expense, input.participantId!))
+      ? input.rows.filter(row=>row.expense.scope!=='personal'||!input.periodState?.archivedExpenseIds.includes(row.expense.id)).filter((row) => isBookedHomeExpense(row.expense, input.participantId!))
       : []
     const tripRows = bookedRows.filter((row) => travelIds.has(row.expense.id))
     const tripSpending = sumSpending(tripRows)

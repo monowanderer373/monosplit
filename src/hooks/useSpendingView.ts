@@ -1,3 +1,4 @@
+import {activePersonalExpenses} from '../lib/personalPeriods'
 import { useEffect, useMemo } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from './useAuth'
@@ -26,14 +27,15 @@ export function useSpendingView() {
     setParams(clean,{replace:true,state:location.state})
   },[params,setParams,location.state])
   const authenticated = Boolean(auth.authUser?.participantId && !auth.authUser.isAnonymous)
-  const ready = authenticated && !auth.loading && ledger.expensesStatus === 'ready'
-  const originals = useMemo(() => spendingSnapshot(ledger.rows, ledger.participantId, {month:filter.month,scope:filter.scope,currency:'',tab:'category'}, auth.authUser?.defaultCurrency ?? 'MYR'),
-    [ledger.rows,ledger.participantId,filter.month,filter.scope,auth.authUser?.defaultCurrency])
+  const reportRows=useMemo(()=>{const active=new Set(activePersonalExpenses(ledger.rows.map(r=>r.expense),ledger.periodState).map(e=>e.id));return ledger.rows.filter(r=>active.has(r.expense.id))},[ledger.rows,ledger.periodState])
+  const ready = authenticated && !auth.loading && ledger.expensesStatus === 'ready' && ledger.periodStatus!=='loading' && ledger.periodStatus!=='error'
+  const originals = useMemo(() => spendingSnapshot(reportRows, ledger.participantId, {month:filter.month,scope:filter.scope,currency:'',tab:'category'}, auth.authUser?.defaultCurrency ?? 'MYR'),
+    [reportRows,ledger.participantId,filter.month,filter.scope,auth.authUser?.defaultCurrency])
   const returnKey = `${auth.authUser?.id}:${location.key}`
   const pinned = filter.fx ?? returnSnapshots.get(returnKey)
   const fx = useInsightsFx(authenticated && ready ? auth.authUser!.id : '', originals.currencies.some(c => c !== 'MYR'), pinned)
-  const snapshot = useMemo(() => spendingSnapshot(ledger.rows, ledger.participantId, {month:filter.month,scope:filter.scope,currency:'',tab:'category'}, auth.authUser?.defaultCurrency ?? 'MYR',fx.snapshot),
-    [ledger.rows,ledger.participantId,filter.month,filter.scope,auth.authUser?.defaultCurrency,fx.snapshot])
+  const snapshot = useMemo(() => spendingSnapshot(reportRows, ledger.participantId, {month:filter.month,scope:filter.scope,currency:'',tab:'category'}, auth.authUser?.defaultCurrency ?? 'MYR',fx.snapshot),
+    [reportRows,ledger.participantId,filter.month,filter.scope,auth.authUser?.defaultCurrency,fx.snapshot])
   const committed = { ...filter, ...(fx.snapshot.id ? {fx:fx.snapshot.id} : {}) }
   useRouteScroll(ready, auth.authUser?.id ?? '')
   const update = (patch: Partial<SpendingFilter>) => setParams(spendingQuery({ ...filter, ...patch }), { replace: true, state: { ...location.state, restoreScroll: window.scrollY } })
@@ -42,5 +44,5 @@ export function useSpendingView() {
     if (returnSnapshots.size > 100) returnSnapshots.delete(returnSnapshots.keys().next().value!)
   }
   const retryFx = () => { if (pinned) { returnSnapshots.delete(returnKey);update({fx:undefined}) } else void fx.retry() }
-  return { auth, ledger, lang, hidden, timezone, today, filter: committed, snapshot, ready, authenticated, update, updatingFx:fx.updating,retryFx,rememberFx }
+  return { auth, ledger:{...ledger,expensesStatus:ledger.periodStatus==='error'?'error' as const:ledger.periodStatus==='loading'?'loading' as const:ledger.expensesStatus}, lang, hidden, timezone, today, filter: committed, snapshot, ready, authenticated, update, updatingFx:fx.updating,retryFx,rememberFx }
 }

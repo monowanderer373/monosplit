@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, expect, it } from 'vitest'
 import { createUniversalQuickAddSession, todayIso } from './universalQuickAdd'
-import { readQuickDraft, writeQuickDraft } from './quickDraft'
+import { hasMeaningfulQuickDraft, readQuickDraft, writeQuickDraft } from './quickDraft'
 const trip = { kind: 'space' as const, spaceId: 'a', spaceType: 'trip' as const, displayName: 'A' }
 const draft = createUniversalQuickAddSession({ identityKey: 'u', sessionId: 's', clientRequestId: 'request', startedAtMs: 1, entryPoint: 'global', context: { ref: trip, currentParticipantId: 'self', availableParticipants: [{id:'self',displayName:'Me',kind:'account'}], defaultCurrency: 'MYR' }, initialValues: {amount:'42'} })
 afterEach(() => localStorage.clear())
@@ -27,4 +27,13 @@ it('recovers from corrupt storage and clears only the saved ledger', () => {
  writeQuickDraft('u',null,trip)
  expect(readQuickDraft('u',trip)).toBeNull()
  expect(readQuickDraft('u')?.values.amount).toBe('42')
+})
+
+it('warns on actual content only and isolates sign-out drafts by identity',()=>{
+ expect(hasMeaningfulQuickDraft('u')).toBe(false)
+ writeQuickDraft('u',{...draft,values:{...draft.values,amount:'',description:'',items:[]}})
+ expect(hasMeaningfulQuickDraft('u')).toBe(false)
+ writeQuickDraft('u',draft)
+ expect(hasMeaningfulQuickDraft('u')).toBe(true)
+ expect(hasMeaningfulQuickDraft('other')).toBe(false)
 })

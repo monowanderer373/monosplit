@@ -31,3 +31,8 @@ export function writeQuickDraft(identity: string, session: UniversalQuickAddSess
 export function readQuickDraft(identity: string, target: DraftTarget = { kind: 'personal' }): UniversalQuickAddSession | null {
   try { return loadDrafts(identity)[quickDraftKey(target)] ?? null } catch { return null }
 }
+
+/** Only actual entered content warrants a sign-out warning, not an empty restored form. */
+export function hasMeaningfulQuickDraft(identity:string):boolean {
+ return Object.values(loadDrafts(identity)).some(({values})=>Boolean(typeof values.amount==='string'&&values.amount.trim()||typeof values.description==='string'&&values.description.trim()||Array.isArray(values.items)&&values.items.length))
+}

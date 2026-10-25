@@ -74,7 +74,7 @@ for (const width of [320,360,390,430]) test(`Trip creation, date editing and lif
    expect(await editor.getByRole('checkbox',{name:'Dates not decided yet',exact:true}).evaluate(el=>getComputedStyle(el).appearance)).not.toBe('none')
    await capture(page,'04-text-200-percent-390')
    await editor.getByRole('button',{name:'Cancel',exact:true}).click()
-   await page.goto('/profile'); await page.getByRole('button',{name:'简中',exact:true}).click(); await page.goto(`/travel/trip/${id}`)
+   await page.goto('/profile'); await page.getByRole('button',{name:'Language',exact:false}).click(); await page.getByRole('button',{name:'简体中文',exact:true}).click(); await page.goto(`/travel/trip/${id}`)
    await expect(page.getByRole('button',{name:'修改旅行日期',exact:true})).toBeVisible()
   }
   const {count,error:expensesError}=await client.from('expenses').select('id',{count:'exact',head:true}).eq('space_id',id)

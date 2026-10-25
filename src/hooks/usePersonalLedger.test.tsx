@@ -7,6 +7,7 @@ import { spendingExpense } from '../test/spendingFixtures'
 import type { CanonicalExpense } from '../types'
 const mocks = vi.hoisted(() => ({ identity: 'first', list: vi.fn() }))
 vi.mock('./useAuth', () => ({ useAuth: () => ({ authUser: { id: mocks.identity, participantId: 'you' } }) }))
+vi.mock('../lib/personalPeriods',async original=>({...await original<typeof import('../lib/personalPeriods')>(),loadPersonalPeriods:async()=>({available:false,ownerId:null,periods:[],archivedExpenseIds:[],archivedTransactionIds:[],laterFunding:[]})}))
 vi.mock('../lib/supabase', () => ({ supabase: null }))
 vi.mock('../lib/ledgerRepository', async original => ({ ...await original<typeof import('../lib/ledgerRepository')>(), ledgerRepository: { listExpenses: mocks.list } }))
 function deferred() { let resolve!: (data: CanonicalExpense[]) => void; const promise = new Promise<CanonicalExpense[]>(done => { resolve = done }); return { promise, resolve } }

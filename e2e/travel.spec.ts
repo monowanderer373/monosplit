@@ -158,7 +158,7 @@ for (const width of [320, 360, 390, 430, 768]) test(`Travel real RPC flows and a
       await capture(page, 'desktop-1024')
       await page.setViewportSize({ width: 390, height: 844 })
       await page.goto('/profile')
-      await page.getByRole('button', { name: '简中', exact: true }).click()
+      await page.getByRole('button', { name: 'Language', exact: false }).click(); await page.getByRole('button', { name: '简体中文', exact: true }).click()
       await page.goto('/')
       await expect(page.getByTestId('home-trip-selector')).toHaveText('Mountain weekend')
       await capture(page, 'zh-has-trip-390')
@@ -171,7 +171,7 @@ for (const width of [320, 360, 390, 430, 768]) test(`Travel real RPC flows and a
       await expect(page.getByTestId('trip-detail-summary')).toContainText('4 条记录')
       await capture(page, 'zh-trip-details-390')
       await page.goto('/profile')
-      await page.getByRole('button', { name: 'EN', exact: true }).click()
+      await page.getByRole('button', { name: /语言/ }).click(); await page.getByRole('button', { name: 'English', exact: true }).click()
       await page.goto('/')
       await expect(page.getByTestId('home-trip-selector')).toHaveText('Mountain weekend')
     }

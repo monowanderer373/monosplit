@@ -255,6 +255,7 @@ export type HomeTripSelection = {
 
 const ASSET_TYPES = new Set<HomeAccountType>(['cash', 'bank', 'ewallet'])
 const JOURNAL_ACTIVITY = new Set<HomeJournalKind>([
+  'expense_funding',
   'income',
   'refund',
   'settlement_in',

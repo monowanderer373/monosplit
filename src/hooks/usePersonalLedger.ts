@@ -29,6 +29,7 @@ import {
 import { isOwnerLocalExpense } from '../lib/expenseActionPolicy'
 import { recordProductEvent } from '../lib/productEvents'
 import { supabase } from '../lib/supabase'
+import {loadPersonalPeriods,NO_PERIOD_CAPABILITY,type PeriodState} from '../lib/personalPeriods'
 
 const EMPTY_EXPENSES: never[] = []
 
@@ -55,6 +56,18 @@ function usePersonalLedgerController() {
   const partition = useStore((state) => (
     identityId ? state.ledgerByIdentity[identityId] : undefined
   ))
+  const [periodRead,setPeriodRead]=useState<{identity:string|null;state:PeriodState;status:'loading'|'ready'|'error'}>({identity:null,state:NO_PERIOD_CAPABILITY,status:'loading'})
+  const periodGeneration=useRef(0)
+  const refreshPeriods=useCallback(async()=>{
+    if(!identityId||!participantId||activeIdentity.current!==identityId)return
+    const generation=++periodGeneration.current
+    try{
+      const state=authUser?.isAnonymous?NO_PERIOD_CAPABILITY:await loadPersonalPeriods(participantId)
+      if(generation===periodGeneration.current&&activeIdentity.current===identityId)setPeriodRead({identity:identityId,state,status:'ready'})
+    }catch{
+      if(generation===periodGeneration.current&&activeIdentity.current===identityId)setPeriodRead(old=>({...old,identity:identityId,status:'error'}))
+    }
+  },[identityId,participantId,authUser?.isAnonymous])
   const setLedgerExpenses = useStore((state) => state.setLedgerExpenses)
   const queueLedgerCommand = useStore((state) => state.queueLedgerCommand)
   const claimLedgerCommand = useStore((state) => state.claimLedgerCommand)
@@ -85,6 +98,7 @@ function usePersonalLedgerController() {
   const refresh = useCallback(async () => {
     if (!identityId || !participantId || activeIdentity.current !== identityId) return
     const generation = ++readGeneration.current
+    const periodRead=refreshPeriods()
     setExpensesStatus((current) => (current === 'ready' ? current : 'loading'))
     try {
       const expenses = await ledgerRepository.listExpenses()
@@ -98,8 +112,8 @@ function usePersonalLedgerController() {
       setVerifiedIdentity(identityId)
       // Keep cached rows internally; consumers must not present a failed read as verified.
       setExpensesStatus('error')
-    }
-  }, [identityId, participantId, setLedgerExpenses])
+    }finally{await periodRead}
+  }, [identityId, participantId, setLedgerExpenses,refreshPeriods])
 
   const flush = useCallback(async () => {
     if (!identityId || !participantId || !navigator.onLine || flushingRef.current) return
@@ -166,6 +180,9 @@ function usePersonalLedgerController() {
     // Reconnect and actual queued commands retain the original flush path.
     if (identityId && useStore.getState().ledgerByIdentity[identityId]?.outbox.length) void flush()
     const handleOnline = () => void flush()
+    const handlePeriodRead=()=>void refreshPeriods()
+    window.addEventListener('focus',handlePeriodRead)
+    window.addEventListener('tt:accounts-changed',handlePeriodRead)
     window.addEventListener('online', handleOnline)
     let refreshTimer: ReturnType<typeof setTimeout> | undefined
     const scheduleAuthoritativeRefresh = () => {
@@ -179,16 +196,22 @@ function usePersonalLedgerController() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_participations' }, scheduleAuthoritativeRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'payer_contributions' }, scheduleAuthoritativeRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_shares' }, scheduleAuthoritativeRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_ledger_periods' }, handlePeriodRead)
         .subscribe()
       : null
     return () => {
       activeIdentity.current = null
       invalidateRead()
+      // This is a request generation counter, not a DOM ref. Invalidate on cleanup.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      periodGeneration.current++
+      window.removeEventListener('focus',handlePeriodRead)
+      window.removeEventListener('tt:accounts-changed',handlePeriodRead)
       window.removeEventListener('online', handleOnline)
       if (refreshTimer) clearTimeout(refreshTimer)
       if (channel && supabase) void supabase.removeChannel(channel)
     }
-  }, [flush, identityId, refresh, invalidateRead])
+  }, [flush, identityId, refresh, invalidateRead,refreshPeriods])
 
   const hasDispatchableCommands = Boolean(partition?.outbox.some(
     (item) => item.status === 'pending',
@@ -342,6 +365,9 @@ function usePersonalLedgerController() {
     identityId,
     participantId,
     expenses,
+    periodState:periodRead.identity===identityId?periodRead.state:null,
+    periodStatus:periodRead.identity===identityId?periodRead.status:'loading' as const,
+    refreshPeriods,
     expensesStatus: verifiedIdentity === identityId ? expensesStatus : 'loading' as const,
     rows,
     totals,
