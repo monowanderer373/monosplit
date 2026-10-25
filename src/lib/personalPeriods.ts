@@ -50,7 +50,7 @@ export function parseFreshPreview(raw:unknown,ownerId:string):FreshPreview{
  return p as unknown as FreshPreview
 }
 export async function previewPersonalFreshStart(ownerId:string):Promise<FreshPreview>{return parseFreshPreview(await rpc('preview_personal_fresh_start'),ownerId)}
-export async function getFreshPreview(id:string,ownerId:string):Promise<FreshPreview>{return parseFreshPreview(await rpc('get_personal_fresh_start_preview',{p_preview_id:id}),ownerId)}
+export async function getFreshPreview(id:string,ownerId:string):Promise<FreshPreview>{const value=parseFreshPreview(await rpc('get_personal_fresh_start_preview',{p_preview_id:id}),ownerId);if(value.id!==id)throw new Error('invalid_period_response');return value}
 export function parseFreshReceipt(raw:unknown,ownerId:string,requestId:string):FreshReceipt{const r=object(raw);if(r.schema_version!==1||r.owner_id!==ownerId||r.request_id!==requestId||r.policy!=='carry_all')throw new Error('invalid_period_response');text(r.period_id);text(r.archived_period_id);text(r.completed_at);return r as unknown as FreshReceipt}
 export async function applyPersonalFreshStart(command:FreshCommand,ownerId:string):Promise<FreshReceipt>{return parseFreshReceipt(await rpc('apply_personal_fresh_start',{p_request_id:command.requestId,p_preview_id:command.previewId,p_openings:command.openings}),ownerId,command.requestId)}
 export async function reconcileFreshStart(requestId:string,ownerId:string):Promise<FreshReceipt|null>{const r=object(await rpc('reconcile_personal_fresh_start',{p_request_id:requestId}));if(r.state==='committed')return parseFreshReceipt(r.result,ownerId,requestId);if(r.state==='fenced')return null;throw new Error('invalid_period_response')}

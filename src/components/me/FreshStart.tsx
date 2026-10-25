@@ -63,7 +63,7 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
  },[identity])
  useEffect(()=>{
   if(!previewId||preview?.id===previewId||!available)return
-  let active=true;setBusy(true)
+  let active=true;setBusy(true);setPreview(null);setCustom({});setChecked(false);setOpeningsReviewed(false)
   void getFreshPreview(previewId,actor).then(p=>{if(active)setPreview(p)}).catch(cause=>{if(active)setError(explain(cause))}).finally(()=>{if(active)setBusy(false)})
   return()=>{active=false}
   // Errors are localized when the request settles; changing language cannot repeat a write.
@@ -76,6 +76,7 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
   return()=>{active=false}
   // eslint-disable-next-line react-hooks/exhaustive-deps
  },[archiveId,available,actor])
+ useEffect(()=>{if(page!=='fresh-start/confirm')setChecked(false);if(page==='fresh-start/openings')setOpeningsReviewed(false)},[page])
  const run=async(action:(who:string)=>Promise<void>)=>{
   if(lock.current)return
   lock.current=true;setBusy(true);setError('');const who=identity
@@ -128,7 +129,7 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
  const title=archived?c('Past personal ledgers','过去的个人账期'):step===2?c('Review the impact','核对影响'):step===3?c('Opening balances','期初余额'):step===4?c('Confirm Fresh Start','确认重新开始'):c('Reset account','重新开始')
  return <>
   <header className="me-header"><button className="me-back" aria-label={c('Back','返回')} disabled={busy} onClick={back}><MeIcon name="back"/></button><h1 tabIndex={-1}>{title}</h1></header>
-  {!archived&&!receipt?<div className="me-stepper" aria-label={c(`Step ${step} of 4`,`第 ${step} 步，共 4 步`)}>{[1,2,3,4].map(n=><i key={n} data-active={n<=step}/>)}<span>{step}/4</span></div>:null}
+  {!archived&&!receipt?<div className="me-stepper" role="progressbar" aria-valuemin={1} aria-valuemax={4} aria-valuenow={step} aria-label={c(`Step ${step} of 4`,`第 ${step} 步，共 4 步`)}>{[1,2,3,4].map(n=><i key={n} data-active={n<=step}/>)}<span>{step}/4</span></div>:null}
   {!available?<MeNote warning>{auth.authUser?.isAnonymous?c('Link and verify your account before starting a new ledger. Your guest history will be preserved.','请先关联并验证账户，再开始新账期。访客历史会保留。'):ledger.periodStatus==='loading'?c('Checking ledger capability…','正在核验账期功能…'):c('Fresh Start is unavailable until its financial safeguards are installed and verified. Your financial history is protected; reporting needs this capability.','财务保护功能安装并核验前，暂不能重新开始。原财务历史受保护；账期报表需等待此功能。')}</MeNote>:null}
   {error?<p className="me-error" role="alert">{error}</p>:null}
   {unresolved?<MePaper><h2>{c('Check the last request first','请先核对上次请求')}</h2><p>{c('The result may have committed even if the connection was interrupted. This status check waits for that request and prevents a delayed duplicate.','即使连接中断，操作仍可能已提交。状态核对会等待上次请求，并防止延迟的重复操作。')}</p><button className="me-primary" disabled={busy||!available} onClick={reconcile}>{c('Check request status','核对请求状态')}</button></MePaper>:null}
