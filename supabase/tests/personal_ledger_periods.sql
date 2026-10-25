@@ -17,6 +17,10 @@ create function pg_temp.payload(amount bigint,currency text,title text)returns j
 create function pg_temp.review()returns jsonb language plpgsql as $$declare p jsonb;begin p:=preview_personal_fresh_start();insert into fresh values('preview',p)on conflict(k)do update set v=excluded.v;return p;end$$;
 create function pg_temp.openings()returns jsonb language sql as $$select coalesce(jsonb_agg(jsonb_build_object('account_id',x->>'account_id','amount_minor',case when (x->>'known')::boolean then x->>'balance_minor'else'0'end)),'[]')from jsonb_array_elements((select v->'accounts'from fresh where k='preview'))x$$;
 create function pg_temp.apply(id uuid)returns jsonb language sql as $$select apply_personal_fresh_start($1,(select(v->>'id')::uuid from fresh where k='preview'),pg_temp.openings())$$;
+create function pg_temp.fail_second_opening()returns trigger language plpgsql as $$begin
+ if current_setting('test.fail_fresh',true)='on'and exists(select 1 from personal_period_openings where period_id=new.period_id)then
+  raise exception using message='disposable_opening_failure',errcode='P0001';end if;return new;end$$;
+create trigger disposable_fresh_rollback before insert on public.personal_period_openings for each row execute function pg_temp.fail_second_opening();
 select ok(not has_table_privilege('authenticated','public.personal_period_expenses','INSERT,UPDATE,DELETE'),'no direct membership writes');
 select ok(not has_function_privilege('authenticated','private.personal_period_snapshot(uuid)','EXECUTE'),'private snapshot is not an authority bypass');
 set local role authenticated;
@@ -53,6 +57,13 @@ select throws_ok($$select pg_temp.apply('e0250000-0000-4000-8000-000000000003')$
 select is((select count(*)from personal_ledger_periods),0::bigint,'stale preview cannot partly archive history');
 select pg_temp.review();
 insert into fresh values('command',jsonb_build_object('preview',(select v->>'id'from fresh where k='preview'),'openings',pg_temp.openings()));
+insert into fresh values('rollback-before',get_personal_multicurrency_accounts());
+set local test.fail_fresh='on';
+select throws_ok($$select pg_temp.apply('e0250000-0000-4000-8000-000000000006')$$,'P0001','disposable_opening_failure','failure after an earlier account opening rolls the entire operation back');
+set local test.fail_fresh='off';
+select is(get_personal_multicurrency_accounts(),(select v from fresh where k='rollback-before'),'all native balances, revisions and entries unchanged after mid-operation failure');
+select is((select count(*)from personal_ledger_periods),0::bigint,'mid-operation failure cannot partly create an epoch');
+select is((select count(*)from personal_fresh_start_operations where request_id='e0250000-0000-4000-8000-000000000006'),0::bigint,'failed transaction cannot leave a false committed receipt');
 insert into fresh values('receipt',pg_temp.apply('e0250000-0000-4000-8000-000000000004'));
 select is((select v->>'policy'from fresh where k='receipt'),'carry_all','committed receipt confirms policy');
 select is((select count(*)from personal_ledger_periods where status='active'),1::bigint,'exactly one active period');

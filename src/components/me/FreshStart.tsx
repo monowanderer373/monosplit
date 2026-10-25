@@ -42,9 +42,10 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
   if(code.includes('preview_changed'))return c('Your ledger changed. Go back and review a new impact preview. Nothing was reset.','账目已有变化。请返回并重新核对影响预览，尚未重新开始。')
   if(code.includes('preview_expired'))return c('This review expired. Go back and request a new preview.','预览已过期，请返回重新核对。')
   if(code.includes('fenced'))return c('This request is closed. Review again before starting a new request.','此请求已安全关闭，请重新核对后再开始。')
-  return c('This action could not be verified. Your financial history has not been deleted. Check the connection and retry the status check before starting again.','无法核验此操作。财务历史不会被删除，请检查连接并先重查状态，再重新开始。')
+  if(code.includes('Invalid login')||code.includes('invalid_credentials'))return c('Sign-in verification failed. Check your current sign-in method and password.','登录验证失败，请核对当前登录方式和密码。')
+  return c('This action could not be verified. Check the connection and retry. Your financial history has not been deleted.','无法核验此操作，请检查连接后重试。财务历史不会被删除。')
  }
- const go=(path:string,id=preview?.id)=>{setError('');setPassword('');navigate('/profile/'+path+(id&&path.startsWith('fresh-start/')?'?preview='+encodeURIComponent(id):''),{state:{meParent:true}})}
+ const go=(path:string,id=preview?.id)=>{if(path.startsWith('archives'))setReceipt(null);setError('');setPassword('');navigate('/profile/'+path+(id&&path.startsWith('fresh-start/')?'?preview='+encodeURIComponent(id):''),{state:{meParent:true}})}
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
  useEffect(()=>{
   setPreview(null);setCustom({});setChecked(false);setVerified(false);setOpeningsReviewed(false);setPassword('');setReceipt(null);setUnresolved(actor?pendingRequest(actor):null)
@@ -106,7 +107,9 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
  })
  const reauthenticate=()=>void run(async who=>{
   if(!supabase||!auth.authUser?.email||!password)throw new Error('missing_auth')
-  const {data,error}=await supabase.auth.signInWithPassword({email:auth.authUser.email,password})
+  const live=await supabase.auth.getUser()
+  if(live.error||live.data.user?.id!==who||!live.data.user.email||!current(who))throw new Error('identity_changed')
+  const {data,error}=await supabase.auth.signInWithPassword({email:live.data.user.email,password})
   setPassword('')
   if(error)throw error
   if(data.user?.id!==who||!current(who))throw new Error('identity_changed')
@@ -124,7 +127,7 @@ export default function FreshStart({page,onHome}:{page:string;onHome:()=>void}){
  const back=()=>{if(busy)return;if(archived){if(archiveId)go('archives');else go('fresh-start')}else if(step===1)onHome();else go(step===2?'fresh-start':step===3?'fresh-start/impact':'fresh-start/openings')}
  const title=archived?c('Past personal ledgers','过去的个人账期'):step===2?c('Review the impact','核对影响'):step===3?c('Opening balances','期初余额'):step===4?c('Confirm Fresh Start','确认重新开始'):c('Reset account','重新开始')
  return <>
-  <header className="me-header"><button className="me-back" aria-label={c('Back','返回')} disabled={busy} onClick={back}><MeIcon name="back"/></button><h1>{title}</h1></header>
+  <header className="me-header"><button className="me-back" aria-label={c('Back','返回')} disabled={busy} onClick={back}><MeIcon name="back"/></button><h1 tabIndex={-1}>{title}</h1></header>
   {!archived&&!receipt?<div className="me-stepper" aria-label={c(`Step ${step} of 4`,`第 ${step} 步，共 4 步`)}>{[1,2,3,4].map(n=><i key={n} data-active={n<=step}/>)}<span>{step}/4</span></div>:null}
   {!available?<MeNote warning>{auth.authUser?.isAnonymous?c('Link and verify your account before starting a new ledger. Your guest history will be preserved.','请先关联并验证账户，再开始新账期。访客历史会保留。'):ledger.periodStatus==='loading'?c('Checking ledger capability…','正在核验账期功能…'):c('Fresh Start is unavailable until its financial safeguards are installed and verified. Your existing ledger continues normally.','财务保护功能安装并核验前，暂不能重新开始。原账目可继续正常使用。')}</MeNote>:null}
   {error?<p className="me-error" role="alert">{error}</p>:null}

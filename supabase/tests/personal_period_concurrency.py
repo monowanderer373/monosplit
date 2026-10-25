@@ -1,6 +1,7 @@
 """Fresh Start competing-session integration: disposable loopback stack ONLY."""
 import json
 import os
+import random
 import shutil
 import subprocess
 import time
@@ -28,9 +29,11 @@ def main():
     query("insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)values('00000000-0000-0000-0000-000000000000','"+actor+"','authenticated','authenticated','period-race-"+actor+"@example.test','',now(),'{\"provider\":\"email\"}','{\"display_name\":\"Period Race QA\"}',now(),now());",False)
     account=query("select create_personal_account(gen_random_uuid(),'Period race cash','cash','MYR',10000,current_date,false);")[0]['account_id']
 
-    def reviewed_command(request_id=None):
+    def reviewed_command(request_id=None,observed=None):
         preview=query('select preview_personal_fresh_start();')[0]
         openings=[{'account_id':a['account_id'],'amount_minor':a['balance_minor']if a['known']else'0'}for a in preview['accounts']]
+        if observed is not None:
+            next(a for a in openings if a['account_id']==account)['amount_minor']=str(observed)
         rid=request_id or str(uuid.uuid4())
         return rid,"select apply_personal_fresh_start('"+rid+"','"+preview['id']+"','"+json.dumps(openings)+"'::jsonb);"
 
@@ -88,7 +91,17 @@ def main():
     # Verify multiple fresh-period/opening replays never manufacture balance.
     balances=query('select get_personal_multicurrency_accounts();')[0]['accounts']
     assert next(a for a in balances if a['id']==account)['entry_sum_minor']in ('10000',10000)
-    print('PASS: duplicate commit, real ordinary-writer exclusion/stale rollback, in-flight receipt recovery, delayed-request fence and native opening conservation')
+    generator=random.Random(20261025)
+    for observed in [0,-1,1]+[generator.randrange(-1000000,1000000)for _ in range(12)]:
+        history=query('select jsonb_object_agg(e.id,to_jsonb(e))from personal_account_entries e;')[0]
+        _,sql=reviewed_command(observed=observed)
+        first=query(sql)[0]
+        assert query(sql)[0]==first,'Replay changed receipt during native-balance property checks'
+        units=query('select get_personal_multicurrency_accounts();')[0]['accounts']
+        assert int(next(a for a in units if a['id']==account)['entry_sum_minor'])==observed,'Native opening conservation failed'
+        later=query('select jsonb_object_agg(e.id,to_jsonb(e))from personal_account_entries e;')[0]
+        assert all(later[k]==v for k,v in history.items()),'Reset rewrote an earlier immutable entry'
+    print('PASS: duplicate commit, real ordinary-writer exclusion/stale rollback, in-flight receipt recovery, delayed-request fence and native opening conservation / 15 deterministic signed-balance property samples')
 
 
 if __name__=='__main__':

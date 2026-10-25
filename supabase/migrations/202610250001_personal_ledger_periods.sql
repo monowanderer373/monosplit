@@ -45,7 +45,7 @@ end $$;
 create function private.personal_period_snapshot(actor uuid) returns jsonb
 language plpgsql stable security definer set search_path='' as $$
 declare protected_ids uuid[];personal_ids uuid[];tx_ids uuid[];protected_tx uuid[];visible_ids uuid[];payment_ids uuid[];
- pieces jsonb:='{}'::jsonb;part jsonb;t text;accounts jsonb;amounts jsonb;conflicts jsonb:='[]'::jsonb;
+ pieces jsonb:='{}'::jsonb;part jsonb;accounts jsonb;amounts jsonb;conflicts jsonb:='[]'::jsonb;
 begin
  select coalesce(array_agg(id order by id),'{}') into visible_ids from public.expenses e where private.can_read_expense(e.id,actor);
  with recursive edges(a,b)as(
@@ -84,10 +84,29 @@ begin
  select coalesce(jsonb_agg(to_jsonb(p)order by p.id),'[]') into part from public.settlement_payments p where p.id=any(payment_ids);pieces:=pieces||jsonb_build_object('payments',part);
  select coalesce(jsonb_agg(to_jsonb(p)order by p.id),'[]') into part from public.settlement_allocations p where p.settlement_payment_id=any(payment_ids);pieces:=pieces||jsonb_build_object('allocations',part);
  select coalesce(jsonb_agg(to_jsonb(p)order by to_jsonb(p)::text),'[]') into part from public.settlement_allocation_reversals p where private.can_read_settlement_reversal(p.id,actor);pieces:=pieces||jsonb_build_object('reversals',part);
- foreach t in array array['personal_accounts','personal_account_transactions','personal_account_currencies','personal_account_balance_anchors','personal_money_operations','personal_funding_intents','personal_funding_bundles','personal_funding_bundle_legs','personal_money_movements','personal_money_movement_fees','personal_money_movement_coverage','personal_installment_plans','personal_installments','personal_recurring_rules','personal_recurring_occurrences','personal_expense_affiliations','personal_settlement_cash_legs','recurring_rules','recurring_drafts','personal_ledger_periods','personal_period_expenses','personal_period_transactions']loop
-  execute pg_catalog.format('select coalesce(jsonb_agg(to_jsonb(x) order by to_jsonb(x)::text),''[]'') from public.%I x where x.owner_participant_id=$1',t)into part using actor;
-  pieces:=pieces||jsonb_build_object(t,part);
- end loop;
+ pieces:=pieces||jsonb_build_object(
+  'personal_accounts',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_accounts x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_account_transactions',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_account_transactions x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_account_currencies',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_account_currencies x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_account_balance_anchors',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_account_balance_anchors x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_money_operations',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_money_operations x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_funding_intents',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_funding_intents x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_funding_bundles',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_funding_bundles x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_funding_bundle_legs',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_funding_bundle_legs x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_money_movements',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_money_movements x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_money_movement_fees',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_money_movement_fees x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_money_movement_coverage',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_money_movement_coverage x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_installment_plans',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_installment_plans x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_installments',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_installments x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_recurring_rules',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_recurring_rules x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_recurring_occurrences',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_recurring_occurrences x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_expense_affiliations',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_expense_affiliations x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_settlement_cash_legs',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_settlement_cash_legs x where x.owner_participant_id=actor),'[]'::jsonb),
+  'recurring_rules',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.recurring_rules x where x.owner_participant_id=actor),'[]'::jsonb),
+  'recurring_drafts',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.recurring_drafts x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_ledger_periods',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_ledger_periods x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_period_expenses',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_period_expenses x where x.owner_participant_id=actor),'[]'::jsonb),
+  'personal_period_transactions',coalesce((select jsonb_agg(to_jsonb(x)order by to_jsonb(x)::text)from public.personal_period_transactions x where x.owner_participant_id=actor),'[]'::jsonb));
  select coalesce(jsonb_agg(to_jsonb(x)order by x.id),'[]') into part from public.settlement_payment_requests x where actor in(x.creditor_participant_id,x.debtor_participant_id);pieces:=pieces||jsonb_build_object('payment_requests',part);
  select coalesce(jsonb_agg(to_jsonb(x)order by x.id),'[]') into part from public.settlement_attribution_intents x where x.settlement_payment_id=any(payment_ids);pieces:=pieces||jsonb_build_object('attribution',part);
  select coalesce(jsonb_agg(to_jsonb(x)order by x.id),'[]') into part from public.personal_account_entries x join public.personal_accounts a on a.id=x.account_id where a.owner_participant_id=actor;
