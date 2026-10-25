@@ -50,8 +50,10 @@ jobs:
       - run: npm ci
       - run: npx supabase start
       - run: npx supabase db reset
-      - run: npx supabase db lint --fail-on warning
-      - run: npx supabase test db
+      - run: npx supabase db lint --fail-on warning 2>&1 | tee /tmp/tabby-db-lint.log
+      - run: npx supabase test db 2>&1 | tee /tmp/tabby-db-tests.log
+      - if: failure()
+        run: python3 scripts/report-database-failure.py
       - name: Verify collect/pay write exclusion with two sessions
         env:
           COLLECT_PAY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -96,6 +98,7 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/fixtures/legacy_pre_007.sql
       - name: Apply release, hardening, and archive migrations
         run: |
+          exec > >(tee /tmp/tabby-history-apply.log) 2>&1
           python3 scripts/generate-multicurrency-apply.py
           git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql
           mkdir /tmp/tabby-multicurrency-migrations
@@ -105,6 +108,8 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/tabby-multicurrency-migrations/202610250001_personal_ledger_periods.sql
+      - if: failure()
+        run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive
         run: psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/fixtures/legacy_post_009_assertions.sql
       - run: npx supabase db lint --local --fail-on warning
