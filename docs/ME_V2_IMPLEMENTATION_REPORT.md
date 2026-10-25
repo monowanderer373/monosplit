@@ -2,7 +2,9 @@
 
 ## Delivery status
 
-Implemented on feat/me-v2, [PR36](https://github.com/monowanderer373/monosplit/pull/36), against current-main baseline ddb4333586f9dacc4005dc8f3d1e8d2a39dbec28. This checkpoint is **not a production completion claim**. Existing production: https://tabby-tally-monowanderer373s-projects.vercel.app/ .
+Implemented in [PR #36](https://github.com/monowanderer373/monosplit/pull/36) and merged to main `121df2b54d2598bbf6cdf2219807f6b9f7ddf368`; its complete tree equals validated PR head `adb266e0b3c983a9870f40cd39f56166c5ca882d`. The existing production deployment is **READY**, `dpl_8MtUcABW87GNJCWeWc3i9XrL8wSA`, and the canonical public bundle contains that exact main SHA. Live: https://tabby-tally-monowanderer373s-projects.vercel.app/ .
+
+Normal tagged-owned QA login verified real profile update/readback/restoration, persisted EN/ZH, centered language dialog, focused subpages, explicit password page without a production password change, disabled deferred actions, authoritative Fresh Start preview/opening review only, verified empty archive, Records total/tab/scroll return, and amount privacy. No API interception, financial mutation RPCs, runtime errors or production Reset. Hashes of ten financial tables and all period IDs remain unchanged. Retained PWA caches contain the current entry, ProfilePage, Records, Accounts and Shared chunks after native registration.update(); stable paper assets match source hashes even offline. Signed-out Records guards pass at 320/360/390/430 px and its updated shell loads offline. Final documentation-only deployment metadata is recorded externally in delivery-final.json to avoid a self-referential commit loop.
 
 The owner installed001and then the V2bundle after the two concrete SQL Editor requests.001readback verified29migrations/0periods/0openings; final readback verified30versions,9function bodies after only CRLF-to-LF canonicalization,6owner RLS tables/no direct writes,0periods/openings, normal tagged-QA safety2/preview/anonymous denial and unchanged financial hashes. No production Reset was run.001is frozen byte-for-byte. The SQL binding remains supabase_read_only_user/read-only/noCREATE; the owner completed both required SQL Editor installation steps. Normal development/push/merge/production authorization already exists; no secret in chat is needed.
 
@@ -47,14 +49,14 @@ Archives are owner-only read-only projections of canonical facts/native activity
 | Real disposable SQL | PASS |Source3d37393:919pgTAP/20files,57new; original862also pass |
 | Real concurrency/property tests | PASS |Ordinary-writer exclusion/stale rollback, duplicate receipt/fence/recovery,15signed-native conservation samples |
 | Complete historical bundle twice | PASS |Source3d37393; preserves old79429-byte multicurrency bundle |
-| Full authenticated browser/Travel/CollectPay/production graph | PASS at3d37393; final source pending |CI40167019668all7SUCCESS; final code/status split and isolated password-save check require final SHA |
+| Full authenticated browser/Travel/CollectPay/production graph | PASS |Final PR head Quality40169865461 all seven jobs SUCCESS, zero failure annotations: 354 full browser, 16 Travel, 10 CollectPay, 198 production UI. Includes real isolated password update then new-password login with the same principal. |
 | Physical Honor/native IME/fonts/browser UI zoom | NOT RUN |Simulations are distinct |
 | Local Docker backend | BLOCKED |Actualvfs; extraction failure not repeated. Real backend uses disposable GitHub Actions |
 | Production Reset/financial writes | NOT RUN |Prohibited for QA; mutating tests run only isolated |
 |001+002production install/API smoke | PASS |30versions/9body hashes/6RLS tables; normal QA safety2/preview and unchanged financial facts |
-| New production/live/PWA | Pending |Final code CI then existing-project deployment and live readback |
+| Existing production/live/PWA | PASS |Native READY/exact public main SHA, normal owned-QA live checks and current ProfilePage cache. No production financial writes. |
 
-Earlier failures are retained in WORK_LOG: schema/lint references, test-only trigger search path, wrong liability-sign expectation, original profile UPSERT/RLS, and one Back/Forward test race fixed with exact heading/control readiness. They are not current passing results.
+Earlier failed attempts are retained in WORK_LOG: schema/lint references, test-only trigger search path, wrong liability-sign expectation, original profile UPSERT/RLS, and one Back/Forward test race fixed with exact heading/control readiness. They are not current passing results. A pre-final source run also retried two existing multi-user navigation timeouts; final PR-head CI passed without failure annotations. Initial live readback compared innerText against a textContent matcher (hidden accessibility copy differed); the external verifier now compares textContent consistently. The application did not change for that verifier fix, and the complete live rerun passed.
 
 Backup API lists no physical snapshots/PITR; operator encrypted backups are outside this workspace and unverified here. The install is additive/forward-fix, never a production Reset/test restore.
 
@@ -66,10 +68,10 @@ The app omits fake system bars, displays actual profile/auth/version data, disab
 
 ## Rollout / recovery
 
-1. Finish final source checks. Download the full pinned V2file, run once in existing skiqsxvmxvmxfzhrzcxh SQL Editor; no fragments, manual history rows or secrets.
-2. Independently verify30versions, final function bodies, owner RLS/grants, safety version2, normal tagged-owned QA capability/preview and unchanged financial fact hashes. Never execute production Reset as QA.
-3. Merge only after installation. Deploy existing Vercel project, verify native READY/exact main SHA/public entry, normal login/profile/language/security/Records/privacy and retained PWA update.
-4. SQL failure rolls back the bundle. Preserve installed001and use forward migrations. Once periods are used, preserve period-aware reporting; an old pre-period UI rollback ignores that boundary. Automated Restore is out of scope.
+1. Completed: owner installed 001 + 002; independent exact-version/function/RLS/API verification passed. **No further SQL action is needed.** Both deployed migrations are immutable.
+2. Completed: final exact-head CI and normal merge; existing-project native READY/public SHA/owned-QA live readback. Detailed safe evidence is under /workspace/verification/me-v2-2026-10-25.
+3. The final checkpoint changes documentation only. Verify its exact native deployment/public SHA and retained caches into external delivery-final.json; no repeat financial tests or schema installation.
+4. Preserve period-aware reporting after periods are used; an old pre-period UI rollback ignores that boundary. Use forward migrations for corrections. Automated Restore is out of scope.
 
 ## All modified files
 
