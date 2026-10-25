@@ -4,7 +4,7 @@
 
 Implemented on feat/me-v2, [PR36](https://github.com/monowanderer373/monosplit/pull/36), against current-main baseline ddb4333586f9dacc4005dc8f3d1e8d2a39dbec28. This checkpoint is **not a production completion claim**. Existing production: https://tabby-tally-monowanderer373s-projects.vercel.app/ .
 
-The owner installed001and then the V2bundle after the two concrete SQL Editor requests.001readback verified29migrations/0periods/0openings; final30-version/code/permissions verification is recorded externally before frontend rollout. No production Reset is run.001is frozen byte-for-byte. Current SQL role is supabase_read_only_user/read-only/noCREATE; installation needs the existing project's SQL Editor. Normal development/push/merge/production authorization already exists; no secret in chat is needed.
+The owner installed001and then the V2bundle after the two concrete SQL Editor requests.001readback verified29migrations/0periods/0openings; final readback verified30versions,9function bodies after only CRLF-to-LF canonicalization,6owner RLS tables/no direct writes,0periods/openings, normal tagged-QA safety2/preview/anonymous denial and unchanged financial hashes. No production Reset was run.001is frozen byte-for-byte. The SQL binding remains supabase_read_only_user/read-only/noCREATE; the owner completed both required SQL Editor installation steps. Normal development/push/merge/production authorization already exists; no secret in chat is needed.
 
 The complete V2bundle is docs/runbooks/personal-periods-production-apply.sql, generated from001+002. It skips installed001, atomically installs missing002, targets30versions and returns TABBY_PERSONAL_PERIODS_INSTALL_COMPLETE_20261025_V2. Earlier35032-byte bundles/marker are superseded. Do not reinstall old multicurrency/FX releases.
 
@@ -51,7 +51,8 @@ Archives are owner-only read-only projections of canonical facts/native activity
 | Physical Honor/native IME/fonts/browser UI zoom | NOT RUN |Simulations are distinct |
 | Local Docker backend | BLOCKED |Actualvfs; extraction failure not repeated. Real backend uses disposable GitHub Actions |
 | Production Reset/financial writes | NOT RUN |Prohibited for QA; mutating tests run only isolated |
-|002install/new production/live/PWA | BLOCKED |Read-only SQL binding;001installed only |
+|001+002production install/API smoke | PASS |30versions/9body hashes/6RLS tables; normal QA safety2/preview and unchanged financial facts |
+| New production/live/PWA | Pending |Final code CI then existing-project deployment and live readback |
 
 Earlier failures are retained in WORK_LOG: schema/lint references, test-only trigger search path, wrong liability-sign expectation, original profile UPSERT/RLS, and one Back/Forward test race fixed with exact heading/control readiness. They are not current passing results.
 
