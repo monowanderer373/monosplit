@@ -46,7 +46,7 @@ test('twelve approved Me states use real components and honest deferred actions'
 })
 for(const width of [320,360,390,430])test(`Me long text, subpage navigation and 200% text at ${width}px`,async({page})=>{
  await setup(page);await page.setViewportSize({width,height:852});await page.goto('/profile');await expect(page.locator('.me-profile')).toBeVisible();await page.locator('.me-profile strong').evaluate(e=>e.textContent='A long display name 这是很长的用户名称 that must wrap safely')
- await page.addStyleTag({content:'.tt-me-v2{font-size:28px!important}.tt-me-v2 .me-row-title{font-size:28px!important}.tt-me-v2 .me-row-sub{font-size:24px!important}'})
+ await page.evaluate(()=>document.documentElement.style.fontSize='200%')
  await capture(page,`stress-home-${width}-200`);await page.getByRole('button',{name:/Privacy & data/}).click();await expect(page.getByRole('navigation')).toHaveCount(0);await expect(page.locator('.me-header h1')).toHaveText('Privacy & data');await capture(page,`stress-privacy-${width}-200`);await page.goBack();await expect(page.getByRole('navigation',{name:'Primary navigation'})).toBeVisible()
 })
 test('missing capability and failed preview fail closed; privacy hides native balances',async({page})=>{
@@ -54,4 +54,8 @@ test('missing capability and failed preview fail closed; privacy hides native ba
 })
 test('lost commit response is reconciled after reload without posting twice',async({page})=>{
  const {state}=await setup(page);state.lostResponse=true;await beginReview(page);await page.getByRole('button',{name:'Review opening balances',exact:true}).click();await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByLabel('Current password',{exact:true}).fill('synthetic-test-password-123');await page.getByRole('button',{name:'Verify sign-in',exact:true}).click();await expect(page.getByText(/Sign-in verified/)).toBeVisible();await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Start new personal ledger',exact:true}).click();await expect(page.getByRole('button',{name:'Check request status',exact:true})).toBeVisible();await expect(page.getByRole('alert')).toBeVisible();expect(state.commits).toBe(1);await page.reload();await page.getByRole('button',{name:'Check request status',exact:true}).click();await expect(page.getByText('Your new personal ledger is ready',{exact:true})).toBeVisible();expect(state.commits).toBe(1)
+})
+
+for(const scale of [1.25,1.5,2])test(`dialog and keyboard-safe inputs at ${scale*100}% text`,async({page})=>{
+ await setup(page);await page.setViewportSize({width:390,height:600});await page.goto('/profile');await page.evaluate(scale=>document.documentElement.style.fontSize=`${scale*100}%`,scale);await page.getByRole('button',{name:/Language.*English/}).click();const d=page.getByRole('dialog',{name:'App language',exact:true});await expect(d).toBeVisible();await expect(d.getByRole('button',{name:'English',exact:true})).toBeInViewport();await page.goBack();await expect(d).toHaveCount(0);await page.locator('.me-profile').click();await page.setViewportSize({width:390,height:420});const name=page.getByRole('textbox',{name:'Display name',exact:true});await name.scrollIntoViewIfNeeded();await name.fill('Keyboard-safe tester');await page.getByRole('button',{name:'Save changes',exact:true}).scrollIntoViewIfNeeded();await expect(page.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 })

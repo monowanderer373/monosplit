@@ -45,7 +45,7 @@ end $$;
 create function private.personal_period_snapshot(actor uuid) returns jsonb
 language plpgsql stable security definer set search_path='' as $$
 declare protected_ids uuid[];personal_ids uuid[];tx_ids uuid[];protected_tx uuid[];visible_ids uuid[];payment_ids uuid[];
- pieces jsonb:='{}';part jsonb;t text;accounts jsonb;amounts jsonb;conflicts jsonb:='[]';
+ pieces jsonb:='{}'::jsonb;part jsonb;t text;accounts jsonb;amounts jsonb;conflicts jsonb:='[]'::jsonb;
 begin
  select coalesce(array_agg(id order by id),'{}') into visible_ids from public.expenses e where private.can_read_expense(e.id,actor);
  with recursive edges(a,b)as(
@@ -54,7 +54,6 @@ begin
  ),protected(id)as(
   select e.id from public.expenses e where e.id=any(visible_ids) and(e.scope<>'personal' or e.created_by<>actor or e.participant_count<>1
     or exists(select 1 from public.expense_participations p where p.expense_id=e.id and p.participant_id<>actor)
-    or exists(select 1 from public.settlement_allocations a where a.expense_id=e.id)
     or exists(select 1 from public.settlement_attribution_intents a where a.expense_id=e.id))
   union select edges.b from edges join protected on edges.a=protected.id
  )select coalesce(array_agg(id order by id),'{}') into protected_ids from protected;
@@ -136,14 +135,14 @@ end $$;
 create function public.get_personal_fresh_start_preview(p_preview_id uuid)returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare actor uuid:=private.require_personal_actor();p public.personal_fresh_start_previews%rowtype;begin
  select * into p from public.personal_fresh_start_previews where id=p_preview_id and owner_participant_id=actor;
- if not found or p.expires_at<clock_timestamp() then raise exception using message='fresh_start_preview_expired',errcode='P0001';end if;
+ if not found or p.expires_at<statement_timestamp() then raise exception using message='fresh_start_preview_expired',errcode='P0001';end if;
  return(p.payload-'expense_ids'-'transaction_ids')||jsonb_build_object('id',p.id,'owner_id',actor,'expires_at',p.expires_at,'schema_version',1);
 end $$;
 
 create function public.apply_personal_fresh_start(p_request_id uuid,p_preview_id uuid,p_openings jsonb)returns jsonb
 language plpgsql security definer set search_path='' set lock_timeout='5s' set statement_timeout='30s' as $$
 declare actor uuid:=private.require_personal_actor();request_hash text;old public.personal_fresh_start_operations%rowtype;
- preview public.personal_fresh_start_previews%rowtype;snapshot jsonb;old_period uuid;new_period uuid:=gen_random_uuid();instant timestamptz:=clock_timestamp();a jsonb;unit public.personal_accounts%rowtype;parent public.personal_accounts%rowtype;ids uuid[];opening bigint;result_payload jsonb;anchor uuid;method text;
+ preview public.personal_fresh_start_previews%rowtype;snapshot jsonb;old_period uuid;new_period uuid:=gen_random_uuid();instant timestamptz:=clock_timestamp();choice jsonb;unit public.personal_accounts%rowtype;parent public.personal_accounts%rowtype;ids uuid[];opening bigint;result_payload jsonb;anchor uuid;method text;
 begin
  if p_request_id is null or p_preview_id is null or p_openings is null or jsonb_typeof(p_openings)<>'array' then raise exception using message='invalid_fresh_start_request',errcode='P0001';end if;
  request_hash:=encode(extensions.digest(jsonb_build_object('preview',p_preview_id,'openings',p_openings)::text,'sha256'),'hex');
@@ -187,10 +186,10 @@ begin
  insert into public.personal_period_expenses(owner_participant_id,period_id,expense_id)select actor,old_period,x::uuid from jsonb_array_elements_text(snapshot->'expense_ids')x;
  insert into public.personal_period_transactions(owner_participant_id,period_id,transaction_id)select actor,old_period,x::uuid from jsonb_array_elements_text(snapshot->'transaction_ids')x;
  insert into public.personal_ledger_periods(id,owner_participant_id,started_at,status)values(new_period,actor,instant,'active');
- for a in select * from jsonb_array_elements(p_openings)order by value->>'account_id'loop
-  select * into unit from public.personal_accounts where id=(a->>'account_id')::uuid and owner_participant_id=actor;
+ for choice in select * from jsonb_array_elements(p_openings)order by value->>'account_id'loop
+  select * into unit from public.personal_accounts where id=(choice->>'account_id')::uuid and owner_participant_id=actor;
   select * into parent from public.personal_accounts where id=coalesce((select parent_account_id from public.personal_account_currencies where account_id=unit.id),unit.id);
-  opening:=(a->>'amount_minor')::bigint;
+  opening:=(choice->>'amount_minor')::bigint;
   select coalesce(array_agg(id order by id),'{}')into ids from public.personal_account_entries where account_id=unit.id;
   result_payload:=public.set_personal_currency_balance(private.money_child_request(p_request_id,'fresh-start:'||unit.id::text),unit.id,opening,instant,unit.version,parent.version,ids);
   select id into anchor from public.personal_account_balance_anchors where account_id=unit.id order by anchor_sequence desc limit 1;
