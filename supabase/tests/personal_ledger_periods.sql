@@ -25,7 +25,8 @@ select ok(not has_table_privilege('authenticated','public.personal_period_expens
 select ok(not has_function_privilege('authenticated','private.personal_period_snapshot(uuid)','EXECUTE'),'private snapshot is not an authority bypass');
 set local role authenticated;
 select pg_temp.claims('d0250000-0000-4000-8000-000000000001');
-insert into fresh values('cash',create_personal_account(gen_random_uuid(),'Period Cash','cash','MYR',10000,current_date,false)),('foreign',create_personal_account(gen_random_uuid(),'Period VND','bank','VND',-90000,current_date,false)),('unknown',create_personal_account(gen_random_uuid(),'Period Unknown','bank','USD',null,null,false));
+insert into fresh values('cash',create_personal_account(gen_random_uuid(),'Period Cash','cash','MYR',10000,current_date,false));
+insert into fresh values('foreign',add_personal_account_currency(gen_random_uuid(),(select(v->>'account_id')::uuid from fresh where k='cash'),'VND',(pg_temp.unit('cash')->>'version')::int,-90000,current_date)),('unknown',create_personal_account(gen_random_uuid(),'Period Unknown','bank','USD',null,null,false));
 insert into fresh values('personal',create_expense_with_multicurrency_funding(gen_random_uuid(),pg_temp.payload(1000,'MYR','Old personal expense'),jsonb_build_object('mode','deferred','primary_account_id',(select v->>'account_id'from fresh where k='cash'),'legs','[]'::jsonb)));
 insert into fresh values('shared',jsonb_build_object('id',create_expense(gen_random_uuid(),'direct',null,1800,'MYR','Protected shared','Food',current_date,array[current_participant_id(),(select id from participants where auth_user_id='d0250000-0000-4000-8000-000000000002')],array[1800::bigint,0::bigint],array[900::bigint,900::bigint])));
 select is(get_personal_ledger_period_state()->'periods','[]'::jsonb,'legacy account starts without fabricated periods');
