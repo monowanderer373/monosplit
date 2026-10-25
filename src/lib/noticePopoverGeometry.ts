@@ -11,8 +11,7 @@ export function rightPopupGeometry({
   panelHeight = 160,
   gap = 6,
   inset = 16,
-  maxWidth = 300,
-  minWidth = 148,
+  maxWidth = 360,
   safe = { top: 0, right: 0, bottom: 0 },
   bottomReserve = 0,
 }: {
@@ -23,14 +22,14 @@ export function rightPopupGeometry({
   gap?: number
   inset?: number
   maxWidth?: number
-  minWidth?: number
-  safe?: { top: number; right: number; bottom: number }
+  safe?: { top: number; right: number; bottom: number; left?: number }
   bottomReserve?: number
 }): PopupPlacement {
   const numbers = [
     anchor.left, anchor.right, anchor.top, anchor.bottom,
     viewport.left, viewport.top, viewport.width, viewport.height,
-    frame.left, frame.right, panelHeight, gap, inset, maxWidth, minWidth,
+    frame.left, frame.right, panelHeight, gap, inset, maxWidth, bottomReserve,
+    safe.top, safe.right, safe.bottom, safe.left ?? 0,
   ]
   if (numbers.some(n => !Number.isFinite(n)) || viewport.width <= 0 || viewport.height <= 0 || panelHeight < 0) {
     throw new Error('invalid_geometry')
@@ -40,20 +39,29 @@ export function rightPopupGeometry({
   if (anchor.right <= viewport.left || anchor.left >= vr || anchor.bottom <= viewport.top || anchor.top >= vb) {
     return { mode: 'closed' }
   }
-  const left = anchor.right + gap
-  const right = Math.min(vr - safe.right, frame.right) - inset
-  const top = Math.max(anchor.top, viewport.top + safe.top + inset)
+  // A side-only menu squeezes the copy on phones. Use the frame width below
+  // the trigger; clamp both edges to the visual viewport and safe areas.
+  const edgeLeft = Math.max(viewport.left + (safe.left ?? 0) + inset, frame.left)
+  const edgeRight = Math.min(vr - safe.right - inset, frame.right)
+  const width = Math.max(0, Math.min(maxWidth, edgeRight - edgeLeft))
+  const left = Math.max(edgeLeft, Math.min(anchor.right - width, edgeRight - width))
+  const ceiling = viewport.top + safe.top + inset
   const bottom = vb - Math.max(inset + safe.bottom, bottomReserve)
-  const width = Math.max(0, Math.min(maxWidth, right - left))
-  const maxHeight = Math.max(0, bottom - top)
+  const below = Math.max(ceiling, anchor.bottom + gap)
+  const aboveSpace = Math.max(0, anchor.top - gap - ceiling)
+  const belowSpace = Math.max(0, bottom - below)
+  const above = belowSpace < 140 && aboveSpace > belowSpace
+  const maxHeight = above ? aboveSpace : belowSpace
+  const top = above ? Math.max(ceiling, anchor.top - gap - Math.min(panelHeight || 160, maxHeight)) : below
   if (width < 44 || maxHeight < 44) return { mode: 'closed' }
+  const originX = Math.max(0, Math.min(width, (anchor.left + anchor.right) / 2 - left))
   return {
-    mode: width < minWidth || panelHeight > maxHeight ? 'summary' : 'popover',
+    mode: maxHeight < 140 ? 'summary' : 'popover',
     left,
     top,
     width,
     maxHeight,
-    origin: '0px 20px',
+    origin: `${originX}px ${above ? '100%' : '0px'}`,
   }
 }
 
@@ -87,10 +95,11 @@ export function shouldCancelNavigation(reason: string) {
 
 export function readSafeInsets(doc: Document = document) {
   const node = doc.createElement('div')
-  node.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-right:env(safe-area-inset-right,0px);padding-bottom:env(safe-area-inset-bottom,0px)'
+  node.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-left:env(safe-area-inset-left,0px);padding-top:env(safe-area-inset-top,0px);padding-right:env(safe-area-inset-right,0px);padding-bottom:env(safe-area-inset-bottom,0px)'
   doc.documentElement.append(node)
   const style = getComputedStyle(node)
   const insets = {
+    left: parseFloat(style.paddingLeft) || 0,
     top: parseFloat(style.paddingTop) || 0,
     right: parseFloat(style.paddingRight) || 0,
     bottom: parseFloat(style.paddingBottom) || 0,

@@ -59,9 +59,14 @@ test('bell retains grouped deduction tasks; picker actions keep the selected acc
   const group = page.locator('[data-notice-id="fundinggroup:bank"]')
   await expect(group).toContainText('2 deductions to verify')
   const panel = page.getByTestId('home-notice-popover')
+  await panel.evaluate(async el=>{await Promise.all(el.getAnimations().map(a=>a.finished.catch(()=>{})))})
   const bellBox = (await bell.boundingBox())!
   const panelBox = (await panel.boundingBox())!
-  expect(panelBox.x).toBeGreaterThanOrEqual(bellBox.x + bellBox.width - 1)
+  expect(panelBox.y).toBeGreaterThanOrEqual(bellBox.y + bellBox.height + 5)
+  const headerBox=(await page.getByTestId('home-header').boundingBox())!
+  expect(panelBox.y).toBeGreaterThanOrEqual(headerBox.y+headerBox.height+5)
+  expect(panelBox.x).toBeGreaterThanOrEqual(16)
+  expect(panelBox.width).toBeGreaterThanOrEqual(288)
   await expect(panel.getByRole('heading', { name: 'Notifications' })).toHaveCount(0)
   await group.click()
   await expect(page).toHaveURL(/accounts\/verify\?account=bank/)

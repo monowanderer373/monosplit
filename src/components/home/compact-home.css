@@ -14,9 +14,12 @@
 .ttc-ui .ttc-summary-card.is-pay{background:#E6EFF4;border-color:#CADDE6}
 .ttc-ui .ttc-summary-label{display:block;font-size:.75rem;color:var(--ttc-secondary)}
 .ttc-ui .ttc-summary-value{display:block;font-size:1.25rem;font-weight:500;font-variant-numeric:tabular-nums;margin-top:3px;overflow-wrap:anywhere}
-.ttc-ui .ttc-bell{position:relative;display:grid;place-items:center;width:44px;height:44px;flex:none;background:transparent;border:0;border-radius:10px;padding:10px}
-.ttc-ui .ttc-bell[aria-expanded=true]{background:#E3EFF4}
-.ttc-ui .ttc-bell-count{position:absolute;right:-1px;top:0;min-width:17px;min-height:17px;padding:0 3px;display:grid;place-items:center;border-radius:10px;background:#DFEDF3;color:var(--ttc-blue);font-size:.6875rem}
+/* Keep the touch target generous; only the icon and plain superscript are visible. */
+.home-notice-anchor.ttc-ui{display:inline-flex;flex:none;width:44px;height:44px;align-self:center}
+.home-notice-anchor.ttc-ui > .home-account-notice.ttc-bell{position:relative;display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;flex:none;background:transparent;border:0;border-radius:10px;padding:0;box-shadow:none;cursor:pointer;touch-action:manipulation}
+.home-notice-anchor.ttc-ui > .ttc-bell:is(:hover,[aria-expanded=true],:active){background:transparent;box-shadow:none}
+.home-notice-anchor.ttc-ui > .ttc-bell:active > svg{transform:scale(.9)}
+.home-notice-anchor.ttc-ui .home-notice-count.ttc-bell-count{position:absolute;inset:2px 2px auto auto;min-width:0;min-height:0;padding:0;display:block;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--ttc-blue);font-size:.625rem;line-height:1.2;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none}
 .ttc-ui.ttc-popover{position:fixed;z-index:70;padding:2px 10px 3px;border:1px solid var(--ttc-line);border-radius:13px;background:var(--ttc-surface);box-shadow:0 6px 18px #24374a17,0 1px 4px #24374a06;transform-origin:0 20px;isolation:isolate;overflow-wrap:anywhere}
 .ttc-ui .ttc-tabs{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--ttc-line)}
 .ttc-ui .ttc-tab{flex:1;min-width:0;min-height:44px;margin-bottom:-1px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:transparent;font-size:.75rem;color:var(--ttc-secondary)}
@@ -68,3 +71,17 @@
 #root .home-shell .ttc-home-stack .cp-summary-fold { display: none; }
 #root .home-shell .home-account-actions { position: static; width: auto; height: auto; min-width: 0; transform: none; }
 #root .home-shell .home-account-actions img { display: none; }
+
+/* The portal is outside #root: fully specify its layout instead of relying on
+   Home's historical sheet/grid rules or the lazy stylesheet insertion order. */
+.home-notice-popover.ttc-popover{display:flex;flex-direction:column;gap:8px;min-width:0;padding:10px 14px;border-radius:14px;overflow:hidden}
+.home-notice-popover.ttc-popover .home-notice-tabs{display:flex;flex:none;gap:2px;padding:2px;border:1px solid var(--ttc-line);border-radius:10px;background:#F8F6F0}
+.home-notice-popover.ttc-popover .home-notice-tabs .ttc-tab{min-height:44px;margin:0;padding:6px 8px;border:0;border-radius:8px;font-size:.8125rem;line-height:1.35;white-space:normal}
+.home-notice-popover.ttc-popover .home-notice-tabs .ttc-tab[aria-selected=true]{background:#E3EFF4;color:var(--ttc-blue)}
+.home-notice-popover.ttc-popover .home-notice-list{flex:1;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.home-notice-popover.ttc-popover .home-notice-row{display:grid;grid-template-columns:5px 16px minmax(0,1fr) 12px;gap:8px;align-items:center;min-height:64px;padding:10px 0;border:0;border-bottom:1px dotted var(--ttc-line);line-height:1.4}
+.home-notice-popover.ttc-popover .home-notice-icon{display:grid;width:16px;height:16px}
+.home-notice-popover.ttc-popover .home-notice-copy{display:grid;gap:3px;min-width:0;text-align:left}
+.home-notice-popover.ttc-popover .ttc-item-title{font-size:.8125rem;line-height:1.4}
+.home-notice-popover.ttc-popover .ttc-item-meta{display:flex;flex-wrap:wrap;gap:0 .2em;margin:0;font-size:.75rem;line-height:1.4}
+@media(prefers-reduced-motion:no-preference){.home-notice-anchor.ttc-ui > .ttc-bell > svg{transition:transform 120ms ease-out}}

@@ -29,6 +29,7 @@ export default function AccountNotice({
   onAction,
   onRetry,
   onDismiss,
+  onViewed,
 }: {
   identity?: string
   targetOpen?: boolean
@@ -39,6 +40,7 @@ export default function AccountNotice({
   onAction?: (notice: HomeNotification) => void
   onRetry?: () => unknown
   onDismiss?: () => void
+  onViewed?: (notices: readonly HomeNotification[]) => void
 }) {
   const hidden = useStore(s => s.homeUi.balanceHidden)
   const lang = useStore(s => s.lang)
@@ -58,6 +60,7 @@ export default function AccountNotice({
   const identityKey = identity ?? 'anon'
   const previousIdentity = useRef(identityKey)
   const pending = realTaskCount(notices)
+  const unreadCount = notices.filter(n => unread.has(n.id)).reduce((count, n) => count + (n.taskCount ?? 1), 0)
   const visible = notices.filter(n => n.tab === tab)
   const preview = fullView ? { items: [...visible], hasMore: false, totalRows: visible.length } : previewItems(visible)
   const countLabel = !notices.length && status !== 'ready'
@@ -115,6 +118,14 @@ export default function AccountNotice({
     if (open) setPresent(true)
   }, [open])
 
+  // Viewing the tray acknowledges its current versions, never completes a task.
+  // Wait for a real visible, successfully loaded panel, including a slow first load.
+  useEffect(() => {
+    if (open && present && place.mode !== 'closed' && status === 'ready' && unreadCount) {
+      onViewed?.(notices.filter(n => unread.has(n.id)))
+    }
+  }, [open, present, place.mode, status, unreadCount, unread, notices, onViewed])
+
   useLayoutEffect(() => {
     if (!present || !panel.current) return
     const node = panel.current
@@ -146,7 +157,8 @@ export default function AccountNotice({
       const frameBox = frameEl?.getBoundingClientRect()
       if (node.dataset.mode !== 'summary') naturalHeight.current = Math.max(node.scrollHeight, node.offsetHeight)
       const next = rightPopupGeometry({
-        anchor: box,
+        anchor: { left: box.left, right: box.right, top: box.top,
+          bottom: Math.max(box.bottom, anchor.closest('header')?.getBoundingClientRect().bottom ?? box.bottom) },
         viewport: {
           left: viewportApi?.offsetLeft ?? 0,
           top: viewportApi?.offsetTop ?? 0,
@@ -264,7 +276,7 @@ export default function AccountNotice({
         type="button"
         className="home-account-notice ttc-bell"
         data-testid="home-account-notice"
-        aria-label={`${t('notice.title')} · ${countLabel}${unread.size ? ` · ${t('notice.unread')}` : ''}`}
+        aria-label={`${t('notice.title')} · ${countLabel}${unreadCount ? ` · ${t('notice.unreadCount', { count: unreadCount })}` : ''}`}
         title={t('notice.title')}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -272,8 +284,7 @@ export default function AccountNotice({
         onClick={() => open ? requestClose('toggle') : (setOpen(true), setPresent(true))}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3Zm5 3h4M12 2v2"/></svg>
-        {unread.size > 0 ? <span className="home-account-notice-dot" aria-hidden="true" /> : null}
-        {pending > 0 ? <span className="home-notice-count ttc-bell-count" aria-hidden="true">{pending > 99 ? '99+' : pending}</span> : null}
+        {unreadCount > 0 ? <span className="home-notice-count ttc-bell-count" aria-hidden="true">{unreadCount > 10 ? '…' : unreadCount}</span> : null}
       </button>
       {present && typeof document !== 'undefined' ? createPortal(
           <section

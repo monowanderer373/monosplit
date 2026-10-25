@@ -8,6 +8,20 @@ import {funding,noticeExpense,noticeSnapshot} from '../../test/notificationFixtu
 import {useStore} from '../../store/useStore'
 afterEach(cleanup);beforeEach(()=>useStore.setState({lang:'en'}))
 describe('paper notification interactions',()=>{
+ it.each([1,10,11])('shows a plain unread count capped after ten (%i), independent of pending totals',count=>{
+  const notice={...buildHomeNotifications(noticeSnapshot(),[])[0],taskCount:count}
+  render(<AccountNotice notices={[notice]} unread={new Set([notice.id])}/> )
+  expect(screen.getByTestId('home-account-notice').querySelector('.ttc-bell-count')?.textContent).toBe(count>10?'…':String(count))
+  expect(screen.getByTestId('home-account-notice').querySelector('.home-account-notice-dot')).toBeNull()
+ })
+ it('acknowledges only a visible successful snapshot, including a late first load',async()=>{
+  const user=userEvent.setup(),notices=buildHomeNotifications(noticeSnapshot(),[]),onViewed=vi.fn(),unread=new Set(notices.map(n=>n.id))
+  const {rerender}=render(<AccountNotice notices={notices} unread={unread} status="error" onViewed={onViewed}/>)
+  expect(onViewed).not.toHaveBeenCalled();await user.click(screen.getByTestId('home-account-notice'));expect(onViewed).not.toHaveBeenCalled()
+  rerender(<AccountNotice notices={notices} unread={unread} status="ready" onViewed={onViewed}/>);expect(onViewed).toHaveBeenCalledWith(notices)
+  rerender(<AccountNotice notices={notices} unread={new Set()} onViewed={onViewed}/>);expect(screen.getByTestId('home-account-notice').querySelector('.ttc-bell-count')).toBeNull()
+  expect(screen.getByTestId('home-account-notice').getAttribute('aria-label')).toContain('2 to do')
+ })
  it('has full-row semantic actions with distinct record context, independent unread and pending counters; close never clears tasks',async()=>{
   const user=userEvent.setup(),notices=buildHomeNotifications(noticeSnapshot(),[]),onAction=vi.fn(),unread=new Set(notices.map(n=>n.id))
   const {rerender}=render(<AccountNotice notices={notices} unread={unread} onAction={onAction}/>)
