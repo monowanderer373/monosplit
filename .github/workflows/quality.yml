@@ -117,7 +117,7 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-periods-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-periods-production-apply.sql
-          python3 scripts/verify-personal-confirmation-transport.py
+          python3 scripts/verify-personal-confirmation-transport.py --migration-file /tmp/tabby-multicurrency-migrations/202610250003_personal_period_session_confirmation.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-confirmation-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-confirmation-production-apply.sql
       - if: failure()

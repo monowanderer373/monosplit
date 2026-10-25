@@ -3,8 +3,9 @@ from pathlib import Path
 import argparse,base64,hashlib,os,re,subprocess,textwrap
 from urllib.parse import urlparse
 root=Path(__file__).resolve().parents[1]
+parser=argparse.ArgumentParser();parser.add_argument('--check-only',action='store_true');parser.add_argument('--migration-file',type=Path,default=root/'supabase/migrations/202610250003_personal_period_session_confirmation.sql');args=parser.parse_args()
 script=(root/'docs/runbooks/personal-confirmation-production-apply.sql').read_text()
-migration=(root/'supabase/migrations/202610250003_personal_period_session_confirmation.sql').read_bytes()
+migration=args.migration_file.read_bytes()
 pattern=r'(\$tabby_session_confirmation_payload\$)(.*?)(\$tabby_session_confirmation_payload\$)'
 match=re.search(pattern,script,re.S)
 assert match,'canonical payload missing'
@@ -15,8 +16,7 @@ for name,value in variants.items():
  payload=re.search(pattern,value,re.S)[2]
  assert base64.b64decode(''.join(payload.split()),validate=True)==migration,name
  assert hashlib.sha256(migration).hexdigest()in value
-parser=argparse.ArgumentParser();parser.add_argument('--check-only',action='store_true')
-if parser.parse_args().check_only:
+if args.check_only:
  print('PASS: four transport variants decode to the exact canonical migration bytes');raise SystemExit(0)
 url=os.environ.get('LOCAL_DATABASE_URL','');parsed=urlparse(url)
 if parsed.scheme not in ['postgres','postgresql']or parsed.hostname not in ['127.0.0.1','localhost']or parsed.port!=54322:
