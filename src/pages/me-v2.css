@@ -75,3 +75,11 @@
 #root .tt-me-v2 .me-summary-line:last-child{border-bottom:0}
 #root .tt-me-v2 .me-summary-line span{min-width:0;overflow-wrap:anywhere}
 #root .tt-me-v2 .me-summary-line strong{max-width:60%;text-align:right;overflow-wrap:anywhere}
+/* The shared dialog is reused outside Shared's scoped shell. Supply its full
+   geometry here so Tailwind's margin reset cannot pin it to the top-left. */
+#root .tt-me-v2 .me-header h1:focus{outline:none}
+#root .tt-me-v2 .ttsa-dialog{position:fixed;inset:0;margin:auto;width:calc(100vw - 40px);height:fit-content}
+#root .tt-me-v2 .ttsa-dialog-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+#root .tt-me-v2 .ttsa-dialog-title h2{margin:0;min-width:0;overflow-wrap:anywhere}
+#root .tt-me-v2 .ttsa-icon-button{display:grid;place-items:center;flex:0 0 44px;width:44px;min-width:44px;height:44px;min-height:44px;padding:10px;border:0;border-radius:12px;background:transparent;color:var(--me-blue)}
+#root .tt-me-v2 .ttsa-icon{display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}

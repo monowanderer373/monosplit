@@ -101,7 +101,7 @@ def main():
         assert int(next(a for a in units if a['id']==account)['entry_sum_minor'])==observed,'Native opening conservation failed'
         later=query('select jsonb_object_agg(e.id,to_jsonb(e))from personal_account_entries e;')[0]
         assert all(later[k]==v for k,v in history.items()),'Reset rewrote an earlier immutable entry'
-    print('PASS: duplicate commit, real ordinary-writer exclusion/stale rollback, in-flight receipt recovery, delayed-request fence and native opening conservation / 15 deterministic signed-balance property samples')
+    print(('::notice title=Fresh Start real concurrency::'if os.environ.get('GITHUB_ACTIONS')=='true'else'')+'PASS: duplicate commit, real ordinary-writer exclusion/stale rollback, in-flight receipt recovery, delayed-request fence and native opening conservation / 15 deterministic signed-balance property samples')
 
 
 if __name__=='__main__':

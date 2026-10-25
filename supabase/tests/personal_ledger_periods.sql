@@ -18,7 +18,7 @@ create function pg_temp.review()returns jsonb language plpgsql as $$declare p js
 create function pg_temp.openings()returns jsonb language sql as $$select coalesce(jsonb_agg(jsonb_build_object('account_id',x->>'account_id','amount_minor',case when (x->>'known')::boolean then x->>'balance_minor'else'0'end)),'[]')from jsonb_array_elements((select v->'accounts'from fresh where k='preview'))x$$;
 create function pg_temp.apply(id uuid)returns jsonb language sql as $$select apply_personal_fresh_start($1,(select(v->>'id')::uuid from fresh where k='preview'),pg_temp.openings())$$;
 create function pg_temp.fail_second_opening()returns trigger language plpgsql as $$begin
- if current_setting('test.fail_fresh',true)='on'and exists(select 1 from personal_period_openings where period_id=new.period_id)then
+ if current_setting('test.fail_fresh',true)='on'and exists(select 1 from public.personal_period_openings where period_id=new.period_id)then
   raise exception using message='disposable_opening_failure',errcode='P0001';end if;return new;end$$;
 create trigger disposable_fresh_rollback before insert on public.personal_period_openings for each row execute function pg_temp.fail_second_opening();
 select ok(not has_table_privilege('authenticated','public.personal_period_expenses','INSERT,UPDATE,DELETE'),'no direct membership writes');

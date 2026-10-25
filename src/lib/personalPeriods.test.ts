@@ -23,10 +23,8 @@ it('rejects cross-principal, corrupt and overflow responses',()=>{
  expect(()=>parsePeriodState({...raw,later_funding:[{amount_minor:'9007199254740992'}]},'you')).toThrow()
  expect(()=>parseFreshReceipt({schema_version:1,owner_id:'other'},'you','r')).toThrow()
 })
-it('only explicit missing capability preserves legacy reporting; network/auth errors are never empty success',async()=>{
- mock.rpc.mockResolvedValueOnce({data:null,error:{code:'PGRST202'}})
- expect(await loadPersonalPeriods('you')).toBe(NO_PERIOD_CAPABILITY)
- for(const code of ['42501','PGRST301','network']){mock.rpc.mockResolvedValueOnce({error:{code}});await expect(loadPersonalPeriods('you')).rejects.toEqual({code})}
+it('missing capability, network and auth errors never restore old history as verified active reporting',async()=>{
+ for(const code of ['PGRST202','42501','PGRST301','network']){mock.rpc.mockResolvedValueOnce({error:{code}});await expect(loadPersonalPeriods('you')).rejects.toEqual({code})}
 })
 it('requires complete authoritative carry-forward and native-account validation',()=>{
  const p={schema_version:1,owner_id:'you',id:'p',fingerprint:'hash',expires_at:'2026-10-25T12:00:00Z',policy:'carry_all',personal_count:1,protected_shared_count:1,protected_settlement_count:0,pending_funding_count:1,ongoing_installment_count:0,recurring_rule_count:0,conflicts:[],accounts:[{account_id:'a',parent_id:'a',name:'Cash',currency:'MYR',known:true,balance_minor:'-300',version:1,parent_version:1}],currencies:[{currency:'MYR',amount_minor:'1200'}]}

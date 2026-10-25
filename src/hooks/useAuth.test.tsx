@@ -9,6 +9,7 @@ const mock = vi.hoisted(() => ({
   getSession: vi.fn(),
   profile: vi.fn(),
   participant: vi.fn(),
+  upsert:vi.fn(),
 }))
 vi.mock('../lib/supabase', () => ({
   supabaseEnabled: true,
@@ -20,7 +21,7 @@ vi.mock('../lib/supabase', () => ({
         return { data: { subscription: { unsubscribe: () => mock.callbacks.delete(callback) } } }
       },
     },
-    from: (table: string) => ({ select: () => ({ eq: () => ({
+    from: (table: string) => ({ upsert:mock.upsert,select: () => ({ eq: () => ({
       maybeSingle: table === 'participants' ? mock.participant : mock.profile,
     }) }) }),
   },
@@ -134,4 +135,20 @@ describe('session startup', () => {
     expect(await screen.findByText('retry')).toBeTruthy()
     expect(screen.queryByText('home:null')).toBeNull()
   })
+})
+
+it('a delayed display-name save cannot overwrite the next signed-in account',async()=>{
+ const write=deferred<{error:null}>()
+ mock.upsert.mockReturnValue(write.promise)
+ mock.getSession.mockResolvedValue(sessionResult(true))
+ function Editor(){const auth=useAuth();return <><p>{auth.authUser?.id}:{auth.authUser?.displayName}</p><button onClick={()=>void auth.updateProfile({displayName:'Old account edit'})}>Update name</button></>}
+ render(<AuthProvider><Editor/></AuthProvider>)
+ await screen.findByText('account-a:Dav')
+ await act(async()=>screen.getByRole('button',{name:'Update name'}).click())
+ mock.profile.mockResolvedValue({data:{display_name:'Name B'},error:null})
+ await emit('SIGNED_IN',{user:{...user,id:'account-b',email:'b@example.test'}})
+ await screen.findByText('account-b:Name B')
+ await act(async()=>write.resolve({error:null}))
+ expect(screen.getByText('account-b:Name B')).toBeTruthy()
+ expect(mock.upsert).toHaveBeenCalledWith({id:'account-a',display_name:'Old account edit'})
 })
