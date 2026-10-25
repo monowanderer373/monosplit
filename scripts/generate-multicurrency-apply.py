@@ -4,7 +4,7 @@ import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
 NAMES = ('20261016130602_multicurrency_accounts_and_funding.sql', '20261016132156_multicurrency_money_movements.sql')
-versions = sorted(p.name.split('_')[0] for p in (ROOT / 'supabase/migrations').glob('*.sql') if p.name not in NAMES)
+versions = sorted(p.name.split('_')[0] for p in (ROOT / 'supabase/migrations').glob('*.sql') if p.name not in NAMES and p.name.split('_')[0] <= '202610130002')
 assert len(versions) == 26 and versions[-1] == '202610130002', 'Review the actual baseline before regenerating.'
 base = ','.join("'" + v + "'" for v in versions)
 new = ','.join("'" + name.split('_')[0] + "'" for name in NAMES)

@@ -11,6 +11,7 @@ export async function setupNotifications(page:Page,{hidden=false,many=false,lang
  await base(page,state.snapshot.expenses,200,hidden,lang)
  await page.route('http://127.0.0.1:54321/**',async route=>{
   const path=new URL(route.request().url()).pathname
+  if(path.endsWith('/rpc/get_personal_ledger_period_state'))return route.fulfill({json:{schema_version:1,opening_safety_version:2,owner_id:'owner',periods:[],archived_expense_ids:[],archived_transaction_ids:[],later_funding:[]}})
   if(path.includes('/participants'))return route.fulfill({json:{id:'owner'}})
   if(path.endsWith('/expenses'))return route.fulfill({json:state.snapshot.expenses.map(apiExpense)})
   if(path.endsWith('/rpc/get_personal_multicurrency_accounts'))return route.fulfill({json:{schema_version:1,accounts:state.snapshot.accounts.map(a=>({id:a.id,parent_account_id:a.parentAccountId??a.id,name:a.name,account_class:a.accountClass,account_type:a.accountType,currency:a.currency,archived_at:a.archived?'2026-10-14':null,opening_status:a.openingStatus,version:a.version??1,parent_version:a.parentVersion??1,display_order:a.displayOrder??0,is_default:a.id==='bank',entry_sum_minor:String(entries.filter(e=>e.account_id===a.id).reduce((sum,e)=>sum+e.amount_minor,0)),entry_count:'1'}))}})

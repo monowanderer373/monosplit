@@ -68,11 +68,14 @@ export default function PersonalLedgerPage() {
     else if(location.pathname.startsWith('/notifications/'))navigate('/',{replace:true})
     else {const next=new URLSearchParams(searchParams);next.delete('notice');next.delete('target');setSearchParams(next,{replace:true})}
   }
+  const reportStatus=ledger.periodStatus==='error'?'error':ledger.periodStatus==='loading'?'loading':ledger.expensesStatus
   const model = useHomeModel({
+    periodState:ledger.periodState,
     participantId: ledger.participantId,
     timezone: authUser?.timezone ?? 'Asia/Kuala_Lumpur',
     expenses: ledger.expenses,
     expensesStatus: ledger.expensesStatus,
+    personalReportingStatus: reportStatus,
     rows: ledger.rows,
     home,
     homeUi: { ...homeUi, ...(tripId ? { mode: 'travel' as const } : {}), selectedTripId: tripId ?? selectedTripId },
@@ -226,7 +229,7 @@ export default function PersonalLedgerPage() {
     balances: model.balances, monthlySpending: model.monthlySpending, receivables: model.receivables,
     tileLayout: model.tileLayout, accountTasks: model.accountTasks, sharedContexts: model.sharedContexts,
     sharedPreviews: model.sharedPreviews, sharedStatus: model.sharedStatus,
-    recordGroups: tripId && !detailTrip ? [] : model.recordGroups, recordsStatus: ledger.expensesStatus,
+    recordGroups: tripId && !detailTrip ? [] : model.recordGroups, recordsStatus: reportStatus,
     onRetryRecords: () => void ledger.refresh(), affiliationsStatus: home.affiliations.status,
     recordActions, recordStatuses,
     travelPaginationKey: `${ledger.participantId}:${location.key}:${model.trip?.trip.id ?? ''}`,

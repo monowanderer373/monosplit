@@ -73,3 +73,11 @@ it('updates immediately after returning from background suspension and respects 
  act(() => { vi.setSystemTime(new Date('2026-10-11T05:00:00Z')); window.dispatchEvent(new Event('focus')) })
  expect(view.result.current.trip?.phase).toBe('ended'); view.unmount(); expect(vi.getTimerCount()).toBe(0)
 })
+
+it.each(['loading','error']as const)('personal period %s cannot hide independently verified shared summaries',personalReportingStatus=>{
+ const data=input()
+ const view=renderHook(()=>useHomeModel({...data,personalReportingStatus}))
+ expect(view.result.current.sharedStatus).toBe('ready')
+ expect(view.result.current.tripSpendingStatus).toBe(personalReportingStatus)
+ expect(view.result.current.sharedContexts).toBeDefined()
+})

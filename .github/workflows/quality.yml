@@ -50,8 +50,12 @@ jobs:
       - run: npm ci
       - run: npx supabase start
       - run: npx supabase db reset
-      - run: npx supabase db lint --fail-on warning
-      - run: npx supabase test db
+      - run: set -o pipefail; npx supabase db lint --fail-on warning 2>&1 | tee /tmp/tabby-db-lint.log
+      - run: set -o pipefail; npx supabase test db 2>&1 | tee /tmp/tabby-db-tests.log
+      - if: always()
+        run: python3 scripts/report-database-results.py
+      - if: failure()
+        run: python3 scripts/report-database-failure.py
       - name: Verify collect/pay write exclusion with two sessions
         env:
           COLLECT_PAY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -63,6 +67,10 @@ jobs:
         env:
           MULTICURRENCY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: python3 supabase/tests/multicurrency_concurrency.py
+      - name: Verify Fresh Start concurrency and interrupted-request fencing
+        env:
+          PERSONAL_PERIOD_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python3 supabase/tests/personal_period_concurrency.py
       - if: always()
         run: npx supabase stop --no-backup
 
@@ -96,14 +104,20 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/fixtures/legacy_pre_007.sql
       - name: Apply release, hardening, and archive migrations
         run: |
+          exec > >(tee /tmp/tabby-history-apply.log) 2>&1
           python3 scripts/generate-multicurrency-apply.py
-          git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql
+          python3 scripts/generate-personal-periods-apply.py
+          git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql docs/runbooks/personal-periods-production-apply.sql
           mkdir /tmp/tabby-multicurrency-migrations
-          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql /tmp/tabby-multicurrency-migrations/
+          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql /tmp/tabby-multicurrency-migrations/
           trap 'mv /tmp/tabby-multicurrency-migrations/*.sql supabase/migrations/' EXIT
           npx supabase migration up --local
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-periods-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-periods-production-apply.sql
+      - if: failure()
+        run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive
         run: psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/fixtures/legacy_post_009_assertions.sql
       - run: npx supabase db lint --local --fail-on warning

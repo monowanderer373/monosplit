@@ -252,12 +252,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: { displayName?: string }) => {
     return observeAuthRequest('update_profile', 'session', async () => {
       if (!supabase || !authUser) throw new Error('not-authenticated')
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
-        .upsert({ id: authUser.id, display_name: updates.displayName })
-      if (error) throw error
+        .update({ display_name: updates.displayName })
+        .eq('id', authUser.id)
+        .select('display_name')
+        .single()
+      if (error || !data) throw error ?? new Error('profile_update_unverified')
       setAuthUser((prev) =>
-        prev ? { ...prev, displayName: updates.displayName ?? prev.displayName } : null,
+        prev?.id === authUser.id ? { ...prev, displayName: data.display_name ?? prev.displayName } : prev,
       )
     })
   }

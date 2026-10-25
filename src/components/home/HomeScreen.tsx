@@ -580,7 +580,9 @@ function RecordRow({
   const t = useT()
   const lang = useStore((state) => state.lang)
   const movement = record.journalKind === 'transfer' || record.journalKind === 'settlement_in' || record.journalKind === 'settlement_out'
-  const cue = record.cashIncludedInMovement
+  const cue = record.journalKind==='expense_funding'
+    ? {sign:record.direction==='in'?'+':'−',tone:'movement',label:lang==='zh'?'旧账期付款':'Prior-period funding'}
+    : record.cashIncludedInMovement
     ? {sign:'',tone:'movement',label:t('mc.feeCovered')}
     : movement
     ? { sign: record.journalKind === 'transfer' ? '' : record.direction === 'in' ? '+' : '−', tone: 'movement', label: t(record.journalKind === 'transfer' ? 'home.transfer' : 'home.settlement') }

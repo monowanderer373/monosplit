@@ -69,6 +69,7 @@ test('does not expose an unsaved session after the authenticated identity change
   await capture.getByRole('button', { name: 'Close Quick Add' }).click()
   await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Me', exact: true }).click()
   await page.getByRole('button', { name: 'Sign out' }).click()
+  await page.getByRole('dialog', {name:'Sign out?',exact:true}).getByRole('button', {name:'Sign out anyway',exact:true}).click()
   await signIn(page, accountB)
   await page.getByRole('button', { name: 'Quick add expense' }).click()
   await expect(capture.getByRole('textbox', { name: 'Amount' })).toHaveValue('')
