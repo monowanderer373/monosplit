@@ -33,6 +33,7 @@ export default function useHomeModel(input: {
   participantId: string | null
   timezone: string
   expensesStatus: 'loading' | 'error' | 'ready'
+  personalReportingStatus?:'loading'|'error'|'ready'
   expenses: ReturnType<typeof usePersonalLedger>['expenses']
   rows: ReturnType<typeof usePersonalLedger>['rows']
   home: ReturnType<typeof useHomeData>
@@ -184,7 +185,7 @@ export default function useHomeModel(input: {
       trips,
       travelStatus,
       tripSpending,
-      tripSpendingStatus: combineStatus(input.expensesStatus, travelStatus, input.home.affiliations.status),
+      tripSpendingStatus: combineStatus(input.personalReportingStatus??input.expensesStatus, travelStatus, input.home.affiliations.status),
       emptyRecordsLabel: selectedAccountId === 'all'
         ? undefined
         : 'home.emptyRecordsFiltered' as const,
