@@ -13,6 +13,7 @@ create table public.shared_restart_expenses(
  owner_id uuid not null references public.participants(id),
  period_id uuid not null references public.personal_ledger_periods(id),
  expense_id uuid not null references public.expenses(id),
+ marker_sequence bigint generated always as identity,
  created_at timestamptz not null default clock_timestamp(),
  unique(owner_id,period_id,expense_id)
 );
@@ -23,9 +24,10 @@ create table public.shared_restart_edges(
  expense_id uuid not null references public.expenses(id),
  debtor_id uuid not null references public.participants(id),
  creditor_id uuid not null references public.participants(id),
+ source_minor bigint not null check(source_minor between 0 and 9007199254740991),
  remaining_minor bigint not null check(remaining_minor between 0 and 9007199254740991),
  created_at timestamptz not null default clock_timestamp(),
- check(debtor_id<>creditor_id),unique(marker_id,debtor_id,creditor_id)
+ check(debtor_id<>creditor_id),check(remaining_minor<=source_minor),unique(marker_id,debtor_id,creditor_id)
 );
 create table public.shared_restart_allocations(
  owner_id uuid not null references public.participants(id),
@@ -45,13 +47,14 @@ create table public.shared_restart_retags(
  expense_id uuid not null references public.expenses(id),
  requester_id uuid not null references public.participants(id),
  recipient_id uuid not null references public.participants(id),
- client_request_id uuid not null,
+ client_request_id uuid not null,requested_edge_id uuid not null,
+ amount_minor bigint not null check(amount_minor between 1 and 9007199254740991),
  requested_version integer not null,expense_version integer not null,
  state text not null default 'pending' check(state in('pending','accepted','declined','superseded')),
  created_at timestamptz not null default clock_timestamp(),responded_at timestamptz,
  check(requester_id<>recipient_id),unique(requester_id,client_request_id)
 );
-create unique index one_live_shared_retag on public.shared_restart_retags(edge_id)where state in('pending','accepted');
+create unique index one_live_shared_retag on public.shared_restart_retags(edge_id,expense_id)where state in('pending','accepted');
 create table public.shared_restart_dismissals(
  owner_id uuid not null references public.participants(id),
  expense_id uuid not null references public.expenses(id),
@@ -76,12 +79,12 @@ create policy read_shared_restart on public.shared_restart_expenses for select t
 alter table public.shared_restart_edges enable row level security;
 revoke all on public.shared_restart_edges from public,anon,authenticated;
 grant select on public.shared_restart_edges to authenticated;
-create policy read_shared_restart on public.shared_restart_edges for select to authenticated using(private.can_review_expense(expense_id));
+create policy read_shared_restart on public.shared_restart_edges for select to authenticated using(private.can_review_expense(expense_id)and(public.current_participant_id()in(debtor_id,creditor_id)or exists(select 1 from public.expenses e where e.id=expense_id and e.scope='space')));
 
 alter table public.shared_restart_retags enable row level security;
 revoke all on public.shared_restart_retags from public,anon,authenticated;
 grant select on public.shared_restart_retags to authenticated;
-create policy read_shared_restart on public.shared_restart_retags for select to authenticated using(private.can_review_expense(expense_id));
+create policy read_shared_restart on public.shared_restart_retags for select to authenticated using(private.can_review_expense(expense_id)and(public.current_participant_id()in(requester_id,recipient_id)or exists(select 1 from public.expenses e where e.id=expense_id and e.scope='space')));
 
 alter table public.shared_restart_allocations enable row level security;
 revoke all on public.shared_restart_allocations from public,anon,authenticated;
@@ -112,9 +115,8 @@ create function private.shared_restart_amount(target uuid,debtor uuid,creditor u
  edge:=private.latest_shared_restart_edge(target,debtor,creditor);
  if edge is null then
  if exists(select 1 from public.shared_restart_expenses m where m.expense_id in(select private.shared_restart_family(target))and m.owner_id in(debtor,creditor))then return 0;end if;return original_minor;end if;
- select r.remaining_minor into remaining from public.shared_restart_edges r
- where r.id=edge and exists(select 1 from public.shared_restart_retags t join public.expenses e on e.id=t.expense_id
- where t.edge_id=r.id and t.state='accepted' and t.expense_id=target and e.status='active');
+ select t.amount_minor into remaining from public.shared_restart_edges r join public.shared_restart_retags t on t.edge_id=r.id
+ where r.id=edge and t.state='accepted'and t.expense_id=target and exists(select 1 from public.expenses e where e.id=target and e.status='active');
  return least(original_minor,coalesce(remaining,0));
  end $$;
 create function private.shared_allocation_cleared(target uuid)returns boolean language sql stable security definer set search_path='' as $$
@@ -392,39 +394,83 @@ begin
 end;
 $$;
 
+create function private.shared_retag_available(target uuid,target_edge uuid)returns bigint language sql stable security definer set search_path='' as $$
+ select greatest(0,private.shared_potential_expense_obligation(target,e.debtor_id,e.creditor_id)-(e.source_minor-e.remaining_minor))::bigint
+ from public.shared_restart_edges e where e.id=target_edge;
+$$;
+
 create function private.shared_restart_remaining_edges(actor uuid)
- returns table(expense_id uuid,debtor_id uuid,creditor_id uuid,remaining_minor bigint)
- language sql stable security definer set search_path='' as $$
+returns table(expense_id uuid,debtor_id uuid,creditor_id uuid,source_minor bigint,remaining_minor bigint)
+language plpgsql stable security definer set search_path='' as $$
+declare rows_json jsonb;unpaid jsonb:='{}';credits jsonb:='{}';ev jsonb;candidate record;
+ amount numeric;available numeric;used numeric;edge_key text;pair_key text;
+begin
+ -- Order participation/retag effects by their actual confirmation, not an old
+ -- bill date. A later retag cannot steal a payment from an already paid new bill.
  with raw as(
  select e.id,e.scope,e.space_id,e.currency,e.occurred_on,e.created_at,d.participant_id debtor,c.participant_id creditor,
  private.shared_potential_expense_obligation(e.id,d.participant_id,c.participant_id) original_minor,
  private.shared_raw_expense_obligation(e.id,d.participant_id,c.participant_id) actual_minor
  from public.expenses e join public.expense_participations d on d.expense_id=e.id
  join public.expense_participations c on c.expense_id=e.id and c.participant_id<>d.participant_id
- where e.status='active' and e.scope in('direct','space')
+ where e.status='active'and e.scope in('direct','space')and actor in(d.participant_id,c.participant_id)
  ), amounts as(
- select *,private.shared_restart_amount(id,debtor,creditor,actual_minor) effective_minor,
- private.latest_shared_restart_edge(id,debtor,creditor) prior_edge
- from raw where original_minor>0
- ), ranked as(
- select *,coalesce(sum(effective_minor)over(partition by scope,space_id,currency,debtor,creditor
- order by occurred_on,created_at,id rows between unbounded preceding and 1 preceding),0) prior_minor
- from amounts
- ), transfers as(
- select p.scope,p.space_id,p.currency,p.debtor_participant_id debtor,a.creditor_participant_id creditor,
- sum(case when a.state='reversed' then 0 else a.amount_minor-coalesce((select sum(r.amount_minor)from public.settlement_allocation_reversals r where r.settlement_allocation_id=a.id),0)end) net_minor
- from public.settlement_payments p join public.settlement_allocations a on a.settlement_payment_id=p.id
- where a.state in('accepted','reversed')and not private.shared_allocation_cleared(a.id)
- group by p.scope,p.space_id,p.currency,p.debtor_participant_id,a.creditor_participant_id
+ select r.*,private.latest_shared_restart_edge(r.id,r.debtor,r.creditor)prior_edge,
+ private.shared_restart_amount(r.id,r.debtor,r.creditor,r.actual_minor)effective_minor
+ from raw r where r.original_minor>0
  )
- select r.id,r.debtor,r.creditor,
- case when r.actual_minor=0 then r.original_minor
- when r.prior_edge is not null and r.effective_minor=0 then least(r.original_minor,(select x.remaining_minor from public.shared_restart_edges x where x.id=r.prior_edge))
- else greatest(0,r.effective_minor-greatest(0,coalesce(t.net_minor,0)-r.prior_minor))::bigint end
- from ranked r left join transfers t on t.scope=r.scope and t.space_id is not distinct from r.space_id
- and t.currency=r.currency and t.debtor=r.debtor and t.creditor=r.creditor
- where actor in(r.debtor,r.creditor);
-$$;
+ select coalesce(jsonb_agg(to_jsonb(r)||jsonb_build_object(
+ 'edge_key',jsonb_build_array(r.id,r.debtor,r.creditor)::text,
+ 'pair_key',jsonb_build_array(r.scope,r.space_id,r.currency,r.debtor,r.creditor)::text,
+ 'effective_at',greatest(r.created_at,
+ coalesce((select max(f.created_at)from public.financial_events f where f.expense_id=r.id and f.event_type='direct.accepted'and f.actor_participant_id in(r.debtor,r.creditor)),r.created_at),
+ coalesce((select t.responded_at from public.shared_restart_retags t where t.edge_id=r.prior_edge and t.expense_id=r.id and t.state='accepted'),r.created_at)))order by r.id,r.debtor,r.creditor),'[]')into rows_json from amounts r;
+ for ev in
+ select stream.event from(
+ select jsonb_build_object('kind','expense','edge_key',r.value->>'edge_key','pair_key',r.value->>'pair_key','at',r.value->>'effective_at','amount',r.value->>'effective_minor','sort',r.value->>'edge_key')event
+ from jsonb_array_elements(rows_json)r where(r.value->>'effective_minor')::bigint>0
+ union all
+ select jsonb_build_object('kind','payment','allocation_id',a.id,'pair_key',jsonb_build_array(p.scope,p.space_id,p.currency,p.debtor_participant_id,a.creditor_participant_id)::text,
+ 'at',coalesce(a.responded_at,p.created_at),'amount',case when a.state='reversed'then 0 else a.amount_minor-coalesce((select sum(rv.amount_minor)from public.settlement_allocation_reversals rv where rv.settlement_allocation_id=a.id),0)end,'sort',a.id)
+ from public.settlement_payments p join public.settlement_allocations a on a.settlement_payment_id=p.id
+ where actor in(p.debtor_participant_id,a.creditor_participant_id)and a.state in('accepted','reversed')and not private.shared_allocation_cleared(a.id)
+ )stream order by(stream.event->>'at')::timestamptz,case when stream.event->>'kind'='expense'then 0 else 1 end,stream.event->>'sort'
+ loop
+  pair_key:=ev->>'pair_key';amount:=(ev->>'amount')::numeric;
+  if ev->>'kind'='expense'then
+   edge_key:=ev->>'edge_key';available:=coalesce((credits->>pair_key)::numeric,0);used:=least(amount,available);
+   unpaid:=jsonb_set(unpaid,array[edge_key],to_jsonb(amount-used),true);
+   credits:=jsonb_set(credits,array[pair_key],to_jsonb(available-used),true);
+  else
+   -- Respect selected-bill intent first; unassigned actual money follows the
+   -- existing FIFO order among obligations which were effective at payment time.
+   for candidate in
+    select r.value,i.amount_minor from jsonb_array_elements(rows_json)r
+    join public.settlement_attribution_intents i on i.expense_id=(r.value->>'id')::uuid and i.settlement_allocation_id=(ev->>'allocation_id')::uuid
+    where r.value->>'pair_key'=pair_key and(r.value->>'effective_at')::timestamptz<=(ev->>'at')::timestamptz
+    order by i.item_order,i.expense_id
+   loop
+    exit when amount<=0;edge_key:=candidate.value->>'edge_key';available:=coalesce((unpaid->>edge_key)::numeric,0);used:=least(amount,available,candidate.amount_minor);
+    unpaid:=jsonb_set(unpaid,array[edge_key],to_jsonb(available-used),true);amount:=amount-used;
+   end loop;
+   for candidate in
+    select r.value from jsonb_array_elements(rows_json)r where r.value->>'pair_key'=pair_key
+    and(r.value->>'effective_at')::timestamptz<=(ev->>'at')::timestamptz
+    order by r.value->>'occurred_on',r.value->>'created_at',r.value->>'id'
+   loop
+    exit when amount<=0;edge_key:=candidate.value->>'edge_key';available:=coalesce((unpaid->>edge_key)::numeric,0);used:=least(amount,available);
+    unpaid:=jsonb_set(unpaid,array[edge_key],to_jsonb(available-used),true);amount:=amount-used;
+   end loop;
+   credits:=jsonb_set(credits,array[pair_key],to_jsonb(coalesce((credits->>pair_key)::numeric,0)+amount),true);
+  end if;
+ end loop;
+ return query select(r.value->>'id')::uuid,(r.value->>'debtor')::uuid,(r.value->>'creditor')::uuid,(r.value->>'original_minor')::bigint,
+ case when(r.value->>'actual_minor')::bigint=0 then(r.value->>'original_minor')::bigint
+ when(r.value->>'effective_minor')::bigint=0 and r.value->>'prior_edge'is not null then private.shared_retag_available((r.value->>'id')::uuid,(r.value->>'prior_edge')::uuid)
+ when(r.value->>'effective_minor')::bigint=0 then(r.value->>'original_minor')::bigint
+ else coalesce((unpaid->>(r.value->>'edge_key'))::bigint,0)end
+ from jsonb_array_elements(rows_json)r;
+end $$;
 
 create function private.shared_retag_scope_allowed(target uuid,requester uuid,recipient uuid)returns boolean language sql stable security definer set search_path='' as $$
  select exists(select 1 from public.expenses e where e.id=target and e.status='active'
@@ -463,9 +509,9 @@ create function public.apply_personal_fresh_start_v2(p_request_id uuid,p_preview
  insert into public.shared_restart_expenses(owner_id,period_id,expense_id)
  select actor,period,e.id from public.expenses e where e.scope in('direct','space')
  and(e.created_by=actor or exists(select 1 from public.expense_participations p where p.expense_id=e.id and p.participant_id=actor));
- insert into public.shared_restart_edges(marker_id,expense_id,debtor_id,creditor_id,remaining_minor)
- select m.id,r.expense_id,r.debtor_id,r.creditor_id,r.remaining_minor
- from jsonb_to_recordset(edge_snapshot)as r(expense_id uuid,debtor_id uuid,creditor_id uuid,remaining_minor bigint)join public.shared_restart_expenses m on m.expense_id=r.expense_id and m.owner_id=actor and m.period_id=period;
+ insert into public.shared_restart_edges(marker_id,expense_id,debtor_id,creditor_id,source_minor,remaining_minor)
+ select m.id,r.expense_id,r.debtor_id,r.creditor_id,r.source_minor,r.remaining_minor
+ from jsonb_to_recordset(edge_snapshot)as r(expense_id uuid,debtor_id uuid,creditor_id uuid,source_minor bigint,remaining_minor bigint)join public.shared_restart_expenses m on m.expense_id=r.expense_id and m.owner_id=actor and m.period_id=period;
  insert into public.shared_restart_allocations(owner_id,period_id,allocation_id)
  select actor,period,a.id from public.settlement_allocations a join public.settlement_payments p on p.id=a.settlement_payment_id
  where actor in(p.debtor_participant_id,a.creditor_participant_id);
@@ -492,21 +538,33 @@ declare actor uuid:=private.require_personal_actor();begin
 end $$;
 
 create function public.request_shared_split_retag(request_id uuid,target_edge_id uuid,target_expense_id uuid,expected_expense_version integer)returns uuid language plpgsql security definer set search_path='' as $$
- declare actor uuid:=private.require_personal_actor();edge public.shared_restart_edges%rowtype;marker public.shared_restart_expenses%rowtype;expense public.expenses%rowtype;saved public.shared_restart_retags%rowtype;begin
+ declare actor uuid:=private.require_personal_actor();edge public.shared_restart_edges%rowtype;marker public.shared_restart_expenses%rowtype;expense public.expenses%rowtype;saved public.shared_restart_retags%rowtype;gross bigint;outgoing bigint;incoming bigint;begin
  perform private.lock_collect_pay_balance();
  lock table public.shared_restart_completions,public.shared_restart_expenses,public.shared_restart_edges,public.shared_restart_allocations,public.shared_restart_payment_requests,public.shared_restart_retags,public.shared_restart_dismissals in exclusive mode;
  select * into saved from public.shared_restart_retags where requester_id=actor and client_request_id=request_id;
- if found then if saved.edge_id<>target_edge_id or saved.expense_id<>target_expense_id or saved.requested_version<>expected_expense_version then raise exception 'idempotency_conflict';end if;return saved.id;end if;
+ if found then if saved.requested_edge_id<>target_edge_id or saved.expense_id<>target_expense_id or saved.requested_version<>expected_expense_version then raise exception 'idempotency_conflict';end if;return saved.id;end if;
+ select * into expense from public.expenses where id=target_expense_id;
  select * into edge from public.shared_restart_edges where id=target_edge_id;
+ if edge.id is null then
+ select * into marker from public.shared_restart_expenses where id=target_edge_id;
+ if marker.id is null or marker.owner_id=actor or not private.can_review_expense(expense.id)
+ or not private.shared_retag_scope_allowed(expense.id,actor,marker.owner_id)
+ or marker.expense_id not in(select private.shared_restart_family(expense.id))then raise exception 'shared_retag_unavailable';end if;
+ outgoing:=private.shared_potential_expense_obligation(expense.id,actor,marker.owner_id);
+ incoming:=private.shared_potential_expense_obligation(expense.id,marker.owner_id,actor);gross:=greatest(outgoing,incoming);
+ if gross<=0 or private.latest_shared_restart_edge(expense.id,case when outgoing>0 then actor else marker.owner_id end,case when outgoing>0 then marker.owner_id else actor end)is not null then raise exception 'shared_retag_unavailable';end if;
+ insert into public.shared_restart_edges(marker_id,expense_id,debtor_id,creditor_id,source_minor,remaining_minor)
+ values(marker.id,expense.id,case when outgoing>0 then actor else marker.owner_id end,case when outgoing>0 then marker.owner_id else actor end,gross,gross)returning * into edge;
+ end if;
  select * into marker from public.shared_restart_expenses where id=edge.marker_id;
  select * into expense from public.expenses where id=target_expense_id;
  if edge.id is null or request_id is null or actor=marker.owner_id or actor not in(edge.debtor_id,edge.creditor_id)
  or not private.can_review_expense(expense.id)or not private.shared_retag_scope_allowed(expense.id,actor,marker.owner_id)or expense.status<>'active' or expense.version<>expected_expense_version
- or edge.id is distinct from private.latest_shared_restart_edge(expense.id,edge.debtor_id,edge.creditor_id)or edge.remaining_minor<=0
+ or edge.id is distinct from private.latest_shared_restart_edge(expense.id,edge.debtor_id,edge.creditor_id)or private.shared_retag_available(expense.id,edge.id)<=0
  then raise exception 'shared_retag_unavailable';end if;
- update public.shared_restart_retags set state='superseded',responded_at=clock_timestamp()where edge_id=edge.id and state='pending'and expense_version<>expense.version;
- insert into public.shared_restart_retags(edge_id,expense_id,requester_id,recipient_id,client_request_id,requested_version,expense_version)
- values(edge.id,expense.id,actor,marker.owner_id,request_id,expected_expense_version,expense.version)returning * into saved;
+ update public.shared_restart_retags set state='superseded',responded_at=clock_timestamp()where edge_id=edge.id and state='pending'and(expense_version<>expense.version or expense_id<>expense.id);
+ insert into public.shared_restart_retags(edge_id,expense_id,requester_id,recipient_id,client_request_id,requested_edge_id,amount_minor,requested_version,expense_version)
+ values(edge.id,expense.id,actor,marker.owner_id,request_id,target_edge_id,private.shared_retag_available(expense.id,edge.id),expected_expense_version,expense.version)returning * into saved;
  if exists(select 1 from public.expense_participations p where p.expense_id=expense.id and p.participant_id=actor and p.state='pending')then
  perform public.respond_to_direct_expense(expense.id,'accepted',expense.version);
  update public.shared_restart_retags set expense_version=(select version from public.expenses where id=expense.id)where id=saved.id;
@@ -557,14 +615,25 @@ create function public.shared_restart_state(source_row public.expenses)returns j
  if actor is null or not private.can_review_expense(canonical.id)then return null;end if;
  select array_agg(x)into families from private.shared_restart_family(canonical.id)x;
  if not exists(select 1 from public.shared_restart_expenses where expense_id=any(families))then return null;end if;
- select coalesce(jsonb_agg(distinct owner_id),'[]')into owners from public.shared_restart_expenses where expense_id=any(families);
- select coalesce(jsonb_agg(jsonb_build_object('id',e.id,'debtor_id',e.debtor_id,'creditor_id',e.creditor_id,'recipient_id',m.owner_id,'can_request',private.shared_retag_scope_allowed(canonical.id,actor,m.owner_id),'remaining_minor',e.remaining_minor::text,
+ select coalesce(jsonb_agg(distinct owner_id order by owner_id),'[]')into owners from public.shared_restart_expenses where expense_id=any(families);
+ select coalesce(jsonb_agg(jsonb_build_object('id',e.id,'debtor_id',e.debtor_id,'creditor_id',e.creditor_id,'recipient_id',m.owner_id,'can_request',private.shared_retag_scope_allowed(canonical.id,actor,m.owner_id),'remaining_minor',private.shared_retag_available(canonical.id,e.id)::text,
  'effective_minor',private.shared_restart_amount(canonical.id,e.debtor_id,e.creditor_id,private.shared_raw_expense_obligation(canonical.id,e.debtor_id,e.creditor_id))::text)order by e.id),'[]')into edges
  from public.shared_restart_edges e join public.shared_restart_expenses m on m.id=e.marker_id
- where e.expense_id=any(families)and e.id=private.latest_shared_restart_edge(canonical.id,e.debtor_id,e.creditor_id);
+ where e.expense_id=any(families)and(canonical.scope='space'or actor in(e.debtor_id,e.creditor_id))and e.id=private.latest_shared_restart_edge(canonical.id,e.debtor_id,e.creditor_id);
+ with latest_markers as(
+ select distinct on(m.owner_id)m.id,m.owner_id from public.shared_restart_expenses m
+ where m.expense_id=any(families)and m.owner_id<>actor order by m.owner_id,m.marker_sequence desc
+ ), potential as(
+ select m.*,private.shared_potential_expense_obligation(canonical.id,actor,m.owner_id)outgoing,
+ private.shared_potential_expense_obligation(canonical.id,m.owner_id,actor)incoming from latest_markers m
+ ), pairs as(
+ select p.*,case when outgoing>0 then actor else p.owner_id end debtor,case when outgoing>0 then p.owner_id else actor end creditor,greatest(outgoing,incoming)gross from potential p
+ )
+ select edges||coalesce(jsonb_agg(jsonb_build_object('id',p.id,'debtor_id',p.debtor,'creditor_id',p.creditor,'recipient_id',p.owner_id,'can_request',private.shared_retag_scope_allowed(canonical.id,actor,p.owner_id),'remaining_minor',p.gross::text,'effective_minor','0')order by p.owner_id),'[]')into edges
+ from pairs p where p.gross>0 and private.latest_shared_restart_edge(canonical.id,p.debtor,p.creditor)is null;
  select coalesce(jsonb_agg(jsonb_build_object('id',r.id,'edge_id',r.edge_id,'requester_id',r.requester_id,'recipient_id',r.recipient_id,'state',r.state,'expense_version',r.expense_version,'created_at',r.created_at)order by r.created_at,r.id),'[]')into retags
  from public.shared_restart_retags r join public.shared_restart_edges e on e.id=r.edge_id
- where r.expense_id=canonical.id and (r.state='accepted'or r.expense_version=canonical.version) and e.id=private.latest_shared_restart_edge(canonical.id,e.debtor_id,e.creditor_id);
+ where r.expense_id=canonical.id and(canonical.scope='space'or actor in(r.requester_id,r.recipient_id))and (r.state='accepted'or r.expense_version=canonical.version) and e.id=private.latest_shared_restart_edge(canonical.id,e.debtor_id,e.creditor_id);
  hidden:=exists(select 1 from public.shared_restart_dismissals where owner_id=actor and expense_id=canonical.id)
  or(exists(select 1 from public.shared_restart_expenses where owner_id=actor and expense_id=any(families))
  and not exists(select 1 from public.shared_restart_retags r join public.shared_restart_edges e on e.id=r.edge_id
@@ -592,6 +661,8 @@ revoke all on function private.shared_raw_expense_obligation(uuid,uuid,uuid)from
 revoke all on function private.shared_potential_expense_obligation(uuid,uuid,uuid)from public,anon,authenticated;
 
 revoke all on function private.shared_restart_remaining_edges(uuid)from public,anon,authenticated;
+
+revoke all on function private.shared_retag_available(uuid,uuid)from public,anon,authenticated;
 
 revoke all on function private.shared_retag_scope_allowed(uuid,uuid,uuid)from public,anon,authenticated;
 

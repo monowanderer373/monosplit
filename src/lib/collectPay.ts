@@ -138,10 +138,10 @@ export function collectPayPreviews(snapshot: CollectPaySnapshot) {
 }
 export function financialFingerprint(snapshot: CollectPaySnapshot, item: CollectPayItem): string {
   return JSON.stringify({ owner: snapshot.owner, key: item.key,
-    expenses: item.expenses.map(e => [e.id, e.version, e.status, e.updatedAt]).sort(),
+    expenses: item.expenses.map(e => [e.id, e.version, e.status, e.updatedAt,e.sharedRestart??null]).sort(),
     payments: snapshot.payments.filter(p => p.currency === item.currency && p.allocations.some(a =>
       matchesPair(p, a.creditorParticipantId, item.context, snapshot.owner, item.otherId)))
-      .map(p => [p.id, p.version, p.updatedAt]).sort(), remaining: item.remainingMinor })
+      .map(p => [p.id, p.version, p.updatedAt,p.allocations.map(a=>[a.id,a.sharedRestartCleared??false])]).sort(), remaining: item.remainingMinor })
 }
 export function resolveCollectPayPreview(item: CollectPayItem, input: {
   intent: SettlementIntent; partialAmount: string; overpayDisposition?: OverpayDisposition | null

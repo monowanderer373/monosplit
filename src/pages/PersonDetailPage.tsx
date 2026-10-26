@@ -130,7 +130,7 @@ export default function PersonDetailPage() {
     }
   }, [])
 
-  const collectAuthority = `${participantId ?? ''}:${ledger.expenses.map((item) => `${item.id}:${item.version}:${item.updatedAt}`).join('|')}:${settlementState.settlements.map((item) => `${item.id}:${item.version}:${item.updatedAt}`).join('|')}`
+  const collectAuthority = `${participantId ?? ''}:${ledger.expenses.map((item) => `${item.id}:${item.version}:${item.updatedAt}:${JSON.stringify(item.sharedRestart??null)}`).join('|')}:${settlementState.settlements.map((item) => `${item.id}:${item.version}:${item.updatedAt}:${JSON.stringify(item.sharedRestart??null)}`).join('|')}`
 
   useEffect(() => {
     if (!participantId || authUser?.isAnonymous) {

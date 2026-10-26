@@ -58,7 +58,7 @@ export default function SettlementPanel({
   const [error, setError] = useState<TranslationKey | ''>('')
 
   const contextSettlements = useMemo(
-    () => settlementState.settlements.filter((settlement) => (
+    () => settlementState.settlements.map(p=>({...p,allocations:p.allocations.filter(a=>!a.sharedRestartCleared)})).filter(p=>p.allocations.length>0).filter((settlement) => (
       settlementMatchesContext(settlement, context)
     )),
     [context, settlementState.settlements],

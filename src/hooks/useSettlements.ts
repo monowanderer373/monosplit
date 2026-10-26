@@ -30,6 +30,8 @@ export function useSettlements(enabled: boolean) {
 
   useEffect(() => {
     void refresh()
+    const sharedChanged=()=>void refresh()
+    window.addEventListener('tt:shared-restart-changed',sharedChanged)
     let refreshTimer: ReturnType<typeof setTimeout> | undefined
     const scheduleAuthoritativeRefresh = () => {
       if (refreshTimer) clearTimeout(refreshTimer)
@@ -43,6 +45,7 @@ export function useSettlements(enabled: boolean) {
         .subscribe()
       : null
     return () => {
+      window.removeEventListener('tt:shared-restart-changed',sharedChanged)
       if (refreshTimer) clearTimeout(refreshTimer)
       if (channel && supabase) void supabase.removeChannel(channel)
     }
