@@ -6,7 +6,7 @@ export type PersonalPeriod={id:string;started_at:string;ended_at:string|null;sta
 export type PeriodState={sharedRestartVersion?:number;freshStartSessionConfirmation?:boolean;available:boolean;ownerId:string|null;periods:PersonalPeriod[];archivedExpenseIds:string[];archivedTransactionIds:string[];laterFunding:HomeJournalEntry[]}
 export const NO_PERIOD_CAPABILITY:PeriodState={available:false,ownerId:null,periods:[],archivedExpenseIds:[],archivedTransactionIds:[],laterFunding:[]}
 export type FreshAccount={account_id:string;parent_id:string;name:string;currency:string;account_class:'asset'|'liability';account_type:string;opening_locked:boolean;known:boolean;balance_minor:string;version:number;parent_version:number}
-export type FreshPreview={schema_version:1;id:string;owner_id:string;expires_at:string;fingerprint:string;accounts:FreshAccount[];currencies:{currency:string;amount_minor:string}[];personal_count:number;protected_shared_count:number;protected_settlement_count:number;pending_funding_count:number;ongoing_installment_count:number;recurring_rule_count:number;policy:'carry_all';conflicts:string[]}
+export type FreshPreview={shared_reset_count?:number;schema_version:1;id:string;owner_id:string;expires_at:string;fingerprint:string;accounts:FreshAccount[];currencies:{currency:string;amount_minor:string}[];personal_count:number;protected_shared_count:number;protected_settlement_count:number;pending_funding_count:number;ongoing_installment_count:number;recurring_rule_count:number;policy:'carry_all';conflicts:string[]}
 export type FreshCommand={requestId:string;previewId:string;openings:{account_id:string;amount_minor:string}[]}
 export type FreshReceipt={shared_restart_version?:1;schema_version:1;owner_id:string;request_id:string;period_id:string;archived_period_id:string;completed_at:string;policy:'carry_all'}
 export type ArchiveExpense={id:string;description:string|null;category:string;occurred_on:string;currency:string;total_minor:string;status:string;corrects_expense_id:string|null}
@@ -43,6 +43,7 @@ export function activePeriodJournals(journals:readonly HomeJournalEntry[],state:
 export function parseFreshPreview(raw:unknown,ownerId:string):FreshPreview{
  const p=object(raw);if(p.schema_version!==1||p.owner_id!==ownerId||p.policy!=='carry_all'||!Array.isArray(p.accounts)||!Array.isArray(p.currencies))throw new Error('invalid_period_response')
  text(p.id);text(p.fingerprint);if(!Number.isFinite(Date.parse(text(p.expires_at))))throw new Error('invalid_period_response');strings(p.conflicts)
+ if(p.shared_reset_count!==undefined)integer(p.shared_reset_count)
  for(const k of ['personal_count','protected_shared_count','protected_settlement_count','pending_funding_count','ongoing_installment_count','recurring_rule_count'])integer(p[k])
  for(const a of p.accounts){const r=object(a);text(r.account_id);text(r.parent_id);text(r.name);currency(r.currency);minor(r.balance_minor);if(!['asset','liability'].includes(String(r.account_class))||!['cash','bank','ewallet','credit_card','paylater','loan'].includes(String(r.account_type))||typeof r.opening_locked!=='boolean'||typeof r.known!=='boolean'||integer(r.version)<1||integer(r.parent_version)<1)throw new Error('invalid_period_response')}
  if(new Set(p.accounts.map(v=>object(v).account_id)).size!==p.accounts.length)throw new Error('invalid_period_response')

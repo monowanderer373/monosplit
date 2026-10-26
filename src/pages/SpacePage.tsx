@@ -106,7 +106,7 @@ export default function SpacePage() {
     )),
     [settlementState.settlements, spaceId],
   )
-  const recap = useMemo(() => buildTripRecap(expenses), [expenses])
+  const recap = useMemo(() => buildTripRecap(expenses.filter(visibleSharedExpense)), [expenses])
 
   const captureParticipants = useMemo<LedgerDraftParticipant[]>(
     () => members.map(({ participant }) => ({
