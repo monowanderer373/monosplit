@@ -36,7 +36,7 @@ test('real shared Reset, original-bill remove/retag UI, and original native sett
   expect((await rpc(a.client,'preview_personal_fresh_start')).accounts.every((unit:{opening_locked:boolean})=>!unit.opening_locked)).toBe(true)
   await expect(rpc(b.client,'authorize_personal_settlement_cash_leg',{request_id:randomUUID(),target_allocation_id:obsolete.id,cash_role:'receiver',target_account_id:bw,supplied_cash_amount_minor:100})).rejects.toMatchObject({message:'shared_split_cleared'})
 
-  await page.goto('/');await expect(page.getByTestId('home-payable')).toHaveAttribute('data-empty','true');await expect(page.getByTestId('home-record').filter({hasText:'Retained original dinner'})).toHaveCount(0)
+  await page.goto('/');await expect(page.getByTestId('home-payable')).toHaveAttribute('data-empty','true');await expect(page.getByTestId('home-record')).toHaveCount(0)
   await signIn(otherPage,b.account)
   const{data:person,error:personError}=await b.client.from('person_relationships').select('id').eq('linked_participant_id',a.owner).single();if(personError)throw personError
   await otherPage.goto('/person/'+person.id)

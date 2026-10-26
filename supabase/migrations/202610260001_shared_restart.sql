@@ -521,6 +521,14 @@ create function public.apply_personal_fresh_start_v2(p_request_id uuid,p_preview
  period:=(receipt_payload->>'period_id')::uuid;
  if exists(select 1 from public.shared_restart_completions where owner_id=actor and request_id=p_request_id)then return receipt_payload||jsonb_build_object('shared_restart_version',1);end if;
  insert into public.shared_restart_completions(owner_id,request_id,period_id)values(actor,p_request_id,period);
+ -- This owner's old private cash activity belongs to the archived period too.
+ -- Source entries/settlements stay immutable and account balances stay complete.
+ insert into public.personal_period_transactions(owner_participant_id,period_id,transaction_id)
+ select actor,(receipt_payload->>'archived_period_id')::uuid,t.id from public.personal_account_transactions t
+ where t.owner_participant_id=actor and t.created_at<=(receipt_payload->>'completed_at')::timestamptz
+ and not exists(select 1 from public.personal_period_transactions m where m.owner_participant_id=actor and m.transaction_id=t.id)
+ on conflict do nothing;
+
  select coalesce(jsonb_agg(to_jsonb(x)),'[]')into edge_snapshot from private.shared_restart_remaining_edges(actor)x;
  -- Every accessible old shared record is owner-archived, including unaccepted invitations.
  insert into public.shared_restart_expenses(owner_id,period_id,expense_id)
@@ -547,10 +555,10 @@ declare actor uuid:=private.require_personal_actor();begin
  'archived_transaction_ids',coalesce((select jsonb_agg(m.transaction_id order by m.transaction_id)from public.personal_period_transactions m join public.personal_ledger_periods p on p.id=m.period_id where m.owner_participant_id=actor and p.status='archived'),'[]'),
  'later_funding',coalesce((select jsonb_agg(jsonb_build_object('id',t.id,'account_id',a.id,'account_name',a.name,'expense_id',t.expense_id,'occurred_on',t.occurred_on,'created_at',t.created_at,'currency',e.currency,'amount_minor',e.amount_minor::text,'memo',t.memo)order by t.id,a.id)
  from public.personal_account_transactions t join public.personal_account_entries e on e.transaction_id=t.id join public.personal_accounts a on a.id=e.account_id
- join public.personal_period_expenses m on m.expense_id=t.expense_id and m.owner_participant_id=actor
- join public.personal_ledger_periods p on p.id=m.period_id and p.status='archived'
- join public.expenses x on x.id=t.expense_id and x.scope='personal'
+ join public.expenses x on x.id=t.expense_id
  where t.owner_participant_id=actor and a.owner_participant_id=actor and t.kind in('expense_funding','liability_purchase')
+ and((x.scope='personal'and exists(select 1 from public.personal_period_expenses m join public.personal_ledger_periods p on p.id=m.period_id and p.status='archived'where m.expense_id=t.expense_id and m.owner_participant_id=actor))
+ or exists(select 1 from public.shared_restart_expenses m where m.owner_id=actor and m.expense_id in(select private.shared_restart_family(t.expense_id))))
  and not exists(select 1 from public.personal_period_transactions z where z.owner_participant_id=actor and z.transaction_id=t.id)),'[]'));
 end $$;
 
