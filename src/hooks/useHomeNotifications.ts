@@ -28,12 +28,12 @@ export function useHomeNotifications(identity:string|null,owner:string|null,outb
     const schedule=()=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>void refresh(),100)}
     void refresh()
     const visible=()=>{if(document.visibilityState==='visible')schedule()}
-    window.addEventListener('focus',schedule);window.addEventListener('online',schedule);window.addEventListener('tt:accounts-changed',schedule);document.addEventListener('visibilitychange',visible)
+    window.addEventListener('focus',schedule);window.addEventListener('online',schedule);window.addEventListener('tt:accounts-changed',schedule);window.addEventListener('tt:shared-restart-changed',schedule);document.addEventListener('visibilitychange',visible)
     const poll=setInterval(visible,60_000)
     let channel=owner&&supabase?supabase.channel(`home-notices:${owner}:${Date.now()}`):null
-    for(const table of ['personal_funding_intents','personal_account_entries','personal_recurring_occurrences','personal_installments','expense_participations','direct_expense_change_approvals','settlement_allocations','settlement_payment_requests'])channel=channel?.on('postgres_changes',{event:'*',schema:'public',table},schedule)??null
+    for(const table of ['personal_funding_intents','personal_account_entries','personal_recurring_occurrences','personal_installments','expense_participations','direct_expense_change_approvals','settlement_allocations','settlement_payment_requests','shared_restart_expenses','shared_restart_retags','shared_restart_allocations'])channel=channel?.on('postgres_changes',{event:'*',schema:'public',table},schedule)??null
     channel?.subscribe()
-    return()=>{invalidate();if(timer)clearTimeout(timer);clearInterval(poll);window.removeEventListener('focus',schedule);window.removeEventListener('online',schedule);window.removeEventListener('tt:accounts-changed',schedule);document.removeEventListener('visibilitychange',visible);if(channel&&supabase)void supabase.removeChannel(channel)}
+    return()=>{invalidate();if(timer)clearTimeout(timer);clearInterval(poll);window.removeEventListener('focus',schedule);window.removeEventListener('online',schedule);window.removeEventListener('tt:accounts-changed',schedule);window.removeEventListener('tt:shared-restart-changed',schedule);document.removeEventListener('visibilitychange',visible);if(channel&&supabase)void supabase.removeChannel(channel)}
   },[owner,refresh,refreshKey,invalidate])
   const data=result.owner===owner?result.data:null
   const notices=useMemo(()=>data?buildHomeNotifications(data,outbox):[],[data,outbox])

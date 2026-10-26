@@ -22,7 +22,7 @@ async function readSnapshot(owner:string):Promise<NoticeSnapshot> {
     rows('personal_recurring_rules','id,title,funding_account_id,amount_minor,currency,cadence'),
     rows('personal_installments','id,status,version,updated_at,plan_id,sequence,due_on,repayment_account_id,error_code,principal_minor,asset_payment_minor'),
     rows('personal_installment_plans','id,purchase_expense_id,funding_intent_id,currency,installment_count'),
-    rows('settlement_payment_requests','id,status,version,created_at,updated_at,note,debtor_participant_id,creditor_participant_id,scope,space_id'),
+    rows('settlement_payment_requests','id,status,version,created_at,updated_at,note,debtor_participant_id,creditor_participant_id,scope,space_id,shared_restart_cleared'),
     loadFundingMetadata(),
   ])
   return {owner,accounts,expenses,changes,payments,funding,recurring,rules,installments,plans,requests,money}

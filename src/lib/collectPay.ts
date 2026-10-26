@@ -45,7 +45,8 @@ export function matchesPair(payment: Pick<SettlementPayment, 'scope' | 'spaceId'
 
 /** One row per real settlement scope/pair/currency; expenses only explain its sources. */
 export function buildCollectPayItems(snapshot: CollectPaySnapshot): CollectPayItem[] {
-  const { owner, expenses, payments, people, spaces, requests } = snapshot
+  const { owner, expenses, people, spaces, requests } = snapshot
+  const payments=snapshot.payments.map(p=>({...p,allocations:p.allocations.filter(a=>!a.sharedRestartCleared)})).filter(p=>p.allocations.length>0)
   const names = new Map<string, string>()
   const personByParticipant = new Map<string, PersonRelationship>()
   for (const expense of expenses) for (const p of expense.participations) names.set(p.participantId, p.nameSnapshot)
@@ -125,7 +126,7 @@ export function collectPayPreviews(snapshot: CollectPaySnapshot) {
   // The home helper covers expenses created by the current user. Incoming pending
   // participation also needs a visible confirmation entry, without calling it confirmed debt.
   for (const expense of snapshot.expenses) {
-    if (expense.scope !== 'direct' || expense.status !== 'active'
+    if (expense.sharedRestart?.hiddenForViewer||expense.scope !== 'direct' || expense.status !== 'active'
       || !expense.participations.some(p => p.participantId === snapshot.owner && p.state === 'pending')) continue
     for (const other of expense.participations.filter(p => p.participantId !== snapshot.owner)) {
       const person = snapshot.people.find(p => personPrincipalIds(p).includes(other.participantId))
@@ -137,10 +138,10 @@ export function collectPayPreviews(snapshot: CollectPaySnapshot) {
 }
 export function financialFingerprint(snapshot: CollectPaySnapshot, item: CollectPayItem): string {
   return JSON.stringify({ owner: snapshot.owner, key: item.key,
-    expenses: item.expenses.map(e => [e.id, e.version, e.status, e.updatedAt]).sort(),
+    expenses: item.expenses.map(e => [e.id, e.version, e.status, e.updatedAt,e.sharedRestart??null]).sort(),
     payments: snapshot.payments.filter(p => p.currency === item.currency && p.allocations.some(a =>
       matchesPair(p, a.creditorParticipantId, item.context, snapshot.owner, item.otherId)))
-      .map(p => [p.id, p.version, p.updatedAt]).sort(), remaining: item.remainingMinor })
+      .map(p => [p.id, p.version, p.updatedAt,p.allocations.map(a=>[a.id,a.sharedRestartCleared??false])]).sort(), remaining: item.remainingMinor })
 }
 export function resolveCollectPayPreview(item: CollectPayItem, input: {
   intent: SettlementIntent; partialAmount: string; overpayDisposition?: OverpayDisposition | null

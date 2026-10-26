@@ -1,3 +1,4 @@
+import {visibleSharedExpense} from './sharedRestart'
 import type { CanonicalExpense, PersonRelationship } from '../types'
 import {
   deriveRelationalDebtLines,
@@ -33,7 +34,7 @@ export function personExpenses(
 ): CanonicalExpense[] {
   const personIds = personPrincipalIds(person)
   return expenses
-    .filter((expense) => isPersonDirectExpense(expense, ownerParticipantId, personIds))
+    .filter((expense) => visibleSharedExpense(expense)&&isPersonDirectExpense(expense, ownerParticipantId, personIds))
     .sort((left, right) =>
       right.occurredOn.localeCompare(left.occurredOn)
       || right.createdAt.localeCompare(left.createdAt),

@@ -106,6 +106,7 @@ export interface ExpenseShare {
 }
 
 export interface CanonicalExpense {
+  sharedRestart?: import('../lib/sharedRestart').SharedRestartState
   id: string
   clientRequestId: string
   scope: ExpenseScope

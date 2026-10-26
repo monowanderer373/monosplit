@@ -7,21 +7,30 @@ import type { SettlementPayment } from './settlementRepository'
 import type { TranslationKey } from './i18n'
 import type { BalanceAnchor, FundingBundle } from './multicurrency'
 
-export type NoticeKind = 'funding' | 'account' | 'recurring' | 'installment' | 'expense' | 'change' | 'payment' | 'request' | 'outbox'
+export type NoticeKind = 'funding' | 'account' | 'recurring' | 'installment' | 'expense' | 'change' | 'payment' | 'request' | 'retag' | 'outbox'
 export type NoticeRef = Readonly<{kind: NoticeKind; id: string}>
-export type NoticeRow = {id: string; status: string; version: number; updated_at: string; expense_id?: string | null; account_id?: string | null; account_amount_minor?: number | string | null; expense_amount_minor?: number | string; expense_currency?: string; account_currency?: string | null; rule_id?: string; scheduled_for?: string; title?: string; note?:string|null; funding_account_id?: string; error_code?: string | null; plan_id?: string; due_on?: string; repayment_account_id?: string; purchase_expense_id?: string; funding_intent_id?: string; debtor_participant_id?: string; creditor_participant_id?: string; created_at?: string; scope?: 'direct'|'space'; space_id?:string|null; amount_minor?:number|string; currency?:string; effective_amount_minor?:number|string|null; effective_currency?:string|null; effective_account_id?:string|null;effective_occurred_on?:string|null; principal_minor?:number|string; asset_payment_minor?:number|string|null;cadence?:string;sequence?:number;installment_count?:number}
+export type NoticeRow = {shared_restart_cleared?:boolean;id: string; status: string; version: number; updated_at: string; expense_id?: string | null; account_id?: string | null; account_amount_minor?: number | string | null; expense_amount_minor?: number | string; expense_currency?: string; account_currency?: string | null; rule_id?: string; scheduled_for?: string; title?: string; note?:string|null; funding_account_id?: string; error_code?: string | null; plan_id?: string; due_on?: string; repayment_account_id?: string; purchase_expense_id?: string; funding_intent_id?: string; debtor_participant_id?: string; creditor_participant_id?: string; created_at?: string; scope?: 'direct'|'space'; space_id?:string|null; amount_minor?:number|string; currency?:string; effective_amount_minor?:number|string|null; effective_currency?:string|null; effective_account_id?:string|null;effective_occurred_on?:string|null; principal_minor?:number|string; asset_payment_minor?:number|string|null;cadence?:string;sequence?:number;installment_count?:number}
 export type NoticeSnapshot = {owner: string; accounts: HomeAccount[]; expenses: CanonicalExpense[]; changes: DirectExpenseChangeRequest[]; payments: SettlementPayment[]; funding: NoticeRow[]; recurring: NoticeRow[]; rules: NoticeRow[]; installments: NoticeRow[]; plans: NoticeRow[]; requests: NoticeRow[]; money?: {bundles:FundingBundle[];anchors:BalanceAnchor[]}}
-export type HomeNotification = {fundingGroup?: {parentId:string|null;intentIds:string[]}; taskCount?:number; id: string; ref: NoticeRef; intent: 'complete-funding'|'view-account'|'review-recurring'|'review-installment'|'review-expense'|'review-change'|'review-payment'|'review-request'|'review-outbox'|'view-current'; source: 'owner-account' | 'shared-ledger' | 'local-outbox'; version: string; tab: 'tasks' | 'activity'; state: 'pending' | 'completed' | 'changed' | 'info'; title: TranslationKey; action: TranslationKey; description: string; date: string; scope: {kind: 'personal' | 'direct' | 'space'; spaceId: string | null}; relatedAccountId?: string | null;relatedAccountName?:string;contextLabel?:string;icon?:string}
+export type HomeNotification = {fundingGroup?: {parentId:string|null;intentIds:string[]}; taskCount?:number; id: string; ref: NoticeRef; intent: 'complete-funding'|'view-account'|'review-recurring'|'review-installment'|'review-expense'|'review-retag'|'review-change'|'review-payment'|'review-request'|'review-outbox'|'view-current'; source: 'owner-account' | 'shared-ledger' | 'local-outbox'; version: string; tab: 'tasks' | 'activity'; state: 'pending' | 'completed' | 'changed' | 'info'; title: TranslationKey; action: TranslationKey; description: string; date: string; scope: {kind: 'personal' | 'direct' | 'space'; spaceId: string | null}; relatedAccountId?: string | null;relatedAccountName?:string;contextLabel?:string;icon?:string}
 export const noticeKey = (ref: NoticeRef) => `${ref.kind}:${ref.id}`
-const kinds: NoticeKind[] = ['funding','account','recurring','installment','expense','change','payment','request','outbox']
+const kinds: NoticeKind[] = ['funding','account','recurring','installment','expense','change','payment','request','retag','outbox']
 export function parseNotice(search: string): NoticeRef | null {
   const params = new URLSearchParams(search), kind = params.get('notice'), id = params.get('target')
   return kind && kinds.includes(kind as NoticeKind) && id && /^[a-zA-Z0-9-]{1,100}$/.test(id) ? {kind:kind as NoticeKind,id} : null
 }
 export function noticePath(ref: NoticeRef) { return `/?${new URLSearchParams({notice:ref.kind,target:ref.id})}` }
 export function buildHomeNotifications(s: NoticeSnapshot, outbox: readonly PendingLedgerCommand[],activityLimit=50,groupFunding=true): HomeNotification[] {
-  const entries: HomeNotification[] = [], expenses = new Map(s.expenses.map(e=>[e.id,e]))
+  const allExpenses=s.expenses
+  s={...s,expenses:s.expenses.filter(e=>!e.sharedRestart?.ownerIds.includes(s.owner)),
+   changes:s.changes.filter(c=>!s.expenses.find(e=>e.id===c.targetExpenseId)?.sharedRestart?.ownerIds.includes(s.owner)),
+   payments:s.payments.map(p=>({...p,allocations:p.allocations.filter(a=>!a.sharedRestartCleared)})).filter(p=>p.allocations.length>0),
+   requests:s.requests.filter(r=>!r.shared_restart_cleared)}
+  const entries: HomeNotification[] = [], expenses = new Map(allExpenses.map(e=>[e.id,e]))
   const add = (ref: NoticeRef, state: HomeNotification['state'], title: TranslationKey, action: TranslationKey, description: string, date: string, version: string, expense?: CanonicalExpense, relatedAccountId?: string | null) => entries.push({id:noticeKey(ref),ref,intent:state!=='pending'?'view-current':ref.kind==='funding'?'complete-funding':ref.kind==='account'?'view-account':`review-${ref.kind}` as HomeNotification['intent'],source:ref.kind==='outbox'?'local-outbox':['funding','account','recurring','installment'].includes(ref.kind)?'owner-account':'shared-ledger',version,tab:state==='pending'?'tasks':'activity',state,title,action,description,date,scope:{kind:expense?.scope??'personal',spaceId:expense?.spaceId??null},icon:expense?.category??(ref.kind==='account'?'warning':ref.kind==='expense'||ref.kind==='change'?'split':ref.kind==='payment'||ref.kind==='request'?'bank':'Bills'),relatedAccountId,relatedAccountName:s.accounts.find(a=>a.id===relatedAccountId)?.name})
+  for(const expense of allExpenses)for(const retag of expense.sharedRestart?.retags??[]){
+   if(retag.recipientId===s.owner&&retag.state==='pending'&&retag.expenseVersion===expense.version)
+    add({kind:'retag',id:retag.id},'pending','notice.expense','notice.review',expense.description??expense.category,retag.createdAt,retag.id,expense)
+  }
   for (const row of s.funding) {
     const expense = expenses.get(row.expense_id ?? ''), changed = row.status==='cancelled'||row.status==='reversed'||expense?.status==='voided'
     const state = changed?'changed':row.status==='pending'?'pending':'completed'
@@ -99,6 +108,7 @@ export function resolveNotice(s: NoticeSnapshot | null, ref: NoticeRef, outbox: 
   if(!s) return {state:'login'}
   const notice=buildHomeNotifications(s,outbox,Infinity,false).find(n=>n.id===noticeKey(ref))
   if(notice){if(ref.kind==='funding'&&!s.expenses.some(e=>e.id===s.funding.find(f=>f.id===ref.id)?.expense_id))return {state:'unavailable'};return {state:'ready',notice,snapshot:s}}
+  if(ref.kind==='retag'&&s.expenses.some(e=>e.sharedRestart?.retags.some(r=>r.id===ref.id)))return {state:'completed',snapshot:s}
   if(ref.kind==='expense') {const e=s.expenses.find(e=>e.id===ref.id);if(e)return {state:e.status==='active'?'completed':'changed',snapshot:s}}
   if(ref.kind==='change') {const c=s.changes.find(c=>c.id===ref.id);if(c)return {state:c.state==='authoritative'?'completed':'changed',snapshot:s}}
   if(ref.kind==='payment'&&s.payments.some(p=>p.id===ref.id))return {state:'completed',snapshot:s}

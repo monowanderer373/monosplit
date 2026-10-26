@@ -1,3 +1,4 @@
+import {parseSharedRestart} from './sharedRestart'
 import type {
   CanonicalExpense,
   ExpenseParticipation,
@@ -59,6 +60,7 @@ export interface LedgerRepository {
 }
 
 type ExpenseRow = {
+  shared_restart_state?: unknown
   id: string
   client_request_id: string
   scope: CanonicalExpense['scope']
@@ -124,6 +126,7 @@ function mapExpenseRow(row: ExpenseRow): CanonicalExpense {
   }))
 
   return {
+    sharedRestart:parseSharedRestart(row.shared_restart_state),
     id: row.id,
     clientRequestId: row.client_request_id,
     scope: row.scope,
@@ -156,6 +159,7 @@ const expenseSelect = `
   id, client_request_id, scope, space_id, created_by, total_minor, participant_count, currency,
   description, category, occurred_on, status, version, corrects_expense_id, termination_kind,
   voided_at, created_at, updated_at,
+  shared_restart_state,
   participations:expense_participations(*),
   payer_contributions(*),
   expense_shares(*)

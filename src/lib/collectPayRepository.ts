@@ -39,7 +39,7 @@ export function createCollectPayRepository(rpcCall=rpc,settlements=settlementRep
     const [expenses, payments, people, spaces, accounts, requestRows, legs, metadata, members] = await Promise.all([
       ledgerRepository.listExpenses(), settlements.listSettlements(), personRepository.listPeople(),
       spacesRead, loadCurrencyAccounts(),
-      rows('settlement_payment_requests', '*'), rows('personal_settlement_cash_legs', '*'),
+      rows('settlement_payment_requests', '*,shared_restart_cleared'), rows('personal_settlement_cash_legs', '*'),
       rows('settlement_payments', 'id,cash_tracking_required,overpay_disposition,source_payment_request_id,expected_outstanding_minor'),
       membersRead,
     ])
@@ -49,7 +49,7 @@ export function createCollectPayRepository(rpcCall=rpc,settlements=settlementRep
       paymentIntents: Object.fromEntries(metadata.map(p => [String(p.id), { overpay: p.overpay_disposition as OverpayDisposition | null,
         sourceRequestId: p.source_payment_request_id as string | null,
         expectedOutstandingMinor: p.expected_outstanding_minor == null ? null : minor(p.expected_outstanding_minor) }])),
-      requests: requestRows.map((r): PaymentRequest => ({ id: String(r.id), clientRequestId: String(r.client_request_id),
+      requests: requestRows.filter(r=>!r.shared_restart_cleared).map((r): PaymentRequest => ({ id: String(r.id), clientRequestId: String(r.client_request_id),
         scope: r.scope as PaymentRequest['scope'], spaceId: r.space_id as string | null,
         debtorParticipantId: String(r.debtor_participant_id), creditorParticipantId: String(r.creditor_participant_id),
         currency: String(r.currency), amountMinor: minor(r.amount_minor), status: r.status as PaymentRequest['status'],

@@ -70,7 +70,7 @@ export function personHasConfirmedHistory(
     settlement.scope === 'direct'
     && (settlement.debtorParticipantId === ownerId || settlement.debtorParticipantId === person.linkedParticipantId)
     && settlement.allocations.some((allocation) =>
-      allocation.creditorParticipantId === ownerId || allocation.creditorParticipantId === person.linkedParticipantId,
+      !allocation.sharedRestartCleared&&(allocation.creditorParticipantId === ownerId || allocation.creditorParticipantId === person.linkedParticipantId),
     ),
   )
 }
@@ -112,13 +112,18 @@ export function pendingCountForPerson(
   const ids = new Set<string>()
   for (const expense of expenses) {
     if (
-      expense.scope === 'direct'
+      !expense.sharedRestart?.hiddenForViewer
+      && expense.scope === 'direct'
       && expense.status === 'active'
       && expense.participations.some((participation) => participation.participantId === ownerId && participation.state === 'pending')
       && expense.participations.some((participation) => principalIds.has(participation.participantId))
     ) ids.add(`expense:${expense.id}`)
   }
   for (const task of sharedReviewTasks(notices)) {
+    if(task.kind==='retag'){
+      if(expenses.some(e=>e.sharedRestart?.retags.some(r=>r.id===task.id)&&e.participations.some(p=>principalIds.has(p.participantId))))ids.add(`retag:${task.id}`)
+      continue
+    }
     if (task.kind === 'expense') {
       if (expenses.some((item) =>
         item.id === task.id

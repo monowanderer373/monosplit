@@ -1,0 +1,4 @@
+.shared-restart-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;min-width:0;padding:.6rem 1rem;border-top:1px dashed var(--ms-border,#ded7cb)}
+.shared-restart-actions>p,.shared-restart-actions>.notification-a-panel{flex-basis:100%;margin:0;min-width:0;overflow-wrap:anywhere}
+.shared-restart-actions button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.shared-restart-actions--review{padding:0;border:0;display:block}

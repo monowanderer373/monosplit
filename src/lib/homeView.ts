@@ -111,7 +111,7 @@ export function deriveSharedPreviewContexts(input: {
 }): SharedPreviewContext[] {
   const contexts: SharedPreviewContext[] = []
   for (const expense of input.expenses) {
-    if (expense.scope !== 'direct' || expense.status !== 'active') continue
+    if (expense.sharedRestart?.hiddenForViewer||expense.scope !== 'direct' || expense.status !== 'active') continue
     const owner = expense.participations.find(p => p.participantId === input.ownerParticipantId)
     if (!owner || owner.state !== 'accepted' || owner.trackingMode !== 'tracked') continue
     const projected: CanonicalExpense = {
@@ -433,7 +433,7 @@ export function deriveOutstandingSharedContexts(input: {
 
   const otherParticipants = new Map<string, string>()
   for (const expense of input.expenses) {
-    if (expense.scope !== 'direct' || expense.status !== 'active') continue
+    if (expense.sharedRestart?.hiddenForViewer||expense.scope !== 'direct' || expense.status !== 'active') continue
     for (const participation of expense.participations) {
       if (participation.participantId === input.ownerParticipantId) continue
       if (claimedParticipants.has(participation.participantId)) continue
