@@ -120,6 +120,10 @@ export function pendingCountForPerson(
     ) ids.add(`expense:${expense.id}`)
   }
   for (const task of sharedReviewTasks(notices)) {
+    if(task.kind==='retag'){
+      if(expenses.some(e=>e.sharedRestart?.retags.some(r=>r.id===task.id)&&e.participations.some(p=>principalIds.has(p.participantId))))ids.add(`retag:${task.id}`)
+      continue
+    }
     if (task.kind === 'expense') {
       if (expenses.some((item) =>
         item.id === task.id

@@ -11,7 +11,7 @@ export default function SharedRestartActions({expense,owner,onRefresh,reviewOnly
  const c=(en:string,zh:string)=>lang==='zh'?zh:en,state=expense.sharedRestart
  if(!state||!state.ownerIds.length)return null
  const pending=state.retags.filter(r=>r.recipientId===owner&&r.state==='pending')
- const eligible=state.edges.filter(e=>e.recipientId!==owner&&[e.debtorId,e.creditorId].includes(owner)&&e.remainingMinor>0&&e.effectiveMinor===0&&!state.retags.some(r=>r.edgeId===e.id&&['pending','accepted'].includes(r.state)))
+ const eligible=state.edges.filter(e=>e.canRequest!==false&&e.recipientId!==owner&&[e.debtorId,e.creditorId].includes(owner)&&e.remainingMinor>0&&e.effectiveMinor===0&&!state.retags.some(r=>r.edgeId===e.id&&['pending','accepted'].includes(r.state)))
  const ownActive=state.edges.some(e=>[e.debtorId,e.creditorId].includes(owner)&&e.effectiveMinor>0)
  const mine=state.ownerIds.includes(owner)
  const run=async(work:()=>Promise<unknown>)=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await work();await onRefresh();setReview(false)}catch{setError(c('Could not confirm the result. Refresh before retrying.','尚未确认结果，请刷新后再重试。'))}finally{lock.current=false;setBusy(false)}}

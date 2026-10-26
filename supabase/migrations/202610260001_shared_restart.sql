@@ -426,6 +426,14 @@ create function private.shared_restart_remaining_edges(actor uuid)
  where actor in(r.debtor,r.creditor);
 $$;
 
+create function private.shared_retag_scope_allowed(target uuid,requester uuid,recipient uuid)returns boolean language sql stable security definer set search_path='' as $$
+ select exists(select 1 from public.expenses e where e.id=target and e.status='active'
+ and exists(select 1 from public.participants p where p.id=recipient and p.kind='account'and p.auth_user_id is not null)
+ and((e.scope='direct'and private.are_friends(requester,recipient))or(e.scope='space'
+ and private.space_role(e.space_id,requester)in('owner','full_access')and private.space_role(e.space_id,recipient)in('owner','full_access')
+ and exists(select 1 from public.spaces sp where sp.id=e.space_id and sp.status<>'voided'))));
+$$;
+
 alter function private.personal_period_snapshot(uuid)rename to personal_period_snapshot_before_shared_restart;
 create function private.personal_period_snapshot(actor uuid)returns jsonb language plpgsql stable security definer set search_path='' as $$
  declare s jsonb;graph jsonb;pending_graph jsonb;begin
@@ -493,7 +501,7 @@ create function public.request_shared_split_retag(request_id uuid,target_edge_id
  select * into marker from public.shared_restart_expenses where id=edge.marker_id;
  select * into expense from public.expenses where id=target_expense_id;
  if edge.id is null or request_id is null or actor=marker.owner_id or actor not in(edge.debtor_id,edge.creditor_id)
- or not private.can_review_expense(expense.id)or expense.status<>'active' or expense.version<>expected_expense_version
+ or not private.can_review_expense(expense.id)or not private.shared_retag_scope_allowed(expense.id,actor,marker.owner_id)or expense.status<>'active' or expense.version<>expected_expense_version
  or edge.id is distinct from private.latest_shared_restart_edge(expense.id,edge.debtor_id,edge.creditor_id)or edge.remaining_minor<=0
  then raise exception 'shared_retag_unavailable';end if;
  update public.shared_restart_retags set state='superseded',responded_at=clock_timestamp()where edge_id=edge.id and state='pending'and expense_version<>expense.version;
@@ -513,7 +521,7 @@ create function public.respond_shared_split_retag(target_request_id uuid,respons
  select * into e from public.shared_restart_edges where id=r.edge_id;
  if r.id is null or r.recipient_id<>actor or not private.can_review_expense(r.expense_id)then raise exception 'shared_retag_unavailable';end if;
  if r.state<>'pending'then if r.state<>response then raise exception 'idempotency_conflict';end if;return r.state;end if;
- if r.expense_version<>expected_expense_version
+ if(response='accepted'and not private.shared_retag_scope_allowed(r.expense_id,r.requester_id,actor))or r.expense_version<>expected_expense_version
  or not exists(select 1 from public.expenses x where x.id=r.expense_id and x.status='active' and x.version=r.expense_version)
  or e.id is distinct from private.latest_shared_restart_edge(r.expense_id,e.debtor_id,e.creditor_id)then raise exception 'shared_retag_unavailable';end if;
  if r.state<>'pending'then if r.state<>response then raise exception 'idempotency_conflict';end if;return r.state;end if;
@@ -550,7 +558,7 @@ create function public.shared_restart_state(source_row public.expenses)returns j
  select array_agg(x)into families from private.shared_restart_family(canonical.id)x;
  if not exists(select 1 from public.shared_restart_expenses where expense_id=any(families))then return null;end if;
  select coalesce(jsonb_agg(distinct owner_id),'[]')into owners from public.shared_restart_expenses where expense_id=any(families);
- select coalesce(jsonb_agg(jsonb_build_object('id',e.id,'debtor_id',e.debtor_id,'creditor_id',e.creditor_id,'recipient_id',m.owner_id,'remaining_minor',e.remaining_minor::text,
+ select coalesce(jsonb_agg(jsonb_build_object('id',e.id,'debtor_id',e.debtor_id,'creditor_id',e.creditor_id,'recipient_id',m.owner_id,'can_request',private.shared_retag_scope_allowed(canonical.id,actor,m.owner_id),'remaining_minor',e.remaining_minor::text,
  'effective_minor',private.shared_restart_amount(canonical.id,e.debtor_id,e.creditor_id,private.shared_raw_expense_obligation(canonical.id,e.debtor_id,e.creditor_id))::text)order by e.id),'[]')into edges
  from public.shared_restart_edges e join public.shared_restart_expenses m on m.id=e.marker_id
  where e.expense_id=any(families)and e.id=private.latest_shared_restart_edge(canonical.id,e.debtor_id,e.creditor_id);
@@ -584,6 +592,8 @@ revoke all on function private.shared_raw_expense_obligation(uuid,uuid,uuid)from
 revoke all on function private.shared_potential_expense_obligation(uuid,uuid,uuid)from public,anon,authenticated;
 
 revoke all on function private.shared_restart_remaining_edges(uuid)from public,anon,authenticated;
+
+revoke all on function private.shared_retag_scope_allowed(uuid,uuid,uuid)from public,anon,authenticated;
 
 revoke all on function private.personal_period_snapshot_before_shared_restart(uuid)from public,anon,authenticated;
 

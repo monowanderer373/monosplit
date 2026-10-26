@@ -33,7 +33,7 @@ select pg_temp.claim(1);select pg_temp.accept_bill('bill-ba');
 select respond_to_settlement((select id from settlement_allocations where settlement_payment_id=pg_temp.id('paid')),'accepted',1);
 select is(pg_temp.balance(2),-300::bigint,'initial two-way debt nets actual payment with original F=E-T+R');
 select pg_temp.claim(2);
-insert into restart values('group',to_jsonb(create_space('group','Reset group','MYR')));
+insert into restart values('group',to_jsonb(create_space(space_type=>'group',space_name=>'Reset group',default_currency=>'MYR')));
 insert into restart values('group-invite-a',to_jsonb(create_space_invite(pg_temp.id('group'),'full_access')));
 insert into restart values('group-invite-c',to_jsonb(create_space_invite(pg_temp.id('group'),'full_access')));
 select pg_temp.claim(1);select accept_space_invite((select v#>>'{}'from restart where k='group-invite-a'));
