@@ -123,6 +123,23 @@ create function private.shared_allocation_cleared(target uuid)returns boolean la
  select exists(select 1 from public.shared_restart_allocations where allocation_id=target);
 $$;
 
+create or replace function private.personal_period_opening_locks(actor uuid)returns jsonb
+language sql stable security definer set search_path='' as $$
+ with pending_shared as(
+  select 1 from public.settlement_payments p join public.settlement_allocations a on a.settlement_payment_id=p.id
+  where p.cash_tracking_required and a.state='pending'and not private.shared_allocation_cleared(a.id)and actor in(p.debtor_participant_id,a.creditor_participant_id)
+ ),locked(account_id)as(
+  select a.id from public.personal_accounts a where a.owner_participant_id=actor and exists(select 1 from pending_shared)
+  union select p.liability_account_id from public.personal_installment_plans p where p.owner_participant_id=actor and p.status='active'
+  union select p.repayment_account_id from public.personal_installment_plans p where p.owner_participant_id=actor and p.status='active'
+  union select c.account_id from public.personal_settlement_cash_legs c where c.owner_participant_id=actor and c.status='pending'and not private.shared_allocation_cleared(c.settlement_allocation_id)
+  union select coalesce(o.effective_account_id,r.funding_account_id)from public.personal_recurring_occurrences o join public.personal_recurring_rules r on r.id=o.rule_id
+   where o.owner_participant_id=actor and o.status in('pending_review','failed')
+  union select r.funding_account_id from public.personal_recurring_rules r where r.owner_participant_id=actor and not r.paused
+   and r.next_due_on<=(now()at time zone r.timezone)::date
+ )select coalesce(jsonb_agg(account_id order by account_id),'[]'::jsonb)from locked where account_id is not null
+$$;
+
 create or replace function private.shared_raw_expense_obligation(
   target_expense_id uuid,
   target_debtor_id uuid,
@@ -488,7 +505,7 @@ create function private.personal_period_snapshot(actor uuid)returns jsonb langua
  select r.id,r.state,r.responded_at from public.shared_restart_retags r
  where r.requester_id=actor or r.recipient_id=actor
  union all select m.id,'reset',m.created_at from public.shared_restart_expenses m
- where private.can_read_expense(m.expense_id,actor))x;
+ where private.can_review_expense(m.expense_id))x;
  select coalesce(jsonb_agg(jsonb_build_object('expense',to_jsonb(e),'participants',(select jsonb_agg(to_jsonb(p)order by p.id)from public.expense_participations p where p.expense_id=e.id),'shares',(select jsonb_agg(to_jsonb(sh)order by sh.expense_participation_id)from public.expense_shares sh where sh.expense_id=e.id),'payers',(select jsonb_agg(to_jsonb(c)order by c.expense_participation_id)from public.payer_contributions c where c.expense_id=e.id))order by e.id),'[]')into pending_graph
  from public.expenses e where e.scope='direct'and exists(select 1 from public.expense_participations p where p.expense_id=e.id and p.participant_id=actor and p.state='pending');
  return s||jsonb_build_object('shared_restart_version',1,'shared_reset_count',(select count(*)from public.expenses e where e.scope in('direct','space')and(e.created_by=actor or exists(select 1 from public.expense_participations p where p.expense_id=e.id and p.participant_id=actor))),
@@ -648,6 +665,12 @@ create function public.shared_restart_cleared(source_row public.settlement_payme
  select exists(select 1 from public.settlement_payment_requests r where r.id=source_row.id and public.current_participant_id()in(r.debtor_participant_id,r.creditor_participant_id)and exists(select 1 from public.shared_restart_payment_requests m where m.request_id=r.id));
 $$;
 
+create function private.guard_restarted_shared_cash_leg()returns trigger language plpgsql security definer set search_path='' as $$
+ begin
+ if private.shared_allocation_cleared(new.settlement_allocation_id)and(new.status='pending'or(new.status='posted'and(tg_op='INSERT'or old.status<>'posted')))then raise exception 'shared_split_cleared';end if;
+ return new;end $$;
+create trigger guard_restarted_shared_cash_leg before insert or update on public.personal_settlement_cash_legs for each row execute function private.guard_restarted_shared_cash_leg();
+
 revoke all on function private.shared_restart_family(uuid)from public,anon,authenticated;
 
 revoke all on function private.latest_shared_restart_edge(uuid,uuid,uuid)from public,anon,authenticated;
@@ -671,6 +694,10 @@ revoke all on function private.personal_period_snapshot_before_shared_restart(uu
 revoke all on function private.personal_period_snapshot(uuid)from public,anon,authenticated;
 
 revoke all on function private.guard_restarted_shared_task()from public,anon,authenticated;
+
+revoke all on function private.guard_restarted_shared_cash_leg()from public,anon,authenticated;
+
+revoke all on function private.personal_period_opening_locks(uuid)from public,anon,authenticated;
 
 revoke all on function public.apply_personal_fresh_start_v2(uuid,uuid,jsonb)from public,anon;
 grant execute on function public.apply_personal_fresh_start_v2(uuid,uuid,jsonb)to authenticated;

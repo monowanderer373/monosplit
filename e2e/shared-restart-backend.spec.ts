@@ -25,10 +25,17 @@ test('real shared Reset, original-bill remove/retag UI, and original native sett
    await rpc(b.client,'authorize_personal_settlement_cash_leg',{request_id:randomUUID(),target_allocation_id:data.id,cash_role:'receiver',target_account_id:bw,supplied_cash_amount_minor:amount})
    await rpc(b.client,'respond_to_settlement',{target_allocation_id:data.id,response:'accepted',expected_payment_version:1})
   }
-  await pay(300,1000);const before=await facts(a.client);expect(await balance(a.client,aw)).toBe(9700);expect(await balance(b.client,bw)).toBe(25300)
+  await pay(300,1000)
+  const obsoletePayment=await rpc(a.client,'propose_settlement',{request_id:randomUUID(),settlement_scope:'direct',target_space_id:null,currency_code:'MYR',total_amount_minor:100,payment_date:date,creditor_ids:[b.owner],allocation_amounts:[100],settlement_note:'Not confirmed before Reset',overpay_disposition:null,expected_outstanding_minor:700,selected_expense_ids:[original],attribution_amounts:[100],source_payment_request_id:null})
+  const{data:obsolete,error:obsoleteError}=await a.client.from('settlement_allocations').select('id').eq('settlement_payment_id',obsoletePayment).single();if(obsoleteError)throw obsoleteError
+  await rpc(a.client,'authorize_personal_settlement_cash_leg',{request_id:randomUUID(),target_allocation_id:obsolete.id,cash_role:'payer',target_account_id:aw,supplied_cash_amount_minor:100})
+  const before=await facts(a.client);expect(await balance(a.client,aw)).toBe(9700);expect(await balance(b.client,bw)).toBe(25300)
   await signIn(page,a.account);await page.goto('/profile/fresh-start');await page.getByRole('button',{name:'Review Fresh Start',exact:true}).click();await page.getByRole('button',{name:'Review opening balances',exact:true}).click();await page.getByRole('button',{name:'Continue',exact:true}).click();await expect(page.getByText(/old Split balances in both directions are cleared/)).toBeVisible();await page.getByRole('button',{name:'Yes, start new personal ledger',exact:true}).click();await expect(page.getByText('Your new personal ledger is ready',{exact:true})).toBeVisible()
   expect(await facts(a.client)).toEqual(before);expect((await rpc(a.client,'get_direct_outstanding',{target_counterparty_id:b.owner,currency_code:'MYR'})).amount_minor).toBe(0)
   const afterResetCash=await cashFacts(a.client),bCash=await cashFacts(b.client)
+  expect((await rpc(a.client,'preview_personal_fresh_start')).accounts.every((unit:{opening_locked:boolean})=>!unit.opening_locked)).toBe(true)
+  await expect(rpc(b.client,'authorize_personal_settlement_cash_leg',{request_id:randomUUID(),target_allocation_id:obsolete.id,cash_role:'receiver',target_account_id:bw,supplied_cash_amount_minor:100})).rejects.toMatchObject({message:'shared_split_cleared'})
+
   await page.goto('/');await expect(page.getByTestId('home-payable')).toHaveAttribute('data-empty','true');await expect(page.getByTestId('home-record').filter({hasText:'Retained original dinner'})).toHaveCount(0)
   await signIn(otherPage,b.account)
   const{data:person,error:personError}=await b.client.from('person_relationships').select('id').eq('linked_participant_id',a.owner).single();if(personError)throw personError
