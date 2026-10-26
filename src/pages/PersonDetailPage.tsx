@@ -1,3 +1,5 @@
+import SharedRestartActions from '../components/SharedRestartActions'
+import {visibleSharedExpense} from '../lib/sharedRestart'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
@@ -186,13 +188,13 @@ export default function PersonDetailPage() {
 
   const trackedExpenses = useMemo(
     () => person && participantId
-      ? trackedPersonExpenses(ledger.expenses, participantId, person)
+      ? trackedPersonExpenses(ledger.expenses, participantId, person).filter(visibleSharedExpense)
       : [],
     [ledger.expenses, participantId, person],
   )
   const untrackedExpenses = useMemo(
     () => person && participantId
-      ? untrackedPersonExpenses(ledger.expenses, participantId, person)
+      ? untrackedPersonExpenses(ledger.expenses, participantId, person).filter(visibleSharedExpense).filter(visibleSharedExpense)
       : [],
     [ledger.expenses, participantId, person],
   )
@@ -472,7 +474,7 @@ export default function PersonDetailPage() {
         <div className="ms-list tt-paper-list mt-3">
           {trackedExpenses.length === 0 ? (
             <p className="p-5 text-center text-sm text-[var(--ms-text-muted)]">{t('person.emptyActivity')}</p>
-          ) : trackedExpenses.slice(0, 3).map((item, index) => {
+          ) : trackedExpenses.filter(visibleSharedExpense).slice(0, 3).map((item, index) => {
             const pending = ledger.outbox.find(
               (entry) => entry.command.requestId === item.clientRequestId,
             )
@@ -519,6 +521,7 @@ export default function PersonDetailPage() {
                   ) : null}
                 </div>
               </article>
+              <SharedRestartActions expense={item} owner={participantId} onRefresh={refresh}/>
             </div>
             )
           })}
@@ -530,7 +533,7 @@ export default function PersonDetailPage() {
           <p className="ms-label">{t('person.onYourRecords')}</p>
           <h2 className="mt-1 text-xl font-extrabold">{t('person.earlier')}</h2>
           <div className="ms-list tt-paper-list mt-3">
-            {untrackedExpenses.map((item, index) => {
+            {untrackedExpenses.filter(visibleSharedExpense).map((item, index) => {
               const pending = ledger.outbox.find(
                 (entry) => entry.command.requestId === item.clientRequestId,
               )

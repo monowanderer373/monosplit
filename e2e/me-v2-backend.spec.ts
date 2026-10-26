@@ -21,7 +21,7 @@ async function facts(client:SupabaseClient){
  }
  return result
 }
-test('real isolated backend: Fresh Start preserves shared cash/partial/pending settlements and native balances; personal archive drives active records',async({page})=>{
+test('real isolated backend: full Fresh Start clears old Split while preserving original cash/partial/pending settlement facts and native balances; personal archive drives active records',async({page})=>{
  test.setTimeout(150_000)
  const s=await session('me-period'),other=await session('me-period-other')
  try{
@@ -48,7 +48,7 @@ test('real isolated backend: Fresh Start preserves shared cash/partial/pending s
   const before=await facts(s.client),otherBefore=await facts(other.client),owed=await rpc(s.client,'get_direct_outstanding',{target_counterparty_id:other.owner,currency_code:'MYR'})
   const unitsBefore=(await rpc(s.client,'get_personal_multicurrency_accounts')).accounts.map((a:{id:string;entry_sum_minor:string})=>({id:a.id,balance:a.entry_sum_minor}))
   await signIn(page,s.account);await page.goto('/profile/fresh-start');await page.getByRole('button',{name:'Review Fresh Start',exact:true}).click();await page.getByRole('button',{name:'Review opening balances',exact:true}).click();await page.getByRole('button',{name:'Continue',exact:true}).click();await expect(page.getByRole('checkbox')).toHaveCount(0);await expect(page.getByLabel('Current password',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Yes, start new personal ledger',exact:true}).click();await expect(page.getByText('Your new personal ledger is ready',{exact:true})).toBeVisible({timeout:15000})
-  expect(await facts(s.client)).toEqual(before);expect(await facts(other.client)).toEqual(otherBefore);expect(await rpc(s.client,'get_direct_outstanding',{target_counterparty_id:other.owner,currency_code:'MYR'})).toEqual(owed)
+  expect(await facts(s.client)).toEqual(before);expect(await facts(other.client)).toEqual(otherBefore);expect(Number(owed.amount_minor)).toBeGreaterThan(0);expect((await rpc(s.client,'get_direct_outstanding',{target_counterparty_id:other.owner,currency_code:'MYR'})).amount_minor).toBe(0)
   expect((await rpc(s.client,'get_personal_multicurrency_accounts')).accounts.map((a:{id:string;entry_sum_minor:string})=>({id:a.id,balance:a.entry_sum_minor}))).toEqual(unitsBefore)
   expect((await s.client.auth.getUser()).data.user?.id).toBe(s.account.userId);expect(await rpc(s.client,'current_participant_id')).toBe(s.owner)
   const periods=await rpc(s.client,'get_personal_ledger_period_state');expect(periods.archived_expense_ids).toContain(expense.expense_id);expect(periods.archived_expense_ids).not.toContain(shared);for(const id of protectedSpaces)expect(periods.archived_expense_ids).not.toContain(id);expect(periods.periods.filter((p:{status:string})=>p.status==='active')).toHaveLength(1)

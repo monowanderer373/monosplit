@@ -3,7 +3,7 @@ import type {HomeNotification,NoticeRef} from './homeNotifications'
 import {parseNotice} from './homeNotifications'
 import type {TranslationKey} from './i18n'
 
-export const simpleNotice = (ref:NoticeRef) => ['funding','recurring','installment','outbox'].includes(ref.kind)
+export const simpleNotice = (ref:NoticeRef) => ['funding','recurring','installment','outbox','retag'].includes(ref.kind)
 export function noticePagePath(ref:NoticeRef,details=false){return `/notifications/${ref.kind}/${encodeURIComponent(ref.id)}${details?'?details=1':''}`}
 export function noticeDestination(ref:NoticeRef){return simpleNotice(ref)?`/?${new URLSearchParams({notice:ref.kind,target:ref.id})}`:noticePagePath(ref)}
 export function parseNoticeLocation(pathname:string,search:string){

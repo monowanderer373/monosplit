@@ -1,3 +1,4 @@
+import {currentSharedObligation} from './sharedRestart'
 import type { CanonicalExpense } from '../types'
 
 export type ConfirmedSettlement = {
@@ -22,6 +23,7 @@ export type ConfirmedSettlement = {
     amountMinor: number
     state: 'pending' | 'accepted' | 'declined' | 'reversed' | 'cancelled'
     reversalMinor?: number
+    sharedRestartCleared?: boolean
   }>
 }
 
@@ -191,7 +193,7 @@ function deriveExpenseObligations(
             debtorParticipantId: debtor.participantId,
             creditorParticipantId: creditor.participantId,
             currency: expense.currency.toUpperCase(),
-            amountMinor,
+            amountMinor:currentSharedObligation(expense,debtor.participantId,creditor.participantId,amountMinor),
           })
         }
         deficitMinor -= amountMinor
@@ -217,7 +219,7 @@ function relevantTransferFacts(
     .flatMap((settlement) => settlement.allocations
       .map((allocation, allocationIndex) => ({ settlement, allocation, allocationIndex }))
       .filter(({ settlement, allocation }) => (
-        (allocation.state === 'accepted' || allocation.state === 'reversed')
+        !allocation.sharedRestartCleared && (allocation.state === 'accepted' || allocation.state === 'reversed')
         && allocationAppliesToContext(
           settlement,
           context,

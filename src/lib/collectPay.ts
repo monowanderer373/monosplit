@@ -45,7 +45,8 @@ export function matchesPair(payment: Pick<SettlementPayment, 'scope' | 'spaceId'
 
 /** One row per real settlement scope/pair/currency; expenses only explain its sources. */
 export function buildCollectPayItems(snapshot: CollectPaySnapshot): CollectPayItem[] {
-  const { owner, expenses, payments, people, spaces, requests } = snapshot
+  const { owner, expenses, people, spaces, requests } = snapshot
+  const payments=snapshot.payments.map(p=>({...p,allocations:p.allocations.filter(a=>!a.sharedRestartCleared)})).filter(p=>p.allocations.length>0)
   const names = new Map<string, string>()
   const personByParticipant = new Map<string, PersonRelationship>()
   for (const expense of expenses) for (const p of expense.participations) names.set(p.participantId, p.nameSnapshot)

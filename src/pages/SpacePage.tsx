@@ -1,3 +1,5 @@
+import SharedRestartActions from '../components/SharedRestartActions'
+import {visibleSharedExpense} from '../lib/sharedRestart'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import SettlementPanel from '../components/SettlementPanel'
@@ -288,13 +290,13 @@ export default function SpacePage() {
         </div>
 
         <div className="ms-list tt-paper-list">
-          {expenses.length === 0 ? (
+          {expenses.filter(visibleSharedExpense).length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-4xl">🧾</p>
               <h3 className="mt-3 font-extrabold">{t('space.emptyTitle')}</h3>
               <p className="mt-1 text-sm text-[var(--ms-text-muted)]">{t('space.emptyHelp')}</p>
             </div>
-          ) : expenses.map((expense, index) => {
+          ) : expenses.filter(visibleSharedExpense).map((expense, index) => {
             const payerIds = new Set(expense.payerContributions.map((item) => (
               expense.participations.find((participation) => participation.id === item.expenseParticipationId)?.participantId
             )))
@@ -350,6 +352,7 @@ export default function SpacePage() {
                     ) : null}
                   </div>
                 </article>
+                <SharedRestartActions expense={expense} owner={participantId} onRefresh={refresh}/>
               </div>
             )
           })}

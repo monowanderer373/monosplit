@@ -18,6 +18,7 @@ export type SettlementStatus =
   | 'mixed_closed'
 
 export type SettlementAllocation = {
+  sharedRestartCleared?: boolean
   id: string
   settlementPaymentId: string
   creditorParticipantId: string
@@ -104,6 +105,7 @@ export type SettlementMutationResult = {
 }
 
 type SettlementAllocationRow = {
+  shared_restart_cleared?: boolean
   id: string
   settlement_payment_id: string
   creditor_participant_id: string
@@ -177,6 +179,7 @@ function mapSettlement(row: SettlementPaymentRow): SettlementPayment {
       id: allocation.id,
       settlementPaymentId: allocation.settlement_payment_id,
       creditorParticipantId: allocation.creditor_participant_id,
+      sharedRestartCleared:allocation.shared_restart_cleared===true,
       amountMinor: toSafeMinor(allocation.amount_minor),
       state: allocation.state,
       reversalMinor: sumSettlementReversalMinor(allocation.reversals),
@@ -196,7 +199,7 @@ const settlementSelect = `
   created_at, updated_at,
   allocations:settlement_allocations(
     id, settlement_payment_id, creditor_participant_id, amount_minor,
-    state, responded_at, created_at,
+    state, responded_at, created_at, shared_restart_cleared,
     reversals:settlement_allocation_reversals(id, amount_minor)
   )
 `
