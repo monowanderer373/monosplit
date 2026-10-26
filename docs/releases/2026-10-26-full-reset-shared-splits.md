@@ -1,8 +1,11 @@
 # Full Reset clears old Split — implementation and rollout
 
-Status: application implemented; final isolated CI passed. Production
-schema installation and application release have not happened. This document
-is a checkpoint, not a live-completion claim.
+Status: LIVE application published and authenticated read-only regressions verified,
+2026-10-26 Asia/Bangkok. PR #39 merged; application main
+`0c31226bad4f175427fb89001636d82e70f71ec6`, existing Vercel production READY
+`dpl_CxXzVwqKLh136MCtJfq24eKUjDFY`. Final documentation-only deployment/SHA
+readback is saved externally in `delivery-final.json`, avoiding a self-referential
+commit loop. No production Reset or financial QA mutation was performed.
 
 ## Resulting behavior
 
@@ -63,29 +66,35 @@ new re-tag tests PASS (combined 26 cases, 38.4 seconds). SQL and embedded PL/pgS
 syntax parsing PASS. An overlapping local build caused one initial recovery
 test failure; the unchanged test passed in the serialized run.
 
-Latest source `bac7e8082cb937db8d5ff77c430032c03a4a6549`,
-[Quality 40298736067](https://github.com/monowanderer373/monosplit/actions/runs/40298736067):
+Final reviewed PR head `5a4c0d7ad82d0d7c8a2037f8118d9f086ac1663f`,
+[Quality 40302777164](https://github.com/monowanderer373/monosplit/actions/runs/40302777164):
+all seven jobs SUCCESS, zero failure annotations. Merged application tree is
+identical to this reviewed head.
 
 | Check | Current result |
 | --- | --- |
-| Application units/lint/typecheck/build/audit | PASS |
+| Application units/lint/typecheck/build/audit | PASS, 732 units |
 | Strict database lint and pgTAP | PASS, 974 assertions / 21 files |
 | Original + V2 native opening/concurrency | PASS, 15 deterministic samples each |
 | Historical upgrade / complete installer twice | PASS |
 | Production module UI | PASS, 213 cases |
 | Collect/Pay browser | PASS, 10 cases |
 | Travel browser | PASS, 16 cases |
-| Full authenticated browser / real two-user Reset + native settlement | PASS, final browser job succeeded |
-| Hosted schema install / authenticated capability | BLOCKED, writer unavailable |
-| New production deployment / live full-Reset regression | NOT RUN |
+| Full authenticated browser, including two-user Reset/re-tag/native settlement | PASS, 370 cases |
+| Hosted schema, capabilities, computed fields, permissions and realtime bindings | PASS |
+| Native production READY / exact public commit | PASS |
+| Live normal owned-QA preview, confirmation warning, reload and Cancel | PASS, eight width/root-text cases |
+| Ten owned-QA financial table hashes / period state before and after | PASS, unchanged; zero financial writes |
+| Retained PWA current routes/materials and offline public Records guard | PASS |
+| Actual production Reset/re-tag/settlement mutation | NOT RUN; write coverage is isolated backend CI |
 | Physical Honor / OS keyboard / actual browser UI zoom | NOT RUN |
 
-All seven jobs finished SUCCESS. Chromium installation stalled before tests on
-the first browser attempt; only that job was cancelled/retried. The final
-browser job has one initial legacy Phase 5C person-card readiness timeout
-annotation and succeeded under the existing retry policy, with no weakened
-assertions. Raw full-browser artifact retrieval returned HTTP 403; detailed
-per-case/retry counts are not independently claimed.
+Earlier sourcebac7e80's first browser attempt stalled before tests installing
+Chromium; a job-only retry passed with one initial legacy person-card timeout
+annotation. The final reviewed head above then passed all seven jobs without
+failure annotations. No assertions or timeouts were weakened. Raw browser
+artifact download returned HTTP 403; the 370 passing count is independently
+observed in the final job annotation, not an invented artifact/per-case count.
 
 Four real React synthetic screenshots cover 320/360/390/430 CSS px. UI checks
 also cover 125/150/200% root text, long amounts, masking/reveal and one-RPC
@@ -96,24 +105,42 @@ verification uses disposable isolated GitHub runners.
 
 ## Rollout and recovery
 
-[PR #39](https://github.com/monowanderer373/monosplit/pull/39), branch
-`feat/reset-shared-splits`. Production/main remains
-`f6433971419e04166636899ebec64839cb82f099`; hosted database remains 31 migrations.
-Current management SQL role is read-only. The complete installer is 84,471
-bytes, SHA-256 `09b232e808dbbac7ce14a24b6197dbeddbb2b9dc656954236dd01006d647d884`;
-the pinned source download was independently HTTP 200 and byte-identical.
-Follow the
-[concrete installation runbook](../runbooks/shared-restart-sql-editor.md),
-independently verify the install, then merge/deploy and verify native READY,
-exact public SHA, ordinary owned QA preview/Cancel and PWA update.
+[PR #39](https://github.com/monowanderer373/monosplit/pull/39) is MERGED.
+Feature branch was `feat/reset-shared-splits`; application main0c31226 has an
+exact whole-tree match with reviewed5a4c0d7. Existing production URL:
+https://tabby-tally-monowanderer373s-projects.vercel.app/ . Native READY above
+and public entry `index-C_a0Kkv-.js` both identify the actual application commit.
 
-Existing URL: https://tabby-tally-monowanderer373s-projects.vercel.app/ . No new
-deployment ID exists for this feature yet. No production Reset will be used
-for verification. A schema-only ten-function source snapshot is not a full
+The owner installed the complete 84,471-byte schema-only installer. Independent
+catalog verification passed: all32versions,24exact function bodies,7RLS tables,
+no authenticated direct writes/anonymous execution/private helper execution,
+5protected original bodies and3realtime bindings. Normal owned-QA confirms
+capability1, original openingSafety2/sessionConfirmation1, authoritative preview,
+legacy-null/new computed-field contracts and no financial changes. An initial
+external probe incorrectly required non-null reset metadata for unrestarted
+bills; corrected the probe to the existing optional parser contract, with no
+application or SQL change. No more SQL/operator action is required.
+
+Normal owned-QA live UI used the actual public app with no API interception:
+new both-direction/no-notice warning, no extra Google/password/checkbox,
+320/360/390/430 at100/200%roottext, reload/re-review/Cancel, zero financial
+mutation RPCs and runtime exceptions. All ten financial table hashes and
+period state stayed identical. No customer account, private screenshot or
+production Reset was used. Retained PWA activated current entry/Home/Profile/
+Shared/Accounts/Records; five paper materials and four offline Home/QuickAdd
+assets match source bytes. Signed-out private guards and offline Records shell
+passed all four widths. No static cache was deleted.
+
+The management SQL role remains read-only but installation is complete. Do not
+re-run 003 or the new install during routine development. Follow the
+[installation/recovery runbook](../runbooks/shared-restart-sql-editor.md) for
+future diagnosis. A private ten-function source/ACL snapshot is not a full
 database backup; provider snapshots/PITR remain unavailable as documented.
 After a committed full Reset, preserve metadata and forward-fix; never roll
 back filters in a way that resurrects debt.
 
 External recovery/evidence: `/workspace/verification/shared-reset-2026-10-26`.
+The allowlisted delivery gallery contains four synthetic real-component re-tag
+captures and the current confirmation state, not private production data.
 Read PROJECT_STATUS, WORK_LOG, this report and current git/provider evidence
 after interruption. Do not replay a committed Reset or old financial fixtures.

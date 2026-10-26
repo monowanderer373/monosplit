@@ -1,5 +1,10 @@
 # Full Reset / old Split installation
 
+Installed and independently verified 2026-10-26:32migration versions,24bodies,
+7RLS tables,3realtime bindings and normal owned-QA capability/preview.
+PR39 merged and application live checked. No routine reinstallation or operator
+action remains; this document is retained for recovery and future diagnosis.
+
 Target: existing project `skiqsxvmxvmxfzhrzcxh`. New migration:
 `202610260001_shared_restart.sql`. This is separate from the installed personal
 periods 001/002/003 migrations; those files and the old installers remain frozen.
