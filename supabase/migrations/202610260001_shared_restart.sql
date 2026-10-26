@@ -402,7 +402,7 @@ $$;
 create function private.shared_restart_remaining_edges(actor uuid)
 returns table(expense_id uuid,debtor_id uuid,creditor_id uuid,source_minor bigint,remaining_minor bigint)
 language plpgsql stable security definer set search_path='' as $$
-declare rows_json jsonb;unpaid jsonb:='{}';credits jsonb:='{}';ev jsonb;candidate record;
+declare rows_json jsonb;unpaid jsonb:='{}'::jsonb;credits jsonb:='{}'::jsonb;ev jsonb;candidate record;
  amount numeric;available numeric;used numeric;edge_key text;pair_key text;
 begin
  -- Order participation/retag effects by their actual confirmation, not an old
