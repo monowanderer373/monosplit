@@ -70,7 +70,7 @@ export function personHasConfirmedHistory(
     settlement.scope === 'direct'
     && (settlement.debtorParticipantId === ownerId || settlement.debtorParticipantId === person.linkedParticipantId)
     && settlement.allocations.some((allocation) =>
-      allocation.creditorParticipantId === ownerId || allocation.creditorParticipantId === person.linkedParticipantId,
+      !allocation.sharedRestartCleared&&(allocation.creditorParticipantId === ownerId || allocation.creditorParticipantId === person.linkedParticipantId),
     ),
   )
 }
@@ -112,7 +112,8 @@ export function pendingCountForPerson(
   const ids = new Set<string>()
   for (const expense of expenses) {
     if (
-      expense.scope === 'direct'
+      !expense.sharedRestart?.hiddenForViewer
+      && expense.scope === 'direct'
       && expense.status === 'active'
       && expense.participations.some((participation) => participation.participantId === ownerId && participation.state === 'pending')
       && expense.participations.some((participation) => principalIds.has(participation.participantId))

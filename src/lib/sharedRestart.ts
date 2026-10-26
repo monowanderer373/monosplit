@@ -2,7 +2,7 @@ import type {CanonicalExpense} from '../types'
 export type RestartEdge={id:string;debtorId:string;creditorId:string;recipientId:string;remainingMinor:number;effectiveMinor:number}
 export type SplitRetag={id:string;edgeId:string;requesterId:string;recipientId:string;state:'pending'|'accepted'|'declined'|'superseded';expenseVersion:number;createdAt:string}
 export type SharedRestartState={ownerIds:string[];hiddenForViewer:boolean;edges:RestartEdge[];retags:SplitRetag[]}
-const minor=(v:unknown)=>{const n=Number(v);if(!Number.isSafeInteger(n)||n<0)throw new Error('invalid_shared_restart_state');return n}
+const minor=(v:unknown)=>{if(typeof v!=='number'&&(typeof v!=='string'||!/^\d+$/.test(v)))throw new Error('invalid_shared_restart_state');const n=Number(v);if(!Number.isSafeInteger(n)||n<0)throw new Error('invalid_shared_restart_state');return n}
 export function parseSharedRestart(value:unknown):SharedRestartState|undefined{
  if(value==null)return undefined
  const v=value as Record<string,unknown>
@@ -20,5 +20,5 @@ export function parseSharedRestart(value:unknown):SharedRestartState|undefined{
 export const visibleSharedExpense=(expense:CanonicalExpense)=>!expense.sharedRestart?.hiddenForViewer
 export function currentSharedObligation(expense:CanonicalExpense,debtor:string,creditor:string,original:number){
  const edge=expense.sharedRestart?.edges.find(e=>e.debtorId===debtor&&e.creditorId===creditor)
- return edge?Math.min(original,edge.effectiveMinor):original
+ return edge?Math.min(original,edge.effectiveMinor):expense.sharedRestart?.ownerIds.some(id=>id===debtor||id===creditor)?0:original
 }

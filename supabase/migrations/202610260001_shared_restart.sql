@@ -109,7 +109,8 @@ $$;
 create function private.shared_restart_amount(target uuid,debtor uuid,creditor uuid,original_minor bigint)returns bigint language plpgsql stable security definer set search_path='' as $$
  declare edge uuid;remaining bigint;begin
  edge:=private.latest_shared_restart_edge(target,debtor,creditor);
- if edge is null then return original_minor;end if;
+ if edge is null then
+ if exists(select 1 from public.shared_restart_expenses m where m.expense_id in(select private.shared_restart_family(target))and m.owner_id in(debtor,creditor))then return 0;end if;return original_minor;end if;
  select r.remaining_minor into remaining from public.shared_restart_edges r
  where r.id=edge and exists(select 1 from public.shared_restart_retags t join public.expenses e on e.id=t.expense_id
  where t.edge_id=r.id and t.state='accepted' and t.expense_id=target and e.status='active');
@@ -374,15 +375,15 @@ create function private.personal_period_snapshot(actor uuid)returns jsonb langua
  where private.can_read_expense(m.expense_id,actor))x;
  return s||jsonb_build_object('shared_restart_version',1,'fingerprint',private.personal_payload_fingerprint(jsonb_build_object('prior',s->>'fingerprint','shared',graph)));
  end $$;
-create function public.apply_personal_fresh_start_v2(p_request_id uuid,p_preview_id uuid,p_openings jsonb)returns jsonb language plpgsql security definer set search_path='' as $$
- declare actor uuid:=private.require_personal_actor();result jsonb;period uuid;begin
- perform private.lock_collect_pay_balance();
- lock table public.shared_restart_completions,public.shared_restart_expenses,public.shared_restart_edges,public.shared_restart_allocations,public.shared_restart_payment_requests,public.shared_restart_retags,public.shared_restart_dismissals in exclusive mode;
+create function public.apply_personal_fresh_start_v2(p_request_id uuid,p_preview_id uuid,p_openings jsonb)returns jsonb language plpgsql security definer set search_path='' set lock_timeout='5s' set statement_timeout='30s' as $$
+ declare actor uuid:=private.require_personal_actor();receipt_payload jsonb;period uuid;begin
+ perform pg_advisory_xact_lock(hashtextextended('fresh-start:'||actor::text,0));
  if exists(select 1 from public.personal_fresh_start_operations where owner_participant_id=actor and request_id=p_request_id and status='committed')
  and not exists(select 1 from public.shared_restart_completions where owner_id=actor and request_id=p_request_id)then raise exception 'idempotency_conflict';end if;
- result:=public.apply_personal_fresh_start(p_request_id,p_preview_id,p_openings);
- period:=(result->>'period_id')::uuid;
- if exists(select 1 from public.shared_restart_completions where owner_id=actor and request_id=p_request_id)then return result||jsonb_build_object('shared_restart_version',1);end if;
+ receipt_payload:=public.apply_personal_fresh_start(p_request_id,p_preview_id,p_openings);
+ lock table public.shared_restart_completions,public.shared_restart_expenses,public.shared_restart_edges,public.shared_restart_allocations,public.shared_restart_payment_requests,public.shared_restart_retags,public.shared_restart_dismissals in exclusive mode;
+ period:=(receipt_payload->>'period_id')::uuid;
+ if exists(select 1 from public.shared_restart_completions where owner_id=actor and request_id=p_request_id)then return receipt_payload||jsonb_build_object('shared_restart_version',1);end if;
  insert into public.shared_restart_completions(owner_id,request_id,period_id)values(actor,p_request_id,period);
  -- Every accessible old shared record is owner-archived, including unaccepted invitations.
  insert into public.shared_restart_expenses(owner_id,period_id,expense_id)
@@ -396,9 +397,9 @@ create function public.apply_personal_fresh_start_v2(p_request_id uuid,p_preview
  where actor in(p.debtor_participant_id,a.creditor_participant_id);
  insert into public.shared_restart_payment_requests(owner_id,period_id,request_id)
  select actor,period,id from public.settlement_payment_requests where actor in(debtor_participant_id,creditor_participant_id);
- result:=result||jsonb_build_object('shared_restart_version',1);
- update public.personal_fresh_start_operations set result=apply_personal_fresh_start_v2.result where owner_participant_id=actor and request_id=p_request_id;
- return result;
+ receipt_payload:=receipt_payload||jsonb_build_object('shared_restart_version',1);
+ update public.personal_fresh_start_operations set result=receipt_payload where owner_participant_id=actor and request_id=p_request_id;
+ return receipt_payload;
  end $$;
 
 create or replace function public.get_personal_ledger_period_state()returns jsonb language plpgsql stable security definer set search_path='' as $$
@@ -466,31 +467,32 @@ create function private.guard_restarted_shared_task()returns trigger language pl
 create trigger guard_restarted_shared_task before update on public.settlement_allocations for each row execute function private.guard_restarted_shared_task();
 
 create function public.shared_restart_state(source_row public.expenses)returns jsonb language plpgsql stable security definer set search_path='' as $$
- declare actor uuid:=public.current_participant_id();families uuid[];owners jsonb;edges jsonb;retags jsonb;hidden boolean;begin
- if actor is null or not private.can_read_expense(source_row.id,actor)then return null;end if;
- select array_agg(x)into families from private.shared_restart_family(source_row.id)x;
+ declare actor uuid:=public.current_participant_id();families uuid[];owners jsonb;edges jsonb;retags jsonb;hidden boolean;canonical public.expenses%rowtype;begin
+ select * into canonical from public.expenses where id=source_row.id;
+ if not found then return null;end if;
+ if actor is null or not private.can_read_expense(canonical.id,actor)then return null;end if;
+ select array_agg(x)into families from private.shared_restart_family(canonical.id)x;
  if not exists(select 1 from public.shared_restart_expenses where expense_id=any(families))then return null;end if;
  select coalesce(jsonb_agg(distinct owner_id),'[]')into owners from public.shared_restart_expenses where expense_id=any(families);
  select coalesce(jsonb_agg(jsonb_build_object('id',e.id,'debtor_id',e.debtor_id,'creditor_id',e.creditor_id,'recipient_id',m.owner_id,'remaining_minor',e.remaining_minor::text,
- 'effective_minor',private.shared_restart_amount(source_row.id,e.debtor_id,e.creditor_id,private.shared_raw_expense_obligation(source_row.id,e.debtor_id,e.creditor_id))::text)order by e.id),'[]')into edges
+ 'effective_minor',private.shared_restart_amount(canonical.id,e.debtor_id,e.creditor_id,private.shared_raw_expense_obligation(canonical.id,e.debtor_id,e.creditor_id))::text)order by e.id),'[]')into edges
  from public.shared_restart_edges e join public.shared_restart_expenses m on m.id=e.marker_id
- where e.expense_id=any(families)and e.id=private.latest_shared_restart_edge(source_row.id,e.debtor_id,e.creditor_id);
+ where e.expense_id=any(families)and e.id=private.latest_shared_restart_edge(canonical.id,e.debtor_id,e.creditor_id);
  select coalesce(jsonb_agg(jsonb_build_object('id',r.id,'edge_id',r.edge_id,'requester_id',r.requester_id,'recipient_id',r.recipient_id,'state',r.state,'expense_version',r.expense_version,'created_at',r.created_at)order by r.created_at,r.id),'[]')into retags
  from public.shared_restart_retags r join public.shared_restart_edges e on e.id=r.edge_id
- where r.expense_id=source_row.id and (r.state='accepted'or r.expense_version=source_row.version) and e.id=private.latest_shared_restart_edge(source_row.id,e.debtor_id,e.creditor_id);
- hidden:=exists(select 1 from public.shared_restart_dismissals where owner_id=actor and expense_id=source_row.id)
+ where r.expense_id=canonical.id and (r.state='accepted'or r.expense_version=canonical.version) and e.id=private.latest_shared_restart_edge(canonical.id,e.debtor_id,e.creditor_id);
+ hidden:=exists(select 1 from public.shared_restart_dismissals where owner_id=actor and expense_id=canonical.id)
  or(exists(select 1 from public.shared_restart_expenses where owner_id=actor and expense_id=any(families))
  and not exists(select 1 from public.shared_restart_retags r join public.shared_restart_edges e on e.id=r.edge_id
- where r.expense_id=source_row.id and r.state='accepted'and r.recipient_id=actor and (r.state='accepted'or r.expense_version=source_row.version) and e.id=private.latest_shared_restart_edge(source_row.id,e.debtor_id,e.creditor_id)));
+ where r.expense_id=canonical.id and r.state='accepted'and r.recipient_id=actor and (r.state='accepted'or r.expense_version=canonical.version) and e.id=private.latest_shared_restart_edge(canonical.id,e.debtor_id,e.creditor_id)));
  return jsonb_build_object('owner_ids',owners,'hidden_for_viewer',hidden,'edges',edges,'retags',retags);
  end $$;
 create function public.shared_restart_cleared(source_row public.settlement_allocations)returns boolean language sql stable security definer set search_path='' as $$
- select private.can_read_settlement(source_row.settlement_payment_id,public.current_participant_id())and private.shared_allocation_cleared(source_row.id);
+ select coalesce((select private.can_read_settlement(a.settlement_payment_id,public.current_participant_id())and private.shared_allocation_cleared(a.id)from public.settlement_allocations a where a.id=source_row.id),false);
 $$;
 
 create function public.shared_restart_cleared(source_row public.settlement_payment_requests)returns boolean language sql stable security definer set search_path='' as $$
- select public.current_participant_id() in(source_row.debtor_participant_id,source_row.creditor_participant_id)
- and exists(select 1 from public.shared_restart_payment_requests where request_id=source_row.id);
+ select exists(select 1 from public.settlement_payment_requests r where r.id=source_row.id and public.current_participant_id()in(r.debtor_participant_id,r.creditor_participant_id)and exists(select 1 from public.shared_restart_payment_requests m where m.request_id=r.id));
 $$;
 
 revoke all on function private.shared_restart_family(uuid)from public,anon,authenticated;

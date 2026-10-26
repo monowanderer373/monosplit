@@ -126,7 +126,7 @@ export function collectPayPreviews(snapshot: CollectPaySnapshot) {
   // The home helper covers expenses created by the current user. Incoming pending
   // participation also needs a visible confirmation entry, without calling it confirmed debt.
   for (const expense of snapshot.expenses) {
-    if (expense.scope !== 'direct' || expense.status !== 'active'
+    if (expense.sharedRestart?.hiddenForViewer||expense.scope !== 'direct' || expense.status !== 'active'
       || !expense.participations.some(p => p.participantId === snapshot.owner && p.state === 'pending')) continue
     for (const other of expense.participations.filter(p => p.participantId !== snapshot.owner)) {
       const person = snapshot.people.find(p => personPrincipalIds(p).includes(other.participantId))

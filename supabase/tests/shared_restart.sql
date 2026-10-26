@@ -13,7 +13,7 @@ create function pg_temp.actor(n int)returns uuid language sql as $$select(v#>>'{
 create function pg_temp.claim(n int,guest boolean default false)returns void language plpgsql as $$begin
  perform set_config('request.jwt.claims',jsonb_build_object('sub','d0260000-0000-4000-8000-'||lpad(n::text,12,'0'),'role','authenticated','is_anonymous',guest,'iat',extract(epoch from now())::bigint)::text,true);end$$;
 create function pg_temp.id(k text)returns uuid language sql as $$select(v#>>'{}')::uuid from restart where restart.k=$1$$;
-create function pg_temp.accept_bill(k text)returns integer language sql as $$select respond_to_direct_expense(pg_temp.id($1),'accepted',(select version from expenses where id=pg_temp.id($1)))$$;
+create function pg_temp.accept_bill(k text)returns jsonb language sql as $$select respond_to_direct_expense(pg_temp.id($1),'accepted',1)$$;
 create function pg_temp.balance(other int,code text default 'MYR')returns bigint language sql as $$select(get_direct_outstanding(pg_temp.actor($1),$2)->>'signed_outstanding_minor')::bigint$$;
 create function pg_temp.preview(k text)returns jsonb language plpgsql as $$declare v jsonb;begin v:=preview_personal_fresh_start();insert into restart values($1,v)on conflict(k)do update set v=excluded.v;return v;end$$;
 create function pg_temp.reset(k text,request uuid)returns jsonb language sql as $$select apply_personal_fresh_start_v2($2,(select(v->>'id')::uuid from restart where restart.k=$1),(select coalesce(jsonb_agg(jsonb_build_object('account_id',a->>'account_id','amount_minor',a->>'balance_minor')),'[]')from restart,lateral jsonb_array_elements(v->'accounts')a where restart.k=$1))$$;

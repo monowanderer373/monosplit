@@ -71,6 +71,10 @@ jobs:
         env:
           PERSONAL_PERIOD_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: python3 supabase/tests/personal_period_concurrency.py
+      - name: Verify full shared Reset concurrency and replay
+        env:
+          SHARED_RESTART_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python3 supabase/tests/shared_restart_concurrency.py
       - if: always()
         run: npx supabase stop --no-backup
 
