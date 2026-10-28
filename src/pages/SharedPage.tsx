@@ -1,3 +1,4 @@
+import {useTripFriends} from '../hooks/useTripFriends'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -92,6 +93,8 @@ export default function SharedPage() {
   const { authUser, loading: authLoading } = useAuth()
   const participantId = authUser?.participantId ?? null
   const identity = authUser?.id ?? ''
+  const friendRequests=useTripFriends(authUser&&!authUser.isAnonymous?identity:'')
+  const incomingFriends=friendRequests.requests.filter(r=>r.target_id===participantId)
   const profileCurrency = (authUser?.defaultCurrency ?? 'MYR').toUpperCase()
   const ledger = usePersonalLedger()
   const settlements = useSettlements(Boolean(participantId))
@@ -186,7 +189,7 @@ export default function SharedPage() {
 
   const incomingLinks = linkRequests.filter((request) => request.targetParticipantId === participantId && request.status === 'pending')
   const reviewTasks = useMemo(() => sharedReviewTasks(notices.notices), [notices.notices])
-  const reviewCount = reviewTasks.length + incomingLinks.length
+  const reviewCount = reviewTasks.length + incomingLinks.length + new Set(incomingFriends.map(r=>r.id)).size
 
   const rows = useMemo(() => {
     if (!participantId) return []
@@ -338,8 +341,10 @@ export default function SharedPage() {
       {!online ? <OfflineNotice label={t('sharedA.offline')} /> : null}
       {error ? <ErrorState title={t('sharedA.loadError')} help={t(error)} retryLabel={t('sharedA.retry')} onRetry={() => void refresh()} /> : null}
 
+      {friendRequests.error?<p className="ttsa-friend-error" role="alert">{t('friendRequest.retryHelp')} <button type="button" onClick={()=>void friendRequests.refresh()}>{t('common.retry')}</button></p>:null}
       {view === 'review' ? (
         <PaperSurface>
+          {incomingFriends.map(request=><section className="ttsa-friend-request" key={request.id} data-testid="friend-request-review"><h2>{request.sender_name}</h2><p>{t('friendRequest.fromTrip',{name:request.source_name})}</p><p>{t('friendRequest.wantsFriend')}</p><div><button type="button" disabled={!!friendRequests.busy} onClick={()=>void friendRequests.respond(request,'declined')}>{t('common.decline')}</button><button type="button" disabled={!!friendRequests.busy} onClick={()=>void friendRequests.respond(request,'accepted')}>{t('common.accept')}</button></div></section>)}
           {incomingLinks.map((request) => (
             <ReviewRow
               key={request.id}

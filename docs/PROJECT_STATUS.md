@@ -2,6 +2,12 @@
 
 Checkpoint: 2026-10-28 (Asia/Bangkok). Issue 01 Trip Members is published and verified; previously published Full Reset remains intact. Preserve existing work; never reset to an old handover.
 
+## Active — Issue 02 Trip split and directed friend requests
+- 2026-10-28: complete package/readme/specifications/checklist and two design boards read; all12manifest hashes match. Latest main39ea75d matches remote; initially clean. Branch feat/trip-split-friend-requests. Baseline743units/108files PASS39.34s. Preserve delivered Issue01 and all Issue03–05 boundaries.
+- Actual resolver already reads Space members without friendship filtering. Found Trip Edit people entering generic Friends picker, selection resetting payments/forcing self, and Space editor limited to original participants. Implementing Trip-only consumers/payments separation and original Space correction, preserving Direct/Group rules and old drafts/history.
+- Hosted SQL connection rechecked: supabase_read_only_user,transaction_read_only=on,32migrations,no trip_friend_requests table. No production write/reset. New minimal forward request migration needed; complete safe implementation/isolation tests and reviewable installer before any operator installation step. Existing deployed migrations remain frozen.
+- Work in progress, no Issue02 deployment claimed. Recovery /workspace/verification/issue02-trip-split-2026-10-28. Next: complete backend/UI integration, compiler/correction/request/security/concurrency/browser checks. Local Docker vfs blocker not retried; use isolated CI.
+
 ## Integrated — Issue 01 full-screen Trip Members (2026-10-28)
 - Only Issue 01 from TabbyTally_Issue01_Members_v1. Read complete package/specification/checklist/design; all eight manifest hashes match. Baseline main 908d7e8, initially clean. No Issue 02–05, financial-model/schema/migration or Group redesign work.
 - Dedicated lazy /space/:spaceId/members with real active memberships, immutable principal IDs, original role/invite/manual/remove/leave services, current-identity/Trip request isolation and authoritative revalidation. All Trip overview/card/count/menu/ledger entries unified; legacy Trip section=members replaced. Trip duplicate management removed; Group, dates and expense/settlement controls retained. Safe origin/Back/reload/scroll and current writable-Trip global +; no Personal fallback or fake friend controls.

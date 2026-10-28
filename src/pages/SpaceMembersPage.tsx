@@ -1,3 +1,4 @@
+import {useTripFriends} from '../hooks/useTripFriends'
 import {useEffect,useRef,useState} from 'react'
 import {Link,useLocation,useNavigate,useParams} from 'react-router-dom'
 import {useUniversalQuickAdd} from '../hooks/useUniversalQuickAdd'
@@ -17,14 +18,15 @@ export default function SpaceMembersPage(){
   if(loading||(authUser&&!authUser.participantId&&!sessionError))return <main className="tm-page"><p role="status">{t('home.loading')}</p></main>
   if(sessionError)return <main className="tm-page"><p role="alert">{t('ledger.sessionUnavailable')}</p><button type="button" onClick={retrySession}>{t('common.retry')}</button></main>
   if(!authUser?.participantId)return <main className="tm-page"><h1>{t('travel.members')}</h1><Link to="/login">{t('common.signIn')}</Link></main>
-  return <MembersContent key={authUser.id+':'+spaceId} identity={authUser.id} self={authUser.participantId} trip={spaceId}/>
+  return <MembersContent key={authUser.id+':'+spaceId} identity={authUser.id} self={authUser.participantId} trip={spaceId} canRequestFriends={!authUser.isAnonymous}/>
 }
-function MembersContent({identity,self,trip}:{identity:string;self:string;trip:string}){
+function MembersContent({identity,self,trip,canRequestFriends}:{identity:string;self:string;trip:string;canRequestFriends:boolean}){
   const {setPageTarget}=useUniversalQuickAdd()
   const t=useT(),navigate=useNavigate(),location=useLocation(),snapshot=useTripMembership(identity,self,trip)
   const [menu,setMenu]=useState<TripMember|null>(null),[dialog,setDialog]=useState<'invite'|'add'|'remove'|null>(null),[target,setTarget]=useState<TripMember|null>(null)
   const [busy,setBusy]=useState(false),[error,setError]=useState<TranslationKey|''>(''),[name,setName]=useState(''),[inviteRole,setInviteRole]=useState<'full_access'|'view'>('full_access'),[invite,setInvite]=useState(''),[copied,setCopied]=useState(false)
   const lock=useRef(false),alive=useRef(true),anchor=useRef<HTMLButtonElement>(null),focusTarget=useRef<HTMLButtonElement|null>(null),prepared=useRef<'trip'|'unavailable'|null>(null)
+  const friends=useTripFriends(snapshot.status==='ready'&&canRequestFriends?identity:'',trip)
   const entry=snapshot.data?.entry,ready=snapshot.status==='ready'&&entry?.space.type==='trip',permissions=entry?tripMemberPermissions(entry,self):null
   useEffect(()=>{setPageTarget({pathname:location.pathname,ready:!!ready&&!!permissions?.add,target:{kind:'space-candidate',spaceId:trip}});return()=>setPageTarget(null)},[setPageTarget,location.pathname,ready,permissions?.add,trip])
   useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[])
@@ -80,14 +82,23 @@ function MembersContent({identity,self,trip}:{identity:string;self:string;trip:s
     {snapshot.status==='loading'?<div className="tm-loading" role="status" aria-label={t('home.loading')}>{[1,2,3].map(n=><div key={n}/>)}</div>:null}
     {snapshot.status==='error'?<section className="tm-state" role="alert"><p>{t(snapshot.error||'members.loadError')}</p><button type="button" className="tm-invite" onClick={()=>void snapshot.refresh()}>{t('common.retry')}</button></section>:null}
     {snapshot.status==='unavailable'?<section className="tm-state"><h2>{t('members.unavailable')}</h2><p>{t('members.noAccess')}</p><button type="button" className="tm-invite" onClick={back}>{t('members.backTrips')}</button></section>:null}
+    {ready&&friends.error?<p className="tm-error" role="alert">{t('friendRequest.retryHelp')} <button type="button" className="tm-link" onClick={()=>void friends.refresh()}>{t('common.retry')}</button></p>:null}
     {ready?<><ul className="tm-list" aria-label={t('travel.members')}>
       {snapshot.data!.members.map(row=>{const {participant,member}=row,p=tripMemberPermissions(entry,self,row),label=participant.id===self?t('members.you'):participant.displayName||t('common.member')
         const role=participant.kind==='manual'?t('members.untracked'):member.role==='owner'?t('members.owner'):t(member.role==='view'?'members.viewOnly':'members.fullAccess')
         return <li className="tm-row" key={participant.id} data-participant-id={participant.id}><span className={'tm-avatar tm-avatar--'+(member.role==='owner'?'owner':participant.kind==='manual'?'manual':member.role==='view'?'view':'full')} aria-hidden="true">{Array.from(label)[0]}</span><div className="tm-person"><strong>{label}</strong><span>{role}</span></div>
-          {p.role||p.remove?<button type="button" className="tm-more" data-tm-focus={participant.id} aria-label={actionLabel(row)} aria-expanded={menu?.participant.id===participant.id} disabled={busy} onClick={event=>{anchor.current=event.currentTarget;focusTarget.current=event.currentTarget;setMenu(row)}}><span aria-hidden="true">⋯</span></button>:null}</li>})}
+          <div className="tm-row-actions">{canRequestFriends&&participant.id!==self&&participant.kind==='account'?(()=>{
+            const state=friends.states.find(s=>s.participantId===participant.id)
+            const disabled=!friends.ready||!!friends.busy||friends.error
+            if(!state)return <span className="tm-friend-status">{t('friendRequest.loading')}</span>
+            return <>{state.state==='available'?<button type="button" className="tm-friend-add" aria-label={t('friendRequest.addNamed',{name:label})} disabled={disabled} onClick={()=>void friends.send(participant.id)}>{friends.busy===participant.id?'…':'＋'}</button>:state.state==='incoming'?<button type="button" className="tm-friend-add" disabled={disabled} onClick={()=>void friends.respond({id:state.requestId!,version:state.version!},'accepted')}>{t('common.accept')}</button>:<span className="tm-friend-status">{t(state.state==='friend'?'friendRequest.friend':state.state==='sent'?'friendRequest.sent':'friendRequest.unavailable')}</span>}
+            </>
+          })():null}
+          {p.role||p.remove||friends.states.some(s=>s.participantId===participant.id&&(s.state==='sent'||s.state==='incoming'))?<button type="button" className="tm-more" data-tm-focus={participant.id} aria-label={actionLabel(row)} aria-expanded={menu?.participant.id===participant.id} disabled={busy} onClick={event=>{anchor.current=event.currentTarget;focusTarget.current=event.currentTarget;setMenu(row)}}><span aria-hidden="true">⋯</span></button>:null}</div></li>})}
     </ul>{permissions?.add?<div className="tm-add"><button type="button" className="tm-link" aria-label={t('members.addManual')} data-tm-focus="add" disabled={busy} onClick={event=>{focusTarget.current=event.currentTarget;setName('');setDialog('add')}}>＋ {t('members.addManual')}</button><p>{t('members.untrackedHelp')}</p></div>:entry.role!=='owner'?<p className="tm-help">{t('members.readHelp')}</p>:null}</>:null}
     {menu&&ready?<AnchoredPaperPopover anchor={anchor} label={actionLabel(menu)} onClose={()=>{if(!lock.current){setMenu(null);restoreFocus()}}}>
       {busy?<p className="tm-menu-name" role="status">{t('members.working')}</p>:null}
+      {(()=>{const state=friends.states.find(s=>s.participantId===menu.participant.id);return state?.requestId&&state.version?<button type="button" className="tt-popover-footer-control tm-menu-button" disabled={!!friends.busy||friends.error} onClick={()=>{void friends.respond({id:state.requestId!,version:state.version!},state.state==='sent'?'cancelled':'declined');setMenu(null)}}>{t(state.state==='sent'?'friendRequest.cancel':'common.decline')}</button>:null})()}
       <p className="tm-menu-name">{menu.participant.id===self?t('members.you'):menu.participant.displayName}</p>
       {tripMemberPermissions(entry,self,menu).role?(['full_access','view']as const).map(role=><button type="button" className="tt-popover-footer-control tm-menu-button" key={role} aria-pressed={menu.member.role===role} disabled={busy||menu.member.role===role} onClick={()=>void run('role',menu,role)}>{menu.member.role===role?'✓ ':''}{t(role==='view'?'members.viewOnly':'members.fullAccess')}</button>):null}
       {tripMemberPermissions(entry,self,menu).remove?<button type="button" className="tt-popover-footer-control tm-menu-button tm-danger" disabled={busy} onClick={()=>{setTarget(menu);setMenu(null);setDialog('remove')}}>{t(menu.participant.id===self?'common.leave':'members.remove')}</button>:null}

@@ -75,6 +75,10 @@ jobs:
         env:
           SHARED_RESTART_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: python3 supabase/tests/shared_restart_concurrency.py
+      - name: Verify directed friend requests with competing authenticated sessions
+        env:
+          TRIP_FRIEND_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python3 supabase/tests/trip_friend_concurrency.py
       - if: always()
         run: npx supabase stop --no-backup
 
@@ -113,9 +117,10 @@ jobs:
           python3 scripts/generate-personal-periods-apply.py
           python3 scripts/generate-personal-confirmation-apply.py
           python3 scripts/generate-shared-restart-apply.py
+          python3 scripts/generate-trip-friends-apply.py
           git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql docs/runbooks/personal-periods-production-apply.sql docs/runbooks/personal-confirmation-production-apply.sql docs/runbooks/shared-restart-production-apply.sql
           mkdir /tmp/tabby-multicurrency-migrations
-          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql supabase/migrations/202610260001_shared_restart.sql /tmp/tabby-multicurrency-migrations/
+          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql supabase/migrations/202610260001_shared_restart.sql supabase/migrations/202610280001_trip_friend_requests.sql /tmp/tabby-multicurrency-migrations/
           trap 'mv /tmp/tabby-multicurrency-migrations/*.sql supabase/migrations/' EXIT
           npx supabase migration up --local
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
@@ -127,6 +132,8 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/personal-confirmation-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/shared-restart-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/shared-restart-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-friends-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-friends-production-apply.sql
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive

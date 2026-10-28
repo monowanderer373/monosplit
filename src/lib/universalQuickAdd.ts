@@ -84,6 +84,7 @@ export function defaultSelectedParticipantIds(
   context: ResolvedMoneyContext,
 ): string[] {
   const allIds = context.availableParticipants.map((participant) => participant.id)
+  if (context.ref.kind === 'space' && context.ref.spaceType === 'trip') return [context.currentParticipantId]
   if (context.ref.kind !== 'person') return allIds
 
   const personId = context.ref.participantId

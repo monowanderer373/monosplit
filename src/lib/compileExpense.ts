@@ -22,6 +22,8 @@ export type LedgerExpenseDraft = {
   category: string
   occurredOn: string
   participants: LedgerDraftParticipant[]
+  /** Optional for legacy drafts; Trip capture supplies consumption separately. */
+  consumerParticipantIds?: string[]
   payerAmounts: Record<string, string>
   splitMode: 'equal' | 'exact'
   exactShareAmounts: Record<string, string>
@@ -105,7 +107,7 @@ export function compileLedgerExpense(draft: LedgerExpenseDraft): LedgerCompileRe
         parseNonnegativeMajorAmount(draft.payerAmounts[participantId], draft.currency),
       ]),
     )
-    if (Object.values(payerAmounts).every((amountMinor) => amountMinor === 0)) {
+    if (Object.values(payerAmounts).every((amountMinor) => amountMinor === 0) && (!draft.consumerParticipantIds || !Object.values(draft.payerAmounts).some(raw=>raw.trim()))) {
       payerAmounts[draft.currentParticipantId] = totalMinor
     }
     try {
@@ -114,12 +116,19 @@ export function compileLedgerExpense(draft: LedgerExpenseDraft): LedgerCompileRe
       return { ok: false, error: 'invalid_payers' }
     }
 
-    const shares = draft.splitMode === 'equal'
-      ? Object.fromEntries(equalMinorShares(totalMinor, participantIds))
+    const consumers = draft.consumerParticipantIds ?? participantIds
+    if (!consumers.length || new Set(consumers).size !== consumers.length
+      || consumers.some(id => !uniqueParticipants.has(id))
+      || (draft.consumerParticipantIds && draft.scope !== 'space')) {
+      return { ok: false, error: 'invalid_participants' }
+    }
+    const equal = draft.splitMode === 'equal' ? equalMinorShares(totalMinor, consumers) : null
+    const shares = equal
+      ? Object.fromEntries(participantIds.map(id => [id, equal.get(id) ?? 0]))
       : Object.fromEntries(
         participantIds.map((participantId) => [
           participantId,
-          parseNonnegativeMajorAmount(draft.exactShareAmounts[participantId], draft.currency),
+          consumers.includes(participantId) ? parseNonnegativeMajorAmount(draft.exactShareAmounts[participantId], draft.currency) : 0,
         ]),
       )
     try {
