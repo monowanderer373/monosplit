@@ -68,6 +68,12 @@ describe('Quick Add save lifecycle',()=>{
   expect(quick.session!.values.selectedParticipantIds).toEqual([])
   expect(quick.session!.values.payerAmounts).toEqual({friend:'8'})
  })
+ it('retains a removed payer-only principal rather than silently dropping their payment during draft recovery',async()=>{
+  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'100',selectedParticipantIds:['self'],payerAmounts:{self:'60',friend:'40'}});quick.close()})
+  mocks.resolve.mockResolvedValue({...shared,availableParticipants:[self]})
+  await act(async()=>{quick.open({entryPoint:'global',context:shared})})
+  expect(quick.contextError).toBe(true);expect(quick.session!.context).toBeNull();expect(quick.session!.values.payerAmounts).toEqual({self:'60',friend:'40'});expect(mocks.save).not.toHaveBeenCalled()
+ })
  it('shows a target error after a resolution failure and can open another ledger',async()=>{
   mocks.resolve.mockRejectedValue(new Error('network'))
   await act(async()=>{quick.open({entryPoint:'global',context:shared.ref})})

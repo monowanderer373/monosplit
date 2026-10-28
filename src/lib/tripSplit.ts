@@ -1,5 +1,11 @@
 import { parseMajorAmount, equalMinorShares } from './money'
 
+/** Even invalid unfinished payment text reserves its principal during member revalidation. */
+export function tripDraftPrincipalIds(consumers: readonly string[], payerAmounts: Record<string,string>, recorder: string) {
+  return [...new Set([recorder, ...consumers, ...Object.entries(payerAmounts)
+    .filter(([,raw]) => raw.trim() && !/^0+(\.0*)?$/.test(raw.trim())).map(([id]) => id)])]
+}
+
 export function tripItemMinorShares(total: number, currency: string, consumers: readonly string[], items: readonly {amount:string;participantIds:string[]}[]) {
   if (!items.length || !consumers.length) throw new Error('invalid_items')
   const result = new Map(consumers.map(id => [id, 0]))

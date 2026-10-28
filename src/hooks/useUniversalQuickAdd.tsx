@@ -1,4 +1,4 @@
-import {tripFinancialParticipantIds} from '../lib/tripSplit'
+import {tripFinancialParticipantIds,tripDraftPrincipalIds} from '../lib/tripSplit'
 import {
   createContext,
   useCallback,
@@ -182,7 +182,7 @@ export function UniversalQuickAddProvider({
       const entryValues = ref.kind === 'person' && resolved.ref.kind === 'person'
         ? remapQuickAddParticipant(active.values, ref.participantId, resolved.ref.participantId)
         : active.values
-      if (entryValues.selectedParticipantIds.some(id => !resolved.availableParticipants.some(p => p.id === id))) {
+      if ((resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'?tripDraftPrincipalIds(entryValues.selectedParticipantIds,entryValues.payerAmounts,resolved.currentParticipantId):entryValues.selectedParticipantIds).some(id => !resolved.availableParticipants.some(p => p.id === id))) {
         setContextError(true)
         history.replace({ step: 'gate', startedAtMs: active.startedAtMs })
         return
@@ -495,6 +495,7 @@ export function UniversalQuickAddProvider({
     const resolved = await resolveRef(ref)
     if (!resolved || sessionRef.current?.sessionId !== active.sessionId) return false
     if (selectedIds?.some(id => !resolved.availableParticipants.some(p => p.id === id))) return false
+    if(active.context&&sameContext(active.context.ref,resolved.ref)&&resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'&&tripDraftPrincipalIds(selectedIds??active.values.selectedParticipantIds,active.values.payerAmounts,resolved.currentParticipantId).some(id=>!resolved.availableParticipants.some(p=>p.id===id)))return false
     const next = active.context && sameContext(active.context.ref,resolved.ref) ? {...active,context:resolved} : switchUniversalQuickAddContext(active, resolved)
     installSession({ ...next, clientRequestId: active.context && !sameContext(active.context.ref, resolved.ref) ? generateId() : active.clientRequestId, values: { ...next.values,
       currency: active.values.currency,
@@ -533,7 +534,7 @@ export function UniversalQuickAddProvider({
       if (draftChoice === 'resume' && stored) {
         values = stored.values
         if (stored.context?.ref.kind === 'person' && resolved.ref.kind === 'person') values = remapQuickAddParticipant(values, stored.context.ref.participantId, resolved.ref.participantId)
-        if (values.selectedParticipantIds.some(id => !resolved.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'unavailable' }
+        if ((resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'?tripDraftPrincipalIds(values.selectedParticipantIds,values.payerAmounts,resolved.currentParticipantId):values.selectedParticipantIds).some(id => !resolved.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'unavailable' }
       } else {
         let ids = selectedIds ?? (same ? values.selectedParticipantIds : [resolved.currentParticipantId])
         if (ref.kind === 'person' && resolved.ref.kind === 'person') ids = ids.map(id => id === ref.participantId ? resolved.ref.kind === 'person' ? resolved.ref.participantId : id : id)
