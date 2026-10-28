@@ -39,7 +39,7 @@ or balance, and resets nothing. No new project or replacement ledger service.
 
 Current connection was independently observed as `supabase_read_only_user` with
 `transaction_read_only=on`, including when the ManagementAPI read_only flag was
-false. This role cannot install the schema. If unchanged, operator SQL Editor
+false. The separate official migration API was also attempted once after exact-source all8CI success and returned HTTP403: `Missing required permission(s): database_migrations_write`. Independent readback still has32versions/neither new table. Do not blindly repeat that rejected POST. This role cannot install the schema. Operator SQL Editor
 execution is a technical connection step, not a repeat of generic authorization.
 Never request credentials/secrets in chat.
 
