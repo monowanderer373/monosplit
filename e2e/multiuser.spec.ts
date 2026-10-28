@@ -347,7 +347,8 @@ async function addExpense(
     const split = await openQuickSplit(dialog, page)
     // These financial regression witnesses intentionally consume as all members; new Trip defaults are self-only.
     const selectAll=split.getByRole('button',{name:'Select all',exact:true})
-    if(await selectAll.count()){await selectAll.click();await expect(split.getByRole('checkbox').and(split.locator(':checked'))).toHaveCount(4)}
+    await selectAll.click()
+    if(input.description==='Remainder dinner')await expect(split.getByRole('checkbox').and(split.locator(':checked'))).toHaveCount(4)
     if(input.description==='Remainder dinner')await expect(split.locator('.qa-split-person').filter({has:page.getByRole('checkbox',{name:'You',exact:true})})).toContainText('RM 2.51')
     if (input.exactShares) {
       await split.getByRole('button', { name: 'Amounts', exact: true }).click()
