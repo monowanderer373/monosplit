@@ -7,7 +7,7 @@ type OpenRequest = Parameters<ReturnType<typeof useUniversalQuickAdd>['open']>[0
 export function travelQuickAddRequest(trip: HomeSpaceRef, identityId: string): OpenRequest {
   const draft = readQuickDraft(identityId, { kind: 'space', spaceId: trip.id })
   if (draft?.context?.ref.kind === 'space' && draft.context.ref.spaceId === trip.id) {
-    return { entryPoint: 'space', context: draft.context.ref, initialValues: draft.values, clientRequestId: draft.clientRequestId }
+    return { entryPoint: 'space', context: draft.context.ref, initialValues: draft.values, participantOrder:draft.participantOrder??draft.context.availableParticipants.map(p=>p.id), clientRequestId: draft.clientRequestId }
   }
   return { entryPoint: 'space', spaceCandidateId: trip.id }
 }

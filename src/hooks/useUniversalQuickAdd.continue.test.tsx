@@ -74,6 +74,14 @@ describe('Quick Add save lifecycle',()=>{
   await act(async()=>{quick.open({entryPoint:'global',context:shared})})
   expect(quick.contextError).toBe(true);expect(quick.session!.context).toBeNull();expect(quick.session!.values.payerAmounts).toEqual({self:'60',friend:'40'});expect(mocks.save).not.toHaveBeenCalled()
  })
+ it('keeps the reviewed Trip principal order when a fresh membership query returns a different row order',async()=>{
+  const third={id:'third',displayName:'Third',kind:'account' as const},context={...shared,availableParticipants:[self,friend,third]}
+  mocks.resolve.mockResolvedValue({...context,availableParticipants:[third,friend,self]})
+  act(()=>{quick.open({entryPoint:'global',context});quick.updateValues({amount:'10.01',selectedParticipantIds:['friend','third'],payerAmounts:{self:'10.01'}})})
+  await act(async()=>{await quick.submit()})
+  expect(mocks.save.mock.calls[0][0].participants.map((p:{id:string})=>p.id)).toEqual(['self','friend','third'])
+  expect(mocks.save.mock.calls[0][0].consumerParticipantIds).toEqual(['friend','third'])
+ })
  it('shows a target error after a resolution failure and can open another ledger',async()=>{
   mocks.resolve.mockRejectedValue(new Error('network'))
   await act(async()=>{quick.open({entryPoint:'global',context:shared.ref})})
