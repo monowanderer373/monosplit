@@ -88,10 +88,10 @@ begin
  if item.status=response then return; end if;
  if item.status<>'pending' or item.expires_at<=now() then raise exception 'friend_request_unavailable'; end if;
  if item.version is distinct from expected_version then raise exception 'version_conflict'; end if;
+ if response='accepted' then
  if (select count(*) from public.participants p join auth.users u on u.id=p.auth_user_id where p.id in(item.sender_id,item.target_id) and p.kind='account' and not coalesce(u.is_anonymous,false) and u.deleted_at is null and (u.banned_until is null or u.banned_until<=now()))<>2 then raise exception 'friend_request_unavailable'; end if;
  select * into friendship from public.friendships f where f.participant_low_id=item.pair_low and f.participant_high_id=item.pair_high for update;
  if friendship.status in('blocked','archived') then raise exception 'friend_request_unavailable'; end if;
- if response='accepted' then
   insert into public.friendships as established(participant_low_id,participant_high_id,requested_by,status,accepted_at)
    values(item.pair_low,item.pair_high,item.sender_id,'accepted',now())
    on conflict(participant_low_id,participant_high_id) do update set status='accepted',accepted_at=coalesce(established.accepted_at,now()) where established.status in('pending','accepted') returning id into result_id;
@@ -119,6 +119,19 @@ begin
  where m.space_id=source_trip_id and m.removed_at is null and p.kind='account' and p.id<>actor;
  return result;
 end; $$;
+-- Server time and current pair availability govern pending review, even after source access ends.
+create function public.get_pending_trip_friend_requests()
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare actor uuid:=public.current_participant_id(); result jsonb;
+begin
+ if actor is null or not public.is_permanent_account() then raise exception 'permanent_account_required'; end if;
+ select coalesce(jsonb_agg(jsonb_build_object('id',r.id,'sender_id',r.sender_id,'target_id',r.target_id,'source_name',r.source_name,'sender_name',r.sender_name,'target_name',r.target_name,'status',r.status,'version',r.version,'expires_at',r.expires_at,
+ 'canAccept',not exists(select 1 from public.friendships f where f.participant_low_id=r.pair_low and f.participant_high_id=r.pair_high and f.status in('blocked','archived')) and (select count(*) from public.participants p join auth.users u on u.id=p.auth_user_id where p.id in(r.sender_id,r.target_id) and p.kind='account' and not coalesce(u.is_anonymous,false) and u.deleted_at is null and (u.banned_until is null or u.banned_until<=now()))=2)order by r.created_at,r.id),'[]'::jsonb) into result
+ from public.trip_friend_requests r where actor in(r.sender_id,r.target_id) and r.status='pending' and r.expires_at>now();
+ return result;
+end; $$;
+revoke all on function public.get_pending_trip_friend_requests() from public,anon;
+grant execute on function public.get_pending_trip_friend_requests() to authenticated;
 revoke all on function public.send_trip_friend_request(uuid,uuid,uuid) from public,anon;
 revoke all on function public.respond_trip_friend_request(uuid,text,integer) from public,anon;
 revoke all on function public.get_trip_friend_states(uuid) from public,anon;

@@ -12,10 +12,10 @@ payload=textwrap.fill(base64.b64encode(body.encode()).decode(),76)
 digest=hashlib.sha256(body.encode()).hexdigest()
 checks=[]
 for function,params,definition in re.findall(r'create function (public\.\w+)\((.*?)\)\s*returns .*?as \$\$(.*?)\$\$;',body,re.S):
- signature=function+'('+','.join(part.strip().split()[-1]for part in params.split(','))+')'
+ signature=function+'('+','.join(part.strip().split()[-1]for part in params.split(',') if part.strip())+')'
  hashed=hashlib.sha256(definition.encode()).hexdigest()
  checks.append(f" if(select encode(extensions.digest(replace(prosrc,chr(13)||chr(10),chr(10)),'sha256'),'hex')from pg_catalog.pg_proc where oid='{signature}'::regprocedure)is distinct from '{hashed}'then raise exception 'Unexpected installed function: {function}';end if;")
-assert len(checks)==3
+assert len(checks)==4
 expected=','.join("'"+v+"'"for v in prior)
 text=f'''-- COMPLETE FILE: existing Tabby Tally / skiqsxvmxvmxfzhrzcxh ONLY.
 -- Schema-only install. Sends no friend request, accepts nobody, changes no financial facts.

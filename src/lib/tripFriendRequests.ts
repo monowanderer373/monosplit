@@ -1,12 +1,12 @@
 import {supabase} from './supabase'
 export type TripFriendState = {participantId:string;state:'available'|'sent'|'incoming'|'friend'|'unavailable';requestId:string|null;version:number|null}
-export type TripFriendRequest = {id:string;sender_id:string;target_id:string;source_name:string;sender_name:string;target_name:string;status:string;version:number;expires_at:string}
+export type TripFriendRequest = {id:string;sender_id:string;target_id:string;source_name:string;sender_name:string;target_name:string;status:string;version:number;expires_at:string;canAccept:boolean}
 const pendingCommands=new Map<string,string>()
 export const friendRequestsChanged=()=>window.dispatchEvent(new Event('tt:friend-requests-changed'))
 function client(){if(!supabase)throw new Error('not_configured');return supabase}
 export const tripFriendRequests={
  async states(trip:string):Promise<TripFriendState[]>{const{data,error}=await client().rpc('get_trip_friend_states',{source_trip_id:trip});if(error)throw error;return data},
- async list():Promise<TripFriendRequest[]>{const{data,error}=await client().from('trip_friend_requests').select('id,sender_id,target_id,source_name,sender_name,target_name,status,version,expires_at').eq('status','pending').gt('expires_at',new Date().toISOString());if(error)throw error;return data??[]},
+ async list():Promise<TripFriendRequest[]>{const{data,error}=await client().rpc('get_pending_trip_friend_requests');if(error)throw error;return data??[]},
  async send(identity:string,trip:string,participant:string){
   const key='tt:trip-friend-command:'+identity+':'+trip+':'+participant
   let id=pendingCommands.get(key)

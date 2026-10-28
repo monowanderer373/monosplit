@@ -344,7 +344,7 @@ export default function SharedPage() {
       {friendRequests.error?<p className="ttsa-friend-error" role="alert">{t('friendRequest.retryHelp')} <button type="button" onClick={()=>void friendRequests.refresh()}>{t('common.retry')}</button></p>:null}
       {view === 'review' ? (
         <PaperSurface>
-          {incomingFriends.map(request=><section className="ttsa-friend-request" key={request.id} data-testid="friend-request-review"><h2>{request.sender_name}</h2><p>{t('friendRequest.fromTrip',{name:request.source_name})}</p><p>{t('friendRequest.wantsFriend')}</p><div><button type="button" disabled={!!friendRequests.busy} onClick={()=>void friendRequests.respond(request,'declined')}>{t('common.decline')}</button><button type="button" disabled={!!friendRequests.busy} onClick={()=>void friendRequests.respond(request,'accepted')}>{t('common.accept')}</button></div></section>)}
+          {incomingFriends.map(request=><section className="ttsa-friend-request" key={request.id} data-testid="friend-request-review"><h2>{request.sender_name}</h2><p>{t('friendRequest.fromTrip',{name:request.source_name})}</p><p>{t('friendRequest.wantsFriend')}</p><div><button type="button" disabled={!!friendRequests.busy} onClick={()=>void friendRequests.respond(request,'declined')}>{t('common.decline')}</button><button type="button" disabled={!!friendRequests.busy||request.canAccept!==true} onClick={()=>void friendRequests.respond(request,'accepted')}>{t('common.accept')}</button></div></section>)}
           {incomingLinks.map((request) => (
             <ReviewRow
               key={request.id}
