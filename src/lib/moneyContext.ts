@@ -30,7 +30,7 @@ export type ContextRankSurface = 'daily' | 'friends' | 'groups' | 'other'
 export function resolveRouteMoneyContext(pathname: string): RouteMoneyContext {
   if (pathname === '/' || pathname === '/quick-add') return { kind: 'personal' }
 
-  const spaceMatch = /^(?:\/space\/([^/]+)(?:\/members)?|\/travel\/trip\/([^/]+))$/.exec(pathname)
+  const spaceMatch = /^(?:\/space\/([^/]+)(?:\/members\/?)?|\/travel\/trip\/([^/]+))$/.exec(pathname)
   if (spaceMatch?.[1] || spaceMatch?.[2]) {
     try { return { kind: 'space-candidate', spaceId: decodeURIComponent(spaceMatch[1] ?? spaceMatch[2]!) } } catch { return {kind:'ambiguous'} }
   }

@@ -7,7 +7,7 @@ const path='/space/'+id+'/members'
 async function setup(page:Page,{role='owner',lang='en'}={}){
  await setupMulticurrency(page,{lang})
  const row=(participant:string,name:string,access:string,kind='account')=>({space_id:id,participant_id:participant,role:access,joined_at:'2026-10-01T00:00:00Z',removed_at:null,participants:{id:participant,kind,display_name:name,auth_user_id:kind==='account'?participant:null,created_by:null}})
- const state={role,failActor:false,failRead:false,empty:false,access:true,delayRole:false,releaseRole:null as null|(()=>void),failWrite:false,lastInviteRole:'',writes:[]as string[],name:'Hanoi Trip',type:'trip',members:[row('owner','You',role),row('alex','Alex Tan','full_access'),row('mia','Mia Lee','view'),row('sam','Sam','view','manual')]}
+ const state={role,failActor:false,failRead:false,holdRead:false,releases:[]as Array<()=>void>,empty:false,access:true,delayRole:false,releaseRole:null as null|(()=>void),failWrite:false,lastInviteRole:'',writes:[]as string[],name:'Hanoi Trip',type:'trip',members:[row('owner','You',role),row('alex','Alex Tan','full_access'),row('mia','Mia Lee','view'),row('sam','Sam','view','manual')]}
  if(role!=='owner')state.members[1]=row('alex','Demo Owner','owner')
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(new Error('Synthetic clipboard denied'))}}))
  await page.route('http://127.0.0.1:54321/**',async route=>{
@@ -15,6 +15,7 @@ async function setup(page:Page,{role='owner',lang='en'}={}){
   if(p.endsWith('/auth/v1/user'))return route.fulfill({json:{id:'ui-contract-user',aud:'authenticated',role:'authenticated',is_anonymous:false,email:'fixture@example.test',user_metadata:{}}})
   if(p.endsWith('/rpc/current_participant_id'))return state.failActor?route.fulfill({status:503,json:{message:'Synthetic identity read failure'}}):route.fulfill({json:'owner'})
   if(p.endsWith('/space_members')){
+   if(state.holdRead)await new Promise<void>(resolve=>state.releases.push(resolve))
    if(state.failRead)return route.fulfill({status:503,json:{message:'Synthetic network failure'}})
    const space={id,type:state.type,name:state.name,owner_participant_id:state.role==='owner'?'owner':'alex',status:'active',default_currency:'MYR',version:1,start_date:null,end_date:null,created_at:'2026-10-01T00:00:00Z',updated_at:'2026-10-01T00:00:00Z'}
    if(url.searchParams.get('select')?.includes('spaces('))return route.fulfill({json:state.access?[{role:state.role,spaces:space}]:[]})
@@ -88,4 +89,8 @@ test('all overview Members entries share one destination without nested buttons'
 test('personal affiliations and invalid Members IDs cannot become shared contexts and return safely',async({page})=>{
  await setup(page)
  for(const target of['affiliation:private-label','not-a-space']){await page.goto('/space/'+encodeURIComponent(target)+'/members');await expect(page.getByText('This trip is unavailable',{exact:true})).toBeVisible();await expect(page.locator('.tm-row')).toHaveCount(0);await expect(page.getByRole('button',{name:'Quick add expense',exact:true})).toBeDisabled();await page.goBack();await expect(page).toHaveURL(/\/shared\?tab=trips$/)}
+})
+
+test('trailing-slash direct Members keeps global plus locked during authority loading, then targets this Trip',async({page})=>{
+ const state=await setup(page);state.holdRead=true;await page.goto(path+'/');await expect(page.getByRole('button',{name:'Quick add expense',exact:true})).toBeDisabled();await expect.poll(()=>state.releases.length).toBeGreaterThanOrEqual(2);state.holdRead=false;state.releases.forEach(resolve=>resolve());await expect(page.getByRole('list',{name:'Members',exact:true})).toBeVisible();await page.getByRole('button',{name:'Quick add expense',exact:true}).click();await expect(page.getByTestId('quick-add-ledger')).toContainText('Hanoi Trip')
 })

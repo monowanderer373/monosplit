@@ -24,7 +24,9 @@ remain. No migration or new production dataset is required.
   Participant lookup failures propagate as read errors instead of fake zero.
 - Owner invitation is explicit, has original full/view access, truthfully
   reports clipboard failure with a manual-copy field, and never generates a
-  token on open/Cancel. Role and manual actions keep original authorization.
+  token on open/Cancel. After successful clipboard copy the token is not redundantly left in DOM;
+  manual-copy UI appears only for actual failure. Role and manual actions keep
+  original authorization.
   Remove/Leave has history-preserving confirmation, synchronous duplicate
   dispatch protection, fresh authority checks and authoritative reload.
 - Trip overview full card, summary count, menu and ledger header use one route.
@@ -38,9 +40,10 @@ remain. No migration or new production dataset is required.
 ## Current verification
 
 - Baseline:732unit/105files PASS. Current743unit/108files PASS; original18focused plus the final Back-guard suite PASS.
-- Lint and TypeScript/PWA build PASS. Production-graph mobile UI12PASS after final guard/busy refinements; all
+- Lint and TypeScript/PWA build PASS. Production-graph mobile UI13PASS after final guard/busy refinements; all
   overview entries, manual role restrictions, both invite roles/copy fallback,
-  invalid/affiliation/revoked Back and explicit processing state included.
+  invalid/affiliation/revoked Back, trailing-slash/loading global+ and explicit
+  processing state included.
 - Browser checks:320/360/390/430,125/150/200%roottext, long names/Trip, Chinese,
   permissions/readonly+/copy fallback/confirmed removal/error and empty states/
   revoked access/legacy and Group fallback/currentTrip+/return scroll. These

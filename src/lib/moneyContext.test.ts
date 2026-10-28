@@ -17,6 +17,7 @@ describe('money context routing', () => {
       spaceId: 'space-1',
     })
     expect(resolveRouteMoneyContext('/space/space-1/members')).toEqual({kind:'space-candidate',spaceId:'space-1'})
+    expect(resolveRouteMoneyContext('/space/space-1/members/')).toEqual({kind:'space-candidate',spaceId:'space-1'})
     expect(globalDestinationForPath('/space/space-1/members')).toBe('shared')
     expect(resolveRouteMoneyContext('/person/person-1')).toEqual({
       kind: 'person-candidate',

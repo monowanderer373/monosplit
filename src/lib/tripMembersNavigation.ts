@@ -6,7 +6,8 @@ export const tripMembersPath = (id: string) => `/space/${encodeURIComponent(id)}
 export const tripOverviewPath = (id: string) => `/travel/trip/${encodeURIComponent(id)}`
 export function validMembersOriginPath(path: string, trip: string) {
   if (!path.startsWith('/') || path.startsWith('//')) return false
-  const [pathname,search=''] = path.split('?')
+  const [rawPathname,search=''] = path.split('?')
+  const pathname=rawPathname.replace(/\/+$/,'')
   return (pathname === tripOverviewPath(trip) || pathname === `/space/${encodeURIComponent(trip)}`) && new URLSearchParams(search).get('section') !== 'members'
 }
 function save(token:string,origin:Origin) {
@@ -23,7 +24,7 @@ export function readMembersOrigin(state: unknown, identity: string, trip: string
 }
 /** Replace the source entry with its scroll state before pushing a single Members entry. */
 export function openTripMembers(navigate: NavigateFunction, location: Pick<Location,'pathname'|'search'|'state'>, identity:string, trip:string) {
-  const path=location.pathname+location.search
+  const path=location.pathname.replace(/\/+$/,'')+location.search
   if(!validMembersOriginPath(path,trip))return
   navigate(path,{replace:true,state:{...location.state,restoreScroll:window.scrollY}})
   const token=crypto.randomUUID()

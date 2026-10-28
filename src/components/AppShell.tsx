@@ -64,7 +64,7 @@ function ShellContents() {
   const homeMode = useStore((state) => state.homeUi.mode)
   const travelHome = location.pathname === '/' && homeMode === 'travel'
   const pageTarget = quickAdd.pageTarget?.pathname === location.pathname ? quickAdd.pageTarget : null
-  const membersPage = /^\/space\/[^/]+\/members$/.test(location.pathname)
+  const membersPage = /^\/space\/[^/]+\/members\/?$/.test(location.pathname)
   const contextualPage = travelHome || membersPage
   const targetPending = contextualPage && !pageTarget?.ready
 
