@@ -51,6 +51,7 @@ export type UniversalQuickAddSession = Readonly<{
   contextPolicy: ContextSwitchPolicy
   context: ResolvedMoneyContext | null
   followPageContext?: boolean
+  selectionInitialized?: boolean
   originalContext: MoneyContextRef | null
   values: UniversalQuickAddValues
 }>
@@ -126,6 +127,7 @@ export function createUniversalQuickAddSession(
     contextPolicy: input.contextPolicy ?? 'switchable',
     context,
     followPageContext: input.followPageContext,
+    selectionInitialized: !!context || input.initialValues?.selectedParticipantIds !== undefined,
     originalContext: input.originalContext ?? context?.ref ?? null,
     values: {
       ...createDefaultValues(context),

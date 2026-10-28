@@ -56,6 +56,7 @@ export default function ExpenseActionSheet({
   const [closing, setClosing] = useState(false)
   const [requestedMode, setMode] = useState<EditorMode>('financial')
   const [splitOpen, setSplitOpen] = useState(false)
+  const [appliedTripSplit,setAppliedTripSplit]=useState<SplitValues|null>(null)
   const [splitDraft, setSplitDraft] = useState<SplitValues | null>(null)
   const [draftScope, setDraftScope] = useState(expense.scope)
   const [editPeople, setEditPeople] = useState(() => expense.participations.map(person => ({ participantId: person.participantId, nameSnapshot: person.nameSnapshot })))
@@ -128,6 +129,7 @@ export default function ExpenseActionSheet({
       setError('')
       setNotice('')
       setSplitOpen(false)
+      setAppliedTripSplit(null)
       draftActive.current = true
     }
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -179,14 +181,16 @@ export default function ExpenseActionSheet({
   const tripCandidates=trip?members.data!.members.map(row=>({participantId:row.participant.id,nameSnapshot:row.participant.displayName})):[]
   const splitPeople = Array.from(new Map([...editPeople, ...(canChangeType ? friends : []), ...tripCandidates.filter(row=>!editPeople.some(p=>p.participantId===row.participantId))].map(person => [person.participantId, person])).values())
   const openSplitPanel = () => {
+    if(trip&&appliedTripSplit){setSplitDraft({...appliedTripSplit,amount:total,currency,exactShareAmounts:{...shares},payerAmounts:{...paid}});setSplitOpen(true);return}
     setSplitDraft({ amount: total, currency, selectedParticipantIds: editPeople.filter(person=>!trip||parseNonnegativeMajor(shares[person.participantId]??'',currency)>0).map(person => person.participantId), splitMode: 'exact', exactShareAmounts: {...shares}, payerAmounts: {...paid}, detailsExpanded: false })
     setSplitOpen(true)
   }
   const applySplitPanel = () => {
     if (!splitDraft) return
     if (mode !== 'metadata') {
+      if(trip)setAppliedTripSplit(splitDraft)
       const consumers=splitDraft.selectedParticipantIds
-      const financialIds=trip?tripFinancialParticipantIds({consumers,payerAmounts:splitDraft.payerAmounts,currency,originalIds:editPeople.map(p=>p.participantId)}):consumers
+      const financialIds=trip?tripFinancialParticipantIds({consumers,payerAmounts:splitDraft.payerAmounts,currency,originalIds:editPeople.map(p=>p.participantId),...(!Object.values(splitDraft.payerAmounts).some(raw=>raw.trim())?{recorder:currentParticipantId}:{})}):consumers
       const people = splitPeople.filter(person => financialIds.includes(person.participantId))
       if (canChangeType) people.sort((a,b) => a.participantId === currentParticipantId ? -1 : b.participantId === currentParticipantId ? 1 : 0)
       const minor = parseMajorAmount(total, currency)
@@ -194,7 +198,7 @@ export default function ExpenseActionSheet({
       setEditPeople(people)
       if (canChangeType) setDraftScope('direct')
       setShares(splitDraft.splitMode === 'equal' ? Object.fromEntries(people.map(person => [person.participantId, minorInput(equal.get(person.participantId) ?? 0, currency)])) : trip?Object.fromEntries(people.map(person=>[person.participantId,consumers.includes(person.participantId)?splitDraft.exactShareAmounts[person.participantId]??'0':'0'])):{...splitDraft.exactShareAmounts})
-      setPaid(Object.values(splitDraft.payerAmounts).some(value => value.trim()) ? {...splitDraft.payerAmounts} : Object.fromEntries(people.map(person => [person.participantId, minorInput(person.participantId === currentParticipantId ? minor : 0, currency)])))
+      setPaid(Object.values(splitDraft.payerAmounts).some(value => value.trim()) ? trip?Object.fromEntries(people.map(person=>[person.participantId,splitDraft.payerAmounts[person.participantId]??'0'])):{...splitDraft.payerAmounts} : Object.fromEntries(people.map(person => [person.participantId, minorInput(person.participantId === currentParticipantId ? minor : 0, currency)])))
     }
     setSplitOpen(false)
   }

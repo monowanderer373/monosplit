@@ -62,6 +62,12 @@ describe('Quick Add save lifecycle',()=>{
   expect(quick.session!.context!.ref).toEqual(shared.ref)
   expect(quick.session!.values).toMatchObject({amount:'99',selectedParticipantIds:['self'],splitMode:'equal'})
  })
+ it('restores an explicitly empty invalid Trip consumer draft without selecting somebody silently',async()=>{
+  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'8',selectedParticipantIds:[],payerAmounts:{friend:'8'}});quick.close()})
+  await act(async()=>{quick.open({entryPoint:'global',context:shared})})
+  expect(quick.session!.values.selectedParticipantIds).toEqual([])
+  expect(quick.session!.values.payerAmounts).toEqual({friend:'8'})
+ })
  it('shows a target error after a resolution failure and can open another ledger',async()=>{
   mocks.resolve.mockRejectedValue(new Error('network'))
   await act(async()=>{quick.open({entryPoint:'global',context:shared.ref})})

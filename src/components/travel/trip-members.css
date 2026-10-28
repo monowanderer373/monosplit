@@ -46,4 +46,4 @@
 #root .tm-page .tm-friend-add{min-width:44px;min-height:44px;border:0;border-radius:14px;padding:8px;background:#dfedf2;color:var(--ms-primary);font-size:.875rem;font-weight:700;white-space:normal;overflow-wrap:anywhere}
 #root .tm-friend-status{font-size:.75rem;color:var(--ms-text-secondary);line-height:1.5;overflow-wrap:anywhere}
 #root .tm-list{container-type:inline-size}
-@container (max-width:22rem){#root .tm-page .tm-row{grid-template-columns:44px minmax(0,1fr)}#root .tm-row-actions{grid-column:2;justify-self:end}}
+@container (max-width:17rem){#root .tm-page .tm-row{grid-template-columns:44px minmax(0,1fr)}#root .tm-row-actions{grid-column:2;justify-self:end}}

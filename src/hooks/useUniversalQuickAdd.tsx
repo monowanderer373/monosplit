@@ -191,13 +191,14 @@ export function UniversalQuickAddProvider({
         ...active,
         clientRequestId: active.originalContext && !sameContext(active.originalContext, resolved.ref) ? generateId() : active.clientRequestId,
         context: resolved,
+        selectionInitialized: true,
         originalContext: active.originalContext ?? resolved.ref,
         values: active.context
           ? entryValues
           : {
               ...entryValues,
               currency: entryValues.selectedParticipantIds.length ? entryValues.currency : resolved.defaultCurrency,
-              selectedParticipantIds: entryValues.selectedParticipantIds.length
+              selectedParticipantIds: entryValues.selectedParticipantIds.length || (resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'&&active.selectionInitialized)
                 ? [...new Set([...(resolved.ref.kind === 'space' && resolved.ref.spaceType === 'trip' ? [] : [resolved.currentParticipantId]), ...entryValues.selectedParticipantIds])]
                 : resolved.ref.kind === 'person'
                   ? [resolved.currentParticipantId, resolved.ref.participantId]
@@ -401,7 +402,7 @@ export function UniversalQuickAddProvider({
     const active = sessionRef.current
     // An explicit gate choice starts a reviewed split, preserving the amount
     // and note while discarding an unavailable draft's financial allocation.
-    if (active && !active.context) installSession({ ...active, values: {
+    if (active && !active.context) installSession({ ...active, selectionInitialized:false, values: {
       ...active.values, selectedParticipantIds: [], splitMode: 'equal', exactShareAmounts: {}, payerAmounts: {}, items: [],
     } })
     void resolveEntryContext(context)

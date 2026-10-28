@@ -1,5 +1,5 @@
 import {expect,it}from'vitest'
-import {tripFinancialParticipantIds}from'./tripSplit'
+import {tripFinancialParticipantIds,tripItemMinorShares}from'./tripSplit'
 import {compileLedgerExpense,type LedgerExpenseDraft}from'./compileExpense'
 import {createUniversalQuickAddSession}from'./universalQuickAdd'
 const people=['a','b','c'].map(id=>({id,displayName:id,kind:'account' as const}))
@@ -22,4 +22,10 @@ it('starts a Trip with self but preserves explicit existing allocations; Group k
  expect(createUniversalQuickAddSession(input).values.selectedParticipantIds).toEqual(['a'])
  expect(createUniversalQuickAddSession({...input,initialValues:{selectedParticipantIds:['b'],payerAmounts:{c:'1000'},splitMode:'exact',exactShareAmounts:{b:'1000'}}}).values).toMatchObject({selectedParticipantIds:['b'],payerAmounts:{c:'1000'},exactShareAmounts:{b:'1000'}})
  expect(createUniversalQuickAddSession({...input,context:{...context,ref:{...context.ref,spaceType:'group'}}}).values.selectedParticipantIds).toEqual(['a','b','c'])
+})
+
+it('item allocation consumes only selected people and keeps the established minor-unit remainder',()=>{
+ expect([...tripItemMinorShares(1000,'MYR',['a','b','c'],[{amount:'10',participantIds:['a','b','c']}]).values()]).toEqual([334,333,333])
+ expect(()=>tripItemMinorShares(1000,'MYR',['a'],[{amount:'10',participantIds:['b']}])).toThrow()
+ expect(()=>tripItemMinorShares(1000,'MYR',['a'],[{amount:'9',participantIds:['a']}])).toThrow()
 })
