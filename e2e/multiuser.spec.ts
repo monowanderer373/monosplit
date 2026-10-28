@@ -6,6 +6,11 @@ import {
   copyInviteUrl,
   createConfirmedAccount,
   createSpaceInvite,
+  openTripMemberManager,
+  returnFromTripMemberManager,
+  expectTripMemberRole,
+  setTripMemberRole,
+  removeTripMember,
   MOBILE_CONTEXT_OPTIONS,
   openAuthenticatedBrowser,
   openPersonDetail,
@@ -107,8 +112,10 @@ test.describe('local relational multi-user journey', () => {
 
     await owner.getByRole('button', { name: 'Refresh' }).first().click()
     await expect(owner.getByText('4 members')).toBeVisible()
-    await expect(owner.getByLabel('Access for Beta')).toHaveValue('full_access')
-    await expect(owner.getByLabel('Access for Viewer')).toHaveValue('view')
+    const memberOrigin=await openTripMemberManager(owner)
+    await expectTripMemberRole(owner,'Beta','full_access')
+    await expectTripMemberRole(owner,'Viewer','view')
+    await returnFromTripMemberManager(owner,memberOrigin)
   })
 
     await test.step('reconcile remainder and multi-payer expenses across independent ledgers', async () => {
@@ -159,7 +166,7 @@ test.describe('local relational multi-user journey', () => {
     await expectDebt(viewerBrowser.page, 'You owe Alpha', 'RM 4.50')
     await expectDebt(guestBrowser!.page, 'You owe Alpha', 'RM 3.84')
 
-    await owner.getByRole('button', { name: 'Remove Viewer' }).click()
+    await removeTripMember(owner,'Viewer')
     await expect(owner.getByText('3 members')).toBeVisible()
     await viewerBrowser.page.reload()
     await expect(viewerBrowser.page.getByRole('heading', { name: 'This group or trip is unavailable.' })).toBeVisible()
@@ -287,8 +294,7 @@ test.describe('local relational multi-user journey', () => {
     await staleDialog.getByRole('textbox', { name: 'Note', exact: true }).fill('Rejected stale role')
 
     await owner.goto(spaceUrl)
-    await owner.getByLabel('Access for Beta').selectOption('view')
-    await expect(owner.getByLabel('Access for Beta')).toHaveValue('view')
+    await setTripMemberRole(owner,'Beta','view')
     const spaceId = new URL(spaceUrl).pathname.split('/').at(-1)
     if (!spaceId) throw new Error('Could not resolve the local Space id.')
     await waitForSpaceRole(beta, spaceId, 'view')
