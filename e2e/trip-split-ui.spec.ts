@@ -6,16 +6,16 @@ const exceptions=new WeakMap<Page,string[]>()
 test.beforeEach(({page})=>{const errors:string[]=[];exceptions.set(page,errors);page.on('pageerror',error=>errors.push(error.name))})
 test.afterEach(({page})=>{expect(exceptions.get(page)).toEqual([])})
 const id='00000000-0000-4000-8000-000000000101'
-async function setup(page:Page){
- await setupMulticurrency(page)
+async function setup(page:Page,lang='en'){
+ await setupMulticurrency(page,{lang})
  const names:Record<string,string>={owner:'You',alex:'Alex Tan',mia:'Mia Lee'}
- const state={statuses:{alex:'available',mia:'incoming'}as Record<string,string>,writes:[]as string[],responses:[]as string[],fail:false}
+ const state={names,tripName:'Hanoi Trip',statuses:{alex:'available',mia:'incoming'}as Record<string,string>,writes:[]as string[],responses:[]as string[],fail:false}
  await page.route('http://127.0.0.1:54321/**',async route=>{
   const p=new URL(route.request().url()).pathname,body=route.request().method()==='POST'?route.request().postDataJSON():null
   if(p.endsWith('/auth/v1/user'))return route.fulfill({json:{id:'ui-contract-user',aud:'authenticated',role:'authenticated',is_anonymous:false,email:'fixture@example.test',user_metadata:{}}})
   if(p.endsWith('/rpc/current_participant_id'))return route.fulfill({json:'owner'})
   if(p.endsWith('/space_members')){
-   if(new URL(route.request().url()).searchParams.get('select')?.includes('spaces('))return route.fulfill({json:[{role:'owner',spaces:{id,type:'trip',name:'Hanoi Trip',owner_participant_id:'owner',status:'active',default_currency:'MYR',version:1,start_date:null,end_date:null,created_at:'2026-10-01T00:00:00Z',updated_at:'2026-10-01T00:00:00Z'}}]})
+   if(new URL(route.request().url()).searchParams.get('select')?.includes('spaces('))return route.fulfill({json:[{role:'owner',spaces:{id,type:'trip',name:state.tripName,owner_participant_id:'owner',status:'active',default_currency:'MYR',version:1,start_date:null,end_date:null,created_at:'2026-10-01T00:00:00Z',updated_at:'2026-10-01T00:00:00Z'}}]})
    return route.fulfill({json:Object.entries(names).map(([participant,name])=>({space_id:id,participant_id:participant,role:participant==='owner'?'owner':participant==='mia'?'view':'full_access',joined_at:'2026-10-01T00:00:00Z',removed_at:null,participants:{id:participant,kind:'account',display_name:name,auth_user_id:participant,created_by:null}}))})
   }
   if(p.endsWith('/rpc/get_trip_friend_states'))return route.fulfill({json:Object.entries(state.statuses).map(([participantId,value])=>({participantId,state:value,requestId:value==='incoming'?'incoming-request':value==='sent'?'sent-request':null,version:1}))})
@@ -54,4 +54,8 @@ test('Trip Amounts and By item preserve payments and require recalculation after
  for(const[name,value]of[['You','4'],['Alex Tan','3'],['Mia Lee','3']])await split.getByRole('textbox',{name:'Share for '+name,exact:true}).fill(value)
  await split.getByRole('button',{name:'Apply split',exact:true}).click();await quick.getByRole('button',{name:'Split expense',exact:true}).click();await expect(split.getByRole('textbox',{name:'Share for Alex Tan',exact:true})).toHaveValue('3');await split.getByRole('button',{name:'By item',exact:true}).click();await split.getByRole('button',{name:'Add item',exact:true}).click();await split.getByRole('textbox',{name:'Item 1 amount',exact:true}).fill('10');await split.getByRole('button',{name:'Calculate shares',exact:true}).click();await shot(page,'by-item')
  await split.getByRole('textbox',{name:'Item 1 amount',exact:true}).fill('9');await split.getByRole('button',{name:'Apply split',exact:true}).click();await expect(split.getByRole('alert')).toContainText('Calculate item shares again');await split.getByRole('textbox',{name:'Item 1 amount',exact:true}).fill('10');await split.getByRole('button',{name:'Calculate shares',exact:true}).click();await split.getByRole('checkbox',{name:'You',exact:true}).click();await split.getByRole('button',{name:'Change consumers',exact:true}).click();await split.getByRole('button',{name:'Remove unselected item assignments',exact:true}).click();await split.getByRole('button',{name:'Calculate shares',exact:true}).click();await expect(split.locator('.qa-split-summary')).toContainText('RM 10.00');await split.getByRole('button',{name:'Apply split',exact:true}).click();await quick.getByRole('button',{name:'Split expense',exact:true}).click();await expect(split.getByRole('checkbox',{name:'You',exact:true})).not.toBeChecked();await expect(split.getByRole('textbox',{name:'Item 1 amount',exact:true})).toHaveValue('10');await expect(split.getByRole('button',{name:'By item',exact:true})).toHaveAttribute('aria-pressed','true')
+})
+
+test('Chinese long-name member actions remain readable at320px and200%text without displacing names',async({page})=>{
+ const state=await setup(page,'zh');state.names.alex='Alex 很长的成员名字 '.repeat(8);state.tripName='很长的行程名称 '.repeat(6);await page.setViewportSize({width:320,height:844});await page.goto('/space/'+id+'/members');await expect(page.locator('.tm-row')).toHaveCount(3);await page.evaluate(()=>document.documentElement.style.fontSize='200%');expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);const row=page.locator('[data-participant-id="alex"]');await expect(row).toContainText(state.names.alex);for(const button of await row.getByRole('button').all()){const box=await button.boundingBox();expect(box!.width).toBeGreaterThanOrEqual(44);expect(box!.height).toBeGreaterThanOrEqual(44)}await row.locator('.tm-more').click();await page.keyboard.press('Escape');await expect(row.locator('.tm-more')).toBeFocused();await shot(page,'chinese-long-320-200')
 })
