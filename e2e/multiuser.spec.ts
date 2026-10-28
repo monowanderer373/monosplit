@@ -347,7 +347,8 @@ async function addExpense(
     const split = await openQuickSplit(dialog, page)
     // These financial regression witnesses intentionally consume as all members; new Trip defaults are self-only.
     const selectAll=split.getByRole('button',{name:'Select all',exact:true})
-    if(await selectAll.count())await selectAll.click()
+    if(await selectAll.count()){await selectAll.click();await expect(split.getByRole('checkbox').and(split.locator(':checked'))).toHaveCount(4)}
+    if(input.description==='Remainder dinner')await expect(split.locator('.qa-split-person').filter({has:page.getByRole('checkbox',{name:'You',exact:true})})).toContainText('RM 2.51')
     if (input.exactShares) {
       await split.getByRole('button', { name: 'Amounts', exact: true }).click()
       for (const [name, amount] of Object.entries(input.exactShares)) {
@@ -387,7 +388,7 @@ async function saveCapture(page: Page, description: string, amount: string): Pro
 
 async function expectShare(page: Page, description: string, amount: string): Promise<void> {
   const expense = page.getByRole('article').filter({ hasText: description })
-  await expect(expense.getByText(`Your share ${amount}`)).toBeVisible()
+  await expect(expense).toContainText(`Your share ${amount}`)
 }
 
 async function expectDebt(page: Page, label: string, amount: string): Promise<void> {
