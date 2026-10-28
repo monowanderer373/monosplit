@@ -122,7 +122,7 @@ export function compileLedgerExpense(draft: LedgerExpenseDraft): LedgerCompileRe
       || (draft.consumerParticipantIds && draft.scope !== 'space')) {
       return { ok: false, error: 'invalid_participants' }
     }
-    const equal = draft.splitMode === 'equal' ? equalMinorShares(totalMinor, consumers) : null
+    const equal = draft.splitMode === 'equal' ? equalMinorShares(totalMinor, participantIds.filter(id=>consumers.includes(id))) : null
     const shares = equal
       ? Object.fromEntries(participantIds.map(id => [id, equal.get(id) ?? 0]))
       : Object.fromEntries(

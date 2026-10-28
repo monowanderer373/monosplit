@@ -203,7 +203,7 @@ function ExpenseActionSheetContent({
       const people = splitPeople.filter(person => financialIds.includes(person.participantId))
       if (canChangeType) people.sort((a,b) => a.participantId === currentParticipantId ? -1 : b.participantId === currentParticipantId ? 1 : 0)
       const minor = parseMajorAmount(total, currency)
-      const equal = equalMinorShares(minor, trip?consumers:people.map(person => person.participantId))
+      const equal = equalMinorShares(minor, trip?people.filter(person=>consumers.includes(person.participantId)).map(person=>person.participantId):people.map(person => person.participantId))
       setEditPeople(people)
       if (canChangeType) setDraftScope('direct')
       setShares(splitDraft.splitMode === 'equal' ? Object.fromEntries(people.map(person => [person.participantId, minorInput(equal.get(person.participantId) ?? 0, currency)])) : trip?Object.fromEntries(people.map(person=>[person.participantId,consumers.includes(person.participantId)?splitDraft.exactShareAmounts[person.participantId]??'0':'0'])):{...splitDraft.exactShareAmounts})
@@ -395,7 +395,7 @@ function ExpenseActionSheetContent({
         {expense.scope==='space'&&members.status!=='ready'?<p role="alert">{copy('Verify current members before applying. Original amounts are retained.','应用前请核验当前成员，原金额已保留。')}<button type="button" onClick={()=>void members.refresh()}>{copy('Retry','重试')}</button></p>:null}
         {canChangeType && friendsState === 'ready' && splitPeople.length < 2 ? <p className="qa-helper">{copy('Add a friend in Shared first.', '先到共享页面添加朋友。')}</p> : null}
         {canChangeType && friendsState === 'error' ? <p role="alert" className="qa-error">{copy('Friends could not load. Close and reopen the editor to retry.', '朋友加载失败，请重新打开编辑页面重试。')}</p> : null}
-        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={trip?tripName:copy('Shared expense', '共享账目')} trip={trip} unavailableIds={trip?editPeople.filter(p=>!tripCandidates.some(c=>c.participantId===p.participantId)).map(p=>p.participantId):[]} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType||canChangeTripSplit} busy={expense.scope==='space'&&members.status!=='ready'} readOnly={mode === 'metadata'} requireFriend={expense.scope !== 'space'} />
+        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={trip?tripName:copy('Shared expense', '共享账目')} trip={trip} preserveOrder={trip} unavailableIds={trip?editPeople.filter(p=>!tripCandidates.some(c=>c.participantId===p.participantId)).map(p=>p.participantId):[]} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType||canChangeTripSplit} busy={expense.scope==='space'&&members.status!=='ready'} readOnly={mode === 'metadata'} requireFriend={expense.scope !== 'space'} />
       </div></QuickPanel></div></div> : null}
     </EditorDialog>, document.getElementById('root') ?? document.body) : null}
   </>

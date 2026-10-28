@@ -29,3 +29,7 @@ it('item allocation consumes only selected people and keeps the established mino
  expect(()=>tripItemMinorShares(1000,'MYR',['a'],[{amount:'10',participantIds:['b']}])).toThrow()
  expect(()=>tripItemMinorShares(1000,'MYR',['a'],[{amount:'9',participantIds:['a']}])).toThrow()
 })
+
+it('keeps original financial participant order for Equal remainders, independent of consumer checkbox order',()=>{
+ expect(compileLedgerExpense({...draft,amount:'10',payerAmounts:{b:'10'},currentParticipantId:'b',consumerParticipantIds:['c','a','b']})).toMatchObject({ok:true,command:{participantIds:['b','a','c'],shareAmounts:[334,333,333]}})
+})

@@ -17,10 +17,10 @@ export function QuickPanel({title,onClose,children}: {title:string;onClose:()=>v
 function major(minor:number,currency:string) {const factor=10n**BigInt(currencyExponent(currency)), n=BigInt(minor);return `${n/factor}${currencyExponent(currency)?'.'+(n%factor).toString().padStart(currencyExponent(currency),'0'):''}`}
 function zeroOrMinor(raw:string,currency:string) {return !raw.trim() || /^0+(\.0*)?$/.test(raw.trim()) ? 0 : parseMajorAmount(raw,currency)}
 
-export function SplitConfiguration({values,participants,currentParticipantId,label,accountLabel,zh,onUpdate,onApply,onChoosePeople,onRemove,allowSelectionChange=true,readOnly=false,requireFriend=false,allowEmptyTotal=false,busy=false,compact=false,trip=false,unavailableIds=[]}: {
+export function SplitConfiguration({values,participants,currentParticipantId,label,accountLabel,zh,onUpdate,onApply,onChoosePeople,onRemove,allowSelectionChange=true,readOnly=false,requireFriend=false,allowEmptyTotal=false,busy=false,compact=false,trip=false,unavailableIds=[],preserveOrder=false}: {
  values:SplitValues; participants:{id:string;displayName:string}[]; currentParticipantId:string; label:string; accountLabel?:string; zh:boolean
  onUpdate:(patch:Partial<SplitValues>)=>void; onApply:()=>void; onChoosePeople?:()=>void; onRemove?:()=>void
- allowSelectionChange?:boolean; readOnly?:boolean; requireFriend?:boolean; allowEmptyTotal?:boolean; busy?:boolean; compact?:boolean; trip?:boolean; unavailableIds?:string[]
+ allowSelectionChange?:boolean; readOnly?:boolean; requireFriend?:boolean; allowEmptyTotal?:boolean; busy?:boolean; compact?:boolean; trip?:boolean; unavailableIds?:string[]; preserveOrder?:boolean
 }) {
  const copy=(en:string,cn:string)=>zh?cn:en
  const [payerOpen,setPayerOpen]=useState(false)
@@ -30,7 +30,7 @@ export function SplitConfiguration({values,participants,currentParticipantId,lab
  const computedAmount=(()=>{try{return calculateQuickAmount(values.calculation??values.amount,values.currency)}catch{return ''}})()
  const total=(()=>{try{return parseMajorAmount(computedAmount,values.currency)}catch{return 0}})()
  const money=(n:number)=>`${values.currency==='MYR'?'RM':values.currency} ${groupAmount(major(n,values.currency))}`
- const ordered=participants.filter(p=>values.selectedParticipantIds.includes(p.id)).sort((a,b)=>a.id===currentParticipantId?-1:b.id===currentParticipantId?1:0)
+ const ordered=participants.filter(p=>values.selectedParticipantIds.includes(p.id)).sort((a,b)=>preserveOrder?0:a.id===currentParticipantId?-1:b.id===currentParticipantId?1:0)
  let shares=new Map<string,number>()
  let invalid=false
  try { shares=values.splitMode==='equal'?equalMinorShares(total,ordered.map(p=>p.id)):new Map(ordered.map(p=>[p.id,zeroOrMinor(values.exactShareAmounts[p.id]??'',values.currency)]))
