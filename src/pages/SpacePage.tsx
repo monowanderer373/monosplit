@@ -251,7 +251,7 @@ export default function SpacePage() {
         <p className="ms-label">{t(spaceTypeKey(entry.space.type))} · {t(roleKey(entry.role))} · {t(spaceStatusKey(entry.space.status))}</p>
         <h1 className="mt-1 text-3xl font-extrabold">{entry.space.name}</h1>
         <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
-          {entry.space.defaultCurrency} · {entry.space.type==='trip'?<button type="button" className="ms-btn-ghost min-h-11 px-2" data-testid="trip-ledger-members" onClick={()=>openTripMembers(navigate,location,authUser.id,spaceId)}>{t('travel.members')} · {t('members.count',{count:members.length})}</button>:t(countKey('common.count.member.one', 'common.count.member.many', members.length), { count: members.length })}
+          {entry.space.defaultCurrency} · {entry.space.type==='trip'?<button type="button" className="ms-btn-ghost min-h-11 px-2" data-testid="trip-ledger-members" onClick={()=>openTripMembers(navigate,location,authUser.id,spaceId)}>{t('travel.members')} · {t(countKey('common.count.member.one','common.count.member.many',members.length),{count:members.length})}</button>:t(countKey('common.count.member.one', 'common.count.member.many', members.length), { count: members.length })}
           {entry.space.type === 'trip' ? ` · ${dateLine}` : ''}
         </p>
       </header>

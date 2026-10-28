@@ -1,4 +1,5 @@
 export const travelTranslations = {
+  'members.working': {en:'Updating members…',zh:'正在处理成员操作…'},
   'members.you': {en:'You',zh:'我'},
   'members.owner': {en:'Owner',zh:'创建者'},
   'members.fullAccess': {en:'Full access',zh:'可编辑'},

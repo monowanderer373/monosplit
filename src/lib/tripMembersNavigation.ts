@@ -1,6 +1,6 @@
 import type { Location, NavigateFunction } from 'react-router-dom'
 const prefix = 'tt:trip-members-origin:'
-type Origin = { identity: string; trip: string; path: string; index: number; key: string }
+type Origin = { identity: string; trip: string; path: string; index: number; key: string; unavailable?: boolean }
 const memory = new Map<string,Origin>()
 export const tripMembersPath = (id: string) => `/space/${encodeURIComponent(id)}/members`
 export const tripOverviewPath = (id: string) => `/travel/trip/${encodeURIComponent(id)}`
@@ -18,7 +18,7 @@ export function readMembersOrigin(state: unknown, identity: string, trip: string
   if (typeof token !== 'string' || !/^[a-f0-9-]{36}$/i.test(token)) return null
   try {
     const value=memory.get(token) ?? JSON.parse(sessionStorage.getItem(prefix+token)??'null') as Origin|null
-    return value && value.identity === identity && value.trip === trip && validMembersOriginPath(value.path,trip) && Number.isSafeInteger(value.index) && typeof value.key === 'string' ? value : null
+    return value && value.identity === identity && value.trip === trip && (validMembersOriginPath(value.path,trip)||(value.unavailable===true&&value.path==='/shared?tab=trips')) && Number.isSafeInteger(value.index) && typeof value.key === 'string' ? value : null
   }catch{return null}
 }
 /** Replace the source entry with its scroll state before pushing a single Members entry. */
@@ -31,17 +31,17 @@ export function openTripMembers(navigate: NavigateFunction, location: Pick<Locat
   navigate(tripMembersPath(trip),{state:{tripMembersOrigin:token}})
 }
 /** Seed a deterministic same-trip entry for direct links/reloads without trusted provenance. */
-export function prepareMembersBack(navigate:NavigateFunction, state:unknown, identity:string,trip:string) {
+export function prepareMembersBack(navigate:NavigateFunction, state:unknown, identity:string,trip:string,unavailable=false) {
   const origin=readMembersOrigin(state,identity,trip)
-  if(origin && window.history.state?.idx === origin.index+1)return
-  const path=tripOverviewPath(trip)
+  if(origin && window.history.state?.idx === origin.index+1 && (!unavailable||origin.unavailable))return
+  const path=unavailable?'/shared?tab=trips':tripOverviewPath(trip)
   navigate(path,{replace:true,state:{restoreScroll:0}})
   const token=crypto.randomUUID()
-  save(token,{identity,trip,path,index:window.history.state?.idx??0,key:window.history.state?.key??''})
+  save(token,{identity,trip,path,unavailable,index:window.history.state?.idx??0,key:window.history.state?.key??''})
   navigate(tripMembersPath(trip),{state:{tripMembersOrigin:token}})
 }
-export function backFromMembers(navigate:NavigateFunction,state:unknown,identity:string,trip:string) {
+export function backFromMembers(navigate:NavigateFunction,state:unknown,identity:string,trip:string,unavailable=false) {
   const origin=readMembersOrigin(state,identity,trip)
   if(origin && window.history.state?.idx === origin.index+1)navigate(-1)
-  else navigate(tripOverviewPath(trip),{replace:true})
+  else navigate(unavailable?'/shared?tab=trips':tripOverviewPath(trip),{replace:true})
 }

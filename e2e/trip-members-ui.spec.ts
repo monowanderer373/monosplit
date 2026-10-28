@@ -7,7 +7,7 @@ const path='/space/'+id+'/members'
 async function setup(page:Page,{role='owner',lang='en'}={}){
  await setupMulticurrency(page,{lang})
  const row=(participant:string,name:string,access:string,kind='account')=>({space_id:id,participant_id:participant,role:access,joined_at:'2026-10-01T00:00:00Z',removed_at:null,participants:{id:participant,kind,display_name:name,auth_user_id:kind==='account'?participant:null,created_by:null}})
- const state={role,failActor:false,failRead:false,empty:false,access:true,failWrite:false,lastInviteRole:'',writes:[]as string[],name:'Hanoi Trip',type:'trip',members:[row('owner','You',role),row('alex','Alex Tan','full_access'),row('mia','Mia Lee','view'),row('sam','Sam','view','manual')]}
+ const state={role,failActor:false,failRead:false,empty:false,access:true,delayRole:false,releaseRole:null as null|(()=>void),failWrite:false,lastInviteRole:'',writes:[]as string[],name:'Hanoi Trip',type:'trip',members:[row('owner','You',role),row('alex','Alex Tan','full_access'),row('mia','Mia Lee','view'),row('sam','Sam','view','manual')]}
  if(role!=='owner')state.members[1]=row('alex','Demo Owner','owner')
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(new Error('Synthetic clipboard denied'))}}))
  await page.route('http://127.0.0.1:54321/**',async route=>{
@@ -20,7 +20,7 @@ async function setup(page:Page,{role='owner',lang='en'}={}){
    if(url.searchParams.get('select')?.includes('spaces('))return route.fulfill({json:state.access?[{role:state.role,spaces:space}]:[]})
    return route.fulfill({json:state.access&&!state.empty?state.members:[]})
   }
-  if(p.endsWith('/rpc/update_space_member_role')){state.writes.push('role');if(state.failWrite)return route.fulfill({status:403,json:{message:'space_write_denied'}});state.members.find(r=>r.participant_id===body.target_participant_id)!.role=body.member_role;return route.fulfill({json:null})}
+  if(p.endsWith('/rpc/update_space_member_role')){state.writes.push('role');if(state.delayRole)await new Promise<void>(resolve=>{state.releaseRole=resolve});if(state.failWrite)return route.fulfill({status:403,json:{message:'space_write_denied'}});state.members.find(r=>r.participant_id===body.target_participant_id)!.role=body.member_role;return route.fulfill({json:null})}
   if(p.endsWith('/rpc/remove_space_member')){state.writes.push('remove');if(body.target_participant_id==='owner')state.access=false;state.members=state.members.filter(r=>r.participant_id!==body.target_participant_id);return route.fulfill({json:null})}
   if(p.endsWith('/rpc/add_manual_space_member')){state.writes.push('add');const key='manual-'+state.writes.length;state.members.push(row(key,body.display_name,'view','manual'));return route.fulfill({json:key})}
   if(p.endsWith('/rpc/create_space_invite')){state.writes.push('invite');state.lastInviteRole=body.invite_role;return route.fulfill({json:'synthetic-ui-invite-only'})}
@@ -45,7 +45,7 @@ test('management preserves roles, confirms removal, handles rejected writes and 
  const state=await setup(page);await ready(page)
  await page.getByRole('button',{name:'Invite',exact:true}).click();expect(state.writes).toEqual([]);await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(state.writes).toEqual([])
  await page.getByRole('button',{name:'Invite',exact:true}).click();await expect(page.getByRole('combobox')).toHaveValue('full_access');await page.getByRole('combobox').selectOption('view');await page.getByRole('button',{name:'Copy secure invite',exact:true}).click();await expect(page.getByText('Link created. Copy it manually below.')).toBeVisible();await expect(page.getByLabel('Invite link',{exact:true})).toBeVisible();expect(state.lastInviteRole).toBe('view');await page.getByRole('button',{name:'Cancel',exact:true}).click()
- await page.getByRole('button',{name:'Manage Alex Tan'}).click();await page.getByRole('button',{name:'View only',exact:true}).click();await expect(page.locator('[data-participant-id="alex"]')).toContainText('View only');expect(state.writes.filter(w=>w==='role')).toHaveLength(1)
+ state.delayRole=true;await page.getByRole('button',{name:'Manage Alex Tan'}).click();await page.getByRole('button',{name:'View only',exact:true}).click();await expect(page.locator('.tt-popover').getByText('Updating members…')).toBeVisible();await expect.poll(()=>!!state.releaseRole).toBe(true);state.releaseRole!();state.delayRole=false;await expect(page.locator('[data-participant-id="alex"]')).toContainText('View only');expect(state.writes.filter(w=>w==='role')).toHaveLength(1)
  state.failWrite=true;await page.getByRole('button',{name:'Manage Alex Tan'}).click();await page.getByRole('button',{name:'Full access',exact:true}).click();await expect(page.locator('.tm-error')).toBeVisible();await expect(page.locator('[data-participant-id="alex"]')).toContainText('View only');state.failWrite=false
  await page.getByRole('button',{name:'Add untracked member',exact:true}).click();await page.getByRole('textbox').fill('Sam');await page.getByRole('button',{name:'Add untracked member',exact:true}).click();await expect(page.locator('.tm-row')).toHaveCount(5)
  await page.locator('[data-participant-id="sam"]').getByRole('button').click();await expect(page.locator('.tt-popover').getByRole('button',{name:'Full access',exact:true})).toHaveCount(0);await expect(page.locator('.tt-popover').getByRole('button',{name:'View only',exact:true})).toHaveCount(0);await page.keyboard.press('Escape')
@@ -62,7 +62,7 @@ test('read errors and anomalous empty membership do not become zero; revoked acc
  const state=await setup(page);state.failRead=true;await page.goto(path);await expect(page.getByRole('button',{name:'Retry',exact:true})).toBeVisible();await expect(page.locator('.tm-heading')).not.toContainText('0 members')
  state.failRead=false;state.failActor=true;await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.getByRole('button',{name:'Retry',exact:true})).toBeVisible();await expect(page.getByText('This trip is unavailable',{exact:true})).toHaveCount(0);state.failActor=false;state.empty=true;await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.getByText('The member list needs verification. Please retry.')).toBeVisible()
  state.empty=false;await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.locator('.tm-row')).toHaveCount(4)
- state.access=false;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.getByText('This trip is unavailable',{exact:true})).toBeVisible();await expect(page.locator('.tm-row')).toHaveCount(0);await expect(page.getByRole('button',{name:'Invite',exact:true})).toHaveCount(0)
+ state.access=false;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.getByText('This trip is unavailable',{exact:true})).toBeVisible();await expect(page.locator('.tm-row')).toHaveCount(0);await expect(page.getByRole('button',{name:'Invite',exact:true})).toHaveCount(0);await page.goBack();await expect(page).toHaveURL(/\/shared\?tab=trips$/)
 })
 test('direct refresh and old Trip links use one safe same-trip Back entry; Group remains on its old page',async({page})=>{
  const state=await setup(page);await ready(page);await page.reload();await expect(page.locator('.tm-row')).toHaveCount(4);await page.goBack();await expect(page).toHaveURL(new RegExp('/travel/trip/'+id+'$'))
@@ -83,4 +83,9 @@ test('all overview Members entries share one destination without nested buttons'
  await setup(page);await page.goto('/travel/trip/'+id);await expect(page.getByRole('heading',{name:'Hanoi Trip',exact:true})).toBeVisible();await expect(page.locator('.tt-members-entry button')).toHaveCount(0)
  await page.getByRole('button',{name:'4 people',exact:true}).click();await expect(page.getByRole('list',{name:'Members',exact:true})).toBeVisible();await page.goBack();await expect(page.locator('.tt-members-entry')).toBeVisible()
  await page.locator('.tt-members-entry').click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'));await page.goBack();await page.getByRole('button',{name:/actions/i}).click();await page.locator('.tt-popover').getByRole('button',{name:'Members',exact:true}).click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'))
+})
+
+test('personal affiliations and invalid Members IDs cannot become shared contexts and return safely',async({page})=>{
+ await setup(page)
+ for(const target of['affiliation:private-label','not-a-space']){await page.goto('/space/'+encodeURIComponent(target)+'/members');await expect(page.getByText('This trip is unavailable',{exact:true})).toBeVisible();await expect(page.locator('.tm-row')).toHaveCount(0);await expect(page.getByRole('button',{name:'Quick add expense',exact:true})).toBeDisabled();await page.goBack();await expect(page).toHaveURL(/\/shared\?tab=trips$/)}
 })

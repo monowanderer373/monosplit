@@ -37,9 +37,10 @@ remain. No migration or new production dataset is required.
 
 ## Current verification
 
-- Baseline:732unit/105files PASS. Current742unit/108files PASS;18focused PASS.
-- Lint and TypeScript/PWA build PASS. Production-graph mobile UI10PASS42.9s;
-  new all-overview-entry test and expanded manual/invite checks pending rerun.
+- Baseline:732unit/105files PASS. Current743unit/108files PASS; original18focused plus the final Back-guard suite PASS.
+- Lint and TypeScript/PWA build PASS. Production-graph mobile UI12PASS after final guard/busy refinements; all
+  overview entries, manual role restrictions, both invite roles/copy fallback,
+  invalid/affiliation/revoked Back and explicit processing state included.
 - Browser checks:320/360/390/430,125/150/200%roottext, long names/Trip, Chinese,
   permissions/readonly+/copy fallback/confirmed removal/error and empty states/
   revoked access/legacy and Group fallback/currentTrip+/return scroll. These
@@ -58,6 +59,7 @@ remain. No migration or new production dataset is required.
 
 ## Release checkpoint
 
+PR40draft created; exact latest source must pass isolated CI before merge.
 No current feature production deployment or real-user private screenshot is
 claimed. Follow the existing authorized GitHub/Vercel project workflow after
 current tests pass. Real management writes belong only to isolated backend QA;

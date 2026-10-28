@@ -22,3 +22,10 @@ it('seeds same-Trip history for a direct/reloaded URL and never trusts a supplie
  expect(readMembersOrigin(window.history.state.usr,'owner',trip)?.path).toBe(`/travel/trip/${trip}`)
  backFromMembers(navigate,{from:'/spaces'},'owner',trip);expect(navigate).toHaveBeenLastCalledWith(`/travel/trip/${trip}`,{replace:true})
 })
+
+it('replaces lost-access provenance with a Trips fallback for both header and native Back',()=>{
+ const navigate=navigator();prepareMembersBack(navigate,null,'owner',trip,true)
+ expect(readMembersOrigin(window.history.state.usr,'owner',trip)?.path).toBe('/shared?tab=trips')
+ prepareMembersBack(navigate,window.history.state.usr,'owner',trip,true);expect(navigate).toHaveBeenCalledTimes(2)
+ backFromMembers(navigate,window.history.state.usr,'owner',trip,true);expect(navigate).toHaveBeenLastCalledWith(-1)
+})

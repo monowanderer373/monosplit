@@ -3,7 +3,7 @@ import {Link,useLocation,useNavigate,useParams} from 'react-router-dom'
 import {useUniversalQuickAdd} from '../hooks/useUniversalQuickAdd'
 import {useAuth} from '../hooks/useAuth'
 import {useTripMembership} from '../hooks/useTripMembership'
-import {useT,friendlyErrorKey,type TranslationKey} from '../lib/i18n'
+import {useT,friendlyErrorKey,countKey,type TranslationKey} from '../lib/i18n'
 import {spaceRepository} from '../lib/spaceRepository'
 import {notifyTripMembersChanged,readTripMembership,tripMemberPermissions,type TripMember} from '../lib/tripMembers'
 import {backFromMembers,prepareMembersBack} from '../lib/tripMembersNavigation'
@@ -24,15 +24,15 @@ function MembersContent({identity,self,trip}:{identity:string;self:string;trip:s
   const t=useT(),navigate=useNavigate(),location=useLocation(),snapshot=useTripMembership(identity,self,trip)
   const [menu,setMenu]=useState<TripMember|null>(null),[dialog,setDialog]=useState<'invite'|'add'|'remove'|null>(null),[target,setTarget]=useState<TripMember|null>(null)
   const [busy,setBusy]=useState(false),[error,setError]=useState<TranslationKey|''>(''),[name,setName]=useState(''),[inviteRole,setInviteRole]=useState<'full_access'|'view'>('full_access'),[invite,setInvite]=useState(''),[copied,setCopied]=useState(false)
-  const lock=useRef(false),alive=useRef(true),anchor=useRef<HTMLButtonElement>(null),focusTarget=useRef<HTMLButtonElement|null>(null),prepared=useRef(false)
+  const lock=useRef(false),alive=useRef(true),anchor=useRef<HTMLButtonElement>(null),focusTarget=useRef<HTMLButtonElement|null>(null),prepared=useRef<'trip'|'unavailable'|null>(null)
   const entry=snapshot.data?.entry,ready=snapshot.status==='ready'&&entry?.space.type==='trip',permissions=entry?tripMemberPermissions(entry,self):null
   useEffect(()=>{setPageTarget({pathname:location.pathname,ready:!!ready&&!!permissions?.add,target:{kind:'space-candidate',spaceId:trip}});return()=>setPageTarget(null)},[setPageTarget,location.pathname,ready,permissions?.add,trip])
   useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[])
   useEffect(()=>{
-    if(!entry)return
-    if(entry.space.type!=='trip'){navigate('/space/'+encodeURIComponent(trip),{replace:true});return}
-    if(!prepared.current){prepared.current=true;prepareMembersBack(navigate,location.state,identity,trip)}
-  },[entry,trip,identity,navigate,location.state])
+    if(entry&&entry.space.type!=='trip'){navigate('/space/'+encodeURIComponent(trip),{replace:true});return}
+    const mode=snapshot.status==='unavailable'?'unavailable':entry?.space.type==='trip'?'trip':null
+    if(mode&&prepared.current!==mode){prepared.current=mode;prepareMembersBack(navigate,location.state,identity,trip,mode==='unavailable')}
+  },[entry,snapshot.status,trip,identity,navigate,location.state])
   useEffect(()=>{
     if(snapshot.status==='unavailable'||snapshot.status==='error'||(snapshot.status==='ready'&&dialog==='invite'&&!permissions?.invite)){
       setMenu(null);setDialog(null);setInvite('');setTarget(null)
@@ -40,7 +40,7 @@ function MembersContent({identity,self,trip}:{identity:string;self:string;trip:s
   },[snapshot.status,permissions?.invite,dialog])
   const restoreFocus=()=>requestAnimationFrame(()=>{if(!alive.current)return;if(focusTarget.current?.isConnected)focusTarget.current.focus({preventScroll:true});else {const key=focusTarget.current?.dataset.tmFocus;const next=key?document.querySelector<HTMLButtonElement>('[data-tm-focus="'+CSS.escape(key)+'"]'):null;(next??document.getElementById('trip-members-title'))?.focus({preventScroll:true})}})
   const close=()=>{if(lock.current)return;setDialog(null);setMenu(null);setInvite('');setCopied(false);restoreFocus()}
-  const back=()=>snapshot.status==='unavailable'?navigate('/shared?tab=trips',{replace:true}):backFromMembers(navigate,location.state,identity,trip)
+  const back=()=>backFromMembers(navigate,location.state,identity,trip,snapshot.status==='unavailable')
   const run=async(action:'invite'|'add'|'role'|'remove',member?:TripMember,role?:'full_access'|'view')=>{
     if(lock.current||!ready)return
     lock.current=true;setBusy(true);setError('')
@@ -71,14 +71,15 @@ function MembersContent({identity,self,trip}:{identity:string;self:string;trip:s
     finally{lock.current=false;if(alive.current)setBusy(false)}
   }
   const actionLabel=(row:TripMember)=>t('members.manage',{name:row.participant.id===self?t('members.you'):row.participant.displayName})
-  return <main className="tm-page" data-testid="trip-members-page">
+  return <main className="tm-page" data-testid="trip-members-page" aria-busy={busy||snapshot.status==='loading'}>
     <button type="button" className="tm-back" onClick={back}><TravelIcon name="chevron-left"/>{t('members.back')}</button>
-    <header className="tm-heading"><div><h1 id="trip-members-title" tabIndex={-1}>{t('travel.members')}</h1><p>{ready?entry.space.name:t('members.loading')} {ready?' · '+t('members.count',{count:snapshot.data!.members.length}):''}</p></div>
+    <header className="tm-heading"><div><h1 id="trip-members-title" tabIndex={-1}>{t('travel.members')}</h1><p>{ready?entry.space.name:t('members.loading')} {ready?' · '+t(countKey('common.count.member.one','common.count.member.many',snapshot.data!.members.length),{count:snapshot.data!.members.length}):''}</p></div>
       {ready&&permissions?.invite?<button type="button" className="tm-invite" data-tm-focus="invite" disabled={busy} onClick={event=>{focusTarget.current=event.currentTarget;setInvite('');setCopied(false);setDialog('invite')}}>{t('members.invite')}</button>:null}</header>
+    {busy?<p className="tm-help" role="status">{t('members.working')}</p>:null}
     {error?<p className="tm-error" role="alert">{t(error)} <button type="button" className="tm-link" onClick={()=>void snapshot.refresh()} disabled={busy}>{t('common.retry')}</button></p>:null}
     {snapshot.status==='loading'?<div className="tm-loading" role="status" aria-label={t('home.loading')}>{[1,2,3].map(n=><div key={n}/>)}</div>:null}
     {snapshot.status==='error'?<section className="tm-state" role="alert"><p>{t(snapshot.error||'members.loadError')}</p><button type="button" className="tm-invite" onClick={()=>void snapshot.refresh()}>{t('common.retry')}</button></section>:null}
-    {snapshot.status==='unavailable'?<section className="tm-state"><h2>{t('members.unavailable')}</h2><p>{t('members.noAccess')}</p><button type="button" className="tm-invite" onClick={()=>navigate('/shared?tab=trips',{replace:true})}>{t('members.backTrips')}</button></section>:null}
+    {snapshot.status==='unavailable'?<section className="tm-state"><h2>{t('members.unavailable')}</h2><p>{t('members.noAccess')}</p><button type="button" className="tm-invite" onClick={back}>{t('members.backTrips')}</button></section>:null}
     {ready?<><ul className="tm-list" aria-label={t('travel.members')}>
       {snapshot.data!.members.map(row=>{const {participant,member}=row,p=tripMemberPermissions(entry,self,row),label=participant.id===self?t('members.you'):participant.displayName||t('common.member')
         const role=participant.kind==='manual'?t('members.untracked'):member.role==='owner'?t('members.owner'):t(member.role==='view'?'members.viewOnly':'members.fullAccess')
@@ -86,6 +87,7 @@ function MembersContent({identity,self,trip}:{identity:string;self:string;trip:s
           {p.role||p.remove?<button type="button" className="tm-more" data-tm-focus={participant.id} aria-label={actionLabel(row)} aria-expanded={menu?.participant.id===participant.id} disabled={busy} onClick={event=>{anchor.current=event.currentTarget;focusTarget.current=event.currentTarget;setMenu(row)}}><span aria-hidden="true">⋯</span></button>:null}</li>})}
     </ul>{permissions?.add?<div className="tm-add"><button type="button" className="tm-link" aria-label={t('members.addManual')} data-tm-focus="add" disabled={busy} onClick={event=>{focusTarget.current=event.currentTarget;setName('');setDialog('add')}}>＋ {t('members.addManual')}</button><p>{t('members.untrackedHelp')}</p></div>:<p className="tm-help">{t('members.readHelp')}</p>}</>:null}
     {menu&&ready?<AnchoredPaperPopover anchor={anchor} label={actionLabel(menu)} onClose={()=>{if(!lock.current){setMenu(null);restoreFocus()}}}>
+      {busy?<p className="tm-menu-name" role="status">{t('members.working')}</p>:null}
       <p className="tm-menu-name">{menu.participant.id===self?t('members.you'):menu.participant.displayName}</p>
       {tripMemberPermissions(entry,self,menu).role?(['full_access','view']as const).map(role=><button type="button" className="tt-popover-footer-control tm-menu-button" key={role} aria-pressed={menu.member.role===role} disabled={busy||menu.member.role===role} onClick={()=>void run('role',menu,role)}>{menu.member.role===role?'✓ ':''}{t(role==='view'?'members.viewOnly':'members.fullAccess')}</button>):null}
       {tripMemberPermissions(entry,self,menu).remove?<button type="button" className="tt-popover-footer-control tm-menu-button tm-danger" disabled={busy} onClick={()=>{setTarget(menu);setMenu(null);setDialog('remove')}}>{t(menu.participant.id===self?'common.leave':'members.remove')}</button>:null}

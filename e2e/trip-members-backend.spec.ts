@@ -36,6 +36,6 @@ test('real nonfriend invitation, original role/manual/remove services, revalidat
   const second=await rpc(ac,'create_space',{space_type:'trip',space_name:'Leave own membership',start_date:null,end_date:null,default_currency:'MYR'});const secondToken=await rpc(ac,'create_space_invite',{target_space_id:second,invite_role:'full_access'});await rpc(bc,'accept_space_invite',{raw_token:secondToken});
   await bb.page.goto('/space/'+second+'/members');await expect(bb.page.locator('.tm-row')).toHaveCount(2);await bb.page.getByRole('button',{name:'Manage You',exact:true}).click();await bb.page.getByRole('button',{name:'Leave',exact:true}).click();await bb.page.getByRole('button',{name:'Cancel',exact:true}).click();await expect(bb.page.locator('.tm-row')).toHaveCount(2);
   await bb.page.getByRole('button',{name:'Manage You',exact:true}).click();await bb.page.getByRole('button',{name:'Leave',exact:true}).click();await bb.page.getByRole('button',{name:'Leave',exact:true}).click();await expect(bb.page).toHaveURL(/\/shared\?tab=trips$/);expect(await facts(ac)).toEqual(before);
-  const{data:principal,error}=await ac.from('participants').select('id').eq('id',other).single();if(error)throw error;expect(principal.id).toBe(other)
+  const{data:principal,error}=await bc.from('participants').select('id').eq('id',other).single();if(error)throw error;expect(principal.id).toBe(other)
  }finally{await aa.context.close();await bb.context.close();await ac.auth.signOut();await bc.auth.signOut()}
 })
