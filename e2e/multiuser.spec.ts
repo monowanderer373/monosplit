@@ -343,8 +343,11 @@ async function addExpense(
   await enterQuickAmount(dialog, input.amount)
   await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(input.description)
 
-  if (input.exactShares || input.payers) {
+  {
     const split = await openQuickSplit(dialog, page)
+    // These financial regression witnesses intentionally consume as all members; new Trip defaults are self-only.
+    const selectAll=split.getByRole('button',{name:'Select all',exact:true})
+    if(await selectAll.count())await selectAll.click()
     if (input.exactShares) {
       await split.getByRole('button', { name: 'Amounts', exact: true }).click()
       for (const [name, amount] of Object.entries(input.exactShares)) {

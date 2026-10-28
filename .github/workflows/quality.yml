@@ -268,3 +268,21 @@ jobs:
           retention-days: 14
       - if: always()
         run: npx supabase stop --no-backup
+
+  trip-members-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx supabase start
+      - run: npx supabase db reset
+      - run: npx playwright install --with-deps chromium
+      - name: Verify complete Trip membership, consumers, corrections and explicit friendship consent
+        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts --workers=1 --retries=0
+      - if: always()
+        run: npx supabase stop --no-backup
