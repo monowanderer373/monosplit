@@ -41,15 +41,15 @@ export default function TripDetails({ props, records, members, membersStatus, pa
         <section className="tt-detail-summary tt-paper-card" data-testid="trip-detail-summary"><img className="tt-map-wash" src="/travel/map-wash.svg" alt="" />
           <p className="tt-amount-label">{t('home.mySpending')}</p><p className="tt-amount"><TravelAmount lines={props.tripSpending} currency={trip.trip.defaultCurrency} hidden={props.balanceHidden} status={props.tripSpendingStatus ?? 'ready'} /></p>
           <div className="tt-detail-facts"><span className="tt-detail-fact"><TravelIcon name="receipt" />{props.tripSpendingStatus === 'ready' ? t('travel.recordCount', { count: props.recordGroups.reduce((sum, group) => sum + group.records.length, 0) }) : t('home.amountUnavailable')}</span>
-            {!personal ? <span className="tt-detail-fact"><TravelIcon name="users" />{membersStatus === 'ready' ? t('travel.memberCount', { count: members.length }) : t(membersStatus === 'error' ? 'home.amountUnavailable' : 'home.loading')}</span> : null}
+            {!personal ? <button type="button" className="tt-detail-fact" onClick={onMembers}><TravelIcon name="users" />{membersStatus === 'ready' ? t('travel.memberCount', { count: members.length }) : t(membersStatus === 'error' ? 'home.amountUnavailable' : 'home.loading')}</button> : null}
             <button className="tt-link" type="button" onClick={info}>{t('travel.tripInfo')}<TravelIcon name="arrow-right" /></button></div>
         </section>
-        {personal ? <section className="tt-members tt-paper-card"><p className="tt-state-message">{t('travel.personalLabelHelp')}</p>{labelInfo ? <p className="tt-state-message">{t('travel.labelAddHelp')}</p> : null}</section> : <section className="tt-members tt-paper-card"><h2 className="tt-members-title">{t('travel.members')}</h2><div className="tt-members-row">
-          {membersStatus === 'ready' ? <div className="tt-avatars">{members.slice(0,3).map(({ participant }, index) => {
+        {personal ? <section className="tt-members tt-paper-card"><p className="tt-state-message">{t('travel.personalLabelHelp')}</p>{labelInfo ? <p className="tt-state-message">{t('travel.labelAddHelp')}</p> : null}</section> : <button type="button" className="tt-members tt-paper-card tt-members-entry" onClick={onMembers} aria-label={t('travel.members')}><span className="tt-members-title">{t('travel.members')}</span><span className="tt-members-row">
+          {membersStatus === 'ready' ? <span className="tt-avatars">{members.slice(0,3).map(({ participant }, index) => {
             const name = participant.id === participantId ? t('common.you') : participant.displayName || t('common.member')
-            return <div className="tt-avatar-item" key={participant.id}><span className={`tt-avatar ${index === 1 ? 'tt-avatar--peach' : index === 2 ? 'tt-avatar--green' : ''}`} aria-hidden="true">{Array.from(name)[0]}</span><span>{name}</span></div>
-          })}</div> : <p role={membersStatus === 'error' ? 'alert' : 'status'}>{t(membersStatus === 'error' ? 'travel.unavailable' : 'home.loading')}</p>}
-          <button className="tt-link" type="button" onClick={onMembers}>{t('travel.members')}<TravelIcon name="arrow-right" /></button></div></section>}
+            return <span className="tt-avatar-item" key={participant.id}><span className={`tt-avatar ${index === 1 ? 'tt-avatar--peach' : index === 2 ? 'tt-avatar--green' : ''}`} aria-hidden="true">{Array.from(name)[0]}</span><span>{name}</span></span>
+          })}</span> : <span role={membersStatus === 'error' ? 'alert' : 'status'}>{t(membersStatus === 'error' ? 'travel.unavailable' : 'home.loading')}</span>}
+          <span className="tt-link">{t('travel.members')}<TravelIcon name="arrow-right" /></span></span></button>}
         <TravelRecordsSection props={props} detail>{records}</TravelRecordsSection>
         <p className="tt-currency-note"><TravelIcon name="info" />{t(sameCurrency ? 'travel.currencyNote' : 'travel.multicurrencyNote')}</p>
         {!canWrite ? <p className="tt-state-message">{t('travel.readOnly')}</p> : null}

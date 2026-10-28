@@ -64,11 +64,13 @@ function ShellContents() {
   const homeMode = useStore((state) => state.homeUi.mode)
   const travelHome = location.pathname === '/' && homeMode === 'travel'
   const pageTarget = quickAdd.pageTarget?.pathname === location.pathname ? quickAdd.pageTarget : null
-  const targetPending = travelHome && !pageTarget?.ready
+  const membersPage = /^\/space\/[^/]+\/members$/.test(location.pathname)
+  const contextualPage = travelHome || membersPage
+  const targetPending = contextualPage && !pageTarget?.ready
 
   const openGlobalAdd = useCallback(() => {
     if (targetPending) return
-    const resolved = travelHome && pageTarget ? pageTarget.target : resolveRouteMoneyContext(location.pathname)
+    const resolved = contextualPage && pageTarget ? pageTarget.target : resolveRouteMoneyContext(location.pathname)
     if (resolved.kind === 'personal' && !authUser?.isAnonymous && personalContext) {
       quickAdd.open({ entryPoint: 'global', context: personalContext, followPageContext: true })
       return
@@ -96,7 +98,7 @@ function ShellContents() {
     personalContext,
     quickAdd,
     targetPending,
-    travelHome,
+    contextualPage,
     pageTarget,
   ])
 

@@ -18,6 +18,7 @@ const AccountsPage = lazy(() => import('./pages/AccountsPage'))
 const CollectPayPage = lazy(() => import('./pages/CollectPayPage'))
 const SharedPage = lazy(() => import('./pages/SharedPage'))
 const SpacesPage = lazy(() => import('./pages/SpacesPage'))
+const SpaceMembersPage = lazy(() => import('./pages/SpaceMembersPage'))
 const SpacePage = lazy(() => import('./pages/SpacePage'))
 const SpaceInvitePage = lazy(() => import('./pages/SpaceInvitePage'))
 const FriendsPage = lazy(() => import('./pages/FriendsPage'))
@@ -93,6 +94,7 @@ function AppRoutes() {
             <Route path="/travel/trip/:tripId" element={<PersonalLedgerRoute />} />
             <Route path="/travel/manage" element={<SpacesPage preferredType="trip" />} />
             <Route path="/spaces" element={<SpacesPage />} />
+            <Route path="/space/:spaceId/members" element={<SpaceMembersPage />} />
             <Route path="/space/:spaceId" element={<SpacePage />} />
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/person/:personId" element={<PersonDetailPage />} />

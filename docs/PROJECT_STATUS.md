@@ -1,6 +1,12 @@
 # Tabby Tally project status
 
-Checkpoint: 2026-10-26 (Asia/Bangkok). Full Split Reset / PR #39 merged, production published and authenticated read-only/live PWA checks passed. Final documentation-only deployment/SHA proof follows externally in delivery-final.json. Preserve existing work; never reset to an old handover.
+Checkpoint: 2026-10-28 (Asia/Bangkok). Issue01TripMembers implementation and verification in progress; previously publishedFullReset preserved. Preserve existing work; never reset to an old handover.
+
+## Active — Issue 01 full-screen Trip Members (2026-10-28)
+- Only Issue01 from TabbyTally_Issue01_Members_v1; all8manifest hashes and complete MDs/design board read. Currentmain908d7e8 matches remote, worktree initially clean. Branchfeat/trip-members-page. No Issue02friend/split,03dates,04ledgercleanup or05route removal work; Group management and original financial/RLS/principals retained.
+- Added dedicatedlazy /space/:spaceId/members with real listMembers/get authority, identity/Trip generations, focus/realtime revalidation, original invite/manual/role/remove/leave services and confirmations. AllTrip card/count/menu/header entries unified; legacyTripsection=members replace-compatible; Group branch retains old controls. Safe sameTrip provenance/Back/reload and originalscroll restoration; newAppShellpage target prevents wrong/readonly globalPlus.
+- Baseline732unitsPASS. Current18focusedunitsPASS and TS/PWA buildPASS. FirstbrowserUI run exposed default300px TravelSVG on this new surface and a direct-route dialog stacking issue; correctedscoped CSS, no clipping/shrinking or changed assertions. Subsequent9/10UI PASS; remaining test used the wrong existing Copy secure invite label, corrected. FinalfullUI/unit/lint and actualisolatedtwo-user backend checks pending. No migration/production/customerfinancialwrite.
+- Recovery /workspace/verification/issue01-members-2026-10-28. Next: finish exactcurrentchecks/screenshots, commit/PR, actualdisposableCI backend/history/RLS and regression; report actualpublish state. Do not retry knownlocalDocker vfs pull/reset.
 
 ## Integrated — full Reset clears old Split (2026-10-26)
 - Explicit user policy implemented: both old receivables/payables clear, counterpart bills remain caller-removable/re-taggable, no Reset notification. Re-tag requires recipient acceptance and restores unpaid only; no duplicate purchase/cash or reassignment of another pair. Original financial history, principal UUIDs, native money/pairing/F=E−T+R/RLS/version/idempotence preserved; ongoing private obligations continue.

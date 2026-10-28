@@ -104,3 +104,9 @@
 .tt-travel .tt-pocket img { position: absolute; width: 212.66%; height: 164.71%; max-width: none; left: -58.23%; top: -38.24%; }
 .tt-travel .tt-empty-map img { position: absolute; width: 129.87%; height: auto; max-width: none; left: -14.29%; top: 0; }
 .tt-travel .tt-guide-intro > .tt-icon { margin-inline: auto; }
+
+/* Issue 01: a single semantic Members card and a separate summary count. */
+#root .tt-trip-detail .tt-members-entry{display:block;width:100%;text-align:start;color:inherit;cursor:pointer;font:inherit}
+#root .tt-trip-detail .tt-members-entry:active{transform:translateY(1px)}#root .tt-trip-detail .tt-members-entry .tt-members-title{display:block;margin-bottom:12px}
+#root .tt-trip-detail .tt-detail-facts button.tt-detail-fact{border:0;background:none;font:inherit;color:inherit;min-height:44px;cursor:pointer;padding:0}
+#root .tt-trip-detail .tt-members-entry::before,#root .tt-trip-detail .tt-members-entry::after{content:none}
