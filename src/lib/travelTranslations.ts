@@ -1,4 +1,8 @@
 export const travelTranslations = {
+  'members.you': {en:'You',zh:'我'},
+  'members.owner': {en:'Owner',zh:'创建者'},
+  'members.fullAccess': {en:'Full access',zh:'可编辑'},
+  'members.viewOnly': {en:'View only',zh:'仅查看'},
   'members.addManual': {en:'Add untracked member',zh:'添加未关联账号成员'},
   'members.untracked': {en:'Untracked member',zh:'未关联账号成员'},
   "members.back": { en: "Trip", zh: "旅程" },

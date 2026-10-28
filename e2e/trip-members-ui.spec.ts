@@ -76,7 +76,7 @@ test('Trip ledger keeps expense context but not duplicate members; global plus r
  await page.getByRole('button',{name:'Trip',exact:true}).click();await expect(page).toHaveURL(new RegExp('/space/'+id+'\\?section=info$'));await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBeCloseTo(scroll,0)
 })
 test('Chinese narrow layout uses real labels and has no horizontal overflow',async({page})=>{
- await setup(page,{lang:'zh'});await page.setViewportSize({width:320,height:740});await page.goto(path);await expect(page.getByRole('list',{name:'成员',exact:true})).toBeVisible();await page.evaluate(()=>document.documentElement.style.fontSize='200%');expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);await capture(page,'chinese-320-200')
+ await setup(page,{lang:'zh'});await page.setViewportSize({width:320,height:740});await page.goto(path);await expect(page.getByRole('list',{name:'成员',exact:true})).toBeVisible();await expect(page.locator('.tm-row').first()).toContainText('我');await expect(page.locator('.tm-row').first()).toContainText('创建者');await expect(page.locator('[data-participant-id="alex"]')).toContainText('可编辑');await expect(page.locator('[data-participant-id="mia"]')).toContainText('仅查看');await page.evaluate(()=>document.documentElement.style.fontSize='200%');expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);await capture(page,'chinese-320-200')
 })
 
 test('all overview Members entries share one destination without nested buttons',async({page})=>{
