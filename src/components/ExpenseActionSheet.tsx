@@ -40,7 +40,10 @@ type Props = {
   statusNotice?: string
 }
 
-export default function ExpenseActionSheet({
+export default function ExpenseActionSheet(props:Props) {
+  return <ExpenseActionSheetContent key={props.currentParticipantId+':'+props.expense.id+':'+props.expense.spaceId} {...props}/>
+}
+function ExpenseActionSheetContent({
   expense, currentParticipantId, spaceRole = null, pendingRequest = null,
   onCancelExpense, onRefresh, statusNotice = '', trigger, triggerClassName, contextLabel, readOnlyFallback = false,
 }: Props) {
@@ -52,7 +55,10 @@ export default function ExpenseActionSheet({
   const copy = (en: string, cn: string) => zh ? cn : en
   const [open, setOpen] = useState(false)
   const members=useTripMembership(open&&expense.scope==='space'?currentParticipantId+':'+expense.id+':'+expense.version:'',currentParticipantId,expense.spaceId??'')
-  const trip=expense.scope==='space'&&members.data?.entry.space.type==='trip'
+  const knownSpace=useRef<{id:string;type:string;name:string}|null>(null)
+  if(members.data)knownSpace.current={id:expense.spaceId??'',type:members.data.entry.space.type,name:members.data.entry.space.name}
+  const trip=expense.scope==='space'&&knownSpace.current?.id===expense.spaceId&&knownSpace.current.type==='trip'
+  const tripName=members.data?.entry.space.name??knownSpace.current?.name??contextLabel??'Trip'
   const [closing, setClosing] = useState(false)
   const [requestedMode, setMode] = useState<EditorMode>('financial')
   const [splitOpen, setSplitOpen] = useState(false)
@@ -92,6 +98,7 @@ export default function ExpenseActionSheet({
   const draftActive = useRef(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const busy = useRef(false)
+  const correctionAttempt=useRef<{key:string;id:string}|null>(null)
   const orderedParticipations = useMemo(() => [...expense.participations].sort((a, b) => a.order - b.order), [expense.participations])
   const policy = useMemo(() => deriveExpenseActionPolicy({ expense, currentParticipantId, spaceRole, pendingRequest }), [expense, currentParticipantId, spaceRole, pendingRequest])
   const initialMode = (): EditorMode => {
@@ -100,8 +107,9 @@ export default function ExpenseActionSheet({
     return policy.actions.includes('edit_metadata') ? 'metadata' : policy.actions.includes('view_request') || !readOnlyFallback ? 'view_request' : 'read_only'
   }
   // Re-evaluate edit authority if a shared participant responds while open.
-  const mode = requestedMode === 'cancel' || requestedMode === 'request_cancellation' ? requestedMode : initialMode()
-  const mutationBlocked = failClosed || policy.mutationBlocked
+  const mode = trip&&members.data?.entry.role==='view' ? 'read_only' : requestedMode === 'cancel' || requestedMode === 'request_cancellation' ? requestedMode : initialMode()
+  const staleTripDraft=trip&&open&&(expense.id!==baseline.current.expenseId||expense.version!==baseline.current.version)
+  const mutationBlocked = (trip&&members.status!=='ready') || staleTripDraft || failClosed || policy.mutationBlocked
     || (mode === 'cancel' && !policy.actions.includes('cancel'))
     || (mode === 'request_cancellation' && !policy.actions.includes('request_cancellation'))
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
@@ -130,6 +138,7 @@ export default function ExpenseActionSheet({
       setNotice('')
       setSplitOpen(false)
       setAppliedTripSplit(null)
+      correctionAttempt.current=null
       draftActive.current = true
     }
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -178,7 +187,7 @@ export default function ExpenseActionSheet({
     setSplitOpen(false)
   }
 
-  const tripCandidates=trip?members.data!.members.map(row=>({participantId:row.participant.id,nameSnapshot:row.participant.displayName})):[]
+  const tripCandidates=trip&&members.data?members.data.members.map(row=>({participantId:row.participant.id,nameSnapshot:row.participant.displayName})):[]
   const splitPeople = Array.from(new Map([...editPeople, ...(canChangeType ? friends : []), ...tripCandidates.filter(row=>!editPeople.some(p=>p.participantId===row.participantId))].map(person => [person.participantId, person])).values())
   const openSplitPanel = () => {
     if(trip&&appliedTripSplit){setSplitDraft({...appliedTripSplit,amount:total,currency,exactShareAmounts:{...shares},payerAmounts:{...paid}});setSplitOpen(true);return}
@@ -258,14 +267,17 @@ export default function ExpenseActionSheet({
   }
   const save = async (payload: ExpenseFinancialPayload) => {
     const moneyChanged = financialEditsChanged(baseline.current.payload, payload)
+    const attemptKey=JSON.stringify([baseline.current.expenseId,baseline.current.version,payload])
+    if(!correctionAttempt.current||correctionAttempt.current.key!==attemptKey)correctionAttempt.current={key:attemptKey,id:generateId()}
+    const requestId=correctionAttempt.current.id
     if (mode === 'metadata' && moneyChanged) { setFailClosed(true); return }
     await runMutation(async () => {
       if (!moneyChanged || mode === 'financial') {
         await saveExpenseEdits(baseline.current, payload, ledgerRepository, applied => { baseline.current = applied })
       } else if (mode === 'correction') {
-        await expenseChangeRepository.proposeDirectChange({ requestId: generateId(), targetExpenseId: expense.id, expectedTargetVersion: expense.version, kind: 'correction', replacement: payload })
+        await expenseChangeRepository.proposeDirectChange({ requestId, targetExpenseId: baseline.current.expenseId, expectedTargetVersion: baseline.current.version, kind: 'correction', replacement: payload })
       } else if (mode === 'space_correction') {
-        await expenseChangeRepository.correctSpaceExpense({ requestId: generateId(), targetExpenseId: expense.id, expectedVersion: expense.version, replacement: payload })
+        await expenseChangeRepository.correctSpaceExpense({ requestId, targetExpenseId: baseline.current.expenseId, expectedVersion: baseline.current.version, replacement: payload })
       }
     })
   }
@@ -311,6 +323,7 @@ export default function ExpenseActionSheet({
         <button type="button" className="ms-btn-primary" onClick={() => setHomeUi({ balanceHidden: false })}>{t('mc.common.reveal')}</button>
       </section> : <form className="expense-editor-form" onSubmit={event => { event.preventDefault(); if (editing) submit(); else if (mode === 'cancel' || mode === 'request_cancellation') void cancel() }}>
         {partialSave ? <p className="expense-editor-notice" role="status">{copy('Amount and split saved. Details are not saved yet; retry saves only the remaining details.', '金额与分摊已保存，资料尚未保存；重试只会保存剩余资料。')}</p> : null}
+        {staleTripDraft?<p className="expense-editor-notice" role="alert">{copy('This record changed while you were editing. Close and reopen it to review the latest version. Your old draft was not submitted.','编辑期间此记录已改变。请关闭并重新打开核对最新版本，旧草稿未提交。')}</p>:null}
         {notice ? <p className="expense-editor-notice" role="status">{notice}</p> : null}
         {error || statusNotice ? <p className="expense-editor-error" role="alert">{error ? t(error) : statusNotice}</p> : null}
         {mode === 'read_only' ? <section className="expense-editor-review" data-testid="record-readonly-details">
@@ -382,7 +395,7 @@ export default function ExpenseActionSheet({
         {expense.scope==='space'&&members.status!=='ready'?<p role="alert">{copy('Verify current members before applying. Original amounts are retained.','应用前请核验当前成员，原金额已保留。')}<button type="button" onClick={()=>void members.refresh()}>{copy('Retry','重试')}</button></p>:null}
         {canChangeType && friendsState === 'ready' && splitPeople.length < 2 ? <p className="qa-helper">{copy('Add a friend in Shared first.', '先到共享页面添加朋友。')}</p> : null}
         {canChangeType && friendsState === 'error' ? <p role="alert" className="qa-error">{copy('Friends could not load. Close and reopen the editor to retry.', '朋友加载失败，请重新打开编辑页面重试。')}</p> : null}
-        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={trip?members.data!.entry.space.name:copy('Shared expense', '共享账目')} trip={trip} unavailableIds={trip?editPeople.filter(p=>!tripCandidates.some(c=>c.participantId===p.participantId)).map(p=>p.participantId):[]} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType||canChangeTripSplit} busy={expense.scope==='space'&&members.status!=='ready'} readOnly={mode === 'metadata'} requireFriend={expense.scope !== 'space'} />
+        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={trip?tripName:copy('Shared expense', '共享账目')} trip={trip} unavailableIds={trip?editPeople.filter(p=>!tripCandidates.some(c=>c.participantId===p.participantId)).map(p=>p.participantId):[]} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType||canChangeTripSplit} busy={expense.scope==='space'&&members.status!=='ready'} readOnly={mode === 'metadata'} requireFriend={expense.scope !== 'space'} />
       </div></QuickPanel></div></div> : null}
     </EditorDialog>, document.getElementById('root') ?? document.body) : null}
   </>
