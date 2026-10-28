@@ -1,7 +1,9 @@
+import {openTripMembers,tripMembersPath} from '../lib/tripMembersNavigation'
+import {useRouteScroll} from '../hooks/useRouteScroll'
 import SharedRestartActions from '../components/SharedRestartActions'
 import {visibleSharedExpense} from '../lib/sharedRestart'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import SettlementPanel from '../components/SettlementPanel'
 import ActivityFeed from '../components/ActivityFeed'
 import ExpenseActionSheet from '../components/ExpenseActionSheet'
@@ -49,6 +51,7 @@ export default function SpacePage() {
   const [params] = useSearchParams()
   const section = params.get('section')
   const navigate = useNavigate()
+  const location = useLocation()
   const { authUser } = useAuth()
   const ledger = usePersonalLedger()
   const settlementState = useSettlements(true)
@@ -196,9 +199,12 @@ export default function SpacePage() {
 
   useEffect(() => {
     if (!entry || !section) return
+    if(entry.space.type==='trip'&&section==='members'){navigate(tripMembersPath(spaceId),{replace:true,state:location.state});return}
+    if(entry.space.type==='trip'&&typeof location.state?.restoreScroll==='number')return
     const frame = requestAnimationFrame(() => document.getElementById(`trip-${section}`)?.scrollIntoView({ block: 'start' }))
     return () => cancelAnimationFrame(frame)
-  }, [entry, section])
+  }, [entry, section, navigate, spaceId, location.state])
+  useRouteScroll(!loading&&entry?.space.type==='trip'&&ledger.expensesStatus==='ready',authUser?.id??'')
 
   if (loading) {
     return <main className="ms-page flex min-h-dvh items-center justify-center">{t('space.opening')}</main>
@@ -245,7 +251,7 @@ export default function SpacePage() {
         <p className="ms-label">{t(spaceTypeKey(entry.space.type))} · {t(roleKey(entry.role))} · {t(spaceStatusKey(entry.space.status))}</p>
         <h1 className="mt-1 text-3xl font-extrabold">{entry.space.name}</h1>
         <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
-          {entry.space.defaultCurrency} · {t(countKey('common.count.member.one', 'common.count.member.many', members.length), { count: members.length })}
+          {entry.space.defaultCurrency} · {entry.space.type==='trip'?<button type="button" className="ms-btn-ghost min-h-11 px-2" data-testid="trip-ledger-members" onClick={()=>openTripMembers(navigate,location,authUser.id,spaceId)}>{t('travel.members')} · {t(countKey('common.count.member.one','common.count.member.many',members.length),{count:members.length})}</button>:t(countKey('common.count.member.one', 'common.count.member.many', members.length), { count: members.length })}
           {entry.space.type === 'trip' ? ` · ${dateLine}` : ''}
         </p>
       </header>
@@ -427,6 +433,7 @@ export default function SpacePage() {
             {editingPeriod && canWrite ? <div id="trip-period-info"><TripPeriodEditor key={entry.space.id} spaceId={entry.space.id} onCancel={closePeriod} onSaved={() => { closePeriod(); void refresh() }}/></div> : null}
           </div>
         ) : null}
+        {entry.space.type === 'group' ? <>
         <div className="ms-card mt-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -503,6 +510,7 @@ export default function SpacePage() {
             {inviteUrl ? <p className="min-w-0 flex-1 truncate text-xs text-[var(--ms-success)]">{t('space.inviteCopied')}</p> : null}
           </div>
         ) : null}
+        </> : null}
       </section>
 
     </main>

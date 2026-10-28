@@ -39,7 +39,8 @@ function mapSpace(row: SpaceRow): Space {
 export const spaceRepository = {
   async list(): Promise<SpaceWithRole[]> {
     if (!supabase) return []
-    const { data: participant } = await supabase.rpc('current_participant_id')
+    const { data: participant, error: participantError } = await supabase.rpc('current_participant_id')
+    if (participantError) throw participantError
     if (typeof participant !== 'string') return []
     const { data, error } = await supabase
       .from('space_members')

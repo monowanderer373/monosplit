@@ -243,15 +243,48 @@ export async function createSpaceInvite(
   ownerPage: Page,
   role: 'full_access' | 'view',
 ): Promise<string> {
+  if(await ownerPage.getByTestId('trip-ledger-members').count()){
+    const origin=await openTripMemberManager(ownerPage)
+    const dialog=ownerPage.getByRole('dialog',{name:'Invite',exact:true})
+    try{
+      await ownerPage.getByRole('button',{name:'Invite',exact:true}).click()
+      await dialog.getByLabel('Invite access').selectOption(role)
+      await dialog.getByRole('button',{name:'Copy secure invite'}).click()
+      await expect(dialog.locator('.tm-form')).toHaveAttribute('aria-busy','false')
+      await expect.poll(async()=>await dialog.getByText('Invite copied · expires in 7 days').isVisible()||await dialog.getByText('Link created. Copy it manually below.').isVisible()).toBe(true)
+      const manual=dialog.getByLabel('Invite link',{exact:true})
+      const url=await manual.count()?await manual.inputValue():await copyInviteUrl(ownerPage)
+      if(!url.startsWith(`${APP_ORIGIN}/space-invite/`))throw new Error('Expected a local authorized invite link.')
+      return url
+    }finally{
+      // Clear authorized bearer links before any failure context can be recorded.
+      if(await dialog.count())await dialog.getByRole('button',{name:'Cancel',exact:true}).click()
+      await returnFromTripMemberManager(ownerPage,origin)
+    }
+  }
   const previousUrl = await ownerPage.evaluate(() => navigator.clipboard.readText())
   await ownerPage.getByLabel('Invite access').selectOption(role)
   await ownerPage.getByRole('button', { name: 'Copy secure invite' }).click()
   await expect(ownerPage.getByText('Invite copied · expires in 7 days')).toBeVisible()
-  await expect.poll(
-    () => ownerPage.evaluate(() => navigator.clipboard.readText()),
-    { message: 'Wait for a newly generated local invite URL' },
-  ).not.toBe(previousUrl)
+  await expect.poll(async() => (await ownerPage.evaluate(() => navigator.clipboard.readText()))!==previousUrl,
+    { message: 'Wait for a newly generated local invite URL' }).toBe(true)
   return copyInviteUrl(ownerPage)
+}
+
+export async function openTripMemberManager(page:Page):Promise<string>{
+ const origin=page.url();await page.getByTestId('trip-ledger-members').click();await expect(page.getByRole('list',{name:'Members',exact:true})).toBeVisible();return origin
+}
+export async function returnFromTripMemberManager(page:Page,origin:string):Promise<void>{
+ await page.getByRole('button',{name:'Trip',exact:true}).click();await expect(page).toHaveURL(origin);await expect(page.getByTestId('trip-ledger-members')).toBeVisible()
+}
+export async function expectTripMemberRole(page:Page,name:string,role:'full_access'|'view'):Promise<void>{
+ const row=page.locator('.tm-row').filter({has:page.locator('.tm-person strong',{hasText:name})});await expect(row).toContainText(role==='full_access'?'Full access':'View only')
+}
+export async function setTripMemberRole(page:Page,name:string,role:'full_access'|'view'):Promise<void>{
+ const origin=await openTripMemberManager(page);await page.getByRole('button',{name:'Manage '+name,exact:true}).click();await page.locator('.tt-popover').getByRole('button',{name:role==='full_access'?'Full access':'View only',exact:true}).click();await expectTripMemberRole(page,name,role);await returnFromTripMemberManager(page,origin)
+}
+export async function removeTripMember(page:Page,name:string):Promise<void>{
+ const origin=await openTripMemberManager(page);await page.getByRole('button',{name:'Manage '+name,exact:true}).click();await page.getByRole('button',{name:'Remove member',exact:true}).click();await page.getByRole('button',{name:'Remove',exact:true}).click();await expect(page.getByRole('button',{name:'Manage '+name,exact:true})).toHaveCount(0);await returnFromTripMemberManager(page,origin)
 }
 
 export function personCard(page: Page, personName: string) {

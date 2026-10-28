@@ -16,6 +16,7 @@ import HomeScreen, { RecentRecordList, type HomeScreenProps } from '../component
 import TripDetails from '../components/travel/TripDetails'
 import { useTravelMembers } from '../hooks/useTravelMembers'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
+import {openTripMembers} from '../lib/tripMembersNavigation'
 import { isSpaceExpenseEligible } from '../lib/moneyContext'
 import '../components/home/home.css'
 import { useRouteScroll } from '../hooks/useRouteScroll'
@@ -256,7 +257,7 @@ export default function PersonalLedgerPage() {
         if (location.state?.travelBack) navigate(-1); else navigate('/', { replace: true })
       }}
       onInfo={() => navigate(detailTrip?.trip.id.startsWith('affiliation:') ? '/travel/manage' : `/space/${tripId}?section=info`)}
-      onMembers={() => navigate(`/space/${tripId}?section=members`)} onManage={() => navigate('/travel/manage')}
+      onMembers={() => {if(authUser?.id&&tripId)openTripMembers(navigate,location,authUser.id,tripId)}} onManage={() => navigate('/travel/manage')}
       records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
     <ExpenseRecoveryNotices />
   </>

@@ -1,0 +1,42 @@
+#root .tm-page{box-sizing:border-box;width:100%;max-width:520px;min-height:100dvh;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 18px calc(160px + env(safe-area-inset-bottom));color:var(--ms-text);font-family:inherit;background:var(--ms-bg,#f7f5ef)}
+#root .tm-page button,.tm-form button{font:inherit;cursor:pointer;min-height:44px;box-shadow:none;background-image:none}
+#root .tm-page button:focus-visible,.tm-form :focus-visible{outline:2px solid var(--ms-primary,#356f89);outline-offset:3px}
+#root .tm-page button:disabled,.tm-form button:disabled{opacity:.5;cursor:default}
+#root .tm-page .tm-back{display:flex;align-items:center;gap:8px;padding:0 4px;background:none;border:0;color:var(--ms-primary,#356f89);font-weight:600}
+#root .tm-page .tm-heading{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin:22px 0 26px}
+#root .tm-heading>div{flex:1 1 180px;min-width:0}
+#root .tm-heading h1{margin:0;font-size:1.875rem;line-height:1.2;font-weight:800;letter-spacing:-.025em;overflow-wrap:anywhere}
+#root .tm-heading p{margin:10px 0 0;color:var(--ms-text-secondary);font-size:.9375rem;line-height:1.5;overflow-wrap:anywhere}
+#root .tm-page .tm-invite,.tm-form .tm-invite{border:1px solid var(--ms-border);border-radius:16px;background:#dfedf2;color:var(--ms-primary,#356f89);padding:10px 20px;font-weight:700;line-height:1.4;white-space:normal}
+#root .tm-page .tm-list{margin:0;padding:0 16px;list-style:none;background:var(--ms-surface,#fffcf7);border:1px solid var(--ms-border);border-radius:20px;box-shadow:0 2px 4px #233e4810}
+#root .tm-page .tm-row{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:14px;min-height:92px;padding:16px 0;box-sizing:border-box}
+#root .tm-row+.tm-row{border-top:1px solid var(--ms-border)}
+#root .tm-page .tm-avatar{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;font-size:1.125rem;background:#e3eef2;color:#39748b}
+#root .tm-page .tm-avatar--full{background:#fae8da}#root .tm-page .tm-avatar--view{background:#e6eee6}#root .tm-page .tm-avatar--manual{background:#eee5f2}
+#root .tm-person{display:flex;flex-direction:column;gap:6px;min-width:0;overflow-wrap:anywhere;line-height:1.45}
+#root .tm-person strong{font-size:1rem;font-weight:700}#root .tm-person>span{font-size:.8125rem;color:var(--ms-text-secondary)}
+#root .tm-page .tm-more{width:44px;padding:10px;border:0;background:none;color:var(--ms-primary,#356f89)}
+#root .tm-page .tm-add{margin:22px 0 0}#root .tm-add p,#root .tm-help{color:var(--ms-text-secondary);font-size:.875rem;line-height:1.6;overflow-wrap:anywhere}
+#root .tm-page .tm-link,.tm-form .tm-link{border:0;background:none;color:var(--ms-primary,#356f89);font-weight:650;padding:8px 4px;text-align:start;white-space:normal}
+#root .tm-page .tm-state{padding:22px 16px;border:1px solid var(--ms-border);border-radius:20px;background:var(--ms-surface);line-height:1.6;overflow-wrap:anywhere}
+#root .tm-state h2{font-size:1.125rem}#root .tm-error{color:var(--ms-danger);line-height:1.6;overflow-wrap:anywhere}
+#root .tm-loading{border:1px solid var(--ms-border);border-radius:20px;padding:16px}#root .tm-loading>div{height:60px;background:#e4edf0;margin:12px 0;border-radius:12px}
+.tm-menu-name{font-weight:700;margin:4px 12px;overflow-wrap:anywhere}.tt-popover .tm-menu-button{min-height:44px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+.tm-danger{color:var(--ms-danger,#a54638)!important}
+.tm-form,.tm-form form{display:flex;flex-direction:column;gap:16px;min-width:0;line-height:1.6}
+.tm-form p{margin:0;overflow-wrap:anywhere}.tm-form label{display:flex;flex-direction:column;gap:8px;font-size:.9375rem}
+.tm-form input,.tm-form select{box-sizing:border-box;max-width:100%;min-width:0;width:100%;min-height:44px;padding:10px 12px;font:inherit;color:var(--ms-text);border:1px solid var(--ms-border);border-radius:12px;background:var(--ms-surface)}
+/* TravelIcon's original dimensions are scoped to .tt-travel; constrain new-page icons explicitly. */
+#root .tm-page .tt-icon{display:block;flex:none;width:22px;height:22px}
+#root .tm-page button::before,#root .tm-page button::after{content:none}
+/* This direct route must not depend on Accounts/Home being visited before a dialog. */
+#root [data-testid="trip-members-dialog-backdrop"]{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:16px}
+#root [data-testid="trip-members-dialog-backdrop"]>.home-sheet-scrim{position:absolute;inset:0;z-index:0}
+#root [data-testid="trip-members-dialog-backdrop"]>.home-sheet{position:relative;inset:auto;z-index:1;display:flex;flex-direction:column;width:min(100%,380px);max-height:calc(var(--ttmc-viewport-height,100dvh) - 32px);min-width:0;margin:0;padding:20px;border:1px solid var(--ms-border);border-radius:20px;background:var(--ms-surface);color:var(--ms-text);overflow:hidden;box-shadow:0 6px 24px #24374a20}
+#root [data-testid="trip-members-dialog"]>header{flex:none;align-items:start;gap:8px;padding:0 0 16px}
+#root [data-testid="trip-members-dialog"] h2{font-size:1.125rem;line-height:1.4;overflow-wrap:anywhere}
+#root [data-testid="trip-members-dialog"] .home-icon-button{min-height:44px;min-width:44px;padding:8px;border:0;background:none;font-size:1.25rem;line-height:1}
+#root [data-testid="trip-members-dialog"] .home-paper-dialog-content{flex:1;min-height:0;overflow:auto}
+#root [data-testid="trip-members-dialog"] input,#root [data-testid="trip-members-dialog"] select{max-width:100%}
+
+#root .tm-page .tm-more{display:grid;place-items:center;font-size:1.375rem;line-height:1}
