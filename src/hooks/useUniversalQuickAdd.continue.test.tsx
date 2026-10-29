@@ -226,3 +226,17 @@ describe('Inline ledger commits',()=>{
   await act(async()=>{await quick.commitInlineContext(oldRef,['old'])})
   expect(quick.session!.values).toMatchObject({selectedParticipantIds:['self','friend'],splitMode:'exact',exactShareAmounts:{self:'8',friend:'12'},payerAmounts:{friend:'20'}})
  })
+
+it('retains current Trip allocation edits made while its membership revalidation is in flight',async()=>{
+ act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'20',payerAmounts:{self:'20'}})})
+ const requestId=quick.session!.clientRequestId
+ let finish!:(value:ResolvedMoneyContext)=>void
+ mocks.resolve.mockImplementationOnce(()=>new Promise<ResolvedMoneyContext>(resolve=>{finish=resolve}))
+ let pending!:Promise<boolean>
+ act(()=>{pending=quick.configureSplit(shared.ref)})
+ act(()=>quick.updateValues({amount:'99',selectedParticipantIds:['friend'],payerAmounts:{friend:'99'},splitMode:'exact',exactShareAmounts:{friend:'99'}}))
+ await act(async()=>{finish(shared);expect(await pending).toBe(true)})
+ expect(quick.session!.values).toMatchObject({amount:'99',selectedParticipantIds:['friend'],payerAmounts:{friend:'99'},splitMode:'exact',exactShareAmounts:{friend:'99'}})
+ expect(quick.session!.clientRequestId).toBe(requestId)
+ expect(mocks.save).not.toHaveBeenCalled()
+})

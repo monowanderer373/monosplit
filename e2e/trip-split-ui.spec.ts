@@ -9,12 +9,13 @@ const id='00000000-0000-4000-8000-000000000101'
 async function setup(page:Page,lang='en'){
  await setupMulticurrency(page,{lang})
  const names:Record<string,string>={owner:'You',alex:'Alex Tan',mia:'Mia Lee'}
- const state={names,tripName:'Hanoi Trip',statuses:{alex:'available',mia:'incoming'}as Record<string,string>,writes:[]as string[],responses:[]as string[],fail:false}
+ const state={names,tripName:'Hanoi Trip',statuses:{alex:'available',mia:'incoming'}as Record<string,string>,writes:[]as string[],responses:[]as string[],fail:false,membershipGate:null as Promise<void>|null}
  await page.route('http://127.0.0.1:54321/**',async route=>{
   const p=new URL(route.request().url()).pathname,body=route.request().method()==='POST'?route.request().postDataJSON():null
   if(p.endsWith('/auth/v1/user'))return route.fulfill({json:{id:'ui-contract-user',aud:'authenticated',role:'authenticated',is_anonymous:false,email:'fixture@example.test',user_metadata:{}}})
   if(p.endsWith('/rpc/current_participant_id'))return route.fulfill({json:'owner'})
   if(p.endsWith('/space_members')){
+   if(state.membershipGate)await state.membershipGate
    if(new URL(route.request().url()).searchParams.get('select')?.includes('spaces('))return route.fulfill({json:[{role:'owner',spaces:{id,type:'trip',name:state.tripName,owner_participant_id:'owner',status:'active',default_currency:'MYR',version:1,start_date:null,end_date:null,created_at:'2026-10-01T00:00:00Z',updated_at:'2026-10-01T00:00:00Z'}}]})
    return route.fulfill({json:Object.entries(names).map(([participant,name])=>({space_id:id,participant_id:participant,role:participant==='owner'?'owner':participant==='mia'?'view':'full_access',joined_at:'2026-10-01T00:00:00Z',removed_at:null,participants:{id:participant,kind:'account',display_name:name,auth_user_id:participant,created_by:null}}))})
   }
@@ -59,3 +60,12 @@ test('Trip Amounts and By item preserve payments and require recalculation after
 test('Chinese long-name member actions remain readable at320px and200%text without displacing names',async({page})=>{
  const state=await setup(page,'zh');state.names.alex='Alex 很长的成员名字 '.repeat(8);state.tripName='很长的行程名称 '.repeat(6);await page.setViewportSize({width:320,height:844});await page.goto('/space/'+id+'/members');await expect(page.locator('.tm-row')).toHaveCount(3);await page.evaluate(()=>document.documentElement.style.fontSize='200%');expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);const row=page.locator('[data-participant-id="alex"]');await expect(row).toContainText(state.names.alex);for(const button of await row.getByRole('button').all()){const box=await button.boundingBox();expect(box!.width).toBeGreaterThanOrEqual(44);expect(box!.height).toBeGreaterThanOrEqual(44)}await row.locator('.tm-more').click();await page.keyboard.press('Escape');await expect(row.locator('.tm-more')).toBeFocused();await shot(page,'chinese-long-320-200')
 })
+
+test('late Trip membership revalidation retains consumer and payment edits made while loading',async({page})=>{
+ const state=await setup(page);await page.goto('/space/'+id+'/members');await page.getByRole('button',{name:'Quick add expense',exact:true}).click();const quick=page.getByRole('dialog',{name:'Quick Add',exact:true});await enterQuickAmount(quick,'10');
+ let release!:()=>void;state.membershipGate=new Promise<void>(resolve=>{release=resolve});
+ await quick.getByRole('button',{name:'Split expense',exact:true}).click();const split=page.getByRole('dialog',{name:'Split expense',exact:true});await expect(split.getByRole('button',{name:'Select all',exact:true})).toBeDisabled();
+ await split.getByRole('checkbox',{name:'Alex Tan',exact:true}).check();await split.getByRole('button',{name:'Paid by You',exact:true}).click();await split.getByRole('textbox',{name:'Paid by You',exact:true}).fill('6');await split.getByRole('textbox',{name:'Paid by Alex Tan',exact:true}).fill('4');await split.getByRole('button',{name:'Amounts',exact:true}).click();await split.getByRole('textbox',{name:'Share for You',exact:true}).fill('4');
+ state.membershipGate=null;release();await expect(split.getByRole('button',{name:'Apply split',exact:true})).toBeEnabled();await expect(split.getByRole('checkbox',{name:'Alex Tan',exact:true})).toBeChecked();await expect(split.getByRole('textbox',{name:'Paid by You',exact:true})).toHaveValue('6');await expect(split.getByRole('textbox',{name:'Paid by Alex Tan',exact:true})).toHaveValue('4');await expect(split.getByRole('textbox',{name:'Share for Alex Tan',exact:true})).toHaveValue('6.00');
+ await split.getByRole('button',{name:'Apply split',exact:true}).click();await quick.getByRole('button',{name:'Split expense',exact:true}).click();await expect(split.getByRole('button',{name:'Apply split',exact:true})).toBeEnabled();await expect(split.getByRole('checkbox',{name:'Alex Tan',exact:true})).toBeChecked();await expect(split.getByRole('textbox',{name:'Share for You',exact:true})).toHaveValue('4');
+});
