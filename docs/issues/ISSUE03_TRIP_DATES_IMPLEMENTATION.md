@@ -25,3 +25,55 @@ Complete package README, execution prompt, specification, integration notes, acc
 ## Evidence and recovery
 
 Local evidence `/workspace/verification/issue03-trip-dates-2026-10-29`; synthetic screenshots `test-results/trip-dates`. Read PROJECT_STATUS/WORK_LOG/current diff before resuming. Preserve deployed33migration history; do not replay older SQL, reset production or introduce Issue04/05. Exact-source CI, PR/merge, existing Vercel READY/public SHA, normal owned-QA date checks and retained PWA update remain before completion.
+
+## Component comparison
+
+| Component | Approved reference applied | Necessary preservation/adaptation |
+|---|---|---|
+| Overview heading | Compact name/status; inline calendar/range/arrow; separate currency; no standalone edit/form gap | Existing spending-card map texture, member component and global+ retained; no Issue04 redesign |
+| Date editor | Paper page, blue endpoint summaries, single range calendar, hint/postponed option, fixed Save | Native accessible checkbox,44px date targets; narrow/large-text summaries stack |
+| Calendar controls | Blue circles and pale continuous range, previous/next and month/year entry | Supports year0001–9999 and actual locales rather than fixed reference month |
+| Errors/navigation | Reviewed-date save and cancel/back | Real PostgREST conflict normalization, explicit latest load, ambiguous-save readback, actor/Trip-bound restoration |
+
+Synthetic actual-component screenshots and approved board are in the external delivery gallery. No design-board image is used as production UI or data. Physical-device validation is not implied.
+
+## Initial failures and corrections
+
+First native run rejected390px200%-text endpoint layout and the two-user conflict message. Fixed intrinsic rem-based endpoint columns and date-editor-local extraction of actual PostgREST message objects; no global error behavior or original financial/version assertion was changed. Subsequent exact-source CI is required before release.
+
+## Modified files
+
+- `.github/workflows/quality.yml`
+- `docs/PROJECT_STATUS.md`
+- `docs/WORK_LOG.md`
+- `docs/issues/ISSUE03_TRIP_DATES_IMPLEMENTATION.md`
+- `e2e/fixtures/tripDates.ts`
+- `e2e/trip-dates-ui.spec.ts`
+- `e2e/trip-period.spec.ts`
+- `playwright.production-ui.config.ts`
+- `src/App.tsx`
+- `src/components/AppShell.tsx`
+- `src/components/travel/TravelUI.test.tsx`
+- `src/components/travel/TripDateEntry.tsx`
+- `src/components/travel/TripDetails.tsx`
+- `src/components/travel/TripPeriodEditor.test.tsx`
+- `src/components/travel/TripPeriodEditor.tsx`
+- `src/components/travel/TripRangeCalendar.test.tsx`
+- `src/components/travel/TripRangeCalendar.tsx`
+- `src/components/travel/trip-dates.css`
+- `src/components/travel/trip-period.css`
+- `src/hooks/useHomeData.ts`
+- `src/hooks/useTripDatesReturn.ts`
+- `src/hooks/useTripPeriodEditor.ts`
+- `src/lib/i18n.ts`
+- `src/lib/tripCalendar.test.ts`
+- `src/lib/tripCalendar.ts`
+- `src/lib/tripDatesEvents.ts`
+- `src/lib/tripDatesNavigation.test.ts`
+- `src/lib/tripDatesNavigation.ts`
+- `src/lib/tripDatesTranslations.ts`
+- `src/pages/PersonalLedgerPage.tsx`
+- `src/pages/SharedPage.tsx`
+- `src/pages/SpacePage.tsx`
+- `src/pages/SpacesPage.tsx`
+- `src/pages/TripDatesPage.tsx`
