@@ -11,6 +11,10 @@ type Model = { key: string; status: 'loading' | 'ready' | 'error' | 'unavailable
 type Pending = { entry: SpaceWithRole; period: TripPeriod }
 const editable = (entry: SpaceWithRole | null): entry is SpaceWithRole => !!entry && entry.space.type === 'trip' && entry.space.status !== 'voided' && ['owner', 'full_access'].includes(entry.role)
 const initialPeriod = { startDate: '', endDate: '', datesLater: true }
+function dateErrorKey(cause: unknown) {
+  const message = (cause as { message?: unknown } | null)?.message
+  return friendlyErrorKey(typeof message === 'string' ? new Error(message) : cause)
+}
 // A transport/proxy failure can occur after PostgreSQL committed. Only a definite
 // database rejection permits retrying the reviewed command without readback.
 function definiteRejection(cause: unknown) {
@@ -38,7 +42,7 @@ export function useTripPeriodEditor(spaceId: string, onSaved: () => void) {
       }
       setModel(old => ({ key, entry, period: periodFromDates(entry.space.startDate, entry.space.endDate), status: 'ready', error: '', conflict: false, uncertain: false, revision: old.revision + 1 }))
     } catch (cause) {
-      if (current(token)) setModel(old => ({ ...old, key, status: 'error', error: friendlyErrorKey(cause) }))
+      if (current(token)) setModel(old => ({ ...old, key, status: 'error', error: dateErrorKey(cause) }))
     }
   }, [key, identity, spaceId, current])
 
@@ -59,7 +63,7 @@ export function useTripPeriodEditor(spaceId: string, onSaved: () => void) {
       if (!current(token) || busy.current) return
       if (!editable(fresh)) setModel(old => ({ ...old, status: 'unavailable', error: 'tripDates.noAccess' }))
       else if (fresh.space.version !== before.entry?.space.version) setModel(old => ({ ...old, conflict: true, error: 'tripDates.conflict' }))
-    } catch (cause) { if (current(token) && !busy.current) setModel(old => ({ ...old, error: friendlyErrorKey(cause) })) }
+    } catch (cause) { if (current(token) && !busy.current) setModel(old => ({ ...old, error: dateErrorKey(cause) })) }
   }, [key, spaceId, current])
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -107,7 +111,7 @@ export function useTripPeriodEditor(spaceId: string, onSaved: () => void) {
       finish(token)
     } catch (cause) {
       if (!current(token)) return
-      const error = friendlyErrorKey(cause)
+      const error = dateErrorKey(cause)
       if (error === 'friendlyError.versionConflict') setModel(old => ({ ...old, conflict: true, error: 'tripDates.conflict' }))
       else if (error === 'friendlyError.accessDenied' || error === 'friendlyError.notAuthenticated') setModel(old => ({ ...old, status: 'unavailable', error }))
       else if (issued && !definiteRejection(cause)) {

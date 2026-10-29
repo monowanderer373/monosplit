@@ -44,7 +44,7 @@ it('Cancel and Escape leave the period unsaved', async () => {
  fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(cancelled).toHaveBeenCalledTimes(2); expect(mocks.update).not.toHaveBeenCalled()
 })
 it('retains edited dates on version conflict and explicitly refreshes the latest version', async () => {
- await open(); dates(); mocks.update.mockRejectedValueOnce(new Error('version_conflict')); fireEvent.click(screen.getByRole('button', { name: 'Save dates' })); await screen.findByRole('alert')
+ await open(); dates(); mocks.update.mockRejectedValueOnce({code:'P0001',message:'version_conflict',details:null,hint:null}); fireEvent.click(screen.getByRole('button', { name: 'Save dates' })); await screen.findByRole('alert')
  expect((screen.getByLabelText('End date') as HTMLInputElement).value).toBe('2026-10-15'); expect(saved).not.toHaveBeenCalled()
  mocks.get.mockResolvedValue({ ...entry, space: { ...entry.space, version: 9, endDate: '2026-10-20', startDate: '2026-10-10' } }); fireEvent.click(screen.getByRole('button', { name: 'Load latest dates' })); await waitFor(() => expect((screen.getByLabelText('End date') as HTMLInputElement).value).toBe('2026-10-20')); expect(screen.getByRole('button',{name:'Save dates'}).hasAttribute('disabled')).toBe(true);dates('2026-10-10','2026-10-21')
  fireEvent.click(screen.getByRole('button', { name: 'Save dates' })); await waitFor(() => expect(saved).toHaveBeenCalled()); expect(mocks.update.mock.calls[1][0].expectedVersion).toBe(9)
