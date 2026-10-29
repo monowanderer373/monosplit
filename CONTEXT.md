@@ -18,7 +18,8 @@ derives from that same record.
   local group cache, legacy invite flow, and floating-point settlement engine
   are not part of the client.
 - Historical `/legacy-spaces`, `/group/:groupId`, and `/invite/:token` URLs
-  redirect to `/spaces`; historical `/embed/:groupId` URLs redirect to `/`.
+  redirect directly into canonical Shared lists (`/shared?tab=trips` or Groups by validated context); historical `/embed/:groupId` URLs redirect to `/`.
+- Shared Friends/Groups/Trips is the sole management chrome. Travel retains its lightweight selector; management opens Shared Trips. Legacy `/spaces` and `/travel/manage` URLs are compatibility redirects, not alternate list renderers. Creation and source-bound multi-level return reuse the original services; see docs/PROJECT_STATUS.md for current release evidence.
 
 ## Language
 

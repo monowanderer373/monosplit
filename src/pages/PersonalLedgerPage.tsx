@@ -1,3 +1,5 @@
+import {openSpaceNavigation,backSpaceNavigation,prepareSpaceBack} from '../lib/spaceNavigation'
+import {useSpaceSourceReturn} from '../hooks/useSpaceSourceReturn'
 import NotificationTarget from '../components/home/NotificationTarget'
 import AccountBalance from '../components/accounts/AccountBalance'
 import AccountActions from '../components/accounts/AccountActions'
@@ -107,6 +109,9 @@ export default function PersonalLedgerPage() {
   const dateReturnReady=!pendingTripDatesReturn(location.state)||!home.refreshing
   useRouteScroll((tripId || homeUi.mode === 'travel' ? model.travelStatus === 'ready' : model.sharedStatus === 'ready') && ledger.expensesStatus === 'ready' && dateReturnReady, ledger.participantId ?? '')
 
+  useSpaceSourceReturn(!home.refreshing && model.travelStatus==='ready' && ledger.expensesStatus==='ready',authUser?.id??'',tripId??'')
+  useEffect(()=>{if(tripId&&location.pathname==='/travel/trip/'+encodeURIComponent(tripId)&&detailTrip&&model.travelStatus==='ready'&&!home.refreshing&&authUser?.id&&!authUser.isAnonymous)prepareSpaceBack(navigate,location,authUser.id,'/')},[tripId,detailTrip,model.travelStatus,home.refreshing,authUser,navigate,location])
+
   useTripDatesReturn(!!tripId && model.travelStatus === 'ready' && ledger.expensesStatus === 'ready' && dateReturnReady, authUser?.id ?? '', tripId ?? '')
 
   if (loading) {
@@ -142,7 +147,7 @@ export default function PersonalLedgerPage() {
           <button className="ms-btn-primary mt-6 w-full" onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname+location.search)}`)}>
             {t('common.signIn')}
           </button>
-          <button className="ms-btn-ghost mt-2 w-full" onClick={() => navigate('/spaces')}>
+          <button className="ms-btn-ghost mt-2 w-full" onClick={() => navigate('/shared')}>
             {t('ledger.openSpaces')}
           </button>
         </section>
@@ -159,7 +164,7 @@ export default function PersonalLedgerPage() {
           <p className="mt-3 text-sm leading-6 text-[var(--ms-text-secondary)]">
             {t('ledger.schemaHelp')}
           </p>
-          <button className="ms-btn-ghost mt-5 w-full" onClick={() => navigate('/spaces')}>
+          <button className="ms-btn-ghost mt-5 w-full" onClick={() => navigate('/shared')}>
             {t('ledger.openSpacesAnyway')}
           </button>
         </section>
@@ -243,9 +248,9 @@ export default function PersonalLedgerPage() {
     trip: detailTrip, trips: model.trips, travelStatus: model.travelStatus, tripSpending: detailTrip ? model.tripSpending : [],
     tripSpendingStatus: model.tripSpendingStatus,
     onSelectTrip: selectedTripId => setTravelTrip(authUser.id, selectedTripId),
-    onCreateTrip: () => navigate('/travel/manage?create=1&return=travel'),
-    onManageTrips: () => navigate('/travel/manage'),
-    onViewTrip: id => { setTravelTrip(authUser.id, id); navigate(`/travel/trip/${encodeURIComponent(id)}`, { state: { travelBack: true } }) },
+    onCreateTrip: () => openSpaceNavigation(navigate,location,authUser.id,'/shared?tab=trips&create=1&return=travel','travel-switch'),
+    onManageTrips: () => openSpaceNavigation(navigate,location,authUser.id,'/shared?tab=trips','travel-switch'),
+    onViewTrip: id => { setTravelTrip(authUser.id, id); openSpaceNavigation(navigate,location,authUser.id,`/travel/trip/${encodeURIComponent(id)}`,'travel-view') },
     onRetryTravel: retryTravel,
     onOpenCollectPay: direction => navigate(`/collect-pay/${direction}`, { state: { cpBack: true } }),
     onOpenSharedContext: context => {
@@ -259,11 +264,11 @@ export default function PersonalLedgerPage() {
       canWrite={canWrite} onBack={() => {
         setHomeUi({ mode: 'travel' })
         if (detailTrip) setTravelTrip(authUser.id, detailTrip.trip.id)
-        if (location.state?.travelBack) navigate(-1); else navigate('/', { replace: true })
+        backSpaceNavigation(navigate,location.state,authUser.id,location.pathname,'/')
       }}
-      onInfo={() => navigate(detailTrip?.trip.id.startsWith('affiliation:') ? '/travel/manage' : `/space/${tripId}?section=info`,{state:{tripLedgerOrigin:`/travel/trip/${tripId}`}})}
+      onInfo={focus => openSpaceNavigation(navigate,location,authUser.id,detailTrip?.trip.id.startsWith('affiliation:')?'/shared?tab=trips':`/space/${tripId}?section=info`,focus??'trip-info')}
       onDates={() => {if(authUser?.id&&tripId)openTripDates(navigate,location,authUser.id,tripId)}}
-      onMembers={() => {if(authUser?.id&&tripId)openTripMembers(navigate,location,authUser.id,tripId)}} onManage={() => navigate('/travel/manage')}
+      onMembers={focus => {if(authUser?.id&&tripId)openTripMembers(navigate,location,authUser.id,tripId,focus)}} onManage={() => openSpaceNavigation(navigate,location,authUser.id,'/shared?tab=trips','trip-menu')}
       records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
     <ExpenseRecoveryNotices />
   </>

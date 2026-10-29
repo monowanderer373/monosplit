@@ -1,6 +1,6 @@
 import {useTripFriends} from '../hooks/useTripFriends'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState, useRef, useLayoutEffect } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BackControl,
   CenteredDialog,
@@ -54,7 +54,10 @@ import { spaceRepository, type SpaceWithRole } from '../lib/spaceRepository'
 import { tripPeriodStatus, tripPeriodStatusKeys } from '../lib/tripPeriod'
 import { useStore } from '../store/useStore'
 import type { PersonRelationship } from '../types'
-import SpacesPage from './SpacesPage'
+import SpaceCreateForm from '../components/shared/SpaceCreateForm'
+import { canonicalShared, openSpaceNavigation, readSpaceOrigin, readSpaceReturn, backSpaceNavigation } from '../lib/spaceNavigation'
+import { useRouteScroll } from '../hooks/useRouteScroll'
+import { useSpaceSourceReturn } from '../hooks/useSpaceSourceReturn'
 
 function useOnline() {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine))
@@ -84,11 +87,12 @@ function localizeAmount(view: AmountView, t: (key: TranslationKey, params?: Reco
   return { ...view, status }
 }
 
-export default function SharedPage() {
+export default function SharedPage(){const {authUser}=useAuth();return <SharedPageContent key={authUser?.id??'signed-out'}/>}
+function SharedPageContent() {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const hidden = useStore((state) => state.homeUi.balanceHidden)
-  const navigate = useNavigate()
+  const navigate = useNavigate(), location = useLocation()
   const [params, setParams] = useSearchParams()
   const { authUser, loading: authLoading } = useAuth()
   const participantId = authUser?.participantId ?? null
@@ -97,17 +101,20 @@ export default function SharedPage() {
   const incomingFriends=friendRequests.requests.filter(r=>r.target_id===participantId)
   const profileCurrency = (authUser?.defaultCurrency ?? 'MYR').toUpperCase()
   const ledger = usePersonalLedger()
+  const refreshLedger=ledger.refresh
   const settlements = useSettlements(Boolean(participantId))
   const notices = useHomeNotifications(identity || null, participantId, ledger.outbox, identity)
   const online = useOnline()
   const today = useLocalCalendarDate(authUser?.timezone ?? 'Asia/Kuala_Lumpur')
   const origin = identity ? readSharedOrigin(identity, profileCurrency) : emptySharedOrigin('', profileCurrency)
-  const tab = tabFromParam(params.get('tab'))
+  const tab = location.pathname==='/friends'?'friends':tabFromParam(params.get('tab'))
   const view = params.get('view') === 'review' ? 'review' : 'list'
   const searching = params.get('search') === '1'
   const query = params.get('q') ?? ''
   const filter = filterFromParam(params.get('filter'))
   const currency = (params.get('currency') ?? profileCurrency).toUpperCase()
+  const alive=useRef(false),generation=useRef(0)
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[])
   const [people, setPeople] = useState<PersonRelationship[]>([])
   const [spaces, setSpaces] = useState<SpaceWithRole[]>([])
   const [linkRequests, setLinkRequests] = useState<ParticipantLinkRequest[]>([])
@@ -123,6 +130,7 @@ export default function SharedPage() {
     if (!identity) return
     const current = readSharedOrigin(identity, profileCurrency)
     const nextTab = patch.tab ?? tab
+    if(nextTab!==tab)current.tabs[tab]={query,filter,currency,searching,scrollTop:window.scrollY}
     current.tab = nextTab
     current.view = patch.view ?? view
     current.tabs[nextTab] = {
@@ -131,7 +139,7 @@ export default function SharedPage() {
       filter: patch.filter ?? (nextTab === tab ? filter : current.tabs[nextTab].filter),
       currency: patch.currency ?? (nextTab === tab ? currency : current.tabs[nextTab].currency),
       searching: patch.searching ?? (nextTab === tab ? searching : current.tabs[nextTab].searching),
-      scrollTop: typeof window === 'undefined' ? 0 : window.scrollY,
+      scrollTop: nextTab===tab?window.scrollY:current.tabs[nextTab].scrollTop,
     }
     saveSharedOrigin(identity, current)
   }, [currency, filter, identity, profileCurrency, query, searching, tab, view])
@@ -153,41 +161,58 @@ export default function SharedPage() {
     if (nextCurrency && nextCurrency !== profileCurrency) nextParams.set('currency', nextCurrency)
     if (next.create || params.get('create') === '1' && !next.tab) nextParams.set('create', '1')
     persist({ tab: nextTab, view: nextView, query: nextQuery, filter: nextFilter, currency: nextCurrency, searching: nextSearch })
-    setParams(nextParams, { replace: true })
-  }, [currency, filter, identity, origin.tabs, params, persist, profileCurrency, query, searching, setParams, tab, view])
+    if(nextTab!=='friends'){nextParams.delete('filter');nextParams.delete('currency')}
+    if(params.get('return')==='travel'&&nextTab==='trips')nextParams.set('return','travel')
+    if(location.pathname==='/friends'&&nextTab!=='friends'){navigate('/shared?'+nextParams.toString(),{state:{restoreScroll:memory.scrollTop}});return}
+    setParams(nextParams, { replace: true, state:{...location.state,restoreScroll:next.tab&&next.tab!==tab?memory.scrollTop:window.scrollY} })
+  }, [currency, filter, identity, origin.tabs, params, persist, profileCurrency, query, searching, setParams, tab, view, location.state,location.pathname,navigate])
 
   const refresh = useCallback(async () => {
     if (!authUser?.participantId || authUser.isAnonymous) {
       setLoading(false)
       return
     }
+    const token=++generation.current
     try {
       const [nextPeople, nextLinks, nextSpaces] = await Promise.all([
         personRepository.listPeople(),
         friendRepository.listLinkRequests(),
         spaceRepository.list(),
-        ledger.refresh(),
+        refreshLedger(),
       ])
+      if(!alive.current||token!==generation.current)return
       setPeople(nextPeople)
       setLinkRequests(nextLinks)
       setSpaces(nextSpaces)
       setError('')
     } catch (cause) {
-      setError(friendlyErrorKey(cause))
+      if(alive.current&&token===generation.current)setError(friendlyErrorKey(cause))
     } finally {
-      setLoading(false)
+      if(alive.current&&token===generation.current)setLoading(false)
     }
-  }, [authUser?.isAnonymous, authUser?.participantId, ledger])
+  }, [authUser?.isAnonymous, authUser?.participantId, refreshLedger])
 
   useEffect(() => { void refresh() }, [refresh])
-  useEffect(()=>{const changed=(event:Event)=>{const data=(event as CustomEvent).detail;if(data?.identity===authUser?.id)void refresh()};window.addEventListener('tt:trip-dates-changed',changed);return()=>window.removeEventListener('tt:trip-dates-changed',changed)},[refresh,authUser?.id])
+  useEffect(()=>{const changed=(event:Event)=>{const data=(event as CustomEvent).detail;if(data?.identity===authUser?.id)void refresh()};window.addEventListener('tt:trip-dates-changed',changed);window.addEventListener('tt:spaces-changed',changed);return()=>{window.removeEventListener('tt:trip-dates-changed',changed);window.removeEventListener('tt:spaces-changed',changed)}},[refresh,authUser?.id])
 
   useEffect(() => personRepository.subscribeToPeople(() => void refresh()), [refresh])
-  useEffect(() => {
-    if (!identity) return
-    const memory = readSharedOrigin(identity, profileCurrency)
-    window.scrollTo?.({ top: memory.tabs[tab].scrollTop, behavior: 'instant' })
-  }, [identity, profileCurrency, tab])
+  useLayoutEffect(()=>{
+    if(!identity||authUser?.isAnonymous||location.pathname!=='/shared')return
+    if(params.has('tab')){const saved=readSharedOrigin(identity,profileCurrency);saved.tab=tab;saveSharedOrigin(identity,saved)}
+    let target=canonicalShared(location.search)
+    if(!location.search){const memory=readSharedOrigin(identity,profileCurrency);if(memory.tab!=='friends'){const saved=memory.tabs[memory.tab],p=new URLSearchParams({tab:memory.tab});if(saved.searching)p.set('search','1');if(saved.query)p.set('q',saved.query);target=canonicalShared('?'+p)}}
+    if(target!==location.pathname+location.search)navigate(target,{replace:true,state:location.state})
+  },[identity,authUser?.isAnonymous,profileCurrency,location.pathname,location.search,location.state,navigate,params,tab])
+  useRouteScroll(!loading&&!authLoading,identity)
+  useSpaceSourceReturn(!loading&&!authLoading,identity)
+  useEffect(()=>{if(!identity)return;const save=()=>persist({});window.addEventListener('scroll',save,{passive:true});return()=>window.removeEventListener('scroll',save)},[identity,persist])
+  const travelOrigin=readSpaceOrigin(location.state,identity,'/shared')
+  const travelReturn=tab==='trips'&&(!!travelOrigin?.travel||params.get('return')==='travel')
+  const travelCreation=travelReturn&&params.get('return')==='travel'&&params.get('create')==='1'
+  const returnTravel=(selected?:string)=>{if(travelOrigin)backSpaceNavigation(navigate,location.state,identity,'/shared','/',selected);else{useStore.getState().setHomeUi({mode:'travel'});if(selected)useStore.getState().setTravelTrip(identity,selected);navigate('/',{replace:true})}}
+  const closeCreate=()=>{if(travelCreation){returnTravel();return}const p=new URLSearchParams(location.search);p.delete('create');navigate(canonicalShared('?'+p),{replace:true,state:{...location.state,restoreScroll:window.scrollY}});void refresh()}
+  const created=(id:string)=>{if(travelCreation){if(travelOrigin?.source.startsWith('/travel/trip/')){useStore.getState().setHomeUi({mode:'travel'});useStore.getState().setTravelTrip(identity,id);navigate('/',{replace:true})}else returnTravel(id);return}const p=new URLSearchParams(location.search);p.delete('create');const path=canonicalShared('?'+p);navigate(path,{replace:true,state:location.state});openSpaceNavigation(navigate,{...location,search:path.includes('?')?'?'+path.split('?')[1]:''},identity,'/space/'+id,'create')}
+
 
   const incomingLinks = linkRequests.filter((request) => request.targetParticipantId === participantId && request.status === 'pending')
   const reviewTasks = useMemo(() => sharedReviewTasks(notices.notices), [notices.notices])
@@ -289,7 +314,7 @@ export default function SharedPage() {
         <EmptyState
           title={t('friends.accountRequired')}
           help={t('friends.accountHelp')}
-          action={<QuietAction icon="people" onClick={() => navigate(authUser ? '/profile' : '/login')}>{authUser ? t('friends.linkAccount') : t('common.signIn')}</QuietAction>}
+          action={<QuietAction icon="people" onClick={() => navigate(authUser ? '/profile' : '/login?redirect='+encodeURIComponent(location.pathname+location.search))}>{authUser ? t('friends.linkAccount') : t('common.signIn')}</QuietAction>}
         />
       </SharedRoot>
     )
@@ -299,7 +324,8 @@ export default function SharedPage() {
   const searchLabel = tab === 'friends' ? t('sharedA.searchFriends') : tab === 'groups' ? t('sharedA.searchGroups') : t('sharedA.searchTrips')
 
   return (
-    <SharedRoot as="main">
+    <SharedRoot as="main" spaceList={tab!=='friends'}>
+      {travelReturn?<button type="button" className="ttsa-source-back" onClick={()=>returnTravel()}>‹ {t('home.modeTravel')}</button>:null}
       {view === 'review' ? (
         <header className="ttsa-header">
           <BackControl label={t('sharedA.back')} onBack={() => writeParams({ view: 'list' })} />
@@ -307,6 +333,7 @@ export default function SharedPage() {
         </header>
       ) : searching ? (
         <SearchField
+          autoFocus={!readSpaceReturn(location.state,identity,location.pathname+location.search)}
           query={query}
           onQuery={(value) => writeParams({ query: value, searching: true })}
           onCancel={() => writeParams({ searching: false })}
@@ -428,11 +455,12 @@ export default function SharedPage() {
           {searching && spaceRows(tab === 'groups' ? 'group' : 'trip').length === 0 && query ? (
             <EmptyState title={t('sharedA.noMatches')} help="" action={<QuietAction icon="close" onClick={() => writeParams({ query: '' })}>{t('sharedA.clear')}</QuietAction>} />
           ) : null}
+          {loading&&spaces.length===0?<SkeletonList label={t('sharedA.loading')}/>:null}
           <PaperSurface>
             {spaceRows(tab === 'groups' ? 'group' : 'trip').map((row) => (
-              <SpaceRow key={row.id} name={row.name} meta={row.meta} status={row.status} onOpen={() => navigate(`/space/${row.id}`)} />
+              <SpaceRow key={row.id} focusId={row.id} name={row.name} meta={row.meta} status={row.status} onOpen={() => {persist({});openSpaceNavigation(navigate,location,identity,`/space/${row.id}`,row.id)}} />
             ))}
-            {!loading && spaceRows(tab === 'groups' ? 'group' : 'trip').length === 0 && !query ? (
+            {!loading && !error && spaceRows(tab === 'groups' ? 'group' : 'trip').length === 0 && !query ? (
               <EmptyState
                 title={tab === 'groups' ? t('sharedA.emptyGroups') : t('sharedA.emptyTrips')}
                 help={t('spaces.emptyHelp')}
@@ -440,7 +468,7 @@ export default function SharedPage() {
               />
             ) : null}
           </PaperSurface>
-          {params.get('create') === '1' ? <SpacesPage preferredType={tab === 'groups' ? 'group' : 'trip'} embedded /> : null}
+          {params.get('create') === '1' ? <SpaceCreateForm key={identity+':'+tab} type={tab === 'groups' ? 'group' : 'trip'} onCreated={created} onCancel={closeCreate} /> : null}
         </>
       ) : null}
 

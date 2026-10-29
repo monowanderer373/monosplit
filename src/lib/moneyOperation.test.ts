@@ -20,7 +20,9 @@ describe('persistent opaque money request recovery',()=>{
   await expect(moneyOperation('record',{amount:150},'owner','movement',guard)).rejects.toThrow('network')
   const first=mock.rpc.mock.calls[0][1].request_id
   const stored=sessionStorage.getItem('tt-money-operation:owner:movement')!
-  expect(stored).not.toContain('150');expect(stored).not.toContain('amount')
+  // UUIDs and hashes may contain the digits 150; assert the exact opaque schema.
+  expect(JSON.parse(stored)).toEqual({fingerprint:expect.stringMatching(/^[0-9a-f]{64}$/),requestId:first})
+  expect(first).toMatch(/^[0-9a-f-]{36}$/i)
   mock.rpc.mockResolvedValueOnce({state:'committed',result:{movement_id:'original'}})
   expect(await moneyOperation('record',{amount:152},'owner','movement',guard)).toEqual({movement_id:'original'})
   expect(mock.rpc.mock.calls[1].slice(0,2)).toEqual(['reconcile_personal_money_operation',{request_id:first}])

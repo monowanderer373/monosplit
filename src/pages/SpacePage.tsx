@@ -1,3 +1,5 @@
+import {backSpaceNavigation,prepareSpaceBack,sharedSpacePath} from '../lib/spaceNavigation'
+import {useRouteScroll} from '../hooks/useRouteScroll'
 import TripLedger from '../components/travel/TripLedger'
 import {tripMembersPath} from '../lib/tripMembersNavigation'
 import SharedRestartActions from '../components/SharedRestartActions'
@@ -196,7 +198,7 @@ function SpacePageContent() {
     try {
       await spaceRepository.removeMember(entry.space.id, participantId)
       if (participantId === authUser?.participantId) {
-        navigate('/spaces', { replace: true })
+        navigate(authUser?.isAnonymous?'/':entry?sharedSpacePath(entry.space.type):'/shared', { replace: true })
         return
       }
       await refresh()
@@ -218,6 +220,9 @@ function SpacePageContent() {
 
 
 
+  useEffect(()=>{if(!loading&&entry?.space.type==='group'&&location.pathname==='/space/'+entry.space.id&&authUser?.id&&!authUser.isAnonymous)prepareSpaceBack(navigate,location,authUser.id,'/shared?tab=groups')},[loading,entry,authUser,navigate,location])
+  useRouteScroll(!loading&&entry?.space.type==='group'&&ledger.expensesStatus==='ready',authUser?.id??'')
+
   if (loading) {
     return <main className="ms-page flex min-h-dvh items-center justify-center">{t('space.opening')}</main>
   }
@@ -231,7 +236,7 @@ function SpacePageContent() {
           <h1 className="mt-2 text-2xl font-extrabold">{t('space.unavailable')}</h1>
           <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">{error ? t(error) : t('space.unavailableHelp')}</p>
           {error&&error!=='space.notFound'?<button type="button" className="ms-btn-ghost mt-4" onClick={()=>void Promise.all([refresh(),settlementState.refresh()])}>{t('common.retry')}</button>:null}
-          <button className="ms-btn-primary mt-5 w-full" onClick={() => navigate(knownTrip.current?'/shared?tab=trips':'/spaces')}>{t('space.back')}</button>
+          <button className="ms-btn-primary mt-5 w-full" onClick={() => navigate(authUser?.isAnonymous?'/':knownTrip.current?'/shared?tab=trips':'/shared')}>{t('space.back')}</button>
         </section>
       </main>
     )
@@ -258,7 +263,7 @@ function SpacePageContent() {
   return (
     <main className="ms-page pb-28">
       <header className="mx-auto max-w-4xl">
-        <button className="mb-4 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate('/spaces')}>← {t('space.back')}</button>
+        <button aria-label={t(authUser?.isAnonymous?'common.back':'sharedA.groups')} className="mb-4 min-h-11 min-w-11 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => backSpaceNavigation(navigate,location.state,authUser!.id,location.pathname,authUser?.isAnonymous?'/':'/shared?tab=groups')}>← {t(authUser?.isAnonymous?'common.back':'sharedA.groups')}</button>
         <p className="ms-label">{t(spaceTypeKey(entry.space.type))} · {t(roleKey(entry.role))} · {t(spaceStatusKey(entry.space.status))}</p>
         <h1 className="mt-1 text-3xl font-extrabold">{entry.space.name}</h1>
         <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">

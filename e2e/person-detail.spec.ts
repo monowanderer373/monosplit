@@ -99,7 +99,7 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
   await signIn(page, account)
 
   await page.goto('/spaces')
-  await expect(page.getByRole('heading', { name: 'Groups / Trips' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Shared',exact:true })).toBeVisible()
   await page.getByRole('button', { name: 'Quick add expense' }).click()
   await expect(page.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
   await page.getByRole('dialog', { name: 'Quick Add' })
@@ -107,8 +107,7 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
     .click()
 
   await openCreateSpace(page)
-  await page.getByLabel('Name').fill('Penang Trip')
-  await page.getByLabel('Type').selectOption('trip')
+  await page.getByRole('textbox',{name:'Name',exact:true}).fill('Penang Trip')
   await page.getByRole('checkbox', { name: 'Dates not decided yet', exact: true }).check()
   await page.getByRole('button', { name: 'Create', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Penang Trip' })).toBeVisible()
@@ -133,9 +132,8 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
   await expect(page).toHaveURL(/\/shared\?tab=trips$/)
   await page.goto('/spaces')
 
-  await openCreateSpace(page)
-  await page.getByLabel('Name').fill('House Group')
-  await page.getByLabel('Type').selectOption('group')
+  await openCreateSpace(page,'group')
+  await page.getByRole('textbox',{name:'Name',exact:true}).fill('House Group')
   await page.getByRole('button', { name: 'Create', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'House Group' })).toBeVisible()
   await expect(page.getByText(/Group · Owner · Open/)).toBeVisible()

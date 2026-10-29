@@ -59,8 +59,7 @@ test.describe('local relational multi-user journey', () => {
     const owner = alphaBrowser.page
     await owner.goto('/spaces')
     await openCreateSpace(owner)
-    await owner.getByLabel('Name').fill('Sabah E2E Trip')
-    await owner.getByLabel('Type').selectOption('trip')
+    await owner.getByRole('textbox',{name:'Name',exact:true}).fill('Sabah E2E Trip')
   await owner.getByRole('checkbox', { name: 'Dates not decided yet', exact: true }).check()
     await owner.getByRole('button', { name: 'Create', exact: true }).click()
     await expect(owner.getByRole('heading', { name: 'Sabah E2E Trip' })).toBeVisible()

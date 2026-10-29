@@ -15,8 +15,8 @@ test('keeps a signed-out personal ledger private', async ({ page }) => {
 test('explains secure access on the spaces route', async ({ page }) => {
   await page.goto('/spaces')
 
-  await expect(page.getByRole('heading', { name: 'Sign in or open an invite.' })).toBeVisible()
-  await expect(page.getByText('Invited guests can join with a secure invite link.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'A permanent account is required.' })).toBeVisible()
+  await expect(page.getByText('Friend relationships are a private account feature. Invited guests can still use invited groups and trips.')).toBeVisible()
 })
 
 test('renders the quick-add deep link without exposing a ledger while signed out', async ({ page }) => {

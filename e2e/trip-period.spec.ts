@@ -34,7 +34,7 @@ for (const width of [320,360,390,430]) test(`Trip creation, date editing and lif
  await page.setViewportSize({ width, height: 844 })
  try {
   await page.goto('/travel/manage?create=1&return=travel')
-  await page.getByLabel('Name', { exact: true }).fill('Mountain weekend')
+  await page.getByRole('textbox', { name:'Name', exact: true }).fill('Mountain weekend')
   const create = page.getByRole('button', { name:'Create', exact:true })
   await expect(create).toBeDisabled()
   await page.getByLabel('Start date', { exact:true }).fill(offset(3)); await page.getByLabel('End date', { exact:true }).fill(offset(2))

@@ -40,7 +40,7 @@ test('keeps four destinations and a usable global money action at 320px', async 
 
   await page.goto('/spaces')
   await expect(navigation.getByRole('button', { name: 'Shared', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(page.getByRole('heading', { name: 'Groups / Trips' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Shared',exact:true })).toBeVisible()
   await page.goto('/profile')
   await expect(navigation.getByRole('button', { name: 'Me', exact: true })).toHaveAttribute('aria-current', 'page')
 })
