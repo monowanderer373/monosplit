@@ -102,6 +102,7 @@ function ShellContents() {
     pageTarget,
   ])
 
+  const tripDatesPage = /^\/travel\/trip\/[^/]+\/dates\/?$/.test(location.pathname)
   const profileSubpage = location.pathname.startsWith('/profile/')
   const recordsPage = location.pathname === '/insights/records'
   const showNavigation = Boolean(authUser?.participantId) && !location.pathname.startsWith('/travel/trip/') && !recordsPage && !profileSubpage
@@ -118,7 +119,7 @@ function ShellContents() {
           <BottomNavigation />
         </>
       ) : null}
-      {authUser?.participantId && !recordsPage && !profileSubpage ? <GlobalMoneyAction onAdd={openGlobalAdd} composerOpen={Boolean(quickAdd.action)} disabled={targetPending} standalone={!showNavigation} /> : null}
+      {authUser?.participantId && !recordsPage && !profileSubpage && !tripDatesPage ? <GlobalMoneyAction onAdd={openGlobalAdd} composerOpen={Boolean(quickAdd.action)} disabled={targetPending} standalone={!showNavigation} /> : null}
       <GlobalMoneyActionHost />
       {quickAdd.feedback ? (
         <div

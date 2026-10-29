@@ -17,6 +17,8 @@ import TripDetails from '../components/travel/TripDetails'
 import { useTravelMembers } from '../hooks/useTravelMembers'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import {openTripMembers} from '../lib/tripMembersNavigation'
+import {openTripDates,pendingTripDatesReturn} from '../lib/tripDatesNavigation'
+import {useTripDatesReturn} from '../hooks/useTripDatesReturn'
 import { isSpaceExpenseEligible } from '../lib/moneyContext'
 import '../components/home/home.css'
 import { useRouteScroll } from '../hooks/useRouteScroll'
@@ -102,7 +104,10 @@ export default function PersonalLedgerPage() {
       ? { kind: 'space-candidate', spaceId: displayedTripId } : { kind: 'personal' } })
     return () => setPageTarget(null)
   }, [setPageTarget, location.pathname, model.travelStatus, displayedTripId])
-  useRouteScroll((tripId || homeUi.mode === 'travel' ? model.travelStatus === 'ready' : model.sharedStatus === 'ready') && ledger.expensesStatus === 'ready', ledger.participantId ?? '')
+  const dateReturnReady=!pendingTripDatesReturn(location.state)||!home.refreshing
+  useRouteScroll((tripId || homeUi.mode === 'travel' ? model.travelStatus === 'ready' : model.sharedStatus === 'ready') && ledger.expensesStatus === 'ready' && dateReturnReady, ledger.participantId ?? '')
+
+  useTripDatesReturn(!!tripId && model.travelStatus === 'ready' && ledger.expensesStatus === 'ready' && dateReturnReady, authUser?.id ?? '', tripId ?? '')
 
   if (loading) {
     return (
@@ -257,6 +262,7 @@ export default function PersonalLedgerPage() {
         if (location.state?.travelBack) navigate(-1); else navigate('/', { replace: true })
       }}
       onInfo={() => navigate(detailTrip?.trip.id.startsWith('affiliation:') ? '/travel/manage' : `/space/${tripId}?section=info`)}
+      onDates={() => {if(authUser?.id&&tripId)openTripDates(navigate,location,authUser.id,tripId)}}
       onMembers={() => {if(authUser?.id&&tripId)openTripMembers(navigate,location,authUser.id,tripId)}} onManage={() => navigate('/travel/manage')}
       records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
     <ExpenseRecoveryNotices />

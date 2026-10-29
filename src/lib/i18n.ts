@@ -5,10 +5,12 @@ import { collectPayTranslations } from './collectPayTranslations'
 import { insightsTranslations } from './insightsTranslations'
 import { travelTranslations } from './travelTranslations'
 import { sharedATranslations } from './sharedATranslations'
+import { tripDatesTranslations } from './tripDatesTranslations'
 
 export type Lang = 'en' | 'zh'
 
 const translations = {
+  ...tripDatesTranslations,
   ...multicurrencyTranslations,
   ...notificationTranslations,
   ...collectPayTranslations,
