@@ -55,6 +55,8 @@ export default function SpacesPage({ preferredType, embedded = false }: { prefer
   useEffect(() => {
     void refresh()
   }, [refresh])
+  useEffect(()=>{const changed=(event:Event)=>{const data=(event as CustomEvent).detail;if(data?.identity===authUser?.id)void refresh()};window.addEventListener('tt:trip-dates-changed',changed);return()=>window.removeEventListener('tt:trip-dates-changed',changed)},[refresh,authUser?.id])
+
 
   useEffect(() => {
     if (params.get('create') === '1') setShowCreate(true)

@@ -79,7 +79,7 @@ describe('Travel states and accessible selector', () => {
   })
   it('shows a no-access deep link without exposing a name or members', () => {
     render(<TripDetails props={travelProps({ trip: null })} participantId="owner" members={[]} membersStatus="ready" canWrite={false}
-      records={null} onBack={vi.fn()} onInfo={vi.fn()} onMembers={vi.fn()} onManage={vi.fn()} />)
+      records={null} onBack={vi.fn()} onInfo={vi.fn()} onMembers={vi.fn()} onManage={vi.fn()} onDates={vi.fn()} />)
     expect(screen.getByText('This trip is no longer accessible.')).toBeTruthy()
     expect(screen.queryByText('Mountain weekend')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Add expense' })).toBeNull()
@@ -87,7 +87,7 @@ describe('Travel states and accessible selector', () => {
 })
 it('renders real localized counts instead of unresolved placeholders in details', () => {
   render(<TripDetails props={travelProps()} participantId="owner" members={[]} membersStatus="ready" canWrite={false}
-    records={null} onBack={vi.fn()} onInfo={vi.fn()} onMembers={vi.fn()} onManage={vi.fn()} />)
+    records={null} onBack={vi.fn()} onInfo={vi.fn()} onMembers={vi.fn()} onManage={vi.fn()} onDates={vi.fn()} />)
   expect(screen.getByTestId('trip-detail-summary').textContent).toContain('0 records')
   expect(screen.getByTestId('trip-detail-summary').textContent).toContain('0 people')
   expect(screen.getByTestId('trip-detail-summary').textContent).not.toContain('{count}')

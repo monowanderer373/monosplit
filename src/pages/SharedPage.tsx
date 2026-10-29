@@ -180,6 +180,8 @@ export default function SharedPage() {
   }, [authUser?.isAnonymous, authUser?.participantId, ledger])
 
   useEffect(() => { void refresh() }, [refresh])
+  useEffect(()=>{const changed=(event:Event)=>{const data=(event as CustomEvent).detail;if(data?.identity===authUser?.id)void refresh()};window.addEventListener('tt:trip-dates-changed',changed);return()=>window.removeEventListener('tt:trip-dates-changed',changed)},[refresh,authUser?.id])
+
   useEffect(() => personRepository.subscribeToPeople(() => void refresh()), [refresh])
   useEffect(() => {
     if (!identity) return

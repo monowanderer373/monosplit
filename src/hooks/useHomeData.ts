@@ -93,9 +93,11 @@ export function useHomeData(
   const [accountRefresh, setAccountRefresh] = useState(0)
   useEffect(() => {
     const refresh = () => setAccountRefresh(n => n + 1)
+    const datesChanged=(event:Event)=>{if((event as CustomEvent).detail?.participantId===participantId)refresh()}
     window.addEventListener('tt:accounts-changed', refresh)
-    return () => window.removeEventListener('tt:accounts-changed', refresh)
-  }, [])
+    window.addEventListener('tt:trip-dates-changed', datesChanged)
+    return () => {window.removeEventListener('tt:accounts-changed', refresh);window.removeEventListener('tt:trip-dates-changed', datesChanged)}
+  }, [participantId])
   const [refreshing, setRefreshing] = useState(() => hasVerifiedHome(participantId))
 
   if (loadedFor !== participantId) {

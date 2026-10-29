@@ -2,7 +2,7 @@ import {openTripMembers,tripMembersPath} from '../lib/tripMembersNavigation'
 import {useRouteScroll} from '../hooks/useRouteScroll'
 import SharedRestartActions from '../components/SharedRestartActions'
 import {visibleSharedExpense} from '../lib/sharedRestart'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import SettlementPanel from '../components/SettlementPanel'
 import ActivityFeed from '../components/ActivityFeed'
@@ -35,7 +35,10 @@ import {
 } from '../lib/i18n'
 import { formatDate } from '../lib/locale'
 import { useStore } from '../store/useStore'
-import TripPeriodEditor from '../components/travel/TripPeriodEditor'
+import TripDateEntry from '../components/travel/TripDateEntry'
+import {openTripDates} from '../lib/tripDatesNavigation'
+import {useTripDatesReturn} from '../hooks/useTripDatesReturn'
+import {formatTripRange} from '../lib/tripCalendar'
 import { tripPeriodStatus, tripPeriodStatusKeys } from '../lib/tripPeriod'
 import { useLocalCalendarDate } from '../hooks/useLocalCalendarDate'
 
@@ -61,9 +64,6 @@ export default function SpacePage() {
   const [members, setMembers] = useState<MemberEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<TranslationKey | ''>('')
-  const [editingPeriod, setEditingPeriod] = useState(false)
-  const periodTrigger = useRef<HTMLButtonElement>(null)
-  const closePeriod = () => { setEditingPeriod(false); requestAnimationFrame(() => periodTrigger.current?.focus({ preventScroll: true })) }
   const today = useLocalCalendarDate(authUser?.timezone ?? 'Asia/Kuala_Lumpur')
   const [inviteRole, setInviteRole] = useState<'full_access' | 'view'>('full_access')
   const [inviteUrl, setInviteUrl] = useState('')
@@ -92,6 +92,8 @@ export default function SpacePage() {
   useEffect(() => {
     void refresh()
   }, [refresh])
+  useEffect(()=>{const changed=(event:Event)=>{const data=(event as CustomEvent).detail;if(data?.identity===authUser?.id&&data?.spaceId===spaceId)void refresh()};window.addEventListener('tt:trip-dates-changed',changed);return()=>window.removeEventListener('tt:trip-dates-changed',changed)},[refresh,authUser?.id,spaceId])
+
 
   const spaceExpenses = useMemo(
     () => ledger.expenses
@@ -206,6 +208,8 @@ export default function SpacePage() {
   }, [entry, section, navigate, spaceId, location.state])
   useRouteScroll(!loading&&entry?.space.type==='trip'&&ledger.expensesStatus==='ready',authUser?.id??'')
 
+  useTripDatesReturn(!loading&&entry?.space.type==='trip'&&ledger.expensesStatus==='ready',authUser?.id??'',spaceId)
+
   if (loading) {
     return <main className="ms-page flex min-h-dvh items-center justify-center">{t('space.opening')}</main>
   }
@@ -239,9 +243,10 @@ export default function SpacePage() {
       defaultCurrency: entry.space.defaultCurrency,
     },
   })
-  const dateLine = [
-    entry.space.startDate ? formatDate(entry.space.startDate, lang) : t('spaces.noDates'),
-    entry.space.endDate ? formatDate(entry.space.endDate, lang) : null,
+
+  const dateLine=entry.space.type==='trip' ? formatTripRange(entry.space.startDate,entry.space.endDate,lang)||t('spaces.noDates') : [
+    entry.space.startDate ? formatDate(entry.space.startDate,lang) : t('spaces.noDates'),
+    entry.space.endDate ? formatDate(entry.space.endDate,lang) : null,
   ].filter(Boolean).join(' – ')
 
   return (
@@ -426,11 +431,10 @@ export default function SpacePage() {
         {entry.space.type === 'trip' ? (
           <div className="ms-card mt-3">
             <p className="text-sm text-[var(--ms-text-secondary)]">{t('space.dates')}</p>
-            <p className="mt-1 font-extrabold">{dateLine}</p>
+            <TripDateEntry trip={entry.space} canEdit={canWrite} onOpen={()=>openTripDates(navigate,location,authUser.id,spaceId)}/>
             <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">{t('space.status')}</p>
             <p className="mt-1 font-extrabold">{t(tripPeriodStatusKeys[tripPeriodStatus(entry.space, today)])}</p>
-            {canWrite ? <button ref={periodTrigger} type="button" className="trip-period-entry" aria-expanded={editingPeriod} aria-controls="trip-period-info" onClick={() => editingPeriod ? closePeriod() : setEditingPeriod(true)}>{t(entry.space.startDate || entry.space.endDate ? 'travel.editPeriod' : 'travel.setPeriod')}</button> : null}
-            {editingPeriod && canWrite ? <div id="trip-period-info"><TripPeriodEditor key={entry.space.id} spaceId={entry.space.id} onCancel={closePeriod} onSaved={() => { closePeriod(); void refresh() }}/></div> : null}
+
           </div>
         ) : null}
         {entry.space.type === 'group' ? <>
