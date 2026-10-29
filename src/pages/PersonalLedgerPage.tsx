@@ -261,7 +261,7 @@ export default function PersonalLedgerPage() {
         if (detailTrip) setTravelTrip(authUser.id, detailTrip.trip.id)
         if (location.state?.travelBack) navigate(-1); else navigate('/', { replace: true })
       }}
-      onInfo={() => navigate(detailTrip?.trip.id.startsWith('affiliation:') ? '/travel/manage' : `/space/${tripId}?section=info`)}
+      onInfo={() => navigate(detailTrip?.trip.id.startsWith('affiliation:') ? '/travel/manage' : `/space/${tripId}?section=info`,{state:{tripLedgerOrigin:`/travel/trip/${tripId}`}})}
       onDates={() => {if(authUser?.id&&tripId)openTripDates(navigate,location,authUser.id,tripId)}}
       onMembers={() => {if(authUser?.id&&tripId)openTripMembers(navigate,location,authUser.id,tripId)}} onManage={() => navigate('/travel/manage')}
       records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />

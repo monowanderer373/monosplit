@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   settlementRepository,
   type ProposeSettlementInput,
@@ -7,28 +7,38 @@ import {
 import { generateId } from '../lib/id'
 import { supabase } from '../lib/supabase'
 
-export function useSettlements(enabled: boolean) {
+export function useSettlements(enabled: boolean, identityKey = '') {
   const [settlements, setSettlements] = useState<SettlementPayment[]>([])
   const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState('')
+  const [loadedKey,setLoadedKey]=useState<string|null>(null)
+  const activeKey=useRef(identityKey),generation=useRef(0),alive=useRef(false)
+  activeKey.current=identityKey
 
   const refresh = useCallback(async () => {
+    const token=++generation.current, key=identityKey
     if (!enabled) {
       setSettlements([])
       setLoading(false)
       return
     }
     try {
-      setSettlements(await settlementRepository.listSettlements())
+      const rows=await settlementRepository.listSettlements()
+      if(!alive.current||token!==generation.current||activeKey.current!==key)return
+      setLoadedKey(key)
+      setSettlements(rows)
       setError('')
     } catch (cause) {
+      if(!alive.current||token!==generation.current||activeKey.current!==key)return
+      setLoadedKey(key)
       setError(cause instanceof Error ? cause.message : 'Could not load settlements.')
     } finally {
-      setLoading(false)
+      if(alive.current&&token===generation.current&&activeKey.current===key)setLoading(false)
     }
-  }, [enabled])
+  }, [enabled, identityKey])
 
   useEffect(() => {
+    alive.current=true
     void refresh()
     const sharedChanged=()=>void refresh()
     window.addEventListener('tt:shared-restart-changed',sharedChanged)
@@ -45,6 +55,10 @@ export function useSettlements(enabled: boolean) {
         .subscribe()
       : null
     return () => {
+      alive.current=false
+      // Async request generation, not a DOM node.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      generation.current++
       window.removeEventListener('tt:shared-restart-changed',sharedChanged)
       if (refreshTimer) clearTimeout(refreshTimer)
       if (channel && supabase) void supabase.removeChannel(channel)
@@ -73,13 +87,13 @@ export function useSettlements(enabled: boolean) {
     await refresh()
   }, [refresh, settlements])
 
-  const reverse = useCallback(async (allocationId: string) => {
+  const reverse = useCallback(async (allocationId: string, requestId = generateId()) => {
     const payment = settlements.find((candidate) => (
       candidate.allocations.some((allocation) => allocation.id === allocationId)
     ))
     if (!payment) throw new Error('settlement_not_found')
     await settlementRepository.reverseAllocation(
-      generateId(),
+      requestId,
       allocationId,
       payment.version,
     )
@@ -96,9 +110,9 @@ export function useSettlements(enabled: boolean) {
   }, [refresh, settlements])
 
   return {
-    settlements,
-    loading,
-    error,
+    settlements: loadedKey===identityKey?settlements:[],
+    loading: enabled&&(loadedKey!==identityKey||loading),
+    error: loadedKey===identityKey?error:'',
     refresh,
     propose,
     respond,

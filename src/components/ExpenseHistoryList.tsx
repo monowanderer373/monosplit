@@ -13,11 +13,12 @@ import { useStore } from '../store/useStore'
 export default function ExpenseHistoryList({
   expenses,
   directRequests,
-  focusExpenseId,
+  focusExpenseId, includeCurrent=false,
 }: {
   expenses: readonly CanonicalExpense[]
   directRequests: readonly DirectExpenseChangeRequest[]
   focusExpenseId?: string
+  includeCurrent?: boolean
 }) {
   const t = useT()
   const lang = useStore((state) => state.lang)
@@ -36,7 +37,7 @@ export default function ExpenseHistoryList({
           (!focusExpenseId || entry.chainId === focusedChain)
           && entry.lifecycle !== 'proposal_candidate'
           && (
-            (chainSizes.get(entry.chainId) ?? 0) > 1
+            includeCurrent || (chainSizes.get(entry.chainId) ?? 0) > 1
             || entry.lifecycle !== 'active'
           )
         )),
@@ -45,7 +46,7 @@ export default function ExpenseHistoryList({
     } catch {
       return { entries: [], failed: true }
     }
-  }, [directRequests, expenses, focusExpenseId])
+  }, [directRequests, expenses, focusExpenseId,includeCurrent])
 
   if (!result.failed && result.entries.length === 0) return null
   const expenseById = new Map(expenses.map((expense) => [expense.id, expense]))

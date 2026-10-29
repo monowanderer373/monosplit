@@ -27,6 +27,7 @@ import './expense-editor.css'
 
 type EditorMode = 'read_only' | 'metadata' | 'financial' | 'correction' | 'space_correction' | 'cancel' | 'request_cancellation' | 'view_request'
 type Props = {
+  onViewHistory?: () => void
   trigger?: ReactNode
   readOnlyFallback?: boolean
   triggerClassName?: string
@@ -45,7 +46,7 @@ export default function ExpenseActionSheet(props:Props) {
 }
 function ExpenseActionSheetContent({
   expense, currentParticipantId, spaceRole = null, pendingRequest = null,
-  onCancelExpense, onRefresh, statusNotice = '', trigger, triggerClassName, contextLabel, readOnlyFallback = false,
+  onViewHistory, onCancelExpense, onRefresh, statusNotice = '', trigger, triggerClassName, contextLabel, readOnlyFallback = false,
 }: Props) {
   const t = useT()
   const lang = useStore(state => state.lang)
@@ -397,6 +398,7 @@ function ExpenseActionSheetContent({
         {canChangeType && friendsState === 'error' ? <p role="alert" className="qa-error">{copy('Friends could not load. Close and reopen the editor to retry.', '朋友加载失败，请重新打开编辑页面重试。')}</p> : null}
         <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={trip?tripName:copy('Shared expense', '共享账目')} trip={trip} preserveOrder={trip} unavailableIds={trip?editPeople.filter(p=>!tripCandidates.some(c=>c.participantId===p.participantId)).map(p=>p.participantId):[]} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType||canChangeTripSplit} busy={expense.scope==='space'&&members.status!=='ready'} readOnly={mode === 'metadata'} requireFriend={expense.scope !== 'space'} />
       </div></QuickPanel></div></div> : null}
+      {onViewHistory?<button type="button" className="ms-btn-ghost" disabled={saving} onClick={()=>{if(busy.current)return;setOpen(false);onViewHistory()}}>{t('tl.historyFor')}</button>:null}
     </EditorDialog>, document.getElementById('root') ?? document.body) : null}
   </>
 }

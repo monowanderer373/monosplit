@@ -65,7 +65,8 @@ function ShellContents() {
   const travelHome = location.pathname === '/' && homeMode === 'travel'
   const pageTarget = quickAdd.pageTarget?.pathname === location.pathname ? quickAdd.pageTarget : null
   const membersPage = /^\/space\/[^/]+\/members\/?$/.test(location.pathname)
-  const contextualPage = travelHome || membersPage
+  const spacePage = /^\/space\/[^/]+\/?$/.test(location.pathname)
+  const contextualPage = travelHome || membersPage || spacePage && !!pageTarget
   const targetPending = contextualPage && !pageTarget?.ready
 
   const openGlobalAdd = useCallback(() => {

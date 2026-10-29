@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { readAllPages } from './personalAccountReadRepository'
 
 export type FinancialActivity = {
   id: string
@@ -16,6 +17,7 @@ export type FinancialActivityFilter = {
   expenseIds?: readonly string[]
   settlementIds?: readonly string[]
   limit?: number
+  all?: boolean
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -37,13 +39,10 @@ export async function listFinancialActivity(
   }
   if (clauses.length === 0) return []
 
-  const { data, error } = await supabase
-    .from('financial_events')
+  const read=()=>supabase!.from('financial_events')
     .select('id, actor_participant_id, expense_id, settlement_payment_id, space_id, event_type, safe_diff, created_at')
-    .or(clauses.join(','))
-    .order('created_at', { ascending: false })
-    .limit(filter.limit ?? 100)
-  if (error) throw error
+    .or(clauses.join(',')).order('created_at', { ascending: false })
+  const data=filter.all?await readAllPages(async(from,to)=>{const{data,error}=await read().order('id',{ascending:false}).range(from,to);if(error)throw error;return data??[]}):await(async()=>{const{data,error}=await read().limit(filter.limit??100);if(error)throw error;return data??[]})()
   return coalesceFinancialActivity((data ?? []).map((row) => ({
     id: row.id,
     actorParticipantId: row.actor_participant_id,

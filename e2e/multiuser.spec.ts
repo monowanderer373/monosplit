@@ -69,13 +69,11 @@ test.describe('local relational multi-user journey', () => {
     await expect(ownerNavigation.getByRole('button', { name: 'Shared' })).toHaveAttribute('aria-current', 'page')
     await expect(owner.getByText('Close Trip')).toHaveCount(0)
     await expect(owner.getByText('Final Statement')).toHaveCount(0)
-    await expectSectionOrder(owner, [
-      'space-position',
-      'space-recent',
-      'space-balances',
-      'space-recap',
-      'space-manage',
-    ])
+    await expect(owner.getByRole('tab',{name:'Expenses',exact:true})).toHaveAttribute('aria-selected','true')
+    await expect(owner.getByTestId('space-position')).toBeVisible()
+    await expect(owner.getByTestId('space-recent')).toBeVisible()
+    await expect(owner.getByTestId('space-recap')).toHaveCount(0)
+    await expect(owner.getByTestId('space-balances')).toBeHidden()
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
     const inheritedCapture = owner.getByRole('dialog', { name: 'Quick Add' })
     await expect(inheritedCapture).toBeVisible()
@@ -83,23 +81,16 @@ test.describe('local relational multi-user journey', () => {
 
     const fullAccessInvite = await createSpaceInvite(owner, 'full_access')
     await acceptSpaceInvite(betaBrowser.page, fullAccessInvite)
-    await expect(betaBrowser.page.getByText('Trip · Full access')).toBeVisible()
-    await expect(betaBrowser.page.getByRole('button', { name: '+ Add expense' })).toBeVisible()
+    await expect(betaBrowser.page.getByRole('button',{name:'Quick add expense',exact:true})).toBeEnabled()
+    await expect(betaBrowser.page.getByRole('button', { name: '+ Add expense' })).toHaveCount(0)
     await expect(betaBrowser.page.getByRole('button', { name: 'Copy secure invite' })).toHaveCount(0)
 
     const viewInvite = await createSpaceInvite(owner, 'view')
     await acceptSpaceInvite(viewerBrowser.page, viewInvite)
-    await expect(viewerBrowser.page.getByText('Trip · View only')).toBeVisible()
+    await expect(viewerBrowser.page.getByRole('button',{name:'Quick add expense',exact:true})).toBeDisabled()
     await expect(viewerBrowser.page.getByRole('button', { name: '+ Add expense' })).toHaveCount(0)
     await expect(viewerBrowser.page.getByPlaceholder('Add someone without an account')).toHaveCount(0)
-    await viewerBrowser.page
-      .getByRole('button', { name: 'Quick add expense' })
-      .click()
-    const viewerGate = viewerBrowser.page.getByRole('dialog', { name: 'Where should this go?' })
-    await expect(viewerGate).toBeVisible()
-    await expect(viewerGate.getByText('Loading available contexts…')).toHaveCount(0)
-    await expect(viewerGate.getByRole('button', { name: 'Sabah E2E Trip' })).toHaveCount(0)
-    await viewerGate.getByRole('button', { name: 'Close' }).click()
+    await expect(viewerBrowser.page.getByRole('button',{name:'Quick add expense',exact:true})).toBeDisabled()
 
     const guestInvite = await createSpaceInvite(owner, 'view')
     const guestContext = await browser.newContext(MOBILE_CONTEXT_OPTIONS)
@@ -108,7 +99,7 @@ test.describe('local relational multi-user journey', () => {
     await guestPage.goto(guestInvite)
     await guestPage.getByRole('button', { name: 'Continue as guest' }).click()
     await expect(guestPage).toHaveURL(/\/space\/[0-9a-f-]+$/)
-    await expect(guestPage.getByText('Trip · View only')).toBeVisible()
+    await expect(guestPage.getByRole('button',{name:'Quick add expense',exact:true})).toBeDisabled()
     await expect(guestPage.getByRole('button', { name: '+ Add expense' })).toHaveCount(0)
 
     await owner.getByRole('button', { name: 'Refresh' }).first().click()
@@ -289,7 +280,7 @@ test.describe('local relational multi-user journey', () => {
     await expect(owner.getByRole('article').filter({ hasText: 'Offline once' })).toHaveCount(1)
 
     await member.goto(spaceUrl)
-    await member.getByRole('button', { name: '+ Add expense' }).click()
+    await member.getByRole('button', { name: 'Quick add expense',exact:true }).click()
     const staleDialog = member.getByRole('dialog', { name: 'Quick Add' })
     await enterQuickAmount(staleDialog, '3.33')
     await staleDialog.getByRole('textbox', { name: 'Note', exact: true }).fill('Rejected stale role')
@@ -335,7 +326,7 @@ test.describe('local relational multi-user journey', () => {
     const observer = betaBrowser.page
     await owner.goto(spaceUrl)
     await observer.goto(spaceUrl)
-    await expect(observer.getByText('Trip · View only')).toBeVisible()
+    await expect(observer.getByRole('button',{name:'Quick add expense',exact:true})).toBeDisabled()
     await expect(observer.getByText('Realtime coffee')).toHaveCount(0)
 
     await addExpense(owner, {
@@ -362,7 +353,7 @@ async function addExpense(
     payers?: Record<string, string>
   },
 ): Promise<void> {
-  await page.getByRole('button', { name: '+ Add expense' }).click()
+  await page.getByRole('button', { name: 'Quick add expense',exact:true }).click()
   const dialog = page.getByRole('dialog', { name: 'Quick Add' })
   await enterQuickAmount(dialog, input.amount)
   await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(input.description)
@@ -399,6 +390,7 @@ async function addExpense(
   await dialog.getByRole('button', { name: 'Food', exact: true }).click()
   await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)
+  if(await page.getByTestId('trip-ledger').count())await page.getByRole('tab',{name:'Expenses',exact:true}).click()
   await expect(page.getByText(input.description)).toBeVisible()
 }
 
@@ -412,11 +404,13 @@ async function saveCapture(page: Page, description: string, amount: string): Pro
 }
 
 async function expectShare(page: Page, description: string, amount: string): Promise<void> {
+  if(await page.getByTestId('trip-ledger').count())await page.getByRole('tab',{name:'Expenses',exact:true}).click()
   const expense = page.getByRole('article').filter({ hasText: description })
   await expect(expense).toContainText(`Your share ${amount}`)
 }
 
 async function expectDebt(page: Page, label: string, amount: string): Promise<void> {
+  if(await page.getByTestId('trip-ledger').count())await page.getByRole('tab',{name:'Balances',exact:true}).click()
   const debt = page.getByRole('article').filter({ hasText: label })
   await expect(debt.getByText(amount, { exact: true })).toBeVisible()
 }
@@ -426,20 +420,4 @@ async function openFriendBalance(page: Page, friendName: string): Promise<void> 
   await openPersonDetail(page, friendName)
   await page.getByRole('button', { name: 'Settle Up' }).click()
   await expect(page.getByRole('heading', { name: 'Settle up' })).toBeVisible()
-}
-
-async function expectSectionOrder(page: Page, testIds: string[]): Promise<void> {
-  const boxes = await Promise.all(
-    testIds.map(async (testId) => {
-      const box = await page.getByTestId(testId).boundingBox()
-      if (!box) throw new Error(`Expected ${testId} to be visible.`)
-      return { testId, y: box.y }
-    }),
-  )
-  for (let index = 1; index < boxes.length; index += 1) {
-    expect(
-      boxes[index].y,
-      `${boxes[index].testId} should follow ${boxes[index - 1].testId}`,
-    ).toBeGreaterThan(boxes[index - 1].y)
-  }
 }

@@ -1,3 +1,4 @@
+import { tripLedgerTranslations } from './tripLedgerTranslations'
 import { multicurrencyTranslations } from './multicurrencyTranslations'
 import { useStore } from '../store/useStore'
 import { notificationTranslations } from './notificationTranslations'
@@ -10,6 +11,7 @@ import { tripDatesTranslations } from './tripDatesTranslations'
 export type Lang = 'en' | 'zh'
 
 const translations = {
+  ...tripLedgerTranslations,
   ...tripDatesTranslations,
   ...multicurrencyTranslations,
   ...notificationTranslations,

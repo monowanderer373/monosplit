@@ -1,8 +1,8 @@
-import {openTripMembers,tripMembersPath} from '../lib/tripMembersNavigation'
-import {useRouteScroll} from '../hooks/useRouteScroll'
+import TripLedger from '../components/travel/TripLedger'
+import {tripMembersPath} from '../lib/tripMembersNavigation'
 import SharedRestartActions from '../components/SharedRestartActions'
 import {visibleSharedExpense} from '../lib/sharedRestart'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import SettlementPanel from '../components/SettlementPanel'
 import ActivityFeed from '../components/ActivityFeed'
@@ -35,19 +35,14 @@ import {
 } from '../lib/i18n'
 import { formatDate } from '../lib/locale'
 import { useStore } from '../store/useStore'
-import TripDateEntry from '../components/travel/TripDateEntry'
-import {openTripDates} from '../lib/tripDatesNavigation'
-import {useTripDatesReturn} from '../hooks/useTripDatesReturn'
-import {formatTripRange} from '../lib/tripCalendar'
-import { tripPeriodStatus, tripPeriodStatusKeys } from '../lib/tripPeriod'
-import { useLocalCalendarDate } from '../hooks/useLocalCalendarDate'
 
 type MemberEntry = {
   member: SpaceMember
   participant: Participant
 }
 
-export default function SpacePage() {
+export default function SpacePage(){const {authUser}=useAuth(),{spaceId=''}=useParams();return <SpacePageContent key={(authUser?.id??'')+':'+(authUser?.participantId??'')+':'+spaceId}/>}
+function SpacePageContent() {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const { spaceId = '' } = useParams()
@@ -57,14 +52,20 @@ export default function SpacePage() {
   const location = useLocation()
   const { authUser } = useAuth()
   const ledger = usePersonalLedger()
-  const settlementState = useSettlements(true)
+  const settlementState = useSettlements(true,(authUser?.id??'')+':'+(authUser?.participantId??'')+':'+spaceId)
   const quickAdd = useUniversalQuickAdd()
+  const setPageTarget=quickAdd.setPageTarget
   const refreshLedger = ledger.refresh
   const [entry, setEntry] = useState<SpaceWithRole | null>(null)
   const [members, setMembers] = useState<MemberEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<TranslationKey | ''>('')
-  const today = useLocalCalendarDate(authUser?.timezone ?? 'Asia/Kuala_Lumpur')
+  const alive=useRef(false),generation=useRef(0),knownTrip=useRef(false)
+  const [authorityReady,setAuthorityReady]=useState(false),[refreshing,setRefreshing]=useState(false)
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;
+    // Async request counter, not a DOM node.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    generation.current++}},[])
   const [inviteRole, setInviteRole] = useState<'full_access' | 'view'>('full_access')
   const [inviteUrl, setInviteUrl] = useState('')
   const [creatingInvite, setCreatingInvite] = useState(false)
@@ -73,19 +74,24 @@ export default function SpacePage() {
 
   const refresh = useCallback(async () => {
     if (!spaceId) return
+    const token=++generation.current;setAuthorityReady(false);setRefreshing(true)
     try {
       const [space, nextMembers] = await Promise.all([
         spaceRepository.get(spaceId),
         spaceRepository.listMembers(spaceId),
         refreshLedger(),
       ])
+      if(!alive.current||token!==generation.current)return
+      if(space?.space.type==='trip')knownTrip.current=true
+      setAuthorityReady(!!space)
       setEntry(space)
       setMembers(nextMembers)
       setError(space ? '' : 'space.notFound')
     } catch (cause) {
+      if(!alive.current||token!==generation.current)return
       setError(friendlyErrorKey(cause))
     } finally {
-      setLoading(false)
+      if(alive.current&&token===generation.current){setRefreshing(false);setLoading(false)}
     }
   }, [refreshLedger, spaceId])
 
@@ -95,6 +101,8 @@ export default function SpacePage() {
   useEffect(()=>{const changed=(event:Event)=>{const data=(event as CustomEvent).detail;if(data?.identity===authUser?.id&&data?.spaceId===spaceId)void refresh()};window.addEventListener('tt:trip-dates-changed',changed);return()=>window.removeEventListener('tt:trip-dates-changed',changed)},[refresh,authUser?.id,spaceId])
 
 
+  useEffect(()=>{if(loading&&!entry){setPageTarget({pathname:location.pathname,ready:false,target:{kind:'space-candidate',spaceId}});return()=>setPageTarget(null)}},[loading,entry,setPageTarget,location.pathname,spaceId])
+  useEffect(()=>{if(entry?.space.type!=='trip')return;let timer:ReturnType<typeof setTimeout>|undefined;const schedule=()=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>void refresh(),80)};window.addEventListener('focus',schedule);window.addEventListener('online',schedule);window.addEventListener('tt:space-members-changed',schedule);return()=>{if(timer)clearTimeout(timer);window.removeEventListener('focus',schedule);window.removeEventListener('online',schedule);window.removeEventListener('tt:space-members-changed',schedule)}},[entry?.space.type,refresh])
   const spaceExpenses = useMemo(
     () => ledger.expenses
       .filter((expense) => expense.spaceId === spaceId)
@@ -111,7 +119,7 @@ export default function SpacePage() {
     )),
     [settlementState.settlements, spaceId],
   )
-  const recap = useMemo(() => buildTripRecap(expenses.filter(visibleSharedExpense)), [expenses])
+  const recap = useMemo(() => buildTripRecap(entry?.space.type==='trip'?[]:expenses.filter(visibleSharedExpense)), [expenses,entry?.space.type])
 
   const captureParticipants = useMemo<LedgerDraftParticipant[]>(
     () => members.map(({ participant }) => ({
@@ -126,7 +134,7 @@ export default function SpacePage() {
     [members],
   )
   const myPosition = useMemo(() => {
-    if (!authUser?.participantId) return []
+    if (!authUser?.participantId||entry?.space.type==='trip') return []
     return summarizeRelationalBalances(
       deriveRelationalDebtLines(
         expenses,
@@ -134,7 +142,7 @@ export default function SpacePage() {
         { scope: 'space', spaceId },
       ),
     ).filter((item) => item.participantId === authUser.participantId)
-  }, [authUser?.participantId, expenses, spaceId, spaceSettlements])
+  }, [authUser?.participantId, expenses, spaceId, spaceSettlements,entry?.space.type])
 
   const copyInvite = async () => {
     if (!entry || creatingInvite) return
@@ -202,13 +210,13 @@ export default function SpacePage() {
   useEffect(() => {
     if (!entry || !section) return
     if(entry.space.type==='trip'&&section==='members'){navigate(tripMembersPath(spaceId),{replace:true,state:location.state});return}
-    if(entry.space.type==='trip'&&typeof location.state?.restoreScroll==='number')return
+    if(entry.space.type==='trip')return
     const frame = requestAnimationFrame(() => document.getElementById(`trip-${section}`)?.scrollIntoView({ block: 'start' }))
     return () => cancelAnimationFrame(frame)
   }, [entry, section, navigate, spaceId, location.state])
-  useRouteScroll(!loading&&entry?.space.type==='trip'&&ledger.expensesStatus==='ready',authUser?.id??'')
 
-  useTripDatesReturn(!loading&&entry?.space.type==='trip'&&ledger.expensesStatus==='ready',authUser?.id??'',spaceId)
+
+
 
   if (loading) {
     return <main className="ms-page flex min-h-dvh items-center justify-center">{t('space.opening')}</main>
@@ -222,11 +230,14 @@ export default function SpacePage() {
           <p className="ms-label">{t('space.shared')}</p>
           <h1 className="mt-2 text-2xl font-extrabold">{t('space.unavailable')}</h1>
           <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">{error ? t(error) : t('space.unavailableHelp')}</p>
-          <button className="ms-btn-primary mt-5 w-full" onClick={() => navigate('/spaces')}>{t('space.back')}</button>
+          {error&&error!=='space.notFound'?<button type="button" className="ms-btn-ghost mt-4" onClick={()=>void Promise.all([refresh(),settlementState.refresh()])}>{t('common.retry')}</button>:null}
+          <button className="ms-btn-primary mt-5 w-full" onClick={() => navigate(knownTrip.current?'/shared?tab=trips':'/spaces')}>{t('space.back')}</button>
         </section>
       </main>
     )
   }
+
+  if(entry.space.type==='trip')return <TripLedger entry={entry} members={members} ledger={ledger} settlementState={settlementState} refresh={async()=>{await Promise.all([refresh(),settlementState.refresh()])}} error={error} authorityReady={authorityReady} refreshing={refreshing}/>
 
   const canWrite = entry.role === 'owner' || entry.role === 'full_access'
   const openCapture = () => quickAdd.open({
@@ -244,11 +255,6 @@ export default function SpacePage() {
     },
   })
 
-  const dateLine=entry.space.type==='trip' ? formatTripRange(entry.space.startDate,entry.space.endDate,lang)||t('spaces.noDates') : [
-    entry.space.startDate ? formatDate(entry.space.startDate,lang) : t('spaces.noDates'),
-    entry.space.endDate ? formatDate(entry.space.endDate,lang) : null,
-  ].filter(Boolean).join(' – ')
-
   return (
     <main className="ms-page pb-28">
       <header className="mx-auto max-w-4xl">
@@ -256,8 +262,7 @@ export default function SpacePage() {
         <p className="ms-label">{t(spaceTypeKey(entry.space.type))} · {t(roleKey(entry.role))} · {t(spaceStatusKey(entry.space.status))}</p>
         <h1 className="mt-1 text-3xl font-extrabold">{entry.space.name}</h1>
         <p className="mt-2 text-sm text-[var(--ms-text-secondary)]">
-          {entry.space.defaultCurrency} · {entry.space.type==='trip'?<button type="button" className="ms-btn-ghost min-h-11 px-2" data-testid="trip-ledger-members" onClick={()=>openTripMembers(navigate,location,authUser.id,spaceId)}>{t('travel.members')} · {t(countKey('common.count.member.one','common.count.member.many',members.length),{count:members.length})}</button>:t(countKey('common.count.member.one', 'common.count.member.many', members.length), { count: members.length })}
-          {entry.space.type === 'trip' ? ` · ${dateLine}` : ''}
+          {entry.space.defaultCurrency} · {t(countKey('common.count.member.one', 'common.count.member.many', members.length), { count: members.length })}
         </p>
       </header>
 
@@ -398,7 +403,7 @@ export default function SpacePage() {
       </section>
 
       <section className="mx-auto mt-8 max-w-4xl" data-testid="space-recap">
-        <p className="ms-label">{entry.space.type === 'trip' ? t('space.tripRecap') : t('space.insights')}</p>
+        <p className="ms-label">{t('space.insights')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('space.totalsCurrency')}</h2>
         {recap.currencies.length === 0 ? (
           <div className="ms-card mt-3 text-sm text-[var(--ms-text-muted)]">{t('space.insightsEmpty')}</div>
@@ -428,16 +433,7 @@ export default function SpacePage() {
       <section className="mx-auto mt-8 max-w-4xl" data-testid="space-manage" id="trip-info">
         <p className="ms-label">{t('space.manage')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('space.manage')}</h2>
-        {entry.space.type === 'trip' ? (
-          <div className="ms-card mt-3">
-            <p className="text-sm text-[var(--ms-text-secondary)]">{t('space.dates')}</p>
-            <TripDateEntry trip={entry.space} canEdit={canWrite} onOpen={()=>openTripDates(navigate,location,authUser.id,spaceId)}/>
-            <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">{t('space.status')}</p>
-            <p className="mt-1 font-extrabold">{t(tripPeriodStatusKeys[tripPeriodStatus(entry.space, today)])}</p>
-
-          </div>
-        ) : null}
-        {entry.space.type === 'group' ? <>
+        <>
         <div className="ms-card mt-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -514,7 +510,7 @@ export default function SpacePage() {
             {inviteUrl ? <p className="min-w-0 flex-1 truncate text-xs text-[var(--ms-success)]">{t('space.inviteCopied')}</p> : null}
           </div>
         ) : null}
-        </> : null}
+        </>
       </section>
 
     </main>
