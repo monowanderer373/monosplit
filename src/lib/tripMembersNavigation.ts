@@ -2,7 +2,7 @@ import {saveNavigationSession} from './navigationStorage'
 import {spaceParentState} from './spaceNavigation'
 import type { Location, NavigateFunction } from 'react-router-dom'
 const prefix = 'tt:trip-members-origin:'
-type Origin = { identity: string; trip: string; path: string; index: number; key: string; unavailable?: boolean; parent?: ReturnType<typeof spaceParentState>; scroll?:number }
+type Origin = { identity: string; trip: string; path: string; index: number; key: string; unavailable?: boolean; parent?: ReturnType<typeof spaceParentState>; scroll?:number;focus?:string }
 const memory = new Map<string,Origin>()
 export const tripMembersPath = (id: string) => `/space/${encodeURIComponent(id)}/members`
 export const tripOverviewPath = (id: string) => `/travel/trip/${encodeURIComponent(id)}`
@@ -26,12 +26,12 @@ export function readMembersOrigin(state: unknown, identity: string, trip: string
   }catch{return null}
 }
 /** Replace the source entry with its scroll state before pushing a single Members entry. */
-export function openTripMembers(navigate: NavigateFunction, location: Pick<Location,'pathname'|'search'|'state'>, identity:string, trip:string) {
+export function openTripMembers(navigate: NavigateFunction, location: Pick<Location,'pathname'|'search'|'state'>, identity:string, trip:string,focus='trip-members') {
   const path=location.pathname.replace(/\/+$/,'')+location.search
   if(!validMembersOriginPath(path,trip))return
-  navigate(path,{replace:true,state:{...location.state,restoreScroll:window.scrollY}})
   const token=crypto.randomUUID()
-  save(token,{identity,trip,path,index:window.history.state?.idx??0,key:window.history.state?.key??'',parent:spaceParentState(location.state,identity,location.pathname),scroll:window.scrollY})
+  navigate(path,{replace:true,state:{...location.state,spaceReturn:undefined,tripDatesReturn:undefined,membersReturn:token,restoreScroll:window.scrollY}})
+  save(token,{identity,trip,path,index:window.history.state?.idx??0,key:window.history.state?.key??'',parent:spaceParentState(location.state,identity,location.pathname),scroll:window.scrollY,focus})
   navigate(tripMembersPath(trip),{state:{tripMembersOrigin:token}})
 }
 /** Seed a deterministic same-trip entry for direct links/reloads without trusted provenance. */
@@ -39,13 +39,13 @@ export function prepareMembersBack(navigate:NavigateFunction, state:unknown, ide
   const origin=readMembersOrigin(state,identity,trip)
   if(origin && window.history.state?.idx === origin.index+1 && (!unavailable||origin.unavailable))return
   const path=unavailable?(guest?'/':'/shared?tab=trips'):origin?.path??tripOverviewPath(trip)
-  navigate(path,{replace:true,state:{...origin?.parent,restoreScroll:origin?.scroll??0}})
   const token=crypto.randomUUID()
-  save(token,{identity,trip,path,unavailable,parent:origin?.parent,scroll:origin?.scroll,index:window.history.state?.idx??0,key:window.history.state?.key??''})
+  navigate(path,{replace:true,state:{...origin?.parent,...(origin?.focus?{membersReturn:token}:{}),restoreScroll:origin?.scroll??0}})
+  save(token,{identity,trip,path,unavailable,parent:origin?.parent,scroll:origin?.scroll,focus:origin?.focus,index:window.history.state?.idx??0,key:window.history.state?.key??''})
   navigate(tripMembersPath(trip),{state:{tripMembersOrigin:token}})
 }
 export function backFromMembers(navigate:NavigateFunction,state:unknown,identity:string,trip:string,unavailable=false,guest=false) {
   const origin=readMembersOrigin(state,identity,trip)
   if(origin && window.history.state?.idx === origin.index+1)navigate(-1)
-  else navigate(unavailable?(guest?'/':'/shared?tab=trips'):origin?.path??tripOverviewPath(trip),origin?{replace:true,state:{...origin.parent,restoreScroll:origin.scroll??0}}:{replace:true})
+  else navigate(unavailable?(guest?'/':'/shared?tab=trips'):origin?.path??tripOverviewPath(trip),origin?{replace:true,state:{...origin.parent,membersReturn:(state as {tripMembersOrigin?:string})?.tripMembersOrigin,restoreScroll:origin.scroll??0}}:{replace:true})
 }

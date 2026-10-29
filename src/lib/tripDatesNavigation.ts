@@ -32,7 +32,7 @@ export function openTripDates(navigate: NavigateFunction, location: Pick<Locatio
   const path = location.pathname.replace(/\/+$/, '') + location.search
   if (!validMembersOriginPath(path, trip)) return
   const token = crypto.randomUUID()
-  navigate(path, { replace: true, state: { ...location.state, restoreScroll: window.scrollY, tripDatesReturn: token } })
+  navigate(path, { replace: true, state: { ...location.state, membersReturn:undefined,spaceReturn:undefined,restoreScroll: window.scrollY, tripDatesReturn: token } })
   store(token, { identity, trip, path, index: window.history.state?.idx ?? 0, parent:spaceParentState(location.state,identity,location.pathname),scroll:window.scrollY })
   navigate(tripDatesPath(trip), { state: { tripDatesOrigin: token } })
 }

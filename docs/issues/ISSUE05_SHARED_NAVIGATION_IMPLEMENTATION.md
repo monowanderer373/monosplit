@@ -14,7 +14,7 @@ create_space has no request UUID: synchronous busy/pending-remount guard, curren
 
 ## Current verification (not a production completion claim)
 
-Baseline817/119 PASS45.57s; current830/121 PASS44.05s; lint/TypeScript/productionPWAbuild PASS. Integrated63actualReact/CSS phonecases PASS2.1min (13navigation+14dates+13Members+14ledger+9split); latest13navigationcases PASS53.4s after late-create safeguards. Fourwidths320/360/390/430,125/150/200%roottext with actual28px text assertion, shortscreen, longChinese, menu/keyboard/Back/Forward, searchscrollfocus, create/cancel/unknown, generic+context, twoTrip andblockedstorage/reload covered using synthetic API fixtures. Approved/actual screenshots will be delivered separately; not production private or physical Honor captures.
+Baseline817/119 PASS45.57s; current833/121 PASS84.52s under concurrentbrowserload; lint/TypeScript/productionPWAbuild PASS. Integrated63actualReact/CSS phonecases PASS2.1min (13navigation+14dates+13Members+14ledger+9split); latest16navigationcases PASS1.6min after cold-lazy/overlay/trigger-focus safeguards. Fourwidths320/360/390/430,125/150/200%roottext with actual28px text assertion, shortscreen, longChinese, menu/keyboard/Back/Forward, searchscrollfocus, create/cancel/unknown, generic+context, twoTrip andblockedstorage/reload covered using synthetic API fixtures. Approved/actual screenshots will be delivered separately; not production private or physical Honor captures.
 
 Fresh hosted33migrations match; original date RPC body/version/ACL unchanged; noSQLneeded. ExistingVercelproject/team/main and GitHub push permission independently verified. Native isolated create/invite/login/guest/role/revoke/leave/10financialcounts test added to focused CI, notyetexecuted. Full exact-source CI/release/normalownedreadonly/PWA pending. LocalDocker BLOCKED byknownvfs limit, not retried; use disposableActions backend. PhysicalHonor/AndroidsystemBack/nativekeyboard/browserUIzoom/screenreader NOTRUN.
 
@@ -71,3 +71,5 @@ Read PROJECT_STATUS/WORK_LOG/currentdiff and /workspace/verification/issue05-sha
 - `src/pages/SpacePage.tsx`
 - `src/pages/SpacesPage.tsx`
 - `src/pages/TripDatesPage.tsx`
+
+First candidate59f1269 CI failed and was not released: source-parent preparation interfered with original QuickAdd overlay history and retained detail effects during navigation. Forward fix skips overlays, binds current browser/detail path and target, preserves actual inline/menu trigger focus, and adds held-module/QuickAdd-history browser witnesses. New native helper used an invalid id projection for composite-key financial tables; it now compares complete authorized rows with safe diagnostics. Original money/permission/version/assertions remain; no schema workaround. Final exact-source CI is required.

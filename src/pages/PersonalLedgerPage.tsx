@@ -109,8 +109,8 @@ export default function PersonalLedgerPage() {
   const dateReturnReady=!pendingTripDatesReturn(location.state)||!home.refreshing
   useRouteScroll((tripId || homeUi.mode === 'travel' ? model.travelStatus === 'ready' : model.sharedStatus === 'ready') && ledger.expensesStatus === 'ready' && dateReturnReady, ledger.participantId ?? '')
 
-  useSpaceSourceReturn(!home.refreshing && model.travelStatus==='ready' && ledger.expensesStatus==='ready',authUser?.id??'')
-  useEffect(()=>{if(tripId&&detailTrip&&model.travelStatus==='ready'&&!home.refreshing&&authUser?.id&&!authUser.isAnonymous)prepareSpaceBack(navigate,location,authUser.id,'/')},[tripId,detailTrip,model.travelStatus,home.refreshing,authUser,navigate,location])
+  useSpaceSourceReturn(!home.refreshing && model.travelStatus==='ready' && ledger.expensesStatus==='ready',authUser?.id??'',tripId??'')
+  useEffect(()=>{if(tripId&&location.pathname==='/travel/trip/'+encodeURIComponent(tripId)&&detailTrip&&model.travelStatus==='ready'&&!home.refreshing&&authUser?.id&&!authUser.isAnonymous)prepareSpaceBack(navigate,location,authUser.id,'/')},[tripId,detailTrip,model.travelStatus,home.refreshing,authUser,navigate,location])
 
   useTripDatesReturn(!!tripId && model.travelStatus === 'ready' && ledger.expensesStatus === 'ready' && dateReturnReady, authUser?.id ?? '', tripId ?? '')
 
@@ -266,9 +266,9 @@ export default function PersonalLedgerPage() {
         if (detailTrip) setTravelTrip(authUser.id, detailTrip.trip.id)
         backSpaceNavigation(navigate,location.state,authUser.id,location.pathname,'/')
       }}
-      onInfo={() => openSpaceNavigation(navigate,location,authUser.id,detailTrip?.trip.id.startsWith('affiliation:')?'/shared?tab=trips':`/space/${tripId}?section=info`,'trip-menu')}
+      onInfo={focus => openSpaceNavigation(navigate,location,authUser.id,detailTrip?.trip.id.startsWith('affiliation:')?'/shared?tab=trips':`/space/${tripId}?section=info`,focus??'trip-info')}
       onDates={() => {if(authUser?.id&&tripId)openTripDates(navigate,location,authUser.id,tripId)}}
-      onMembers={() => {if(authUser?.id&&tripId)openTripMembers(navigate,location,authUser.id,tripId)}} onManage={() => openSpaceNavigation(navigate,location,authUser.id,'/shared?tab=trips','trip-menu')}
+      onMembers={focus => {if(authUser?.id&&tripId)openTripMembers(navigate,location,authUser.id,tripId,focus)}} onManage={() => openSpaceNavigation(navigate,location,authUser.id,'/shared?tab=trips','trip-menu')}
       records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
     <ExpenseRecoveryNotices />
   </>

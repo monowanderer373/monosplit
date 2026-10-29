@@ -220,7 +220,7 @@ function SpacePageContent() {
 
 
 
-  useEffect(()=>{if(!loading&&entry?.space.type==='group'&&authUser?.id&&!authUser.isAnonymous)prepareSpaceBack(navigate,location,authUser.id,'/shared?tab=groups')},[loading,entry,authUser,navigate,location])
+  useEffect(()=>{if(!loading&&entry?.space.type==='group'&&location.pathname==='/space/'+entry.space.id&&authUser?.id&&!authUser.isAnonymous)prepareSpaceBack(navigate,location,authUser.id,'/shared?tab=groups')},[loading,entry,authUser,navigate,location])
   useRouteScroll(!loading&&entry?.space.type==='group'&&ledger.expensesStatus==='ready',authUser?.id??'')
 
   if (loading) {

@@ -5,7 +5,7 @@ import { readSharedOrigin } from './sharedAOrigin'
 import { useStore } from '../store/useStore'
 
 type PageLocation = Pick<Location, 'pathname' | 'search' | 'state'>
-type ParentState = { spaceNav?: string; ledgerOrigin?: string; tripDatesReturn?: string }
+type ParentState = { spaceNav?: string; ledgerOrigin?: string }
 export type SpaceOrigin = { actor: string; target: string; source: string; index: number; key: string; scroll: number; focus: string; parent: ParentState; travel?: { selected: string | null; density: 'detailed' | 'compact' } }
 const memory = new Map<string, SpaceOrigin>(), prefix = 'tt:space-nav:'
 const uuid = /^[a-f0-9-]{36}$/i
@@ -56,20 +56,20 @@ export function readSpaceOrigin(state: unknown, actor: string, target: string): 
     if (!v || v.actor !== actor || v.target !== targetPath(target) || !validPath(v.source) || targetPath(v.source) === targetPath(target) || !Number.isSafeInteger(v.index) || v.index < 0 || typeof v.key !== 'string' || !Number.isFinite(v.scroll) || v.scroll < 0 || typeof v.focus !== 'string' || v.focus.length>200 || v.scroll>10000000 || (v.travel&&(!['compact','detailed'].includes(v.travel.density)||(v.travel.selected!==null&&(typeof v.travel.selected!=='string'||v.travel.selected.length>200))))) return null
     // An overview may parent only the same Trip ledger; never another Trip.
     if (v.source.startsWith('/travel/trip/') && v.target.startsWith('/space/') && v.source.split('/').pop() !== v.target.split('/').pop()) return null
-    return {...v,parent:{...(uuid.test(v.parent?.spaceNav??'')?{spaceNav:v.parent.spaceNav}:{}),...(uuid.test(v.parent?.ledgerOrigin??'')?{ledgerOrigin:v.parent.ledgerOrigin}:{}),...(uuid.test(v.parent?.tripDatesReturn??'')?{tripDatesReturn:v.parent.tripDatesReturn}:{})}}
+    return {...v,parent:{...(uuid.test(v.parent?.spaceNav??'')?{spaceNav:v.parent.spaceNav}:{}),...(uuid.test(v.parent?.ledgerOrigin??'')?{ledgerOrigin:v.parent.ledgerOrigin}:{})}}
   } catch { return null }
 }
 export function spaceParentState(state: unknown, actor: string, path: string): ParentState {
   const value = state as ParentState | null
   if(!readSpaceOrigin(state,actor,path))return {}
-  return {spaceNav:value?.spaceNav,...(uuid.test(value?.ledgerOrigin??'')?{ledgerOrigin:value!.ledgerOrigin}:{}),...(uuid.test(value?.tripDatesReturn??'')?{tripDatesReturn:value!.tripDatesReturn}:{})}
+  return {spaceNav:value?.spaceNav,...(uuid.test(value?.ledgerOrigin??'')?{ledgerOrigin:value!.ledgerOrigin}:{})}
 }
 export function openSpaceNavigation(navigate: NavigateFunction, location: PageLocation, actor: string, target: string, focus = '') {
   const source = location.pathname + location.search
   if (!actor || !validPath(source) || !validPath(targetPath(target)) || targetPath(target) === location.pathname) return
   if(source.startsWith('/travel/trip/')&&targetPath(target).startsWith('/space/')&&location.pathname.split('/').pop()!==targetPath(target).split('/').pop())return
   const token = crypto.randomUUID(), parent = spaceParentState(location.state, actor, location.pathname)
-  navigate(source, { replace: true, state: { ...location.state, restoreScroll: window.scrollY, spaceReturn: token } })
+  navigate(source, { replace: true, state: { ...location.state, membersReturn:undefined,tripDatesReturn:undefined,restoreScroll: window.scrollY, spaceReturn: token } })
   const origin: SpaceOrigin = { actor, target: targetPath(target), source, index: window.history.state?.idx ?? 0, key: window.history.state?.key ?? '', scroll: window.scrollY, focus, parent }
   if (source === '/' || source.startsWith('/travel/trip/')) { const store = useStore.getState(); origin.travel = { selected: store.travelTripByIdentity[actor] ?? null, density: store.homeUi.density } }
   save(token, origin)
@@ -88,7 +88,8 @@ export function backSpaceNavigation(navigate: NavigateFunction, state: unknown, 
 }
 /** Seed one safe parent only for a source-less detail; never infer a parent's permissions. */
 export function prepareSpaceBack(navigate: NavigateFunction, location: PageLocation, actor: string, fallback: string) {
-  if (!actor) return
+  if (!actor || location.state?.moneyAction || location.state?.routeOverlay || !/^\/(?:space|travel\/trip)\/[a-zA-Z0-9:%_-]+$/.test(location.pathname)) return
+  if(window.location.pathname!==location.pathname||window.location.search!==location.search)return
   const origin = readSpaceOrigin(location.state, actor, location.pathname)
   if (origin && window.history.state?.idx === origin.index + 1) return
   if (!origin && location.state?.spaceBackSeed === actor + ':' + location.pathname) return

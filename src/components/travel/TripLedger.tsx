@@ -58,7 +58,7 @@ export default function TripLedger({entry,members,ledger,settlementState,refresh
  const openView=(next:'history'|'summary',focus?:string)=>{closeMenu();setTripLedgerFocus(actor,trip,'menu',location.pathname+location.search);openTripLedgerView(navigate,location,actor,trip,next,focus)}
  const changeHistory=(next:string)=>{const p=new URLSearchParams(location.search);p.set('history',next);p.delete('section');p.set('view','history');p.delete('focusExpenseId');navigate({search:p.toString()},{replace:true,state:{...location.state,restoreScroll:0}})}
  const origin=readSpaceOrigin(location.state,actor,location.pathname),source=origin?.source
- useEffect(()=>{if(view==='main'&&ready&&authorityReady&&!authUser?.isAnonymous)prepareSpaceBack(navigate,location,actor,'/shared?tab=trips')},[view,ready,authorityReady,authUser?.isAnonymous,navigate,location,actor])
+ useEffect(()=>{if(location.pathname==='/space/'+trip&&view==='main'&&ready&&authorityReady&&!authUser?.isAnonymous)prepareSpaceBack(navigate,location,actor,'/shared?tab=trips')},[view,ready,authorityReady,authUser?.isAnonymous,navigate,location,actor,trip])
  const back=()=>view!=='main'?backFromTripLedgerView(navigate,location.state,actor,trip,tab):backSpaceNavigation(navigate,location.state,actor,location.pathname,authUser?.isAnonymous?'/':'/shared?tab=trips')
  const recapResult=useMemo(()=>{if(view!=='summary'||!ready||failed)return{recap:null,failed:false};try{return{recap:buildTripRecap(visible),failed:false}}catch{return{recap:null,failed:true}}},[view,ready,failed,visible])
  const {recap,failed:recapFailed}=recapResult,focused=params.get('focusExpenseId')??undefined
