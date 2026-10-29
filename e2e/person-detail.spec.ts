@@ -112,26 +112,26 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
   await page.getByRole('checkbox', { name: 'Dates not decided yet', exact: true }).check()
   await page.getByRole('button', { name: 'Create', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Penang Trip' })).toBeVisible()
-  await expect(page.getByText(/Trip · Owner · Open/)).toBeVisible()
-  await expect(page.getByRole('button', { name: '+ Add expense' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '+ Add expense' })).toHaveCount(0)
+  await expect(page.getByRole('tab',{name:'Expenses',exact:true})).toHaveAttribute('aria-selected','true')
   await expect(page.getByText('Close Trip')).toHaveCount(0)
   await expect(page.getByText('Final Statement')).toHaveCount(0)
-  await expectSectionOrder(page, [
-    'space-position',
-    'space-recent',
-    'space-balances',
-    'space-recap',
-    'space-manage',
-  ])
-  await expect(page.getByTestId('space-recap')).toContainText('Trip spending')
-  await expect(page.getByTestId('space-manage')).toContainText('Dates')
+  await expect(page.getByTestId('space-position')).toBeVisible()
+  await expect(page.getByTestId('space-recent')).toBeVisible()
+  await expect(page.getByTestId('space-recap')).toHaveCount(0)
+  await expect(page.getByTestId('space-manage')).toContainText('Dates not set')
+  await page.getByRole('button',{name:'Trip actions',exact:true}).click()
+  await page.getByRole('dialog',{name:'Trip actions',exact:true}).getByRole('button',{name:'Trip summary',exact:true}).click()
+  await expect(page.getByTestId('space-recap')).toBeVisible()
+  await page.getByRole('button',{name:'Trip',exact:true}).click()
   await page.getByRole('button', { name: 'Quick add expense' }).click()
   await expect(page.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
   await page.getByRole('dialog', { name: 'Quick Add' }).getByRole('button', { name: 'Close Quick Add' }).click()
 
-  await page.getByRole('button', { name: 'Back to Groups / Trips' }).click()
-  await expect(page).toHaveURL(/\/spaces$/)
+  await page.getByRole('button', { name: 'Trips',exact:true }).click()
+  await expect(page).toHaveURL(/\/shared\?tab=trips$/)
+  await page.goto('/spaces')
 
   await openCreateSpace(page)
   await page.getByLabel('Name').fill('House Group')

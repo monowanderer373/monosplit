@@ -1,5 +1,8 @@
 import AmountInput from './AmountInput'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useSettlementDraft } from '../hooks/useSettlementDraft'
+import { useStore } from '../store/useStore'
+import { localeForLang } from '../lib/locale'
 import type { CanonicalExpense } from '../types'
 import { useSettlements } from '../hooks/useSettlements'
 import { generateId } from '../lib/id'
@@ -11,7 +14,6 @@ import {
 } from '../lib/relationalBalance'
 import {
   resolveSettlementAmount,
-  type SettlementIntent,
 } from '../lib/settlementIntent'
 import { friendlyErrorKey, useT, type TranslationKey } from '../lib/i18n'
 import SettlementHistoryList from './SettlementHistoryList'
@@ -20,8 +22,12 @@ type Props = {
   context: BalanceContext
   currentParticipantId: string
   participantNames: ReadonlyMap<string, string>
-  expenses: CanonicalExpense[]
+  expenses: readonly CanonicalExpense[]
   canPropose: boolean
+  state?: ReturnType<typeof useSettlements>
+  view?: 'trip-current' | 'trip-history'
+  draftKey?: string
+  onChanged?: () => Promise<unknown>
 }
 
 type DebtSummary = {
@@ -48,14 +54,18 @@ export default function SettlementPanel({
   currentParticipantId,
   participantNames,
   expenses,
-  canPropose,
+  canPropose, state: sharedState, view, draftKey, onChanged,
 }: Props) {
   const t = useT()
-  const settlementState = useSettlements(true)
-  const [amounts, setAmounts] = useState<Record<string, string>>({})
-  const [intents, setIntents] = useState<Record<string, SettlementIntent | undefined>>({})
-  const [action, setAction] = useState('')
-  const [error, setError] = useState<TranslationKey | ''>('')
+  const ownState = useSettlements(!sharedState)
+  const settlementState=sharedState??ownState
+  const draft=useSettlementDraft(draftKey), {amounts,intents,action,error,expanded}=draft.value
+  const setAmounts=(update:(value:typeof amounts)=>typeof amounts)=>draft.set({amounts:update(draft.get().amounts)})
+  const setIntents=(update:(value:typeof intents)=>typeof intents)=>draft.set({intents:update(draft.get().intents)})
+  const setAction=(action:string)=>draft.set({action}),setError=(error:TranslationKey|'')=>draft.set({error})
+  const hidden=useStore(s=>s.homeUi.balanceHidden),lang=useStore(s=>s.lang), trip=!!view
+  const amount=(minor:number,currency:string)=>trip&&hidden?'••••':formatMinorAmount(minor,currency,trip?localeForLang(lang):undefined)
+  const requestId=(signature:string)=>{if(!trip)return generateId();let id=draft.attempts.get(signature);if(!id){id=generateId();draft.attempts.set(signature,id)}return id}
 
   const contextSettlements = useMemo(
     () => settlementState.settlements.map(p=>({...p,allocations:p.allocations.filter(a=>!a.sharedRestartCleared)})).filter(p=>p.allocations.length>0).filter((settlement) => (
@@ -85,8 +95,9 @@ export default function SettlementPanel({
       current.remainingMinor += line.remainingMinor
       totals.set(key, current)
     }
-    return [...totals.entries()].map(([key, value]) => ({ key, ...value }))
-  }, [debtLines])
+    const rows=[...totals.entries()].map(([key, value]) => ({ key, ...value }))
+    return trip?rows.sort((a,b)=>Number(b.debtorParticipantId===currentParticipantId||b.creditorParticipantId===currentParticipantId)-Number(a.debtorParticipantId===currentParticipantId||a.creditorParticipantId===currentParticipantId)):rows
+  }, [debtLines,trip,currentParticipantId])
 
   const incoming = contextSettlements.flatMap((settlement) => settlement.allocations
     .filter((allocation) => allocation.creditorParticipantId === currentParticipantId)
@@ -100,7 +111,7 @@ export default function SettlementPanel({
   ))
 
   const propose = async (debt: DebtSummary & { key: string }) => {
-    if (action) return
+    if (draft.get().action || trip&&hidden) return
     setAction(debt.key)
     setError('')
     try {
@@ -110,76 +121,84 @@ export default function SettlementPanel({
         outstandingMinor: debt.remainingMinor,
         currency: debt.currency,
       })
+      const signature='propose:'+JSON.stringify([context,debt.key,amountMinor])
+      let paymentDate=new Date().toISOString().slice(0,10)
+      if(trip){const saved=draft.attempts.get('day:'+signature);if(saved)paymentDate=saved;else draft.attempts.set('day:'+signature,paymentDate)}
       await settlementState.propose({
-        requestId: generateId(),
+        requestId: requestId(signature),
         scope: context.scope,
         spaceId: context.scope === 'space' ? context.spaceId : null,
         currency: debt.currency,
         amountMinor,
-        paymentDate: new Date().toISOString().slice(0, 10),
+        paymentDate,
         allocations: [{
           creditorParticipantId: debt.creditorParticipantId,
           amountMinor,
         }],
         note: null,
       })
+      await onChanged?.()
       setAmounts((current) => ({ ...current, [debt.key]: '' }))
       setIntents((current) => ({ ...current, [debt.key]: undefined }))
     } catch (cause) {
-      setError(friendlyErrorKey(cause))
+      setError(friendlyErrorKey(trip&&typeof (cause as {message?:unknown})?.message==='string'?new Error((cause as {message:string}).message):cause))
     } finally {
       setAction('')
     }
   }
 
   const respond = async (allocationId: string, response: 'accepted' | 'declined') => {
-    if (action) return
+    if (draft.get().action || trip&&hidden) return
     setAction(allocationId)
     setError('')
     try {
       await settlementState.respond(allocationId, response)
+      await onChanged?.()
     } catch (cause) {
-      setError(friendlyErrorKey(cause))
+      setError(friendlyErrorKey(trip&&typeof (cause as {message?:unknown})?.message==='string'?new Error((cause as {message:string}).message):cause))
     } finally {
       setAction('')
     }
   }
 
   const reverse = async (allocationId: string) => {
-    if (action) return
+    if (draft.get().action || trip&&hidden) return
     setAction(allocationId)
     setError('')
     try {
-      await settlementState.reverse(allocationId)
+      await settlementState.reverse(allocationId, requestId('reverse:'+allocationId+':'+contextSettlements.find(p=>p.allocations.some(a=>a.id===allocationId))?.version))
+      await onChanged?.()
     } catch (cause) {
-      setError(friendlyErrorKey(cause))
+      setError(friendlyErrorKey(trip&&typeof (cause as {message?:unknown})?.message==='string'?new Error((cause as {message:string}).message):cause))
     } finally {
       setAction('')
     }
   }
 
   const cancelPending = async (allocationId: string) => {
-    if (action) return
+    if (draft.get().action || trip&&hidden) return
     setAction(allocationId)
     setError('')
     try {
       await settlementState.cancelPending(allocationId)
+      await onChanged?.()
     } catch (cause) {
-      setError(friendlyErrorKey(cause))
+      setError(friendlyErrorKey(trip&&typeof (cause as {message?:unknown})?.message==='string'?new Error((cause as {message:string}).message):cause))
     } finally {
       setAction('')
     }
   }
 
   return (
-    <section>
-      <div className="mb-3">
+    <section className={trip?'tl-settlements':''} aria-busy={!!action}>
+      {trip&&hidden?<button type="button" className="ms-btn-ghost" onClick={()=>useStore.getState().setHomeUi({balanceHidden:false})}>{t('notice.show')}</button>:null}
+      {!trip?<div className="mb-3">
         <p className="ms-label">{t('settlement.confirmed')}</p>
         <h2 className="mt-1 text-xl font-extrabold">{t('settlement.title')}</h2>
         <p className="mt-1 text-sm text-[var(--ms-text-secondary)]">
           {t('settlement.help')}
         </p>
-      </div>
+      </div>:null}
 
       {(error || settlementState.error) ? (
         <p className="mb-3 rounded-xl bg-[var(--ms-danger-bg)] px-3 py-2 text-sm text-[var(--ms-danger)]">
@@ -187,34 +206,34 @@ export default function SettlementPanel({
         </p>
       ) : null}
 
-      {incoming.some(({ allocation }) => allocation.state === 'pending') ? (
-        <div className="mb-4 grid gap-3">
+      {view!=='trip-history'&&incoming.some(({ allocation }) => allocation.state === 'pending') ? (
+        <div className="mb-4 grid gap-3" data-trip-pending="incoming" tabIndex={-1}>
           {incoming.filter(({ allocation }) => allocation.state === 'pending').map(({ settlement, allocation }) => (
             <article key={allocation.id} className="ms-card-hero">
               <p className="ms-label">{t('settlement.confirmation')}</p>
               <p className="mt-2 font-extrabold">
                 {t('settlement.saysPaid', {
                   name: participantNames.get(settlement.debtorParticipantId) ?? t('common.member'),
-                  amount: formatMinorAmount(allocation.amountMinor, settlement.currency),
+                  amount: amount(allocation.amountMinor, settlement.currency),
                 })}
               </p>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <button className="ms-btn-ghost" disabled={action === allocation.id} onClick={() => void respond(allocation.id, 'declined')}>{t('common.decline')}</button>
-                <button className="ms-btn-primary" disabled={action === allocation.id} onClick={() => void respond(allocation.id, 'accepted')}>{t('settlement.confirmReceived')}</button>
+                <button className="ms-btn-ghost" disabled={!!action||trip&&hidden} onClick={() => void respond(allocation.id, 'declined')}>{t('common.decline')}</button>
+                <button className="ms-btn-primary" disabled={!!action||trip&&hidden} onClick={() => void respond(allocation.id, 'accepted')}>{t('settlement.confirmReceived')}</button>
               </div>
             </article>
           ))}
         </div>
       ) : null}
 
-      {outgoingPending.length > 0 ? (
+      {view!=='trip-history'&&outgoingPending.length > 0 ? (
         <div className="mb-4 grid gap-3">
           {outgoingPending.map(({ settlement, allocation }) => (
             <article key={allocation.id} className="ms-card">
               <p className="ms-label">{t('settlement.awaitingConfirmation')}</p>
               <p className="mt-2 text-sm font-bold">
                 {t('settlement.youProposed', {
-                  amount: formatMinorAmount(allocation.amountMinor, settlement.currency),
+                  amount: amount(allocation.amountMinor, settlement.currency),
                   name: participantNames.get(allocation.creditorParticipantId) ?? t('common.member'),
                 })}
               </p>
@@ -223,7 +242,7 @@ export default function SettlementPanel({
               </p>
               <button
                 className="ms-btn-ghost mt-3 py-2 text-xs text-[var(--ms-danger)]"
-                disabled={action === allocation.id}
+                disabled={!!action||trip&&hidden}
                 onClick={() => void cancelPending(allocation.id)}
               >
                 {t('settlement.cancelProposal')}
@@ -233,7 +252,8 @@ export default function SettlementPanel({
         </div>
       ) : null}
 
-      <div className="ms-list tt-paper-list">
+      {view==='trip-current'&&debts.length?<h3 className="tl-outstanding-title">{t('tl.outstanding')}</h3>:null}
+      {view!=='trip-history'?<div className="ms-list tt-paper-list">
         {debts.length === 0 ? (
           <p className="p-6 text-center text-sm text-[var(--ms-text-muted)]">{t('settlement.empty')}</p>
         ) : debts.map((debt, index) => {
@@ -242,7 +262,7 @@ export default function SettlementPanel({
           let explicitAmount = ''
           if (intent) {
             try {
-              explicitAmount = formatMinorAmount(resolveSettlementAmount({
+              explicitAmount = amount(resolveSettlementAmount({
                 intent,
                 partialAmount: amounts[debt.key] ?? '',
                 outstandingMinor: debt.remainingMinor,
@@ -272,11 +292,14 @@ export default function SettlementPanel({
                       })}
                   </p>
                   <p className="mt-1 text-lg font-extrabold text-[var(--ms-accent)]">
-                    {formatMinorAmount(debt.remainingMinor, debt.currency)}
+                    {amount(debt.remainingMinor, debt.currency)}
                   </p>
+                  {trip?<p className="tl-debt-help">{t(mine?'tl.fullPartial':'tl.awaiting')}</p>:null}
                 </div>
                 {mine && canPropose ? (
-                  <div className="w-44">
+                  <div className={trip?'tl-pay-controls':'w-44'}>
+                    {trip&&expanded!==debt.key?<button type="button" className="ms-btn-ghost" disabled={!!action||hidden} onClick={()=>draft.set({expanded:debt.key})}>{t('tl.repay')}</button>:null}
+                    {(!trip||expanded===debt.key&&!hidden)?<>
                     <div className="grid grid-cols-2 gap-2" role="group" aria-label={t('settlement.chooseAmount')}>
                       {(['full', 'partial'] as const).map((option) => (
                         <button
@@ -284,6 +307,7 @@ export default function SettlementPanel({
                           type="button"
                           className={intent === option ? 'ms-btn-primary py-2 text-xs' : 'ms-btn-ghost py-2 text-xs'}
                           aria-pressed={intent === option}
+                          disabled={!!action}
                           onClick={() => {
                             setIntents((current) => ({ ...current, [debt.key]: option }))
                             setError('')
@@ -295,7 +319,7 @@ export default function SettlementPanel({
                     </div>
                     {intent === 'full' ? (
                       <p className="mt-2 rounded-xl bg-[var(--ms-bg-warm)] px-3 py-2 text-right text-sm font-extrabold">
-                        {formatMinorAmount(debt.remainingMinor, debt.currency)}
+                        {amount(debt.remainingMinor, debt.currency)}
                       </p>
                     ) : null}
                     {intent === 'partial' ? (
@@ -322,15 +346,16 @@ export default function SettlementPanel({
                         ? t('settlement.proposeExplicitAmount', { amount: explicitAmount })
                         : t('settlement.proposePaid')}
                     </button>
+                    </>:null}
                   </div>
                 ) : null}
               </article>
             </div>
           )
         })}
-      </div>
+      </div>:null}
 
-      {incoming.some(({ allocation }) => (
+      {!trip&&incoming.some(({ allocation }) => (
         allocation.state === 'accepted' && allocation.reversalMinor === 0
       )) ? (
         <div className="mt-4">
@@ -339,21 +364,22 @@ export default function SettlementPanel({
             {incoming.filter(({ allocation }) => (
               allocation.state === 'accepted' && allocation.reversalMinor === 0
             )).map(({ settlement, allocation }) => (
-              <button key={allocation.id} className="ms-btn-ghost py-2 text-xs" disabled={action === allocation.id} onClick={() => void reverse(allocation.id)}>
-                {t('settlement.reverse', { amount: formatMinorAmount(allocation.amountMinor, settlement.currency) })}
+              <button key={allocation.id} className="ms-btn-ghost py-2 text-xs" disabled={!!action||trip&&hidden} onClick={() => void reverse(allocation.id)}>
+                {t('settlement.reverse', { amount: amount(allocation.amountMinor, settlement.currency) })}
               </button>
             ))}
           </div>
         </div>
       ) : null}
 
-      <SettlementHistoryList
+      {view!=='trip-current'&&(!trip||!hidden)?<SettlementHistoryList
         context={context}
         currentParticipantId={currentParticipantId}
         participantNames={participantNames}
         expenses={expenses}
-        settlements={contextSettlements}
-      />
+        settlements={trip?settlementState.settlements.filter(p=>settlementMatchesContext(p,context)):contextSettlements}
+        renderAction={view==='trip-history'?(payment,allocation)=>allocation.creditorParticipantId===currentParticipantId&&allocation.state==='accepted'&&allocation.reversalMinor===0&&!allocation.sharedRestartCleared?<button type="button" className="ms-btn-ghost" disabled={!!action||hidden} onClick={()=>void reverse(allocation.id)}>{t('settlement.reverse',{amount:amount(allocation.amountMinor,payment.currency)})}</button>:null:undefined}
+      />:null}
 
     </section>
   )

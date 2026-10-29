@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import {
   deriveSettlementHistoryEntries,
   type SettlementHistoryKind,
@@ -7,7 +7,7 @@ import {
   deriveSettlementAttributions,
   type BalanceContext,
 } from '../lib/relationalBalance'
-import type { SettlementPayment } from '../lib/settlementRepository'
+import type { SettlementPayment, SettlementAllocation } from '../lib/settlementRepository'
 import type { CanonicalExpense } from '../types'
 import { useT } from '../lib/i18n'
 import { formatDate } from '../lib/locale'
@@ -19,13 +19,14 @@ export default function SettlementHistoryList({
   currentParticipantId,
   participantNames,
   expenses,
-  settlements,
+  settlements, renderAction,
 }: {
   context: BalanceContext
   currentParticipantId: string
   participantNames: ReadonlyMap<string, string>
   expenses: readonly CanonicalExpense[]
   settlements: readonly SettlementPayment[]
+  renderAction?: (payment: SettlementPayment, allocation: SettlementAllocation) => ReactNode
 }) {
   const t = useT()
   const lang = useStore((state) => state.lang)
@@ -127,6 +128,7 @@ export default function SettlementHistoryList({
                         </p>
                       </div>
                     ) : null}
+                    {renderAction?.(entry.settlement,entry.allocation)}
                   </div>
                 </article>
               </div>
