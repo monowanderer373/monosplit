@@ -196,7 +196,7 @@ export default function UniversalQuickAddSheet({session,expenses,onUpdate,onComm
  }
  const openSplit=async()=>{
   if(panel!=='split')openPanel('split');setError('');
-  if(trip){setSplitStage('configure');setSplitBusy(true);try{const ok=await onConfigureSplit(context.ref,values.selectedParticipantIds);setCatalogStatus(ok?'ready':'error')}catch{setCatalogStatus('error')}finally{setSplitBusy(false)}setSplitStage('configure');return}
+  if(trip){setSplitStage('configure');setSplitBusy(true);try{const ok=await onConfigureSplit(context.ref);setCatalogStatus(ok?'ready':'error')}catch{setCatalogStatus('error')}finally{setSplitBusy(false)}setSplitStage('configure');return}
   setSplitStage(context.ref.kind!=='personal'?'configure':'pick');setCatalogStatus('loading')
   setFriendIds(values.selectedParticipantIds.filter(id=>id!==context.currentParticipantId))
   try{setCatalog(await loadMoneyContextCatalog({isAnonymous:Boolean(authUser?.isAnonymous)}));setCatalogStatus('ready')}

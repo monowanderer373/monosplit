@@ -496,11 +496,14 @@ export function UniversalQuickAddProvider({
   }, [installSession])
 
   const configureSplit = useCallback(async (ref: MoneyContextRef, selectedIds?: string[]) => {
-    const active = sessionRef.current
+    let active = sessionRef.current
     if (!active || active.contextPolicy === 'locked') return false
     const generation=++resolutionGenerationRef.current
     const resolved = await resolveRef(ref)
-    if (generation!==resolutionGenerationRef.current || !resolved || sessionRef.current?.sessionId !== active.sessionId) return false
+    const latest = sessionRef.current
+    if (generation!==resolutionGenerationRef.current || !resolved || latest?.sessionId !== active.sessionId) return false
+    // Trip member refresh must keep allocation edits made while the read was pending.
+    if (active.context?.ref.kind==='space' && active.context.ref.spaceType==='trip' && latest.context && sameContext(active.context.ref,ref) && sameContext(latest.context.ref,ref)) active=latest
     if (selectedIds?.some(id => !resolved.availableParticipants.some(p => p.id === id))) return false
     if(active.context&&sameContext(active.context.ref,resolved.ref)&&resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'&&tripDraftPrincipalIds(selectedIds??active.values.selectedParticipantIds,active.values.payerAmounts,resolved.currentParticipantId).some(id=>!resolved.availableParticipants.some(p=>p.id===id)))return false
     const next = active.context && sameContext(active.context.ref,resolved.ref) ? {...active,context:resolved} : switchUniversalQuickAddContext(active, resolved)
