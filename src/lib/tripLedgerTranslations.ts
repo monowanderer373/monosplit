@@ -1,5 +1,6 @@
 export const tripLedgerTranslations={
  'tl.members':{en:'{{count}} members',zh:'{{count}} 位成员'},'tl.reviewOne':{en:'1 payment needs your review',zh:'1 笔付款需要你确认'},'tl.sentOne':{en:'1 payment awaiting confirmation',zh:'1 笔付款等待对方确认'},'tl.outstanding':{en:'Outstanding',zh:'当前往来'},'tl.awaiting':{en:'Awaiting payment',zh:'等待付款'},'tl.fullPartial':{en:'Full or partial repayment',zh:'全额或部分还款'},
+ 'tl.cannotAdd':{en:'You cannot add expenses to this trip right now.',zh:'此旅程当前不允许新增账目。'},
  'tl.expenses':{en:'Expenses',zh:'账目'},'tl.balances':{en:'Balances',zh:'结算'},'tl.history':{en:'History',zh:'历史记录'},'tl.summary':{en:'Trip summary',zh:'行程统计'},
  'tl.collect':{en:'To collect',zh:'待收回'},'tl.pay':{en:'To pay',zh:'待支付'},'tl.repay':{en:'Pay',zh:'还款'},'tl.none':{en:'You have no outstanding balance',zh:'你目前没有未结金额'},
  'tl.review':{en:'{{count}} payments need your review',zh:'{{count}} 笔付款需要你确认'},'tl.sent':{en:'{{count}} payments awaiting confirmation',zh:'{{count}} 笔付款等待对方确认'},
