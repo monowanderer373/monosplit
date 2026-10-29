@@ -16,7 +16,7 @@ Complete package README, execution prompt, specification, integration notes, acc
 ## Current validation
 
 - PASS baseline764units/112files. Current798units/115files, lint and TypeScript.
-- PASS12 browser cases on real React/CSS production graph:320/360/390/430,125/150/200%roottext, short viewport, Chinese long names,44px days, keyboard, visualViewport inset, endpoint/year/leap/same-day/range/postponed, save/cancel/return/reload/role/version/unknown result and two browser timezones. Browser data is isolated synthetic fixtures, not backend verification.
+- PASS14 browser cases on real React/CSS production graph:320/360/390/430,125/150/200%roottext, short viewport, Chinese long names,44px days, keyboard, visualViewport inset, endpoint/year/leap/same-day/range/postponed, save/cancel/return/reload/role/version/unknown result and two browser timezones. Browser data is isolated synthetic fixtures, not backend verification.
 - Native isolated backend and repository-wide CI pending: original five period journeys adapted, sixth real two-user conflict preserves ten financial tables per account after a real original expense, accepted settlement and cash legs.
 - Physical Honor, Android system Back/native keyboard, actual browser UI zoom and screen reader NOT RUN. Root-text emulation and Chromium keyboard coverage are not physical-device evidence.
 - Local Supabase blocked by previously evidenced Docker vfs storage; not retried. Disposable GitHub Actions runner is the supported backend validation route.
