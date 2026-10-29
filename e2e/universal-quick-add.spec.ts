@@ -26,7 +26,7 @@ test('keeps capture history and split cancellation separate without losing the d
   await capture.getByRole('button', { name: 'Close Quick Add' }).click()
 
   await page.goto(spaceUrl)
-  await page.getByRole('button', { name: '+ Add expense' }).click()
+  await page.getByRole('button', { name: 'Quick add expense', exact: true }).click()
   await enterQuickAmount(capture, '120')
   await capture.getByRole('button', { name: 'Food', exact: true }).click()
   await capture.getByRole('textbox', { name: 'Note' }).fill('Dinner')
@@ -95,7 +95,7 @@ test('preserves an explicit category and currency while adding and removing a sp
   await page.getByRole('checkbox', { name: 'Dates not decided yet', exact: true }).check()
   await page.getByRole('button', { name: 'Create', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Category Trip' })).toBeVisible()
-  await page.getByRole('button', { name: '+ Add expense' }).click()
+  await page.getByRole('button', { name: 'Quick add expense', exact: true }).click()
   const capture = page.getByRole('dialog', { name: 'Quick Add', exact: true })
   await enterQuickAmount(capture, '9.99')
   await capture.getByRole('button', { name: 'Shopping', exact: true }).click()
