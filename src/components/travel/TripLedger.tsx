@@ -14,7 +14,7 @@ import{categoryKey,useT,type TranslationKey}from'../../lib/i18n'
 import{formatMinorAmount}from'../../lib/money'
 import{formatDate,localeForLang}from'../../lib/locale'
 import{visibleSharedExpense}from'../../lib/sharedRestart'
-import{tripCurrentPayments,tripDebtLines,tripDirectionalTotals,tripLedgerView,type TripLedgerTab}from'../../lib/tripLedger'
+import{tripCurrentPayments,tripAuthoritativeExpenses,tripDebtLines,tripDirectionalTotals,tripLedgerView,type TripLedgerTab}from'../../lib/tripLedger'
 import{backFromTripLedgerView,openTripLedgerView,tripLedgerUi,setTripLedgerFocus,setTripLedgerScroll,setTripLedgerLimit}from'../../lib/tripLedgerNavigation'
 import{openTripMembers}from'../../lib/tripMembersNavigation'
 import{openTripDates}from'../../lib/tripDatesNavigation'
@@ -40,6 +40,7 @@ export default function TripLedger({entry,members,ledger,settlementState,refresh
  useEffect(()=>{setPageTarget({pathname:location.pathname,ready:canWrite,target:{kind:'space-candidate',spaceId:trip}});return()=>setPageTarget(null)},[setPageTarget,location.pathname,trip,canWrite])
  const all=useMemo(()=>Object.freeze(ledger.expenses.filter(e=>e.spaceId===trip).sort((a,b)=>b.occurredOn.localeCompare(a.occurredOn)||b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id))),[ledger.expenses,trip])
  const expenses=useMemo(()=>Object.freeze(all.filter(e=>e.status==='active')),[all])
+ const authoritative=useMemo(()=>Object.freeze(tripAuthoritativeExpenses(expenses)),[expenses])
  const visible=useMemo(()=>Object.freeze(expenses.filter(visibleSharedExpense)),[expenses])
  const context=useMemo(()=>({scope:'space' as const,spaceId:trip}),[trip]),payments=useMemo(()=>tripCurrentPayments(settlementState.settlements,trip),[settlementState.settlements,trip])
  const names=useMemo(()=>{const map=new Map<string,string>();for(const expense of all)for(const person of expense.participations)map.set(person.participantId,person.nameSnapshot);for(const m of members)map.set(m.participant.id,m.participant.displayName);return map},[all,members])
@@ -85,7 +86,7 @@ export default function TripLedger({entry,members,ledger,settlementState,refresh
   </section>
   <section id="tl-panel-balances" role={view==='main'?'tabpanel':undefined} aria-labelledby={view==='main'?'tl-tab-balances':undefined} hidden={!(view==='main'&&tab==='balances'||view==='history'&&history==='payments'&&!hidden)} data-testid="space-balances">
    {!ready?failed?<p>{t('tl.unavailable')}</p>:<p role="status">{t('common.loading')}</p>:null}
-   <div hidden={!ready||failed}><SettlementPanel context={context} currentParticipantId={self} participantNames={names} expenses={expenses} canPropose={canWrite} state={settlementState} view={view==='history'&&history==='payments'?'trip-history':'trip-current'} draftKey={actor+':'+self+':'+trip} onChanged={refresh}/></div>
+   <div hidden={!ready||failed}><SettlementPanel context={context} currentParticipantId={self} participantNames={names} expenses={authoritative} canPropose={canWrite} state={settlementState} view={view==='history'&&history==='payments'?'trip-history':'trip-current'} draftKey={actor+':'+self+':'+trip} onChanged={refresh}/></div>
    {view==='history'&&history==='payments'&&ready&&!failed&&!payments.length?<p>{t('tl.noPayments')}</p>:null}
   </section>
   {view==='history'&&hidden?<p>{t('notice.hiddenReview')} <button type="button" className="tl-text-button" onClick={()=>useStore.getState().setHomeUi({balanceHidden:false})}>{t('notice.show')}</button></p>:null}

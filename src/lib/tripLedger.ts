@@ -8,8 +8,10 @@ export function tripCurrentPayments(payments: readonly SettlementPayment[], spac
     .map(p => ({ ...p, allocations: p.allocations.filter(a => !a.sharedRestartCleared) }))
     .filter(p => p.allocations.length > 0)
 }
+/** The outbox's pending: rows are local recovery previews, never server debt facts. */
+export function tripAuthoritativeExpenses(expenses:readonly CanonicalExpense[]){return expenses.filter(expense=>!expense.id.startsWith('pending:'))}
 export function tripDebtLines(expenses: readonly CanonicalExpense[], payments: readonly SettlementPayment[], spaceId: string) {
-  return deriveRelationalDebtLines(expenses, tripCurrentPayments(payments, spaceId), { scope: 'space', spaceId })
+  return deriveRelationalDebtLines(tripAuthoritativeExpenses(expenses), tripCurrentPayments(payments, spaceId), { scope: 'space', spaceId })
 }
 export function tripDirectionalTotals(lines: readonly RelationalDebtLine[], participant: string) {
   const totals = new Map<string, { currency: string; collectMinor: number; payMinor: number }>()
