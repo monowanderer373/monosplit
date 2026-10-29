@@ -36,7 +36,7 @@ export async function openManualPerson(page: Page): Promise<void> {
 }
 
 export async function openCreateSpace(page: Page, type: 'trip'|'group'='trip'): Promise<void> {
-  await page.getByRole('button',{name:type==='trip'?'Trips':'Groups',exact:true}).click()
+  await page.getByRole('tab',{name:type==='trip'?'Trips':'Groups',exact:true}).click()
   await page.getByRole('button',{name:type==='trip'?'Create trip':'Create group',exact:true}).first().click()
   await expect(page.getByRole('textbox', { name:'Name', exact: true })).toBeVisible()
 }
