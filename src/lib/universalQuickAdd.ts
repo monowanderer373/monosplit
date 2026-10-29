@@ -51,6 +51,8 @@ export type UniversalQuickAddSession = Readonly<{
   contextPolicy: ContextSwitchPolicy
   context: ResolvedMoneyContext | null
   followPageContext?: boolean
+  selectionInitialized?: boolean
+  participantOrder?: string[]
   originalContext: MoneyContextRef | null
   values: UniversalQuickAddValues
 }>
@@ -67,6 +69,7 @@ export type CreateQuickAddSessionInput = Readonly<{
   followPageContext?: boolean
   originalContext?: MoneyContextRef | null
   initialValues?: Partial<UniversalQuickAddValues>
+  participantOrder?: string[]
 }>
 
 export type SaveFeedbackState =
@@ -80,10 +83,19 @@ export function todayIso(): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+/** Preserve the reviewed Trip order while names/permissions come from the fresh authorized snapshot. */
+export function orderTripContext(context:ResolvedMoneyContext, order:readonly string[]=[]):ResolvedMoneyContext {
+  if(context.ref.kind!=='space'||context.ref.spaceType!=='trip'||!order.length)return context
+  const rows=new Map(context.availableParticipants.map(p=>[p.id,p]))
+  const ids=[...new Set([...order,...context.availableParticipants.map(p=>p.id)])]
+  return {...context,availableParticipants:ids.flatMap(id=>rows.has(id)?[rows.get(id)!]:[])}
+}
+
 export function defaultSelectedParticipantIds(
   context: ResolvedMoneyContext,
 ): string[] {
   const allIds = context.availableParticipants.map((participant) => participant.id)
+  if (context.ref.kind === 'space' && context.ref.spaceType === 'trip') return [context.currentParticipantId]
   if (context.ref.kind !== 'person') return allIds
 
   const personId = context.ref.participantId
@@ -125,6 +137,8 @@ export function createUniversalQuickAddSession(
     contextPolicy: input.contextPolicy ?? 'switchable',
     context,
     followPageContext: input.followPageContext,
+    selectionInitialized: !!context || input.initialValues?.selectedParticipantIds !== undefined,
+    participantOrder: input.participantOrder ?? (context?.ref.kind === 'space' && context.ref.spaceType === 'trip' ? context.availableParticipants.map(p=>p.id) : undefined),
     originalContext: input.originalContext ?? context?.ref ?? null,
     values: {
       ...createDefaultValues(context),
@@ -220,6 +234,7 @@ export function switchUniversalQuickAddContext(
   return {
     ...session,
     context: nextContext,
+    participantOrder: nextContext.ref.kind === 'space' && nextContext.ref.spaceType === 'trip' ? nextContext.availableParticipants.map(p=>p.id) : undefined,
     values: {
       ...session.values,
       currency: nextContext.defaultCurrency,

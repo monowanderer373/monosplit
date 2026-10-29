@@ -40,3 +40,10 @@
 #root [data-testid="trip-members-dialog"] input,#root [data-testid="trip-members-dialog"] select{max-width:100%}
 
 #root .tm-page .tm-more{display:grid;place-items:center;font-size:1.375rem;line-height:1}
+
+#root .tm-page .tm-row{grid-template-columns:44px minmax(0,1fr) auto}
+#root .tm-row-actions{display:flex;align-items:center;justify-content:end;gap:4px;min-width:0;max-width:100%;flex-wrap:wrap}
+#root .tm-page .tm-friend-add{min-width:44px;min-height:44px;border:0;border-radius:14px;padding:8px;background:#dfedf2;color:var(--ms-primary);font-size:.875rem;font-weight:700;white-space:normal;overflow-wrap:anywhere}
+#root .tm-friend-status{font-size:.75rem;color:var(--ms-text-secondary);line-height:1.5;overflow-wrap:anywhere}
+#root .tm-list{container-type:inline-size}
+@container (max-width:17rem){#root .tm-page .tm-row{grid-template-columns:44px minmax(0,1fr)}#root .tm-row-actions{grid-column:2;justify-self:end}}

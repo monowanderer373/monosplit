@@ -76,3 +76,8 @@
 .tt-shared-a .ttsa-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:359px){.tt-shared-a .ttsa-content{padding-inline:16px}.tt-shared-a .ttsa-row{gap:8px}.tt-shared-a .ttsa-row.is-long .ttsa-money{grid-column:2/5}.tt-shared-a .ttsa-currency{flex-basis:100%;justify-content:flex-end}}
 @media(prefers-reduced-motion:reduce){.tt-shared-a .ttsa-action-face{transition:none}.tt-shared-a .ttsa-action:not(:disabled):active .ttsa-action-face{transform:none}}
+
+.ttsa-friend-request{padding:18px;margin:12px 0;border:1px solid var(--ms-border);border-radius:20px;background:var(--ms-surface);overflow-wrap:anywhere}
+.ttsa-friend-request h2{font-size:1.125rem;margin:0 0 8px}.ttsa-friend-request p{color:var(--ms-text-secondary);line-height:1.5}
+.ttsa-friend-request>div{display:flex;flex-wrap:wrap;gap:12px}.ttsa-friend-request button{flex:1 1 100px;min-height:44px;border:1px solid var(--ms-border);border-radius:14px;padding:10px;font:inherit;background:#efede6;color:var(--ms-text)}
+.ttsa-friend-request button:last-child{background:var(--ms-primary);color:white}.ttsa-friend-request button:disabled{opacity:.5}.ttsa-friend-error{line-height:1.5;overflow-wrap:anywhere}.ttsa-friend-error button{min-height:44px;font:inherit;color:var(--ms-primary)}

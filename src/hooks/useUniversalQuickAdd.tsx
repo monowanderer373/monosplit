@@ -1,3 +1,4 @@
+import {tripFinancialParticipantIds,tripDraftPrincipalIds} from '../lib/tripSplit'
 import {
   createContext,
   useCallback,
@@ -20,6 +21,7 @@ import type { MoneyContextRef, RouteMoneyContext } from '../lib/moneyContext'
 import { resolveMoneyContext } from '../lib/moneyContextCatalog'
 import {
   createUniversalQuickAddSession,
+  orderTripContext,
   hasCustomContextConfiguration,
   remapQuickAddParticipant,
   switchUniversalQuickAddContext,
@@ -46,6 +48,7 @@ type OpenRequest = Readonly<{
   contextPolicy?: ContextSwitchPolicy
   captureSource?: UniversalQuickAddSession['captureSource']
   initialValues?: Partial<UniversalQuickAddValues>
+  participantOrder?: string[]
   clientRequestId?: string
   followPageContext?: boolean
   directDeepLink?: boolean
@@ -136,7 +139,7 @@ export function UniversalQuickAddProvider({
     ref: MoneyContextRef,
   ): Promise<ResolvedMoneyContext | null> => {
     if (!authUser?.participantId) return null
-    return resolveMoneyContext({
+    const resolved=await resolveMoneyContext({
       ref,
       currentParticipant: {
         id: authUser.participantId,
@@ -146,6 +149,8 @@ export function UniversalQuickAddProvider({
       defaultCurrency: authUser.defaultCurrency ?? 'MYR',
       isAnonymous: Boolean(authUser.isAnonymous),
     })
+    const active=sessionRef.current,previous=active?.context?.ref??active?.originalContext
+    return resolved&&previous&&sameContext(previous,resolved.ref)?orderTripContext(resolved,active?.participantOrder):resolved
   }, [authUser])
 
   const resolveEntryContext = useCallback(async (
@@ -181,7 +186,7 @@ export function UniversalQuickAddProvider({
       const entryValues = ref.kind === 'person' && resolved.ref.kind === 'person'
         ? remapQuickAddParticipant(active.values, ref.participantId, resolved.ref.participantId)
         : active.values
-      if (entryValues.selectedParticipantIds.some(id => !resolved.availableParticipants.some(p => p.id === id))) {
+      if ((resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'?tripDraftPrincipalIds(entryValues.selectedParticipantIds,entryValues.payerAmounts,resolved.currentParticipantId):entryValues.selectedParticipantIds).some(id => !resolved.availableParticipants.some(p => p.id === id))) {
         setContextError(true)
         history.replace({ step: 'gate', startedAtMs: active.startedAtMs })
         return
@@ -190,17 +195,19 @@ export function UniversalQuickAddProvider({
         ...active,
         clientRequestId: active.originalContext && !sameContext(active.originalContext, resolved.ref) ? generateId() : active.clientRequestId,
         context: resolved,
+        selectionInitialized: true,
+        participantOrder: resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'?resolved.availableParticipants.map(p=>p.id):undefined,
         originalContext: active.originalContext ?? resolved.ref,
         values: active.context
           ? entryValues
           : {
               ...entryValues,
               currency: entryValues.selectedParticipantIds.length ? entryValues.currency : resolved.defaultCurrency,
-              selectedParticipantIds: entryValues.selectedParticipantIds.length
-                ? [...new Set([resolved.currentParticipantId, ...entryValues.selectedParticipantIds.filter(id => resolved.availableParticipants.some(p => p.id === id))])]
+              selectedParticipantIds: entryValues.selectedParticipantIds.length || (resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'&&active.selectionInitialized)
+                ? [...new Set([...(resolved.ref.kind === 'space' && resolved.ref.spaceType === 'trip' ? [] : [resolved.currentParticipantId]), ...entryValues.selectedParticipantIds])]
                 : resolved.ref.kind === 'person'
                   ? [resolved.currentParticipantId, resolved.ref.participantId]
-                  : active.followPageContext ? [resolved.currentParticipantId] : resolved.availableParticipants.map((participant) => participant.id),
+                  : active.followPageContext || resolved.ref.kind === 'space' && resolved.ref.spaceType === 'trip' ? [resolved.currentParticipantId] : resolved.availableParticipants.map((participant) => participant.id),
             },
       }
       installSession(next)
@@ -246,6 +253,7 @@ export function UniversalQuickAddProvider({
       followPageContext: request.followPageContext,
       context: resolved,
       originalContext: resolved?.ref ?? unresolved,
+      participantOrder: request.participantOrder??restore?.participantOrder??restore?.context?.availableParticipants.map(p=>p.id),
       initialValues: request.initialValues ?? restore?.values ?? (request.followPageContext && resolved?.ref.kind === 'space' ? { selectedParticipantIds: [resolved.currentParticipantId] } : undefined),
     })
     callbacksRef.current = {
@@ -400,7 +408,7 @@ export function UniversalQuickAddProvider({
     const active = sessionRef.current
     // An explicit gate choice starts a reviewed split, preserving the amount
     // and note while discarding an unavailable draft's financial allocation.
-    if (active && !active.context) installSession({ ...active, values: {
+    if (active && !active.context) installSession({ ...active, selectionInitialized:false, values: {
       ...active.values, selectedParticipantIds: [], splitMode: 'equal', exactShareAmounts: {}, payerAmounts: {}, items: [],
     } })
     void resolveEntryContext(context)
@@ -490,16 +498,18 @@ export function UniversalQuickAddProvider({
   const configureSplit = useCallback(async (ref: MoneyContextRef, selectedIds?: string[]) => {
     const active = sessionRef.current
     if (!active || active.contextPolicy === 'locked') return false
+    const generation=++resolutionGenerationRef.current
     const resolved = await resolveRef(ref)
-    if (!resolved || sessionRef.current?.sessionId !== active.sessionId) return false
+    if (generation!==resolutionGenerationRef.current || !resolved || sessionRef.current?.sessionId !== active.sessionId) return false
     if (selectedIds?.some(id => !resolved.availableParticipants.some(p => p.id === id))) return false
-    const next = switchUniversalQuickAddContext(active, resolved)
+    if(active.context&&sameContext(active.context.ref,resolved.ref)&&resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'&&tripDraftPrincipalIds(selectedIds??active.values.selectedParticipantIds,active.values.payerAmounts,resolved.currentParticipantId).some(id=>!resolved.availableParticipants.some(p=>p.id===id)))return false
+    const next = active.context && sameContext(active.context.ref,resolved.ref) ? {...active,context:resolved} : switchUniversalQuickAddContext(active, resolved)
     installSession({ ...next, clientRequestId: active.context && !sameContext(active.context.ref, resolved.ref) ? generateId() : active.clientRequestId, values: { ...next.values,
       currency: active.values.currency,
       category: active.values.category,
       categorySource: active.values.categorySource,
       selectedParticipantIds: selectedIds
-        ? [...new Set([resolved.currentParticipantId, ...selectedIds.filter(id => resolved.availableParticipants.some(p => p.id === id))])]
+        ? [...new Set([...(resolved.ref.kind === 'space' && resolved.ref.spaceType === 'trip' ? [] : [resolved.currentParticipantId]), ...selectedIds])]
         : next.values.selectedParticipantIds,
     } })
     return true
@@ -531,16 +541,18 @@ export function UniversalQuickAddProvider({
       if (draftChoice === 'resume' && stored) {
         values = stored.values
         if (stored.context?.ref.kind === 'person' && resolved.ref.kind === 'person') values = remapQuickAddParticipant(values, stored.context.ref.participantId, resolved.ref.participantId)
-        if (values.selectedParticipantIds.some(id => !resolved.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'unavailable' }
+        if ((resolved.ref.kind==='space'&&resolved.ref.spaceType==='trip'?tripDraftPrincipalIds(values.selectedParticipantIds,values.payerAmounts,resolved.currentParticipantId):values.selectedParticipantIds).some(id => !resolved.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'unavailable' }
       } else {
         let ids = selectedIds ?? (same ? values.selectedParticipantIds : [resolved.currentParticipantId])
         if (ref.kind === 'person' && resolved.ref.kind === 'person') ids = ids.map(id => id === ref.participantId ? resolved.ref.kind === 'person' ? resolved.ref.participantId : id : id)
-        ids = [...new Set([resolved.currentParticipantId, ...ids])]
+        ids = [...new Set([...(resolved.ref.kind === 'space' && resolved.ref.spaceType === 'trip' ? [] : [resolved.currentParticipantId]), ...ids])]
         if (ids.some(id => !resolved.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'unavailable' }
         const keepAllocation = same && ids.length === values.selectedParticipantIds.length && ids.every(id => values.selectedParticipantIds.includes(id))
         values = { ...values, selectedParticipantIds: ids, ...(keepAllocation ? {} : { splitMode: 'equal' as const, exactShareAmounts: {}, payerAmounts: {}, items: [], detailsExpanded: false }) }
       }
-      const next = { ...latest, context: resolved, clientRequestId: draftChoice === 'resume' && stored ? stored.clientRequestId : same ? latest.clientRequestId : generateId(), values }
+      const participantOrder=draftChoice==='resume'&&stored?(stored.participantOrder??stored.context?.availableParticipants.map(p=>p.id)):same?latest.participantOrder:undefined
+      const orderedContext=orderTripContext(resolved,participantOrder)
+      const next = { ...latest, context: orderedContext, participantOrder: orderedContext.ref.kind==='space'&&orderedContext.ref.spaceType==='trip'?orderedContext.availableParticipants.map(p=>p.id):undefined, clientRequestId: draftChoice === 'resume' && stored ? stored.clientRequestId : same ? latest.clientRequestId : generateId(), values }
       installSession(next)
       history.replace({ step: 'capture', context: resolved.ref, startedAtMs: next.startedAtMs })
       return { ok: true, session: next }
@@ -560,6 +572,11 @@ export function UniversalQuickAddProvider({
     let context = active?.context
     if (!active || !context) return { ok: false, error: 'invalid_context' }
     let values = { ...active.values, ...options?.values }
+    if (context.ref.kind === 'space') {
+      const resolved = await resolveRef(context.ref)
+      if (!resolved || sessionRef.current?.sessionId !== active.sessionId) return { ok: false, error: 'invalid_context' }
+      context = resolved
+    }
     if (context.ref.kind === 'person') {
       const previousParticipantId = context.ref.participantId
       const resolved = await resolveRef(context.ref)
@@ -577,9 +594,11 @@ export function UniversalQuickAddProvider({
       )
     }
     if (values.selectedParticipantIds.some(id => !context.availableParticipants.some(p => p.id === id))) return { ok: false, error: 'invalid_context' }
-    const participants = context.availableParticipants.filter((participant) =>
-      values.selectedParticipantIds.includes(participant.id),
-    )
+    const trip = context.ref.kind === 'space' && context.ref.spaceType === 'trip'
+    let financialIds = values.selectedParticipantIds
+    try { if (trip) financialIds = tripFinancialParticipantIds({consumers: values.selectedParticipantIds, payerAmounts: values.payerAmounts, currency: values.currency, recorder: context.currentParticipantId}) } catch { return {ok:false,error:'invalid_payers'} }
+    if (financialIds.some(id => !context.availableParticipants.some(p => p.id === id))) return {ok:false,error:'invalid_context'}
+    const participants = context.availableParticipants.filter(participant => financialIds.includes(participant.id))
     const scope =
       context.ref.kind === 'personal'
         ? 'personal'
@@ -598,6 +617,7 @@ export function UniversalQuickAddProvider({
       category: values.category || 'Other',
       occurredOn: values.occurredOn,
       participants,
+      ...(trip ? {consumerParticipantIds: values.selectedParticipantIds} : {}),
       payerAmounts: values.payerAmounts,
       splitMode: values.splitMode,
       exactShareAmounts: values.exactShareAmounts,
@@ -619,7 +639,7 @@ export function UniversalQuickAddProvider({
     writeQuickDraft(identityKey, null, context.ref)
     if (options?.continueAdding && active.captureSource === 'manual' ) {
       const personal = context.availableParticipants.find(p => p.id === context.currentParticipantId)!
-      const nextContext: ResolvedMoneyContext = active.contextPolicy === 'locked' || active.followPageContext ? context : {
+      const nextContext: ResolvedMoneyContext = active.contextPolicy === 'locked' || active.followPageContext || trip ? context : {
         ref: { kind: 'personal' }, currentParticipantId: personal.id,
         availableParticipants: [personal], defaultCurrency: values.currency,
       }

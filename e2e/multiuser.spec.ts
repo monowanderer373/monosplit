@@ -5,6 +5,7 @@ import {
   closeBrowsers,
   copyInviteUrl,
   createConfirmedAccount,
+  serverExpenseCount,
   createSpaceInvite,
   openTripMemberManager,
   returnFromTripMemberManager,
@@ -301,9 +302,32 @@ test.describe('local relational multi-user journey', () => {
 
     await staleDialog.getByRole('button', { name: 'Food', exact: true }).click()
     await staleDialog.getByRole('button', { name: 'Save and close' }).click()
-    const rejected = member.getByRole('article').filter({ hasText: 'Rejected stale role' })
-    await expect(rejected.getByText('Needs attention')).toBeVisible()
-    await expect(rejected.getByRole('button', { name: 'Retry' })).toBeVisible()
+    // Revalidation now rejects a known downgrade before enqueue; retain every draft value.
+    await expect(staleDialog.getByRole('alert')).toBeVisible()
+    await expect(staleDialog.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('3.33')
+    await expect(staleDialog.getByRole('textbox',{name:'Note',exact:true})).toHaveValue('Rejected stale role')
+    expect(await serverExpenseCount(beta,'Rejected stale role')).toBe(0)
+
+    // Also retain the original server/outbox witness: downgrade after the fresh read,
+    // while the real mutation request is in flight, without stubbing its response.
+    await setTripMemberRole(owner,'Beta','full_access')
+    await waitForSpaceRole(beta,spaceId,'full_access')
+    let mutationArrived!:()=>void,releaseMutation!:()=>void
+    const arrived=new Promise<void>(resolve=>{mutationArrived=resolve})
+    const release=new Promise<void>(resolve=>{releaseMutation=resolve})
+    const mutationPattern='**/rest/v1/rpc/create_expense*'
+    await member.route(mutationPattern,async route=>{mutationArrived();await release;await route.continue()})
+    try{
+      await staleDialog.getByRole('button',{name:'Save and close'}).click()
+      await arrived
+      await setTripMemberRole(owner,'Beta','view')
+      await waitForSpaceRole(beta,spaceId,'view')
+      releaseMutation()
+      const rejected = member.getByRole('article').filter({ hasText: 'Rejected stale role' })
+      await expect(rejected.getByText('Needs attention')).toBeVisible()
+      await expect(rejected.getByRole('button', { name: 'Retry' })).toBeVisible()
+      expect(await serverExpenseCount(beta,'Rejected stale role')).toBe(0)
+    }finally{releaseMutation();await member.unroute(mutationPattern)}
   })
 
     await test.step('observe an authorized expense through Realtime in another context', async () => {
@@ -343,8 +367,13 @@ async function addExpense(
   await enterQuickAmount(dialog, input.amount)
   await dialog.getByRole('textbox', { name: 'Note', exact: true }).fill(input.description)
 
-  if (input.exactShares || input.payers) {
+  {
     const split = await openQuickSplit(dialog, page)
+    // These financial regression witnesses intentionally consume as all members; new Trip defaults are self-only.
+    const selectAll=split.getByRole('button',{name:'Select all',exact:true})
+    await selectAll.click()
+    if(input.description==='Remainder dinner')await expect(split.getByRole('checkbox').and(split.locator(':checked'))).toHaveCount(4)
+    if(input.description==='Remainder dinner')await expect(split.locator('.qa-split-person').filter({has:page.getByRole('checkbox',{name:'You',exact:true})})).toContainText('RM 2.51')
     if (input.exactShares) {
       await split.getByRole('button', { name: 'Amounts', exact: true }).click()
       for (const [name, amount] of Object.entries(input.exactShares)) {
@@ -384,7 +413,7 @@ async function saveCapture(page: Page, description: string, amount: string): Pro
 
 async function expectShare(page: Page, description: string, amount: string): Promise<void> {
   const expense = page.getByRole('article').filter({ hasText: description })
-  await expect(expense.getByText(`Your share ${amount}`)).toBeVisible()
+  await expect(expense).toContainText(`Your share ${amount}`)
 }
 
 async function expectDebt(page: Page, label: string, amount: string): Promise<void> {

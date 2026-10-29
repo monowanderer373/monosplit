@@ -1,3 +1,5 @@
+import {useTripMembership} from '../hooks/useTripMembership'
+import {tripFinancialParticipantIds} from '../lib/tripSplit'
 import AmountInput from './AmountInput'
 import { capitalizeDescription } from '../lib/description'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -38,7 +40,10 @@ type Props = {
   statusNotice?: string
 }
 
-export default function ExpenseActionSheet({
+export default function ExpenseActionSheet(props:Props) {
+  return <ExpenseActionSheetContent key={props.currentParticipantId+':'+props.expense.id+':'+props.expense.spaceId} {...props}/>
+}
+function ExpenseActionSheetContent({
   expense, currentParticipantId, spaceRole = null, pendingRequest = null,
   onCancelExpense, onRefresh, statusNotice = '', trigger, triggerClassName, contextLabel, readOnlyFallback = false,
 }: Props) {
@@ -49,9 +54,15 @@ export default function ExpenseActionSheet({
   const zh = lang === 'zh'
   const copy = (en: string, cn: string) => zh ? cn : en
   const [open, setOpen] = useState(false)
+  const members=useTripMembership(open&&expense.scope==='space'?currentParticipantId+':'+expense.id+':'+expense.version:'',currentParticipantId,expense.spaceId??'')
+  const knownSpace=useRef<{id:string;type:string;name:string}|null>(null)
+  if(members.data)knownSpace.current={id:expense.spaceId??'',type:members.data.entry.space.type,name:members.data.entry.space.name}
+  const trip=expense.scope==='space'&&knownSpace.current?.id===expense.spaceId&&knownSpace.current.type==='trip'
+  const tripName=members.data?.entry.space.name??knownSpace.current?.name??contextLabel??'Trip'
   const [closing, setClosing] = useState(false)
   const [requestedMode, setMode] = useState<EditorMode>('financial')
   const [splitOpen, setSplitOpen] = useState(false)
+  const [appliedTripSplit,setAppliedTripSplit]=useState<SplitValues|null>(null)
   const [splitDraft, setSplitDraft] = useState<SplitValues | null>(null)
   const [draftScope, setDraftScope] = useState(expense.scope)
   const [editPeople, setEditPeople] = useState(() => expense.participations.map(person => ({ participantId: person.participantId, nameSnapshot: person.nameSnapshot })))
@@ -87,6 +98,7 @@ export default function ExpenseActionSheet({
   const draftActive = useRef(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const busy = useRef(false)
+  const correctionAttempt=useRef<{key:string;id:string}|null>(null)
   const orderedParticipations = useMemo(() => [...expense.participations].sort((a, b) => a.order - b.order), [expense.participations])
   const policy = useMemo(() => deriveExpenseActionPolicy({ expense, currentParticipantId, spaceRole, pendingRequest }), [expense, currentParticipantId, spaceRole, pendingRequest])
   const initialMode = (): EditorMode => {
@@ -95,8 +107,9 @@ export default function ExpenseActionSheet({
     return policy.actions.includes('edit_metadata') ? 'metadata' : policy.actions.includes('view_request') || !readOnlyFallback ? 'view_request' : 'read_only'
   }
   // Re-evaluate edit authority if a shared participant responds while open.
-  const mode = requestedMode === 'cancel' || requestedMode === 'request_cancellation' ? requestedMode : initialMode()
-  const mutationBlocked = failClosed || policy.mutationBlocked
+  const mode = trip&&members.data?.entry.role==='view' ? 'read_only' : requestedMode === 'cancel' || requestedMode === 'request_cancellation' ? requestedMode : initialMode()
+  const staleTripDraft=trip&&open&&(expense.id!==baseline.current.expenseId||expense.version!==baseline.current.version)
+  const mutationBlocked = (trip&&members.status!=='ready') || staleTripDraft || failClosed || policy.mutationBlocked
     || (mode === 'cancel' && !policy.actions.includes('cancel'))
     || (mode === 'request_cancellation' && !policy.actions.includes('request_cancellation'))
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
@@ -124,6 +137,8 @@ export default function ExpenseActionSheet({
       setError('')
       setNotice('')
       setSplitOpen(false)
+      setAppliedTripSplit(null)
+      correctionAttempt.current=null
       draftActive.current = true
     }
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -138,6 +153,7 @@ export default function ExpenseActionSheet({
   const editing = ['metadata', 'financial', 'correction', 'space_correction'].includes(mode)
   const shared = draftScope !== 'personal'
   const canChangeType = mode === 'financial' && expense.scope !== 'space' && !expense.correctsExpenseId
+  const canChangeTripSplit = trip && mode==='space_correction' && !mutationBlocked && members.status==='ready'
   const scopeChanged = draftScope !== baseline.current.payload.scope
   const sharedNames = orderedParticipations.filter(person => person.participantId !== currentParticipantId).map(person => person.nameSnapshot).join(', ')
   const subtitle = contextLabel ?? (shared ? copy(`Shared with ${sharedNames}`, `与 ${sharedNames} 共享`) : copy('Personal expense', '个人账目'))
@@ -171,22 +187,27 @@ export default function ExpenseActionSheet({
     setSplitOpen(false)
   }
 
-  const splitPeople = Array.from(new Map([...editPeople, ...(canChangeType ? friends : [])].map(person => [person.participantId, person])).values())
+  const tripCandidates=trip&&members.data?members.data.members.map(row=>({participantId:row.participant.id,nameSnapshot:row.participant.displayName})):[]
+  const splitPeople = Array.from(new Map([...editPeople, ...(canChangeType ? friends : []), ...tripCandidates.filter(row=>!editPeople.some(p=>p.participantId===row.participantId))].map(person => [person.participantId, person])).values())
   const openSplitPanel = () => {
-    setSplitDraft({ amount: total, currency, selectedParticipantIds: editPeople.map(person => person.participantId), splitMode: 'exact', exactShareAmounts: {...shares}, payerAmounts: {...paid}, detailsExpanded: false })
+    if(trip&&appliedTripSplit){setSplitDraft({...appliedTripSplit,amount:total,currency,exactShareAmounts:{...shares},payerAmounts:{...paid}});setSplitOpen(true);return}
+    setSplitDraft({ amount: total, currency, selectedParticipantIds: editPeople.filter(person=>!trip||parseNonnegativeMajor(shares[person.participantId]??'',currency)>0).map(person => person.participantId), splitMode: 'exact', exactShareAmounts: {...shares}, payerAmounts: {...paid}, detailsExpanded: false })
     setSplitOpen(true)
   }
   const applySplitPanel = () => {
     if (!splitDraft) return
     if (mode !== 'metadata') {
-      const people = splitPeople.filter(person => splitDraft.selectedParticipantIds.includes(person.participantId))
+      if(trip)setAppliedTripSplit(splitDraft)
+      const consumers=splitDraft.selectedParticipantIds
+      const financialIds=trip?tripFinancialParticipantIds({consumers,payerAmounts:splitDraft.payerAmounts,currency,originalIds:editPeople.map(p=>p.participantId),...(!Object.values(splitDraft.payerAmounts).some(raw=>raw.trim())?{recorder:currentParticipantId}:{})}):consumers
+      const people = splitPeople.filter(person => financialIds.includes(person.participantId))
       if (canChangeType) people.sort((a,b) => a.participantId === currentParticipantId ? -1 : b.participantId === currentParticipantId ? 1 : 0)
       const minor = parseMajorAmount(total, currency)
-      const equal = equalMinorShares(minor, people.map(person => person.participantId))
+      const equal = equalMinorShares(minor, trip?people.filter(person=>consumers.includes(person.participantId)).map(person=>person.participantId):people.map(person => person.participantId))
       setEditPeople(people)
       if (canChangeType) setDraftScope('direct')
-      setShares(splitDraft.splitMode === 'equal' ? Object.fromEntries(people.map(person => [person.participantId, minorInput(equal.get(person.participantId) ?? 0, currency)])) : {...splitDraft.exactShareAmounts})
-      setPaid(Object.values(splitDraft.payerAmounts).some(value => value.trim()) ? {...splitDraft.payerAmounts} : Object.fromEntries(people.map(person => [person.participantId, minorInput(person.participantId === currentParticipantId ? minor : 0, currency)])))
+      setShares(splitDraft.splitMode === 'equal' ? Object.fromEntries(people.map(person => [person.participantId, minorInput(equal.get(person.participantId) ?? 0, currency)])) : trip?Object.fromEntries(people.map(person=>[person.participantId,consumers.includes(person.participantId)?splitDraft.exactShareAmounts[person.participantId]??'0':'0'])):{...splitDraft.exactShareAmounts})
+      setPaid(Object.values(splitDraft.payerAmounts).some(value => value.trim()) ? trip?Object.fromEntries(people.map(person=>[person.participantId,splitDraft.payerAmounts[person.participantId]??'0'])):{...splitDraft.payerAmounts} : Object.fromEntries(people.map(person => [person.participantId, minorInput(person.participantId === currentParticipantId ? minor : 0, currency)])))
     }
     setSplitOpen(false)
   }
@@ -246,14 +267,17 @@ export default function ExpenseActionSheet({
   }
   const save = async (payload: ExpenseFinancialPayload) => {
     const moneyChanged = financialEditsChanged(baseline.current.payload, payload)
+    const attemptKey=JSON.stringify([baseline.current.expenseId,baseline.current.version,payload])
+    if(!correctionAttempt.current||correctionAttempt.current.key!==attemptKey)correctionAttempt.current={key:attemptKey,id:generateId()}
+    const requestId=correctionAttempt.current.id
     if (mode === 'metadata' && moneyChanged) { setFailClosed(true); return }
     await runMutation(async () => {
       if (!moneyChanged || mode === 'financial') {
         await saveExpenseEdits(baseline.current, payload, ledgerRepository, applied => { baseline.current = applied })
       } else if (mode === 'correction') {
-        await expenseChangeRepository.proposeDirectChange({ requestId: generateId(), targetExpenseId: expense.id, expectedTargetVersion: expense.version, kind: 'correction', replacement: payload })
+        await expenseChangeRepository.proposeDirectChange({ requestId, targetExpenseId: baseline.current.expenseId, expectedTargetVersion: baseline.current.version, kind: 'correction', replacement: payload })
       } else if (mode === 'space_correction') {
-        await expenseChangeRepository.correctSpaceExpense({ requestId: generateId(), targetExpenseId: expense.id, expectedVersion: expense.version, replacement: payload })
+        await expenseChangeRepository.correctSpaceExpense({ requestId, targetExpenseId: baseline.current.expenseId, expectedVersion: baseline.current.version, replacement: payload })
       }
     })
   }
@@ -299,6 +323,7 @@ export default function ExpenseActionSheet({
         <button type="button" className="ms-btn-primary" onClick={() => setHomeUi({ balanceHidden: false })}>{t('mc.common.reveal')}</button>
       </section> : <form className="expense-editor-form" onSubmit={event => { event.preventDefault(); if (editing) submit(); else if (mode === 'cancel' || mode === 'request_cancellation') void cancel() }}>
         {partialSave ? <p className="expense-editor-notice" role="status">{copy('Amount and split saved. Details are not saved yet; retry saves only the remaining details.', '金额与分摊已保存，资料尚未保存；重试只会保存剩余资料。')}</p> : null}
+        {staleTripDraft?<p className="expense-editor-notice" role="alert">{copy('This record changed while you were editing. Close and reopen it to review the latest version. Your old draft was not submitted.','编辑期间此记录已改变。请关闭并重新打开核对最新版本，旧草稿未提交。')}</p>:null}
         {notice ? <p className="expense-editor-notice" role="status">{notice}</p> : null}
         {error || statusNotice ? <p className="expense-editor-error" role="alert">{error ? t(error) : statusNotice}</p> : null}
         {mode === 'read_only' ? <section className="expense-editor-review" data-testid="record-readonly-details">
@@ -354,7 +379,7 @@ export default function ExpenseActionSheet({
             <span>{copy('Paid', '支付')}: <SummaryAmount before={baseline.current.payload.contributionAmounts[baseline.current.payload.participantIds.indexOf(person.participantId)] ?? 0} beforeCurrency={baseline.current.payload.currency} after={draft.contributionAmounts[draft.participantIds.indexOf(person.participantId)] ?? 0} currency={draft.currency} /></span>
             <span>{copy('Share', '分摊')}: <SummaryAmount before={baseline.current.payload.shareAmounts[baseline.current.payload.participantIds.indexOf(person.participantId)] ?? 0} beforeCurrency={baseline.current.payload.currency} after={draft.shareAmounts[draft.participantIds.indexOf(person.participantId)] ?? 0} currency={draft.currency} /></span>
           </div>)}</div>
-          {financialChanged && mode === 'correction' ? <p className="expense-editor-hint">{t('expenseAction.noEffectUntilApproved')}</p> : financialChanged && mode === 'space_correction' ? <p className="expense-editor-hint">{t('expenseAction.unchangedPrincipals')}</p> : financialChanged && policy.financialEditRequiresReconfirmation ? <p className="expense-editor-hint">{t('expenseAction.reconfirmWarning')}</p> : null}
+          {financialChanged && mode === 'correction' ? <p className="expense-editor-hint">{t('expenseAction.noEffectUntilApproved')}</p> : financialChanged && mode === 'space_correction' ? <p className="expense-editor-hint">{trip?copy('Saving creates an authorized correction. Previous records and payments remain in history.','保存将创建经授权的更正，旧记录和付款历史保留。'):t('expenseAction.unchangedPrincipals')}</p> : financialChanged && policy.financialEditRequiresReconfirmation ? <p className="expense-editor-hint">{t('expenseAction.reconfirmWarning')}</p> : null}
         </div> : null}
         {mode === 'cancel' || mode === 'request_cancellation' ? <div className="expense-editor-cancel-confirm"><p>{expenseName}</p><p>{t(mode === 'cancel' ? 'expenseAction.cancelHelp' : 'expenseAction.cancellationRequestHelp')}</p></div> : null}
         {mode === 'read_only' ? null : mode === 'view_request' ? <p className="expense-editor-notice">{t('expenseAction.requestFrozen')}</p> : <footer className="expense-editor-footer">
@@ -367,9 +392,10 @@ export default function ExpenseActionSheet({
       </form>}
       {!hidden && splitOpen && splitDraft ? <div className="expense-split-host"><div className="qa-main expense-split-surface"><QuickPanel title={copy('Split expense', '分摊消费')} onClose={() => setSplitOpen(false)}><div className="qa-panel-body">
         {canChangeType && friendsState === 'loading' ? <p className="qa-helper">{copy('Loading friends…', '正在加载朋友…')}</p> : null}
+        {expense.scope==='space'&&members.status!=='ready'?<p role="alert">{copy('Verify current members before applying. Original amounts are retained.','应用前请核验当前成员，原金额已保留。')}<button type="button" onClick={()=>void members.refresh()}>{copy('Retry','重试')}</button></p>:null}
         {canChangeType && friendsState === 'ready' && splitPeople.length < 2 ? <p className="qa-helper">{copy('Add a friend in Shared first.', '先到共享页面添加朋友。')}</p> : null}
         {canChangeType && friendsState === 'error' ? <p role="alert" className="qa-error">{copy('Friends could not load. Close and reopen the editor to retry.', '朋友加载失败，请重新打开编辑页面重试。')}</p> : null}
-        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={copy('Shared expense', '共享账目')} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType} readOnly={mode === 'metadata'} requireFriend={expense.scope !== 'space'} />
+        <SplitConfiguration values={splitDraft} participants={splitPeople.map(person => ({id:person.participantId,displayName:person.nameSnapshot}))} currentParticipantId={currentParticipantId} label={trip?tripName:copy('Shared expense', '共享账目')} trip={trip} preserveOrder={trip} unavailableIds={trip?editPeople.filter(p=>!tripCandidates.some(c=>c.participantId===p.participantId)).map(p=>p.participantId):[]} zh={zh} onUpdate={patch => setSplitDraft(current => current ? {...current,...patch} : current)} onApply={applySplitPanel} allowSelectionChange={canChangeType||canChangeTripSplit} busy={expense.scope==='space'&&members.status!=='ready'} readOnly={mode === 'metadata'} requireFriend={expense.scope !== 'space'} />
       </div></QuickPanel></div></div> : null}
     </EditorDialog>, document.getElementById('root') ?? document.body) : null}
   </>

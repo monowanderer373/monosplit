@@ -43,7 +43,7 @@ describe('Quick Add save lifecycle',()=>{
  })
 
  it('revalidates draft permissions and keeps inaccessible drafts without personal fallback',async()=>{
-  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'99'});quick.close()})
+  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'99',selectedParticipantIds:['self','friend']});quick.close()})
   mocks.resolve.mockResolvedValue(null)
   await act(async()=>{quick.open({entryPoint:'global',spaceCandidateId:'trip',followPageContext:true})})
   expect(quick.contextError).toBe(true)
@@ -52,7 +52,7 @@ describe('Quick Add save lifecycle',()=>{
   expect(mocks.save).not.toHaveBeenCalled()
  })
  it('does not silently drop a removed draft participant or change their share',async()=>{
-  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'99'});quick.close()})
+  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'99',selectedParticipantIds:['self','friend']});quick.close()})
   mocks.resolve.mockResolvedValue({...shared,availableParticipants:[self]})
   await act(async()=>{quick.open({entryPoint:'global',context:shared})})
   expect(quick.contextError).toBe(true)
@@ -61,6 +61,26 @@ describe('Quick Add save lifecycle',()=>{
   await act(async()=>{quick.selectEntryContext(shared.ref)})
   expect(quick.session!.context!.ref).toEqual(shared.ref)
   expect(quick.session!.values).toMatchObject({amount:'99',selectedParticipantIds:['self'],splitMode:'equal'})
+ })
+ it('restores an explicitly empty invalid Trip consumer draft without selecting somebody silently',async()=>{
+  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'8',selectedParticipantIds:[],payerAmounts:{friend:'8'}});quick.close()})
+  await act(async()=>{quick.open({entryPoint:'global',context:shared})})
+  expect(quick.session!.values.selectedParticipantIds).toEqual([])
+  expect(quick.session!.values.payerAmounts).toEqual({friend:'8'})
+ })
+ it('retains a removed payer-only principal rather than silently dropping their payment during draft recovery',async()=>{
+  act(()=>{quick.open({entryPoint:'global',context:shared});quick.updateValues({amount:'100',selectedParticipantIds:['self'],payerAmounts:{self:'60',friend:'40'}});quick.close()})
+  mocks.resolve.mockResolvedValue({...shared,availableParticipants:[self]})
+  await act(async()=>{quick.open({entryPoint:'global',context:shared})})
+  expect(quick.contextError).toBe(true);expect(quick.session!.context).toBeNull();expect(quick.session!.values.payerAmounts).toEqual({self:'60',friend:'40'});expect(mocks.save).not.toHaveBeenCalled()
+ })
+ it('keeps the reviewed Trip principal order when a fresh membership query returns a different row order',async()=>{
+  const third={id:'third',displayName:'Third',kind:'account' as const},context={...shared,availableParticipants:[self,friend,third]}
+  mocks.resolve.mockResolvedValue({...context,availableParticipants:[third,friend,self]})
+  act(()=>{quick.open({entryPoint:'global',context});quick.updateValues({amount:'10.01',selectedParticipantIds:['friend','third'],payerAmounts:{self:'10.01'}})})
+  await act(async()=>{await quick.submit()})
+  expect(mocks.save.mock.calls[0][0].participants.map((p:{id:string})=>p.id)).toEqual(['self','friend','third'])
+  expect(mocks.save.mock.calls[0][0].consumerParticipantIds).toEqual(['friend','third'])
  })
  it('shows a target error after a resolution failure and can open another ledger',async()=>{
   mocks.resolve.mockRejectedValue(new Error('network'))
@@ -101,7 +121,7 @@ describe('Quick Add save lifecycle',()=>{
   await act(async()=>{await quick.submit({continueAdding:true,values:{amount:'20.00'}})})
   expect(mocks.save.mock.calls[0][0]).toMatchObject({amount:'20.00',fundingAccountId:'wallet',scope:'space'})
   expect(quick.session!.clientRequestId).not.toBe(previous)
-  expect(quick.session!.context!.ref).toEqual({kind:'personal'})
+  expect(quick.session!.context!.ref).toEqual(shared.ref)
   expect(quick.session!.values).toMatchObject({amount:'',description:'',category:'',accountId:'wallet',splitMode:'equal',payerAmounts:{},exactShareAmounts:{},selectedParticipantIds:['self']})
   expect(quick.session!.values.calculation).toBeUndefined()
   expect(mocks.close).not.toHaveBeenCalled()
@@ -129,7 +149,8 @@ describe('Quick Add save lifecycle',()=>{
   act(()=>quick.open({entryPoint:'person',context:shared,onSaved:refreshed,initialValues:{amount:'8',category:'Food'}}))
   await act(async()=>{await quick.submit({continueAdding:true})})
   expect(refreshed).toHaveBeenCalledTimes(1)
-  expect(quick.session!.context!.ref.kind).toBe('personal')
+  expect(quick.session!.context!.ref).toEqual(shared.ref)
+  expect(quick.session!.values.selectedParticipantIds).toEqual(['self'])
  })
 })
 

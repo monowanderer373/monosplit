@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import UniversalQuickAddSheet from './UniversalQuickAddSheet'
 import { createUniversalQuickAddSession, updateUniversalQuickAddValues } from '../lib/universalQuickAdd'
@@ -10,7 +10,7 @@ vi.mock('../lib/moneyContextCatalog',()=>({EMPTY_MONEY_CONTEXT_CATALOG:{people:[
 vi.mock('../lib/quickAccounts',()=>({loadQuickAccounts:mocked.accounts}))
 vi.mock('../lib/multicurrencyRepository',()=>({loadFundingMetadata:async()=>({bundles:[],anchors:[]})}))
 const self={id:'self',displayName:'Me',kind:'account' as const}
-function Harness({shared=false}:{shared?:boolean}={}){const [session,setSession]=useState(()=>createUniversalQuickAddSession({identityKey:'u',sessionId:'s',clientRequestId:'r',startedAtMs:1,entryPoint:'global',context:{ref:shared?{kind:'space',spaceId:'g',spaceType:'group',displayName:'Group'}:{kind:'personal'},currentParticipantId:'self',availableParticipants:shared?[self,{id:'friend',displayName:'Alex',kind:'manual'}]:[self],defaultCurrency:'MYR'}}));return <UniversalQuickAddSheet session={session} expenses={[]} onUpdate={patch=>setSession(s=>updateUniversalQuickAddValues(s,patch))} onClose={()=>{}} onCommitContext={async()=>({ok:false})} onPickerOpenChange={()=>{}} onConfigureSplit={async()=>true} onSubmit={mocked.submit}/>}
+function Harness({shared=false,trip=false,configure=async()=>true}:{shared?:boolean;trip?:boolean;configure?:()=>Promise<boolean>}={}){const [session,setSession]=useState(()=>createUniversalQuickAddSession({identityKey:'u',sessionId:'s',clientRequestId:'r',startedAtMs:1,entryPoint:'global',context:{ref:shared||trip?{kind:'space',spaceId:'g',spaceType:trip?'trip':'group',displayName:trip?'Trip':'Group'}:{kind:'personal'},currentParticipantId:'self',availableParticipants:shared||trip?[self,{id:'friend',displayName:'Alex',kind:'manual'}]:[self],defaultCurrency:'MYR'}}));return <UniversalQuickAddSheet session={session} expenses={[]} onUpdate={patch=>setSession(s=>updateUniversalQuickAddValues(s,patch))} onClose={()=>{}} onCommitContext={async()=>({ok:false})} onPickerOpenChange={()=>{}} onConfigureSplit={configure} onSubmit={mocked.submit}/>}
 beforeEach(()=>{mocked.accounts.mockReset();mocked.accounts.mockResolvedValue([{id:'wallet',parentAccountId:'wallet',name:'Touch n Go',currency:'MYR',account_type:'ewallet',accountType:'ewallet',accountClass:'asset',archived:false,openingStatus:'unknown',entrySumMinor:0,version:1,parentVersion:1,displayOrder:0,isDefault:true,is_default:true}]);localStorage.clear();mocked.submit.mockReset();mocked.submit.mockResolvedValue({ok:true});render(<Harness/>)})
 afterEach(()=>{cleanup();vi.restoreAllMocks()})
 describe('Quick Add capture',()=>{
@@ -149,3 +149,14 @@ it('retains a confirmed actual draft across account panel dismissal and rolls ba
  await waitFor(()=>expect(mocked.submit).toHaveBeenCalledOnce())
  expect(mocked.submit.mock.calls[0][0].values.fundingPlan).toMatchObject({mode:'actual',covers_owner_payment:true,legs:[{account_id:'wallet',amount_minor:900}]})
 })
+
+ it('shows the Trip member panel immediately while revalidating instead of a transient Friends picker',async()=>{
+  cleanup();let resolve!:(ready:boolean)=>void;const pending=new Promise<boolean>(done=>{resolve=done});render(<Harness trip configure={()=>pending}/>);
+  fireEvent.click(screen.getByRole('button',{name:/Split/}));
+  expect(screen.queryByRole('tab',{name:'Friends'})).toBeNull();
+  const select=screen.getByRole('button',{name:'Select all'});expect(select.hasAttribute('disabled')).toBe(true);
+  expect((screen.getByRole('checkbox',{name:'You'})as HTMLInputElement).checked).toBe(true);
+  await act(async()=>resolve(true));await waitFor(()=>expect(select.hasAttribute('disabled')).toBe(false));fireEvent.click(select);
+  expect((screen.getByRole('checkbox',{name:'Alex'})as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(screen.getByRole('button',{name:'Apply split'}));expect(mocked.submit).not.toHaveBeenCalled();
+ });

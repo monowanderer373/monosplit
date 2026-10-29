@@ -154,3 +154,17 @@
 @media(prefers-reduced-motion:reduce){#root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-toast{animation:none}}
 /* Reserve the small bottom inset when scrolling the last key into view. */
 #root .qa-backdrop .qa-main.qa-stationery.tt-qa-context.qa-v3 .qa-save-key {scroll-margin-block-end:12px}
+
+/* Issue02: separate Trip consumers from payments; keep the existing composer. */
+.qa-trip-context{padding:10px 12px;border-radius:12px;background:#e5eff2;color:var(--ms-primary);font-weight:700;overflow-wrap:anywhere;margin:0 0 12px}
+.qa-trip-select{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:.875rem}
+.qa-consumer-warning{padding:12px;border:1px solid var(--ms-border);border-radius:12px;background:var(--ms-surface);line-height:1.5}
+.qa-consumer-warning button{min-height:44px;padding:8px 12px;border:1px solid var(--ms-border);border-radius:10px;margin:4px;background:var(--ms-surface)}
+.qa-split-editor[data-trip=true] .qa-split-person label{min-width:0;overflow-wrap:anywhere}
+.qa-split-editor[data-trip=true] .qa-split-person small{display:block;font-size:.75rem;color:var(--ms-text-secondary)}
+
+#root .qa-split-editor[data-trip=true] input[type=checkbox]{appearance:none;width:20px;height:20px;min-height:20px;border:1px solid #b4cbd5;border-radius:5px!important;box-shadow:none;background:var(--ms-surface);accent-color:var(--ms-primary);display:grid;place-content:center}
+#root .qa-split-editor[data-trip=true] input[type=checkbox]:checked{background:#396f89;border-color:#396f89}
+#root .qa-split-editor[data-trip=true] input[type=checkbox]:checked::after{content:'✓';font-size:16px;line-height:1;color:white}
+#root .qa-split-editor[data-trip=true] .qa-split-person label{min-height:44px;cursor:pointer;flex:1}
+#root .qa-split-editor[data-trip=true] .qa-account-row{margin:8px 0 14px}
