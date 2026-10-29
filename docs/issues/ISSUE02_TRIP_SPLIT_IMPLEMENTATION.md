@@ -1,10 +1,8 @@
 # Issue 02 — Trip split and directed friend requests
 
-Status: implementation and exact-source validation PASS; production blocked on missing database migration write permission. NOT production released.
-Branch: `feat/trip-split-friend-requests`; [PR41](https://github.com/monowanderer373/monosplit/pull/41) DRAFT. Tested application commit `0a20c2b9732e07a6bfb5583f8db90fba4328b49a`. Baseline main39ea75d, clean at start.
-Package README and all seven specs/checklists/decisions/short prompt read, both
-approved design boards viewed, all12manifest hashes verified. Issue01 retained;
-Issue03–05 explicitly excluded. No automatic old-expense change.
+Scope: **Issue02 only**, building on delivered Issue01 Members. No automatic old-bill edits or Issue03–05. Package README/all specifications/acceptance/decisions were read, both approved design boards viewed and all12manifest hashes verified. Initially clean baseline main39ea75d; React/TypeScript/Vite/Supabase/PWA retained.
+
+[PR41](https://github.com/monowanderer373/monosplit/pull/41) and [PR42](https://github.com/monowanderer373/monosplit/pull/42) MERGED. Validated final application `de769d1af06c38efbe2a82aa83f318bd3ce8bc39`; mergedmain `5c441357f778374e16630463061d90e5bb6a3357`, entire Git tree equal. **Live application verification COMPLETE on2026-10-29Asia/Bangkok.** No remaining manual SQL/connection action.
 
 ## Actual diagnosis and implementation
 
@@ -68,34 +66,45 @@ disabled/rejected; decline/cancel can dismiss without establishing friendship.
 Identity/generation checks, synchronous dispatch lock, persisted command key and
 authoritative requery protect unknown responses and account changes.
 
-## Current validation
+## Pending member-response draft preservation
 
-- Exact application source: `0a20c2b9732e07a6bfb5583f8db90fba4328b49a`.
-- Local full unit: **763 tests / 112 files PASS, 41.96s**. Lint, TypeScript and PWA build PASS; exact-source CI app PASS.
-- Eight actual-React/CSS synthetic phone browser cases **PASS, 45.5s**:320/360/390/430px;125/150/200%root text;420pxshort viewport;Chinese/long names;44px actions/focus/Escape;consumer/payer independence;Amounts/items/recalculation;Apply/cancel/reopen;request Review/unknown response;approved Trip checkbox computed style. These fixtures are not backend/RLS or physical-phone evidence.
-- Exact-source disposable backend: **3 authenticated browser journeys PASS,1.3min**. Complete nonfriend Travel capture; payer-only correction and old/new lineage; real member request→Shared acceptance→both normal Person/friend lists; original financial table facts unchanged. Separate full relational journey preserves odd-cent remainder, multi-payer, Direct/manual shares, partial settlement/reversal, offline once-only sync and Realtime. It verifies both known-downgrade preflight draft retention/0serverwrites and real server denial/outbox recovery after authority changes in flight. The latter holds a real request for deterministic timing; it does not replace its server response.
-- **1021 SQL assertions /22files PASS**, strict DB lint, opposing authenticated sessions/pair-lock/onepending/zeroautomaticaccept, original monetary concurrency suites and historical guardedinstaller twice PASS on the same source. All Supabase resets were isolated CI loopback, never hosted.
-- Exact-source **234 production-module UI,16Travel,10CollectPay PASS**. Complete authenticated browser suite **393 PASS,11.4min**. [Quality40716644699](https://github.com/monowanderer373/monosplit/actions/runs/40716644699): **all8jobs SUCCESS,zero failure annotations**, no retry/flaky entry in the final summaries.
-- Historical failed candidates are recorded in WORK_LOG. The remainder diagnostic proved a transient generic-picker test race (self-onlyRM10.01); immediate Trip configuration and explicit awaited Select all fixed it without changing the original2.51 assertion. Known-role downgrade is now caught earlier; the original server/outbox witness remains covered by an actual in-flight role change.
-- Known local Docker vfs capacity blocker was not blindly retried; disposable GitHub Actions supplies real backend coverage. Physical Honor, Android system Back/native IME/browser UI zoom/screenreader **NOT RUN**. Root-text/viewport emulation does not prove these.
+A deferred-read regression reproduced a real overwrite: a user's new99/consumerfriend/payerfriend99 was replaced by opening20/self/payerself20 after member validation completed. Same-context Trip refresh now uses the latest same-session draft after authority returns; opening the panel omits stale explicit consumer IDs. Explicit Cancel still restores the panel's original snapshot. Original generation/session/current-membership/request-id fences remain; Group/Direct/formulas/schema are unchanged.
 
-## Deployment boundary and recovery
+Provider and production-graph browser tests hold the member response while changing consumers, payments and Amounts, then verify retention/Apply/reopen and no financial write. Trip member validation continues to block Apply until the authority read completes. The initial native close test was corrected to await that readiness before Esc and panel disappearance; no product guard was removed.
 
-Production connection independently verified on2026-10-28:
+## Actual validation
 
-- Management SQL even read_only=false: `supabase_read_only_user / transaction_read_only=on`.
-- Official `POST /v1/projects/skiqsxvmxvmxfzhrzcxh/database/migrations` attempted once **after all8checks passed**; **HTTP403: Missing required permission(s): database_migrations_write**. No role escalation or blind retry.
-- Independent post-rejection catalog readback: original32migrations, neither new request nor private receipt table exists. No Issue02 backend/client production change.
-- Existing Vercel project/team verified; current native READY is prior Issue01 `dpl_21riztzT7xVtAGeTPstrAYaAL9nJ`, main `39ea75d65a92a1ecf7d516ed206cfb659a4ea0b3`. Canonical existing URL: https://tabby-tally-monowanderer373s-projects.vercel.app/ . This is **not Issue02 live evidence**.
+- **764unit tests /112files PASS34.57s**; lint,TypeScript and production/PWA build PASS.
+- [Exact-source Quality40820323116](https://github.com/monowanderer373/monosplit/actions/runs/40820323116): **all8jobs SUCCESS**. Complete authenticated browser **394PASS10.6min**; production-module UI **235PASS**; focused actual backend Trip/Members/full relational journey **3PASS1.5min**; CollectPay **10PASS**; Travel **15PASS+1flaky,retryPASS**. This run is not zero-retry. Earlier failures and real fixes are retained in WORK_LOG; original money/RLS assertions were not relaxed.
+- **1021SQL assertions /22files PASS**, strict DB lint, real opposing authenticated sessions/pair lock/singlepending/no automatic crossed acceptance, all original financial concurrency suites and historical guardedinstaller twice PASS. Every database reset used disposable CI loopback, never hosted.
+- **9synthetic actualReact/CSS phone browser cases PASS45.5s**:320/360/390/430px;125/150/200%roottext;420pxshort viewport;Chinese/long names;44px actions and Esc/focus;consumer/payer independence;Amounts/items/recalculation;Apply/cancel/reopen;Review/unknown-response reconciliation;approved Trip checkbox computedstyle;held-membership edit retention. These are not RLS/physical-phone evidence.
+- The real isolated nonfriend journey covers Travel capture, independent payer-only contribution, authorized correction/new replacement ID+lineage and immutable old facts, member request→recipient Sharedacceptance→both normal Person/friend lists, with financial facts unchanged by friendship. Full relational regression retains original remainder/multiple-payer/Direct/manual/partialsettlement/reversal/offline-once/Realtime assertions. Both known downgrade preflight/retaineddraft/0serverwrites and post-validation in-flight downgrade/actual server rejection/outbox Retry are tested. Only the latter request is held for deterministic timing; its response comes from the real isolated server.
 
-Remaining operator action: download this [complete pinned SQL](https://raw.githubusercontent.com/monowanderer373/monosplit/0a20c2b9732e07a6bfb5583f8db90fba4328b49a/docs/runbooks/trip-friends-production-apply.sql) (**21,241bytes**, SHA256`0070242ed1cd046da646045cf81c3cf19314a90d05aad3823334409cd1688401`), then run the whole file in the [existing project's SQL Editor](https://supabase.com/dashboard/project/skiqsxvmxvmxfzhrzcxh/sql/new). It is a guarded transaction requiring the exact32baseline, verifies all four new function bodies/RLS/privileges and registers only the additive migration. It sends/accepts no request, changes no bill/balance and does not execute Reset. Success marker: `TABBY_TRIP_FRIENDS_INSTALL_COMPLETE_20261028`. Use the full downloaded file, never a chat preview or an old Reset installer.
+## Production schema and service
 
-Once the operator reports completion, independently read back exact33versions/four source hashes/two RLS tables/no direct client writes/no anonymous execute/private receipt visibility/10protected original function definitions and ACLs/Realtime binding. Then check the new read RPCs through ordinary existing owned-QA sessions. Prepared recovery scripts retain the original schema snapshot privately; it is not a full database backup. Do not re-run a rejected API write or repair history blindly.
+Installed by the user in the existing `skiqsxvmxvmxfzhrzcxh` project. Independent live catalog verification PASS: **33exactmigrationversions,4canonicalRPCbodyhashes,2RLS tables,no direct authenticatedwrites,no anonymousexecute,private receipts hidden,10protected original function definitions+ACLs unchanged,Realtime publication**. Both ordinary existing tagged-owned QA accounts pass new Trip-state and pending-review readRPCs.
 
-Only after verified schema installation, complete PR41/main and the existing production release. Then independently verify native READY/exactmainSHA/publicchunks, real owner/viewer Trip candidates/defaultself/Selectall/cancel/permission/identity/back, financial hashes and retained PWA update. These **Issue02 production/authenticated/PWA checks are NOT RUN**, because publishing a client over absent RPCs is blocked. Actual directed-consent/financial writes were verified on disposable CI; production customer/private accounting mutations are not QA. Prepared live scripts use existing tagged-owned QA and read/review/cancel only. No physical phone success is claimed.
+The earlier official API403/database_migrations_write limitation was resolved by the full SQL Editor install. Migration202610280001 is now immutable deployed history. No further SQL or manual connection action is needed. The schema-only private source/ACL snapshot is not a full database backup. The auxiliary QA helper's named argument was aligned to source_trip_id; the application already used this correct parameter.
 
-Evidence/recovery:/workspace/verification/issue02-trip-split-2026-10-28.
-Read PROJECT_STATUS/WORK_LOG/current diff before resuming.
+## Production release and native checks
+
+Existing Vercel team `monowanderer373s-projects`, project `tabby-tally`; canonical URL https://tabby-tally-monowanderer373s-projects.vercel.app/ . Native deployment `dpl_BXCKk2NvQLfASdRvkSPPfLKLgL2q` **READY**, actualmainSHA `5c441357f778374e16630463061d90e5bb6a3357`. Public entry `/assets/index-C9624PPN.js` contains this exactSHA and current route/PWA chunks. This is the existing app, not a replacement project.
+
+Normal existing tagged-owned QA owner and viewer, **no API interception**, PASS:complete real Trip candidates/defaultself/Selectall/cancel,owner/view permission controls,currentTrip global+,identity switch,sameTripreturn,8width/roottextcases. A **5000msCDPnetworklatency** case uses the actual server while editing consumers,payments and Amounts, then verifies late-response retention/Apply/reopen. This is network emulation, not physical-phone timing. Ten financial-table hashes per account and membership facts remain unchanged;0financial/membership mutationRPCs/0runtimeerrors/private screenshots.
+
+RetainedPWA nativeupdate/activatedworker/currententry+Members/Home/Records/Accounts/Shared/Profile cache PASS. Five paper-material and four offlineHome/QuickAdd asset hashes equal source. Four-width signed-out Members privacy guards and offline shell PASS. No cache deletion. Proofs are allowlisted in delivery-live; no customer data/session or secret is included.
+
+The final documentation checkpoint may have a newer commit/deployment; its exact nativeREADY/publicSHA/currentPWA evidence will be stored externally in delivery-final.json to avoid a self-referential report commit loop. Runtime source must match the verified application commit.
+
+## Remaining verification limits
+
+- Physical Honor,Android systemBack/nativeIME/browser UI zoom/screenreader **NOTRUN**. CSSviewport/root-text/CDPnetwork emulation is not physical-device proof.
+- Production friend-request consent, financial corrections/settlements and Reset **NOTRUN as QA mutations**. These writes were tested with real Auth/RLS on disposable CI. Live checks use existing tagged-owned QA/read/review/cancel, not customer bills/membership. No private screenshots or credentials are included.
+- Known local Docker vfs capacity limitation was not blindly retried; actual backend validation ran on disposable GitHub Actions.
+
+## Recovery and evidence
+
+Read PROJECT_STATUS/WORK_LOG/currentgitdiff first. Evidence root `/workspace/verification/issue02-trip-split-2026-10-28`; final safe gallery/ZIP is delivery-live. Do not rerun old SQL/Reset/financial fixtures or implement Issue03–05 without a new task. Deployed migrations and original confirmed financial facts remain frozen.
 
 ## Modified files
 
