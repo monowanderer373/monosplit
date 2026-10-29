@@ -35,11 +35,10 @@ export async function openManualPerson(page: Page): Promise<void> {
   await expect(page.getByRole('dialog',{name:'Record someone manually',exact:true}).getByRole('textbox',{name:'Name',exact:true})).toBeVisible()
 }
 
-export async function openCreateSpace(page: Page): Promise<void> {
-  const toggle = page.locator('main > header button[aria-expanded]')
-  await expect(toggle).toBeVisible()
-  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
-  await expect(page.getByLabel('Name', { exact: true })).toBeVisible()
+export async function openCreateSpace(page: Page, type: 'trip'|'group'='trip'): Promise<void> {
+  await page.getByRole('button',{name:type==='trip'?'Trips':'Groups',exact:true}).click()
+  await page.getByRole('button',{name:type==='trip'?'Create trip':'Create group',exact:true}).first().click()
+  await expect(page.getByRole('textbox', { name:'Name', exact: true })).toBeVisible()
 }
 
 /** A panel obscures the main form, so open/close it through visible controls. */

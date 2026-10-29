@@ -17,7 +17,7 @@ const InsightsPage = lazy(() => import('./pages/InsightsPage'))
 const AccountsPage = lazy(() => import('./pages/AccountsPage'))
 const CollectPayPage = lazy(() => import('./pages/CollectPayPage'))
 const SharedPage = lazy(() => import('./pages/SharedPage'))
-const SpacesPage = lazy(() => import('./pages/SpacesPage'))
+const LegacySpacesRedirect = lazy(() => import('./pages/LegacySpacesRedirect'))
 const TripDatesPage = lazy(() => import('./pages/TripDatesPage'))
 const SpaceMembersPage = lazy(() => import('./pages/SpaceMembersPage'))
 const SpacePage = lazy(() => import('./pages/SpacePage'))
@@ -94,8 +94,8 @@ function AppRoutes() {
             <Route path="/quick-add" element={<PersonalLedgerRoute />} />
             <Route path="/travel/trip/:tripId/dates" element={<TripDatesPage />} />
             <Route path="/travel/trip/:tripId" element={<PersonalLedgerRoute />} />
-            <Route path="/travel/manage" element={<SpacesPage preferredType="trip" />} />
-            <Route path="/spaces" element={<SpacesPage />} />
+            <Route path="/travel/manage" element={<LegacySpacesRedirect />} />
+            <Route path="/spaces" element={<LegacySpacesRedirect />} />
             <Route path="/space/:spaceId/members" element={<SpaceMembersPage />} />
             <Route path="/space/:spaceId" element={<SpacePage />} />
             <Route path="/friends" element={<FriendsPage />} />
@@ -105,14 +105,14 @@ function AppRoutes() {
           </Route>
           <Route path="/space-invite/:token" element={<SpaceInvitePage />} />
           <Route path="/friend-invite/:token" element={<FriendInvitePage />} />
-          <Route path="/legacy-spaces" element={<Navigate to="/spaces" replace />} />
-          <Route path="/group/:groupId" element={<Navigate to="/spaces" replace />} />
+          <Route path="/legacy-spaces" element={<LegacySpacesRedirect />} />
+          <Route path="/group/:groupId" element={<LegacySpacesRedirect />} />
           <Route path="/embed/:groupId" element={<Navigate to="/" replace />} />
           {HomeVisualHarness ? <Route path="/__home-visual" element={<HomeVisualHarness />} /> : null}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          <Route path="/invite/:token" element={<Navigate to="/spaces" replace />} />
+          <Route path="/invite/:token" element={<LegacySpacesRedirect />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

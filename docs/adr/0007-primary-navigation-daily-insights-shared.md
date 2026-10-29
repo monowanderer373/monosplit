@@ -48,3 +48,7 @@ Insights date/currency filters: **top overlay/curtain**. Must not push page cont
 ## What this ADR does not change
 
 Phase 5 correction, settlement, Undo, Person ≠ Participant, integer minor-unit money, or existing RPC names (`public.create_space`, `public.create_friend_invite`).
+
+## Issue05 navigation consolidation (2026-10-29)
+
+Shared typed lists now own Group/Trip management and the same original create_space form. `/spaces`, `/travel/manage` and historical data-free routes remain compatible via direct canonical replace redirects; no standalone mixed management list remains. Travel selector/affiliation identity and concrete Trip money contexts remain unchanged. Shared/Travel/overview source records are identity/target-bound and bounded within a session; existing Members/Dates/History helpers retain the validated parent when rebuilding an interrupted chain. No financial, identity, invite-authority or schema rule is changed. Actual verification/release state is maintained in PROJECT_STATUS and the Issue05 report.

@@ -24,3 +24,5 @@ describe('Shared A origin memory', () => {
     expect(tabFromParam('groups')).toBe('groups')
   })
 })
+
+it('sanitizes damaged persisted page state rather than restoring invalid layout or parameters',()=>{sessionStorage.setItem('tt-shared-origin:ada',JSON.stringify({identity:'ada',tab:'trips',tabs:{trips:{scrollTop:'bad',query:{foreign:1},currency:'//evil',filter:'bad'}}}));expect(readSharedOrigin('ada','MYR').tabs.trips).toEqual({query:'',filter:'all',currency:'MYR',searching:false,scrollTop:0})})

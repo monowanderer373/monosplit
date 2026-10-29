@@ -249,7 +249,7 @@ test('runs the final Phase 3 production smoke journey', async ({
       await pageA.goto('/spaces')
       await expect(
         primaryNavigation(pageA).getByRole('button', {
-          name: 'Groups / Trips',
+          name: 'Shared',
           exact: true,
         }),
       ).toHaveAttribute('aria-current', 'page')

@@ -21,8 +21,8 @@ const paths: Record<IconName, string> = {
   more: 'M5 12h.1M12 12h.1M19 12h.1',
 }
 
-export function SharedRoot({ children, as: Tag = 'section' }: { children: ReactNode; as?: 'section' | 'main' }) {
-  return <Tag className="tt-shared-a"><div className="ttsa-content">{children}</div></Tag>
+export function SharedRoot({ children, as: Tag = 'section',spaceList=false }: { children: ReactNode; as?: 'section' | 'main';spaceList?:boolean }) {
+  return <Tag className={'tt-shared-a'+(spaceList?' tt-shared-spaces':'')}><div className="ttsa-content">{children}</div></Tag>
 }
 
 export function SharedIcon({ name, className = '' }: { name: IconName; className?: string }) {
@@ -51,10 +51,10 @@ export function IconButton({
 }
 
 export function QuietAction({
-  children, icon, onClick, disabled = false,
-}: { children: ReactNode; icon: IconName; onClick: () => void; disabled?: boolean }) {
+  children, icon, onClick, disabled = false,focusId,
+}: { children: ReactNode; icon: IconName; onClick: () => void; disabled?: boolean;focusId?:string }) {
   return (
-    <button type="button" className="ttsa-action" onClick={onClick} disabled={disabled}>
+    <button type="button" className="ttsa-action" data-space-focus={focusId} onClick={onClick} disabled={disabled}>
       <span className="ttsa-action-face">
         <SharedIcon name={icon} />
         {children}
@@ -76,7 +76,7 @@ export function SharedHeader({
     <header className="ttsa-header">
       <h1 className="ttsa-title">{title}</h1>
       <IconButton label={searchLabel} icon="search" onClick={onSearch} />
-      {addLabel ? <QuietAction icon="plus" onClick={onAdd}>{addLabel}</QuietAction> : null}
+      {addLabel ? <QuietAction icon="plus" focusId="create" onClick={onAdd}>{addLabel}</QuietAction> : null}
     </header>
   )
 }
@@ -120,9 +120,10 @@ export function ContextTabs({
 }
 
 export function SearchField({
-  query, onQuery, onCancel, label, cancelLabel, clearLabel,
+  query, onQuery, onCancel, label, cancelLabel, clearLabel, autoFocus=true,
 }: {
   query: string
+  autoFocus?: boolean
   onQuery: (value: string) => void
   onCancel: () => void
   label: string
@@ -130,7 +131,7 @@ export function SearchField({
   clearLabel: string
 }) {
   const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => { ref.current?.focus() }, [])
+  useEffect(() => { if(autoFocus)ref.current?.focus() }, [autoFocus])
   return (
     <div className="ttsa-search">
       <div className="ttsa-search-field">
@@ -401,10 +402,10 @@ export function OfflineNotice({ label }: { label: string }) {
 }
 
 export function SpaceRow({
-  name, meta, status, onOpen,
-}: { name: string; meta: string; status: string; onOpen: () => void }) {
+  name, meta, status, onOpen, focusId,
+}: { name: string; meta: string; status: string; onOpen: () => void; focusId?: string }) {
   return (
-    <button type="button" className="ttsa-record" onClick={onOpen}>
+    <button type="button" className="ttsa-record" data-space-focus={focusId} onClick={onOpen}>
       <SharedIcon name="people" />
       <span>
         <strong className="ttsa-record-name">{name}</strong>

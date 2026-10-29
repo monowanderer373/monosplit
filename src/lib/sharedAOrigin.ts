@@ -1,3 +1,4 @@
+import {saveNavigationSession} from './navigationStorage'
 import type { SharedFilter, SharedTab } from './sharedAPresentation'
 
 export type SharedTabMemory = {
@@ -45,7 +46,7 @@ function isTab(value: unknown): value is SharedTab {
 export function saveSharedOrigin(identity: string, value: SharedOrigin): void {
   if (!identity || value.identity !== identity || typeof sessionStorage === 'undefined') return
   try {
-    sessionStorage.setItem(originKey(identity), JSON.stringify(value))
+    saveNavigationSession('tt-shared-origin:',identity,JSON.stringify(value))
   } catch {
     /* Navigation remains available. */
   }
@@ -58,16 +59,8 @@ export function readSharedOrigin(identity: string, currency: string): SharedOrig
     const raw = sessionStorage.getItem(originKey(identity))
     const parsed = raw ? JSON.parse(raw) as SharedOrigin : null
     if (!parsed || parsed.identity !== identity || !isTab(parsed.tab)) return fallback
-    return {
-      identity,
-      tab: parsed.tab,
-      view: parsed.view === 'review' ? 'review' : 'list',
-      tabs: {
-        friends: { ...fallback.tabs.friends, ...parsed.tabs?.friends },
-        groups: { ...fallback.tabs.groups, ...parsed.tabs?.groups },
-        trips: { ...fallback.tabs.trips, ...parsed.tabs?.trips },
-      },
-    }
+    const safe=(value:Partial<SharedTabMemory>|undefined):SharedTabMemory=>({query:typeof value?.query==='string'?value.query.slice(0,300):'',filter:value?.filter==='balances'?'balances':'all',currency:typeof value?.currency==='string'&&/^[A-Z]{3}$/.test(value.currency)?value.currency:currency,searching:value?.searching===true,scrollTop:typeof value?.scrollTop==='number'&&Number.isFinite(value.scrollTop)&&value.scrollTop>=0?Math.min(value.scrollTop,10000000):0})
+    return {identity,tab:parsed.tab,view:parsed.view==='review'?'review':'list',tabs:{friends:safe(parsed.tabs?.friends),groups:safe(parsed.tabs?.groups),trips:safe(parsed.tabs?.trips)}}
   } catch {
     return fallback
   }

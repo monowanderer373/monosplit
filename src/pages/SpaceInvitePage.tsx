@@ -96,7 +96,7 @@ export default function SpaceInvitePage() {
             {t(error)}
           </p>
         ) : null}
-        <button className="mt-5 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate('/spaces')}>{t('space.back')}</button>
+        <button className="mt-5 text-sm font-bold text-[var(--ms-text-secondary)]" onClick={() => navigate(!authUser||authUser.isAnonymous?'/':preview?.spaceType==='group'?'/shared?tab=groups':preview?'/shared?tab=trips':'/shared')}>{t('space.back')}</button>
       </section>
     </main>
   )

@@ -21,6 +21,8 @@ type VerifiedHomeCache = {
 
 const verifiedHomeCache = new Map<string, VerifiedHomeCache>()
 
+export function invalidateHomeSpaces(participantId:string){const cache=verifiedHomeCache.get(participantId);if(cache)delete cache.spaces}
+
 export function resetVerifiedHomeCache() {
   verifiedHomeCache.clear()
 }
@@ -96,7 +98,8 @@ export function useHomeData(
     const datesChanged=(event:Event)=>{if((event as CustomEvent).detail?.participantId===participantId)refresh()}
     window.addEventListener('tt:accounts-changed', refresh)
     window.addEventListener('tt:trip-dates-changed', datesChanged)
-    return () => {window.removeEventListener('tt:accounts-changed', refresh);window.removeEventListener('tt:trip-dates-changed', datesChanged)}
+    window.addEventListener('tt:spaces-changed', datesChanged)
+    return () => {window.removeEventListener('tt:accounts-changed', refresh);window.removeEventListener('tt:trip-dates-changed', datesChanged);window.removeEventListener('tt:spaces-changed', datesChanged)}
   }, [participantId])
   const [refreshing, setRefreshing] = useState(() => hasVerifiedHome(participantId))
 

@@ -176,9 +176,8 @@ test.describe('Phase 5E audit and history presentation', () => {
     const owner = alphaBrowser.page
     const debtor = gammaBrowser.page
     await owner.goto('/spaces')
-    await openCreateSpace(owner)
-    await owner.getByLabel('Name').fill('Audit Group')
-    await owner.getByLabel('Type').selectOption('group')
+    await openCreateSpace(owner,'group')
+    await owner.getByRole('textbox',{name:'Name',exact:true}).fill('Audit Group')
     await owner.getByRole('button', { name: 'Create', exact: true }).click()
     await expect(owner.getByRole('heading', { name: 'Audit Group' })).toBeVisible()
     const groupUrl = owner.url()

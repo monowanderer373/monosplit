@@ -102,7 +102,7 @@ function TripSelector({ props }: { props: HomeScreenProps }) {
   const close = () => { setOpen(false); trigger.current?.focus({ preventScroll: true }) }
   const choose = (id: string) => { props.onSelectTrip(id); close() }
   return <>
-    <button ref={trigger} className="tt-trip-label" type="button" data-testid="home-trip-selector" title={props.trip?.trip.name}
+    <button ref={trigger} className="tt-trip-label" type="button" data-testid="home-trip-selector" data-space-focus="travel-switch" title={props.trip?.trip.name}
       aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? id : undefined}
       onClick={() => { if (open) close(); else { setFocusIndex(Math.max(0, props.trips.findIndex(x => x.id === props.trip?.trip.id))); setOpen(true) } }}>
       <span className="tt-trip-label-text">{props.trip?.trip.name}</span><TravelIcon name={open ? 'chevron-up' : 'chevron-down'} />
@@ -147,7 +147,7 @@ export function TravelSummary({ props }: { props: HomeScreenProps }) {
       <p className="tt-amount-label">{t('home.mySpending')}</p>
       <p className="tt-amount" data-testid="travel-spending"><TravelAmount lines={props.tripSpending} currency={props.trip.trip.defaultCurrency}
         status={props.tripSpendingStatus ?? props.recordsStatus ?? 'ready'} hidden={props.balanceHidden} /></p>
-      <div className="tt-summary-link"><button type="button" className="tt-link" onClick={() => props.onViewTrip?.(props.trip!.trip.id)}>{t('travel.viewTrip')}<TravelIcon name="arrow-right" /></button></div>
+      <div className="tt-summary-link"><button type="button" className="tt-link" data-space-focus="travel-view" onClick={() => props.onViewTrip?.(props.trip!.trip.id)}>{t('travel.viewTrip')}<TravelIcon name="arrow-right" /></button></div>
     </> : <>
       <div className="tt-empty-copy"><h2 className="tt-empty-title">{t('travel.emptyTitle')}</h2><p className="tt-empty-subtitle">{t('travel.emptySubtitle')}</p>
         <button type="button" className="tt-primary" onClick={props.onCreateTrip}><TravelIcon name="plus" />{t('travel.create')}</button></div>

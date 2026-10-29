@@ -17,7 +17,7 @@ export default function SpaceMembersPage(){
   const {authUser,loading,sessionError,retrySession}=useAuth(),{spaceId=''}=useParams(),t=useT()
   if(loading||(authUser&&!authUser.participantId&&!sessionError))return <main className="tm-page"><p role="status">{t('home.loading')}</p></main>
   if(sessionError)return <main className="tm-page"><p role="alert">{t('ledger.sessionUnavailable')}</p><button type="button" onClick={retrySession}>{t('common.retry')}</button></main>
-  if(!authUser?.participantId)return <main className="tm-page"><h1>{t('travel.members')}</h1><Link to="/login">{t('common.signIn')}</Link></main>
+  if(!authUser?.participantId)return <main className="tm-page"><h1>{t('travel.members')}</h1><Link to={'/login?redirect='+encodeURIComponent('/space/'+spaceId+'/members')}>{t('common.signIn')}</Link></main>
   return <MembersContent key={authUser.id+':'+spaceId} identity={authUser.id} self={authUser.participantId} trip={spaceId} canRequestFriends={!authUser.isAnonymous}/>
 }
 function MembersContent({identity,self,trip,canRequestFriends}:{identity:string;self:string;trip:string;canRequestFriends:boolean}){
@@ -33,8 +33,8 @@ function MembersContent({identity,self,trip,canRequestFriends}:{identity:string;
   useEffect(()=>{
     if(entry&&entry.space.type!=='trip'){navigate('/space/'+encodeURIComponent(trip),{replace:true});return}
     const mode=snapshot.status==='unavailable'?'unavailable':entry?.space.type==='trip'?'trip':null
-    if(mode&&prepared.current!==mode){prepared.current=mode;prepareMembersBack(navigate,location.state,identity,trip,mode==='unavailable')}
-  },[entry,snapshot.status,trip,identity,navigate,location.state])
+    if(mode&&prepared.current!==mode){prepared.current=mode;prepareMembersBack(navigate,location.state,identity,trip,mode==='unavailable',!canRequestFriends)}
+  },[entry,snapshot.status,trip,identity,navigate,location.state,canRequestFriends])
   useEffect(()=>{
     if(snapshot.status==='unavailable'||snapshot.status==='error'||(snapshot.status==='ready'&&dialog==='invite'&&!permissions?.invite)){
       setMenu(null);setDialog(null);setInvite('');setTarget(null)
@@ -42,7 +42,7 @@ function MembersContent({identity,self,trip,canRequestFriends}:{identity:string;
   },[snapshot.status,permissions?.invite,dialog])
   const restoreFocus=()=>requestAnimationFrame(()=>{if(!alive.current)return;if(focusTarget.current?.isConnected)focusTarget.current.focus({preventScroll:true});else {const key=focusTarget.current?.dataset.tmFocus;const next=key?document.querySelector<HTMLButtonElement>('[data-tm-focus="'+CSS.escape(key)+'"]'):null;(next??document.getElementById('trip-members-title'))?.focus({preventScroll:true})}})
   const close=()=>{if(lock.current)return;setDialog(null);setMenu(null);setInvite('');setCopied(false);restoreFocus()}
-  const back=()=>backFromMembers(navigate,location.state,identity,trip,snapshot.status==='unavailable')
+  const back=()=>backFromMembers(navigate,location.state,identity,trip,snapshot.status==='unavailable',!canRequestFriends)
   const run=async(action:'invite'|'add'|'role'|'remove',member?:TripMember,role?:'full_access'|'view')=>{
     if(lock.current||!ready)return
     lock.current=true;setBusy(true);setError('')
@@ -66,7 +66,7 @@ function MembersContent({identity,self,trip,canRequestFriends}:{identity:string;
         else if(action==='remove'&&member)await spaceRepository.removeMember(trip,member.participant.id)
         if(!alive.current)return
         notifyTripMembersChanged(trip)
-        if(action==='remove'&&member?.participant.id===self){navigate('/shared?tab=trips',{replace:true});return}
+        if(action==='remove'&&member?.participant.id===self){navigate(canRequestFriends?'/shared?tab=trips':'/',{replace:true});return}
         setDialog(null);setMenu(null);setName('');await snapshot.refresh();restoreFocus()
       }
     }catch(cause){if(alive.current){setError(friendlyErrorKey(cause));setMenu(null);setDialog(null);setInvite('');await snapshot.refresh();restoreFocus()}}

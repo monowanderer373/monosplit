@@ -181,3 +181,6 @@
   .tt-travel .tt-primary:active:not(:disabled) { transform: none; }
   .tt-travel.tt-popover[data-state='open'], .tt-travel .tt-popover[data-state='open'] { animation: none; }
 }
+
+/* Issue05: only the retained lightweight Trip selector, including large text. */
+.tt-travel.tt-popover:has(.tt-trip-options){display:flex;flex-direction:column;overflow:auto}.tt-travel.tt-popover:has(.tt-trip-options) .tt-popover-heading{font-size:.625rem;line-height:1.4;flex:none}.tt-travel.tt-popover:has(.tt-trip-options) .tt-trip-options{flex:1 1 auto;min-height:44px}.tt-travel.tt-popover:has(.tt-trip-options) .tt-option-title{font-size:.875rem;line-height:1.4}.tt-travel.tt-popover:has(.tt-trip-options) .tt-option-meta{font-size:.6875rem;line-height:1.45;overflow-wrap:anywhere}.tt-travel.tt-popover:has(.tt-trip-options) .tt-popover-footer{flex:none}.tt-travel.tt-popover:has(.tt-trip-options) .tt-popover-footer-control{font-size:.875rem;line-height:1.5;overflow-wrap:anywhere}

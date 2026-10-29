@@ -81,3 +81,9 @@
 .ttsa-friend-request h2{font-size:1.125rem;margin:0 0 8px}.ttsa-friend-request p{color:var(--ms-text-secondary);line-height:1.5}
 .ttsa-friend-request>div{display:flex;flex-wrap:wrap;gap:12px}.ttsa-friend-request button{flex:1 1 100px;min-height:44px;border:1px solid var(--ms-border);border-radius:14px;padding:10px;font:inherit;background:#efede6;color:var(--ms-text)}
 .ttsa-friend-request button:last-child{background:var(--ms-primary);color:white}.ttsa-friend-request button:disabled{opacity:.5}.ttsa-friend-error{line-height:1.5;overflow-wrap:anywhere}.ttsa-friend-error button{min-height:44px;font:inherit;color:var(--ms-primary)}
+
+/* Issue05 source return uses existing paper/ink, not another management card. */
+.ttsa-source-back{display:inline-flex;align-items:center;min-height:44px;min-width:44px;padding:8px 0;margin-bottom:4px;border:0;background:transparent;color:var(--ms-primary);font:inherit;font-weight:600}.ttsa-source-back:focus-visible{outline:2px solid var(--ms-primary);outline-offset:3px}.ttsa-source-back:active{transform:translateY(1px)}
+
+/* Typed Space management scales with user text settings; Friends remains unchanged. */
+.tt-shared-a.tt-shared-spaces{font-size:.875rem}.tt-shared-a.tt-shared-spaces .ttsa-title{font-size:1.5rem}.tt-shared-spaces .ttsa-header{flex-wrap:wrap}.tt-shared-spaces .ttsa-header h1{flex:1 1 120px}.tt-shared-a.tt-shared-spaces .ttsa-tab{font-size:.8125rem;overflow-wrap:anywhere}.tt-shared-a.tt-shared-spaces .ttsa-record-name{font-size:.875rem}.tt-shared-a.tt-shared-spaces .ttsa-meta,.tt-shared-a.tt-shared-spaces .ttsa-field,.tt-shared-a.tt-shared-spaces .ttsa-action-face{font-size:.75rem;line-height:1.5}.tt-shared-a.tt-shared-spaces .ttsa-field input{font-size:1rem}

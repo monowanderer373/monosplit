@@ -22,7 +22,7 @@ export default function TripDetails({ props, records, members, membersStatus, pa
   return <main className="tt-travel tt-trip-detail" data-density={props.density}>
     <div className="tt-page tt-detail-page">
       <nav className="tt-detail-nav"><button type="button" className="tt-detail-back tt-link" onClick={onBack}><TravelIcon name="chevron-left" />{t('home.modeTravel')}</button>
-        {trip ? <button ref={anchor} className="tt-icon-button" type="button" aria-label={t('travel.actions')} aria-expanded={more} onClick={() => more ? close() : setMore(true)}><TravelIcon name="more" /></button> : null}
+        {trip ? <button ref={anchor} data-space-focus="trip-menu" className="tt-icon-button" type="button" aria-label={t('travel.actions')} aria-expanded={more} onClick={() => more ? close() : setMore(true)}><TravelIcon name="more" /></button> : null}
       </nav>
       {more ? <AnchoredPaperPopover anchor={anchor} onClose={close} label={t('travel.actions')}>
         <button type="button" className="tt-popover-footer-control" onClick={() => { close(); info() }}><TravelIcon name="info" />{t('travel.tripInfo')}</button>
