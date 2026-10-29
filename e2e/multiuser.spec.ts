@@ -390,6 +390,7 @@ async function addExpense(
   await dialog.getByRole('button', { name: 'Food', exact: true }).click()
   await dialog.getByRole('button', { name: 'Save and close' }).click()
   await expect(dialog).toHaveCount(0)
+  if(await page.getByTestId('trip-ledger').count())await page.getByRole('tab',{name:'Expenses',exact:true}).click()
   await expect(page.getByText(input.description)).toBeVisible()
 }
 
@@ -403,11 +404,13 @@ async function saveCapture(page: Page, description: string, amount: string): Pro
 }
 
 async function expectShare(page: Page, description: string, amount: string): Promise<void> {
+  if(await page.getByTestId('trip-ledger').count())await page.getByRole('tab',{name:'Expenses',exact:true}).click()
   const expense = page.getByRole('article').filter({ hasText: description })
   await expect(expense).toContainText(`Your share ${amount}`)
 }
 
 async function expectDebt(page: Page, label: string, amount: string): Promise<void> {
+  if(await page.getByTestId('trip-ledger').count())await page.getByRole('tab',{name:'Balances',exact:true}).click()
   const debt = page.getByRole('article').filter({ hasText: label })
   await expect(debt.getByText(amount, { exact: true })).toBeVisible()
 }

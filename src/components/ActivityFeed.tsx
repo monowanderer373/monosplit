@@ -24,7 +24,7 @@ export default function ActivityFeed({
   const t = useT()
   const lang = useStore((state) => state.lang)
   const [activity, setActivity] = useState<FinancialActivity[]>([])
-  const [loading,setLoading]=useState(true),[limit,setLimit]=useState(20)
+  const [loading,setLoading]=useState(true),[limit,setLimit]=useState(20),[retry,setRetry]=useState(0)
   const [error, setError] = useState<TranslationKey | ''>('')
   const expenseIdKey = expenseIds.join(':')
   const settlementIdKey = settlementIds.join(':')
@@ -50,15 +50,15 @@ export default function ActivityFeed({
     return () => {
       active = false
     }
-  }, [expenseIdKey, refreshKey, settlementIdKey, spaceId,pageable])
+  }, [expenseIdKey, refreshKey, settlementIdKey, spaceId,pageable,retry])
 
   return (
     <section data-testid="financial-activity">
       <p className="ms-label">{t('activity.label')}</p>
       <h2 className="mt-1 text-xl font-extrabold">{t('activity.title')}</h2>
-      {error ? <p className="mt-2 text-xs text-[var(--ms-danger)]">{t(error)}</p> : null}
+      {error ? <p role="alert" className="mt-2 text-xs text-[var(--ms-danger)]">{t(error)}{pageable?<button type="button" className="ms-btn-ghost" onClick={()=>setRetry(n=>n+1)}>{t('common.retry')}</button>:null}</p> : null}
       <div className="ms-list tt-paper-list mt-3">
-        {loading?<p role="status" className="p-5">{t('common.loading')}</p>:error?null:activity.length === 0 ? (
+        {loading&&activity.length===0?<p role="status" className="p-5">{t('common.loading')}</p>:error&&activity.length===0?null:activity.length === 0 ? (
           <p className="p-5 text-center text-sm text-[var(--ms-text-muted)]">{t('activity.empty')}</p>
         ) : activity.slice(0,pageable?limit:activity.length).map((event, index) => (
           <div key={event.id}>

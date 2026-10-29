@@ -230,6 +230,7 @@ function SpacePageContent() {
           <p className="ms-label">{t('space.shared')}</p>
           <h1 className="mt-2 text-2xl font-extrabold">{t('space.unavailable')}</h1>
           <p className="mt-3 text-sm text-[var(--ms-text-secondary)]">{error ? t(error) : t('space.unavailableHelp')}</p>
+          {error&&error!=='space.notFound'?<button type="button" className="ms-btn-ghost mt-4" onClick={()=>void Promise.all([refresh(),settlementState.refresh()])}>{t('common.retry')}</button>:null}
           <button className="ms-btn-primary mt-5 w-full" onClick={() => navigate(knownTrip.current?'/shared?tab=trips':'/spaces')}>{t('space.back')}</button>
         </section>
       </main>
