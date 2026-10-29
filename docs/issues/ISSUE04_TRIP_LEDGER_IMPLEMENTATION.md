@@ -14,10 +14,12 @@
 
 ## Current evidence
 
-Baseline798units/115files PASS37.43s. Current full813units/118files PASS45.23s before final navigation tests;15focused model/controller/identity PASS2.18s. Integrated39actualReact/CSS browsercases PASS1.6min:12ledger+14dates+13Members, including four phone widths,125–200%roottext, shortviewport, Chinese/large multi-currency amounts,27rows/full844recap, pending/accept/reverse shared model, drafts across History/Members/date return, unique contextual+, privacy/readonly/closed and legacy sections. These browser data APIs are synthetic fixtures; not backend/RLS or physical-device evidence.
+Baseline798units/115files PASS37.43s. Current full817units/119files PASS43.19s;19focused model/controller/identity/navigation PASS2.15s. Integrated39actualReact/CSS browsercases PASS1.6min:12ledger+14dates+13Members, including four phone widths,125–200%roottext, shortviewport, Chinese/large multi-currency amounts,27rows/full844recap, pending/accept/reverse shared model, drafts across History/Members/date return, unique contextual+, privacy/readonly/closed and legacy sections. These browser data APIs are synthetic fixtures; not backend/RLS or physical-device evidence.
 
-Lint/TypeScript passed after immutable UI-array boundary and test typing fixes. Fresh production read confirms33exactrepository migrations and original date RPC role/version/ACL; no new SQL needed. Native isolated payment→confirmation→cash→reversal/expense immutability/read-only test added, not yet executed. Full exact-source CI and normal existing production verification pending. Local Docker vfs blocker not retried; use disposable GitHub Actions backend. Physical Honor/native OS keyboard/browser UI zoom/screen reader NOT RUN.
+Lint/TypeScript passed after immutable UI-array boundary and test typing fixes. Fresh production read confirms33exactrepository migrations and original date RPC role/version/ACL; no new SQL needed. Native isolated payment→confirmation→cash→reversal/expense immutability/read-only test passed in intermediate10caseTrip/multiuserCI; final source CI still required. Full exact-source CI and normal existing production verification pending. Local Docker vfs blocker not retried; use disposable GitHub Actions backend. Physical Honor/native OS keyboard/browser UI zoom/screen reader NOT RUN.
 
 ## Recovery
 
 Read PROJECT_STATUS/WORK_LOG/current diff and /workspace/verification/issue04-trip-ledger-2026-10-29. Complete final source checks/CI, existing GitHub/Vercel release and authenticated owned-QA read-only/PWA verification under standing authorization. Never reset/reseed production, replay old SQL or use real customer financial QA writes. No Issue05 changes.
+
+Final visual witness: valid explicit grid rows prevent Pay from covering amount; fourwidths×100/125/150/200% assert amount/Pay/help separation and44px target. Current14ledgerUI PASS; Group/Direct and expanded original forms unchanged.
