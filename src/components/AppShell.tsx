@@ -65,8 +65,8 @@ function ShellContents() {
   const travelHome = location.pathname === '/' && homeMode === 'travel'
   const pageTarget = quickAdd.pageTarget?.pathname === location.pathname ? quickAdd.pageTarget : null
   const membersPage = /^\/space\/[^/]+\/members\/?$/.test(location.pathname)
-  const spacePage = /^\/space\/[^/]+\/?$/.test(location.pathname)
-  const contextualPage = travelHome || membersPage || spacePage && !!pageTarget
+  const spacePage = /^(?:\/space\/[^/]+|\/travel\/trip\/[^/]+)\/?$/.test(location.pathname)
+  const contextualPage = travelHome || membersPage || /^\/travel\/trip\/[^/]+\/?$/.test(location.pathname) || spacePage && !!pageTarget
   const targetPending = contextualPage && !pageTarget?.ready
 
   const openGlobalAdd = useCallback(() => {
@@ -106,7 +106,7 @@ function ShellContents() {
   const tripDatesPage = /^\/travel\/trip\/[^/]+\/dates\/?$/.test(location.pathname)
   const profileSubpage = location.pathname.startsWith('/profile/')
   const recordsPage = location.pathname === '/insights/records'
-  const showNavigation = Boolean(authUser?.participantId) && !location.pathname.startsWith('/travel/trip/') && !recordsPage && !profileSubpage
+  const showNavigation = Boolean(authUser?.participantId) && !tripDatesPage && !recordsPage && !profileSubpage
   const place = (location.pathname === '/' && homeMode === 'travel') || location.pathname.startsWith('/travel/') ? 'bali' : 'home'
   useEffect(() => {
     document.documentElement.dataset.place = place

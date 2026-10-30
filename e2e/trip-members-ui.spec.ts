@@ -82,8 +82,8 @@ test('Chinese narrow layout uses real labels and has no horizontal overflow',asy
 
 test('all overview Members entries share one destination without nested buttons',async({page})=>{
  await setup(page);await page.goto('/travel/trip/'+id);await expect(page.getByRole('heading',{name:'Hanoi Trip',exact:true})).toBeVisible();await expect(page.locator('.tt-members-entry button')).toHaveCount(0)
- await page.getByRole('button',{name:'4 people',exact:true}).click();await expect(page.getByRole('list',{name:'Members',exact:true})).toBeVisible();await page.goBack();await expect(page.locator('.tt-members-entry')).toBeVisible()
- await page.locator('.tt-members-entry').click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'));await page.goBack();await page.getByRole('button',{name:/actions/i}).click();await page.locator('.tt-popover').getByRole('button',{name:'Members',exact:true}).click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'))
+ await page.getByTestId('trip-ledger-members').click();await expect(page.getByRole('list',{name:'Members',exact:true})).toBeVisible();await page.goBack();await expect(page.getByTestId('trip-ledger-members')).toBeVisible()
+ await page.getByTestId('trip-ledger-members').click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'));await page.goBack();await page.getByRole('button',{name:/actions/i}).click();await page.locator('.tt-popover').getByRole('button',{name:'Members',exact:true}).click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'))
 })
 
 test('personal affiliations and invalid Members IDs cannot become shared contexts and return safely',async({page})=>{

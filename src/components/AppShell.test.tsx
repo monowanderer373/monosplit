@@ -39,6 +39,7 @@ it('opens the shortcut once per entry, including another entry after returning t
 })
 
 for(const [path,target] of [['/space/group-a','group-a'],['/travel/trip/trip-a','trip-a']]) it(`uses the ledger of ${path}`,()=>{
+ mocks.pageTarget={pathname:path,ready:true,target:{kind:'space-candidate',spaceId:target}}
  const router=createMemoryRouter([{element:<AppShell/>,children:[{path,element:<p>Detail</p>}]}],{initialEntries:[path]})
  render(<RouterProvider router={router}/>);fireEvent.click(screen.getByText('Quick Add'))
  expect(mocks.open).toHaveBeenCalledWith({entryPoint:'global',spaceCandidateId:target,followPageContext:true});router.dispose()

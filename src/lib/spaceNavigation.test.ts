@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import type {NavigateFunction}from'react-router-dom'
-import {canonicalShared,legacySpaceDestination,openSpaceNavigation,readSpaceOrigin,spaceParentState,backSpaceNavigation,prepareSpaceBack,readSpaceReturn}from'./spaceNavigation'
+import {canonicalShared,legacySpaceDestination,openSpaceNavigation,readSpaceOrigin,spaceParentState,backSpaceNavigation,prepareSpaceBack,readSpaceReturn,replaceTravelWorkspace}from'./spaceNavigation'
 import {openTripMembers,readMembersOrigin,prepareMembersBack}from'./tripMembersNavigation'
 import {openTripDates,readTripDatesOrigin,prepareTripDatesBack}from'./tripDatesNavigation'
 const trip='00000000-0000-4000-8000-000000000505'
@@ -21,3 +21,5 @@ it('never reseeds safety history inside original money/route overlays',()=>{cons
 it('cannot let a retained detail effect reseed the child or another destination during lazy loading',()=>{const nav=navigation();for(const pathname of['/space/'+trip+'/members','/travel/trip/'+trip+'/dates','/shared','/','/quick-add'])prepareSpaceBack(nav,{pathname,search:'',state:null},'actor','/shared?tab=trips');expect(nav).not.toHaveBeenCalled()})
 
 it('drops a late source effect if the actual browser has already entered its child',()=>{const nav=navigation();window.history.replaceState({idx:4,key:'child'},'','/space/'+trip+'/members');prepareSpaceBack(nav,{pathname:'/travel/trip/'+trip,search:'',state:null},'actor','/');expect(nav).not.toHaveBeenCalled()})
+
+it('replaces Travel home only once and preserves its opaque parent through Members/Dates, rejecting other identities',()=>{const nav=navigation();window.history.replaceState({idx:3,key:'home'},'','/');replaceTravelWorkspace(nav,source(),'actor',trip);expect(window.history.state.idx).toBe(3);const state=window.history.state.usr;expect(readSpaceOrigin(state,'actor','/travel/trip/'+trip)).toMatchObject({workspaceHome:true,source:'/'});expect(readSpaceOrigin(state,'other','/travel/trip/'+trip)).toBeNull();expect(readSpaceOrigin(state,'actor','/travel/trip/other')).toBeNull();prepareSpaceBack(nav,source(),'actor','/shared?tab=trips');expect(window.history.state.idx).toBe(3);openTripMembers(nav,source(),'actor',trip);const member=readMembersOrigin(window.history.state.usr,'actor',trip)!;expect(member.parent?.spaceNav).toBe(state.spaceNav);prepareMembersBack(nav,window.history.state.usr,'actor',trip);expect(window.history.state.idx).toBe(4)})
