@@ -1,6 +1,13 @@
 import type { CanonicalExpense } from '../types'
 import type { SettlementPayment } from './settlementRepository'
 import { deriveRelationalDebtLines, type RelationalDebtLine } from './relationalBalance'
+import {visibleSharedExpense} from './sharedRestart'
+
+/** Authorized Trip records, including bills where the viewer paid/consumed nothing. */
+export function tripVisibleExpenses(expenses: readonly CanonicalExpense[], spaceId: string) {
+  return expenses.filter(e => e.scope === 'space' && e.spaceId === spaceId && e.status === 'active' && visibleSharedExpense(e))
+    .sort((a,b) => b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))
+}
 
 /** Same exclusion used by SettlementPanel; only display aggregation is new. */
 export function tripCurrentPayments(payments: readonly SettlementPayment[], spaceId: string) {

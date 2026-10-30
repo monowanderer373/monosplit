@@ -16,6 +16,8 @@ import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
 import PendingExpenseRecoveryActions from '../components/PendingExpenseRecoveryActions'
 import HomeScreen, { RecentRecordList, type HomeScreenProps } from '../components/home/HomeScreen'
 import TripDetails from '../components/travel/TripDetails'
+import TripOverviewRecords from '../components/travel/TripOverviewRecords'
+import {tripVisibleExpenses} from '../lib/tripLedger'
 import { useTravelMembers } from '../hooks/useTravelMembers'
 import { useUniversalQuickAdd } from '../hooks/useUniversalQuickAdd'
 import {openTripMembers} from '../lib/tripMembersNavigation'
@@ -98,6 +100,13 @@ export default function PersonalLedgerPage() {
   }, [authUser?.id, tripId, model.travelStatus, model.trips, model.trip, home.refreshing, selectedTripId, setTravelTrip])
   const detailTrip = tripId && model.trip?.trip.id !== tripId ? null : model.trip
   const members = useTravelMembers(ledger.participantId, tripId ? detailTrip?.trip.id ?? null : null, homeRefreshKey)
+  const sharedTrip=!!tripId&&!!detailTrip&&!detailTrip.trip.id.startsWith('affiliation:')
+  const tripExpenses=useMemo(()=>sharedTrip?tripVisibleExpenses(ledger.expenses,tripId!):[],[sharedTrip,ledger.expenses,tripId])
+  const tripRecordStatus=ledger.expensesStatus==='error'||members.status==='error'?'error':ledger.expensesStatus==='ready'&&members.status==='ready'?'ready':'loading'
+  const overviewRecordsReady=!sharedTrip||tripRecordStatus==='ready'
+  const tripRole=members.data.find(m=>m.participant.id===ledger.participantId)?.member.role??'view'
+  const tripNames=useMemo(()=>new Map(members.data.map(m=>[m.participant.id,m.participant.displayName])),[members.data])
+  const refreshTripRecords=useCallback(async()=>{setAccountReload(n=>n+1);await refreshLedger()},[refreshLedger])
   const canWrite = Boolean(detailTrip && (!detailTrip.trip.id.startsWith('affiliation:') && isSpaceExpenseEligible(detailTrip.trip, detailTrip.trip.role ?? 'view')))
   const retryTravel = () => { setAccountReload(n => n + 1); void ledger.refresh() }
   const displayedTripId = detailTrip?.trip.id
@@ -107,12 +116,12 @@ export default function PersonalLedgerPage() {
     return () => setPageTarget(null)
   }, [setPageTarget, location.pathname, model.travelStatus, displayedTripId])
   const dateReturnReady=!pendingTripDatesReturn(location.state)||!home.refreshing
-  useRouteScroll((tripId || homeUi.mode === 'travel' ? model.travelStatus === 'ready' : model.sharedStatus === 'ready') && ledger.expensesStatus === 'ready' && dateReturnReady, ledger.participantId ?? '')
+  useRouteScroll((tripId || homeUi.mode === 'travel' ? model.travelStatus === 'ready' : model.sharedStatus === 'ready') && ledger.expensesStatus === 'ready' && dateReturnReady && overviewRecordsReady, ledger.participantId ?? '')
 
-  useSpaceSourceReturn(!home.refreshing && model.travelStatus==='ready' && ledger.expensesStatus==='ready',authUser?.id??'',tripId??'')
+  useSpaceSourceReturn(!home.refreshing && model.travelStatus==='ready' && ledger.expensesStatus==='ready' && overviewRecordsReady,authUser?.id??'',tripId??'')
   useEffect(()=>{if(tripId&&location.pathname==='/travel/trip/'+encodeURIComponent(tripId)&&detailTrip&&model.travelStatus==='ready'&&!home.refreshing&&authUser?.id&&!authUser.isAnonymous)prepareSpaceBack(navigate,location,authUser.id,'/')},[tripId,detailTrip,model.travelStatus,home.refreshing,authUser,navigate,location])
 
-  useTripDatesReturn(!!tripId && model.travelStatus === 'ready' && ledger.expensesStatus === 'ready' && dateReturnReady, authUser?.id ?? '', tripId ?? '')
+  useTripDatesReturn(!!tripId && model.travelStatus === 'ready' && ledger.expensesStatus === 'ready' && dateReturnReady && overviewRecordsReady, authUser?.id ?? '', tripId ?? '')
 
   if (loading) {
     return (
@@ -261,6 +270,7 @@ export default function PersonalLedgerPage() {
   }
   if (tripId) return <>
     <TripDetails props={props} participantId={ledger.participantId} members={members.data} membersStatus={members.status}
+      sharedRecords={sharedTrip?{count:tripExpenses.length,currencies:tripExpenses.map(e=>e.currency),status:tripRecordStatus}:undefined}
       canWrite={canWrite} onBack={() => {
         setHomeUi({ mode: 'travel' })
         if (detailTrip) setTravelTrip(authUser.id, detailTrip.trip.id)
@@ -269,7 +279,7 @@ export default function PersonalLedgerPage() {
       onInfo={focus => openSpaceNavigation(navigate,location,authUser.id,detailTrip?.trip.id.startsWith('affiliation:')?'/shared?tab=trips':`/space/${tripId}?section=info`,focus??'trip-info')}
       onDates={() => {if(authUser?.id&&tripId)openTripDates(navigate,location,authUser.id,tripId)}}
       onMembers={focus => {if(authUser?.id&&tripId)openTripMembers(navigate,location,authUser.id,tripId,focus)}} onManage={() => openSpaceNavigation(navigate,location,authUser.id,'/shared?tab=trips','trip-menu')}
-      records={<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
+      records={sharedTrip?<TripOverviewRecords viewKey={authUser.id+':'+tripId} key={authUser.id+':'+tripId} expenses={tripExpenses} status={tripRecordStatus} self={ledger.participantId} role={tripRole} names={tripNames} ledger={ledger} today={model.localToday} refresh={refreshTripRecords} canWrite={canWrite}/>:<RecentRecordList key={props.recordsViewKey} props={props} paginationKey={props.travelPaginationKey} />} />
     <ExpenseRecoveryNotices />
   </>
   if(location.pathname.startsWith('/notifications/')&&!noticeTarget)return <main className="notification-a-page"><h1>{t('noticeA.state.unavailable')}</h1><p>{t('notice.unavailable')}</p><button type="button" className="notification-a-back" onClick={()=>navigate('/',{replace:true})}>{t('noticeA.common.backNotifications')}</button></main>

@@ -13,23 +13,19 @@ import{useLocalCalendarDate}from'../../hooks/useLocalCalendarDate'
 import{useStore}from'../../store/useStore'
 import{categoryKey,useT,type TranslationKey}from'../../lib/i18n'
 import{formatMinorAmount}from'../../lib/money'
-import{formatDate,localeForLang}from'../../lib/locale'
-import{visibleSharedExpense}from'../../lib/sharedRestart'
-import{tripCurrentPayments,tripAuthoritativeExpenses,tripDebtLines,tripDirectionalTotals,tripLedgerView,type TripLedgerTab}from'../../lib/tripLedger'
+import{localeForLang}from'../../lib/locale'
+import{tripCurrentPayments,tripAuthoritativeExpenses,tripDebtLines,tripDirectionalTotals,tripLedgerView,tripVisibleExpenses,type TripLedgerTab}from'../../lib/tripLedger'
 import{backFromTripLedgerView,openTripLedgerView,tripLedgerUi,setTripLedgerFocus,setTripLedgerScroll,setTripLedgerLimit}from'../../lib/tripLedgerNavigation'
 import{openTripMembers}from'../../lib/tripMembersNavigation'
 import{openTripDates}from'../../lib/tripDatesNavigation'
-import{shiftCalendarDay}from'../../lib/tripCalendar'
 import{tripPeriodStatus,tripPeriodStatusKeys}from'../../lib/tripPeriod'
 import{buildTripRecap}from'../../lib/insights'
 import{deriveExpenseRevisionEntries}from'../../lib/financialHistory'
 import{AnchoredPaperPopover,TravelIcon}from'./TravelUI'
 import TripDateEntry from'./TripDateEntry'
 import SettlementPanel from'../SettlementPanel'
-import ExpenseActionSheet from'../ExpenseActionSheet'
+import TripExpenseList from './TripExpenseList'
 import ExpenseHistoryList from'../ExpenseHistoryList'
-import PendingExpenseRecoveryActions from'../PendingExpenseRecoveryActions'
-import SharedRestartActions from'../SharedRestartActions'
 import ActivityFeed from'../ActivityFeed'
 import'./trip-ledger.css'
 type Props={entry:SpaceWithRole;members:{member:SpaceMember;participant:Participant}[];ledger:ReturnType<typeof usePersonalLedger>;settlementState:ReturnType<typeof useSettlements>;refresh:()=>Promise<void>;error:TranslationKey|'';authorityReady:boolean;refreshing:boolean}
@@ -43,7 +39,7 @@ export default function TripLedger({entry,members,ledger,settlementState,refresh
  const all=useMemo(()=>Object.freeze(ledger.expenses.filter(e=>e.spaceId===trip).sort((a,b)=>b.occurredOn.localeCompare(a.occurredOn)||b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id))),[ledger.expenses,trip])
  const expenses=useMemo(()=>Object.freeze(all.filter(e=>e.status==='active')),[all])
  const authoritative=useMemo(()=>Object.freeze(tripAuthoritativeExpenses(expenses)),[expenses])
- const visible=useMemo(()=>Object.freeze(expenses.filter(visibleSharedExpense)),[expenses])
+ const visible=useMemo(()=>Object.freeze(tripVisibleExpenses(expenses,trip)),[expenses,trip])
  const context=useMemo(()=>({scope:'space' as const,spaceId:trip}),[trip]),payments=useMemo(()=>tripCurrentPayments(settlementState.settlements,trip),[settlementState.settlements,trip])
  const names=useMemo(()=>{const map=new Map<string,string>();for(const expense of all)for(const person of expense.participations)map.set(person.participantId,person.nameSnapshot);for(const m of members)map.set(m.participant.id,m.participant.displayName);return map},[all,members])
  const summary=useMemo(()=>{try{return{rows:tripDirectionalTotals(tripDebtLines(expenses,settlementState.settlements,trip),self),failed:false}}catch{return{rows:[],failed:true}}},[expenses,settlementState.settlements,trip,self])
@@ -80,12 +76,7 @@ export default function TripLedger({entry,members,ledger,settlementState,refresh
   {view==='history'?<div className="tl-history-tabs" role="group" aria-label={t('tl.history')}>{(['expenses','payments','activity']as const).map(value=><button type="button" key={value} aria-pressed={history===value} onClick={()=>changeHistory(value)}>{t(value==='expenses'?'tl.expenseChanges':value==='payments'?'tl.payments':'tl.activity')}</button>)}</div>:null}
   <section id="tl-panel-expenses" role="tabpanel" aria-labelledby="tl-tab-expenses" hidden={view!=='main'||tab!=='expenses'} data-testid="space-recent">
    <div className="tl-list-toolbar"><span>{ready?t('tl.count',{count:visible.length}):t('common.loading')}</span><button type="button" className="tl-icon-button" aria-label={t('common.refresh')} disabled={refreshing} onClick={()=>void refresh()}>↻</button></div>
-   {!ready?failed?<p>{t('tl.unavailable')}</p>:<p role="status">{t('common.loading')}</p>:<div className="tl-paper-list">{!visible.length?<div className="tl-empty"><h2>{t('tl.empty')}</h2>{canWrite?<p>{t('tl.addHint')}</p>:null}</div>:visible.slice(0,limit).map((expense,index)=>{
-    const pending=ledger.outbox.find(item=>item.command.requestId===expense.clientRequestId),own=expense.participations.find(p=>p.participantId===self),share=expense.shares.find(s=>s.expenseParticipationId===own?.id)?.amountMinor??0
-    const payers=expense.payerContributions.filter(p=>p.amountMinor>0).map(p=>expense.participations.find(person=>person.id===p.expenseParticipationId)).filter(p=>!!p),dateLabel=expense.occurredOn===today?t('tl.today')+' · '+formatDate(today,lang):expense.occurredOn===shiftCalendarDay(today,-1)?t('tl.yesterday')+' · '+formatDate(expense.occurredOn,lang):formatDate(expense.occurredOn,lang)
-    const content=<><span className="tl-expense-heading"><strong>{expense.description??t(categoryKey(expense.category))}</strong><b>{money(expense.totalMinor,expense.currency)}</b></span><span className="tl-expense-meta">{t('tl.paidBy',{names:payers.map(p=>p.participantId===self?t('common.you'):p.nameSnapshot||names.get(p.participantId)||t('common.member')).join(', ')})}</span><span className="tl-expense-meta">{t('space.yourShare',{amount:money(share,expense.currency)})}<span aria-hidden="true"> ›</span></span></>
-    return <article key={expense.id} className="tl-expense" data-expense-id={expense.id}>{index===0||visible[index-1].occurredOn!==expense.occurredOn?<h3 className="tl-date-heading">{dateLabel}</h3>:null}{pending?<div className="tl-record-content">{content}</div>:<ExpenseActionSheet trigger={content} triggerClassName="tl-record-trigger" readOnlyFallback expense={expense} currentParticipantId={self} spaceRole={entry.role} onRefresh={refresh} onViewHistory={()=>openView('history',expense.id)}/>}{pending?<div className="tl-recovery"><span>{t(pending.status==='rejected'?'ledger.needsAttention':'ledger.pendingSync')}</span><PendingExpenseRecoveryActions item={pending} onUndoAdd={ledger.discardLocalCreate} onRetry={ledger.retryCommand} onDiscardFailed={ledger.discardFailedCreate}/></div>:null}<SharedRestartActions expense={expense} owner={self} onRefresh={refresh}/></article>
-   })}</div>}
+   {!ready?failed?<p>{t('tl.unavailable')}</p>:<p role="status">{t('common.loading')}</p>:!visible.length?<div className="tl-paper-list"><div className="tl-empty"><h2>{t('tl.empty')}</h2>{canWrite?<p>{t('tl.addHint')}</p>:null}</div></div>:<TripExpenseList expenses={visible.slice(0,limit)} self={self} role={entry.role} names={names} ledger={ledger} today={today} refresh={refresh} onViewHistory={id=>openView('history',id)}/>}
    {visible.length>limit?<button type="button" className="tl-text-button tl-more" onClick={()=>{setTripLedgerLimit(actor,trip,limit+20);setLimit(limit+20)}}>{t('tl.more')}</button>:null}
   </section>
   <section id="tl-panel-balances" role={view==='main'?'tabpanel':undefined} aria-labelledby={view==='main'?'tl-tab-balances':undefined} hidden={!(view==='main'&&tab==='balances'||view==='history'&&history==='payments'&&!hidden)} data-testid="space-balances">
