@@ -4,10 +4,10 @@ import type { ReactNode } from 'react'
 import type { HomeScreenProps } from '../home/HomeScreen'
 import type { TravelMembers } from '../../hooks/useTravelMembers'
 import { useT } from '../../lib/i18n'
-import { AnchoredPaperPopover, TravelAmount, TravelIcon, TravelRecordsSection, TravelStatus, TripDateLine } from './TravelUI'
+import { AnchoredPaperPopover, TravelAmount, TravelIcon, TravelRecordsSection, TravelStatus, TravelViewSwitch, TripDateLine } from './TravelUI'
 
-export default function TripDetails({ props, records, members, membersStatus, participantId, onBack, onInfo, onMembers, onManage, onDates, canWrite }: {
-  props: HomeScreenProps; records: ReactNode; members: TravelMembers; membersStatus: 'ready' | 'error' | 'loading';
+export default function TripDetails({ props, records, members, membersStatus, participantId, onBack, onInfo, onMembers, onManage, onDates, canWrite, sharedRecords }: {
+  sharedRecords?:{count:number;currencies:string[];status:'ready'|'error'|'loading'}; props: HomeScreenProps; records: ReactNode; members: TravelMembers; membersStatus: 'ready' | 'error' | 'loading';
   participantId: string; onBack: () => void; onInfo: (focus?:string) => void; onMembers: (focus?:string) => void; onManage: () => void; onDates: () => void; canWrite: boolean
 }) {
   const t = useT(), anchor = useRef<HTMLButtonElement>(null)
@@ -17,7 +17,7 @@ export default function TripDetails({ props, records, members, membersStatus, pa
   const trip = props.trip
   const personal = trip?.trip.id.startsWith('affiliation:')
   const info = (focus='trip-info') => { if (personal) setLabelInfo(value => !value); else onInfo(focus) }
-  const currencies = new Set([...props.tripSpending.map(x => x.currency), ...props.recordGroups.flatMap(g => g.records.map(r => r.currency))])
+  const currencies = new Set([...props.tripSpending.map(x => x.currency), ...(sharedRecords?.currencies??props.recordGroups.flatMap(g => g.records.map(r => r.currency)))])
   const sameCurrency = currencies.size <= 1 && (!currencies.size || currencies.has(trip?.trip.defaultCurrency ?? ''))
   return <main className="tt-travel tt-trip-detail" data-density={props.density}>
     <div className="tt-page tt-detail-page">
@@ -36,7 +36,7 @@ export default function TripDetails({ props, records, members, membersStatus, pa
         </header>
         <section className="tt-detail-summary tt-paper-card" data-testid="trip-detail-summary"><img className="tt-map-wash" src="/travel/map-wash.svg" alt="" />
           <p className="tt-amount-label">{t('home.mySpending')}</p><p className="tt-amount"><TravelAmount lines={props.tripSpending} currency={trip.trip.defaultCurrency} hidden={props.balanceHidden} status={props.tripSpendingStatus ?? 'ready'} /></p>
-          <div className="tt-detail-facts"><span className="tt-detail-fact"><TravelIcon name="receipt" />{props.tripSpendingStatus === 'ready' ? t('travel.recordCount', { count: props.recordGroups.reduce((sum, group) => sum + group.records.length, 0) }) : t('home.amountUnavailable')}</span>
+          <div className="tt-detail-facts"><span className="tt-detail-fact"><TravelIcon name="receipt" />{(sharedRecords?.status??props.tripSpendingStatus) === 'ready' ? t('travel.recordCount', { count: sharedRecords?.count??props.recordGroups.reduce((sum, group) => sum + group.records.length, 0) }) : t('home.amountUnavailable')}</span>
             {!personal ? <button type="button" className="tt-detail-fact" data-space-focus="trip-member-count" onClick={()=>onMembers('trip-member-count')}><TravelIcon name="users" />{membersStatus === 'ready' ? t('travel.memberCount', { count: members.length }) : t(membersStatus === 'error' ? 'home.amountUnavailable' : 'home.loading')}</button> : null}
             <button className="tt-link" type="button" data-space-focus="trip-info" onClick={()=>info()}>{t('travel.tripInfo')}<TravelIcon name="arrow-right" /></button></div>
         </section>
@@ -46,7 +46,7 @@ export default function TripDetails({ props, records, members, membersStatus, pa
             return <span className="tt-avatar-item" key={participant.id}><span className={`tt-avatar ${index === 1 ? 'tt-avatar--peach' : index === 2 ? 'tt-avatar--green' : ''}`} aria-hidden="true">{Array.from(name)[0]}</span><span>{name}</span></span>
           })}</span> : <span role={membersStatus === 'error' ? 'alert' : 'status'}>{t(membersStatus === 'error' ? 'travel.unavailable' : 'home.loading')}</span>}
           <span className="tt-link">{t('travel.members')}<TravelIcon name="arrow-right" /></span></span></button>}
-        <TravelRecordsSection props={props} detail>{records}</TravelRecordsSection>
+        {sharedRecords?<section aria-labelledby="trip-records-title"><div className="tt-section-head"><h2 className="tt-section-title" id="trip-records-title">{t('travel.tripRecords')}</h2>{sharedRecords.count>0?<TravelViewSwitch density={props.density} onChange={props.onDensityChange}/>:null}</div>{records}</section>:<TravelRecordsSection props={props} detail>{records}</TravelRecordsSection>}
         <p className="tt-currency-note"><TravelIcon name="info" />{t(sameCurrency ? 'travel.currencyNote' : 'travel.multicurrencyNote')}</p>
         {!canWrite ? <p className="tt-state-message">{t('travel.readOnly')}</p> : null}
       </>}

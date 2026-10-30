@@ -1,0 +1,11 @@
+# Trip overview records — 2026-10-30
+
+Baseline latestmain b3a3de9; fix/trip-overview-records. User reproduced member-paid RM1000 in Shared Trip ledger while Travel Trip overview showed no expenses. Overview reused personally booked home records, which intentionally omit bills where the viewer has no participation.
+
+Trip overview now reads original authorized active/visible Space expenses directly, including member-only bills. Original total, Paid by, Your share and date use the same extracted presentation and selection as Trip ledger. Summary record count uses that same list. My spending remains the existing personal share definition; Travel home and private affiliation labels keep their original personal-record semantics. No new expense, financial calculation, schema, RLS, permission or migration. Original action sheet revalidates membership before mutation; pending recovery, hidden/reset visibility, multi-currency formatting, Overall/Compact, global+, dates/Members and source return retained.
+
+Local834/121units PASS69.90s; lint/TS/build PASS. Original30navigation/ledgerUI PASS; final9overviewUI PASS29.7s with320/360/390/430,125/150/200%roottext, longChinese/large money,25rows/multi-currency, foreign/cancelled/reset-hidden exclusion, failedread/retry, privacy/reveal/readonly andOverallCompact. Synthetic screenshots are actual React/CSS, not physicalHonor/backendproof. New selector unit validates no-participation bill and immutable inputs. Native original ledger suite adds a real member-only bill and overview4records/personal420/bill1000/share0 checks before original directionaldebt/cash/reversal/permission/history assertions.
+
+Initial test-helper assumptions were corrected to original en-MY US$ formatting and original hidden/readonly controls; no financial assertions or app behavior relaxed. Exact-source fullCI, Github merge and production/live/PWA pending. Known localDocker vfs not retried: backend testing on disposableActions. PhysicalHonor/nativekeyboard/OSBack/UIzoom/screenreaderNOTRUN. NoSQL or productionfinancial fixture writes.
+
+Recovery: /workspace/verification/trip-overview-records-2026-10-30; PROJECT_STATUS/WORK_LOG/currentdiff. Do not replay old SQL/Reset or user data.

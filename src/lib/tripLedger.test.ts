@@ -1,5 +1,5 @@
 import{expect,it}from'vitest'
-import{tripDirectionalTotals,tripDebtLines,tripLedgerView}from'./tripLedger'
+import{tripDirectionalTotals,tripDebtLines,tripLedgerView,tripVisibleExpenses}from'./tripLedger'
 import{tripLedgerScenario,tripLedgerPayment,tripLedgerExpense,tripLedgerId}from'../test/tripLedgerFixtures'
 import{buildTripRecap}from'./insights'
 it('keeps collect300/pay100 separate; a pending50 never reduces current debt',()=>{expect(tripDirectionalTotals(tripDebtLines(tripLedgerScenario(),[tripLedgerPayment()],tripLedgerId),'owner')).toEqual([{currency:'MYR',collectMinor:30000,payMinor:10000}])})
@@ -11,3 +11,9 @@ it('rejects unsafe amounts instead of displaying an invented balance',()=>{const
 it('defaults to expenses and safely maps legacy sections without forcing pending to balances',()=>{expect(tripLedgerView(new URLSearchParams()).tab).toBe('expenses');expect(tripLedgerView(new URLSearchParams('section=balances')).tab).toBe('balances');expect(tripLedgerView(new URLSearchParams('section=activity'))).toMatchObject({tab:'expenses',view:'history',history:'activity'});expect(tripLedgerView(new URLSearchParams('view=summary&tab=balances'))).toMatchObject({tab:'balances',view:'summary'});expect(tripLedgerView(new URLSearchParams('section=info')).view).toBe('main')})
 
 it('keeps pending-sync and rejected local recovery previews out of authoritative settlement balances',()=>{const e=tripLedgerScenario(),local={...structuredClone(e[0]),id:'pending:unconfirmed-local',clientRequestId:'unconfirmed-local'};expect(tripDirectionalTotals(tripDebtLines([...e,local],[tripLedgerPayment()],tripLedgerId),'owner')).toEqual([{currency:'MYR',collectMinor:30000,payMinor:10000}]);expect(tripDirectionalTotals(tripDebtLines([local],[],tripLedgerId),'owner')).toEqual([])})
+
+it("overview and ledger include another member's whole bill with no viewer participation, with original visibility and currency boundaries",()=>{
+ const memberOnly=tripLedgerExpense('member-only','Member paid',[['mia',100000,100000]]),old={...memberOnly,id:'old',occurredOn:'2026-10-01'},foreign={...memberOnly,id:'foreign',spaceId:'other'},cancelled={...memberOnly,id:'cancelled',status:'voided' as const},personal={...memberOnly,id:'personal',scope:'personal' as const},hidden={...memberOnly,id:'hidden',sharedRestart:{ownerIds:['owner'],hiddenForViewer:true,edges:[],retags:[]}},usd=tripLedgerExpense('usd','USD',[['alex',90000,90000]],'USD')
+ const input=[old,foreign,cancelled,personal,hidden,memberOnly,usd],copy=structuredClone(input),shown=tripVisibleExpenses(input,tripLedgerId)
+ expect(shown.map(e=>e.id)).toEqual(['member-only','usd','old']);expect(shown[0].participations.some(p=>p.participantId==='owner')).toBe(false);expect(shown[0].totalMinor).toBe(100000);expect(shown[1].currency).toBe('USD');expect(input).toEqual(copy)
+})
