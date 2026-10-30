@@ -69,7 +69,7 @@ test.describe('local relational multi-user journey', () => {
     await expect(owner.getByText('Close Trip')).toHaveCount(0)
     await expect(owner.getByText('Final Statement')).toHaveCount(0)
     await expect(owner.getByRole('tab',{name:'Expenses',exact:true})).toHaveAttribute('aria-selected','true')
-    await expect(owner.getByTestId('space-position')).toBeVisible()
+    await expect(owner.getByTestId('trip-detail-summary')).toBeVisible()
     await expect(owner.getByTestId('space-recent')).toBeVisible()
     await expect(owner.getByTestId('space-recap')).toHaveCount(0)
     await expect(owner.getByTestId('space-balances')).toBeHidden()

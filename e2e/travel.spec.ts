@@ -156,7 +156,7 @@ for (const width of [320, 360, 390, 430, 768]) test(`Travel real RPC flows and a
       await page.goto('/')
       await expect(page.getByRole('heading',{name:'Mountain weekend',exact:true})).toBeVisible()
       await capture(page, 'zh-has-trip-390')
-      await page.getByRole('button',{name:'Switch trip',exact:true}).click()
+      await page.getByRole('button',{name:'切换旅程',exact:true}).click()
       await expect(page.getByRole('dialog', { name: '切换旅程' })).toBeVisible()
       await capture(page, 'zh-dropdown-390')
       await page.keyboard.press('Escape')

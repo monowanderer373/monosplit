@@ -21,3 +21,7 @@
 #root .tw-switch-sheet{min-height:0;max-height:75dvh;overflow-y:auto}#root .tw-switch-sheet h2{font-size:1.25rem}#root .tw-switch-sheet .home-icon-button{min-height:44px;min-width:44px;font-size:1.5rem;background:transparent;border:0;color:#263b4c}
 
 .tw-date-row{flex-wrap:wrap}.tw-date-row>.td-entry{flex:1 1 16rem}.tw-date-row>span:last-child{margin-left:auto}
+/* Large text may put the two tabs on separate lines; never break their words. */
+.tw-page .tl-tabs{flex-wrap:wrap;gap:8px 22px;min-width:0}.tw-page .tl-tabs button{overflow-wrap:normal;white-space:nowrap}
+
+.tw-page .tl-list-toolbar{position:absolute;width:1px;height:1px;min-height:0;margin:0;overflow:hidden;clip-path:inset(50%)}.tw-page .tl-date-heading{margin-top:20px}
