@@ -9,3 +9,5 @@ Local834/121units PASS69.90s; lint/TS/build PASS. Original30navigation/ledgerUI 
 Initial test-helper assumptions were corrected to original en-MY US$ formatting and original hidden/readonly controls; no financial assertions or app behavior relaxed. Exact-source fullCI, Github merge and production/live/PWA pending. Known localDocker vfs not retried: backend testing on disposableActions. PhysicalHonor/nativekeyboard/OSBack/UIzoom/screenreaderNOTRUN. NoSQL or productionfinancial fixture writes.
 
 Recovery: /workspace/verification/trip-overview-records-2026-10-30; PROJECT_STATUS/WORK_LOG/currentdiff. Do not replay old SQL/Reset or user data.
+
+A return check reproduced Showmore25 collapsingto20 after ledger Back. The final forward fix retains a bounded per-identity/Trip numeric presentation limit and waits for shared-record layout before scroll/focus restoration. Explicit25-row-return/focus assertion passes; final39overview/ledger/navigation UI cases PASS1.2min, lint/TS/buildPASS. Firstcandidate native11/288UI/1021SQL/app/history/CP passed; finalsource CI still required.
