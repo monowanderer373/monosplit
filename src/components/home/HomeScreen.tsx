@@ -336,7 +336,7 @@ export default function HomeScreen(props: HomeScreenProps) {
   )
 }
 
-function ModeBookmark({ mode, onChange }: { mode: 'daily' | 'travel'; onChange: (mode: 'daily' | 'travel') => void }) {
+export function ModeBookmark({ mode, onChange }: { mode: 'daily' | 'travel'; onChange: (mode: 'daily' | 'travel') => void }) {
   const t = useT()
   return <div className="home-mode" data-testid="home-mode-switch" role="group" aria-label={t('home.modeLabel')}>
     {(['daily', 'travel'] as const).map(choice => <button type="button" key={choice} aria-pressed={choice === mode}

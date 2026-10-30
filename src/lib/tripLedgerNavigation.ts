@@ -10,17 +10,18 @@ export function setTripLedgerScroll(actor:string,trip:string,tab:TripLedgerTab,s
 export function setTripLedgerLimit(actor:string,trip:string,limit:number){tripLedgerUi(actor,trip).limit=limit}
 type Origin={actor:string;trip:string;path:string;index:number;scroll:number}
 const origins=new Map<string,Origin>(),prefix='tt:trip-ledger-origin:'
-export function openTripLedgerView(navigate:NavigateFunction,location:Pick<Location,'pathname'|'search'|'state'>,actor:string,trip:string,view:'history'|'summary',focus?:string){
- const path=location.pathname+location.search;if(location.pathname!=='/space/'+trip)return
+export function openTripLedgerView(navigate:NavigateFunction,location:Pick<Location,'pathname'|'search'|'state'>,actor:string,trip:string,view:'history'|'summary',focus?:string,paymentsHistory=false){
+ const path=location.pathname+location.search;if(!['/space/'+trip,'/travel/trip/'+trip].includes(location.pathname))return
  const token=crypto.randomUUID(),origin={actor,trip,path,index:window.history.state?.idx??0,scroll:window.scrollY}
  origins.set(token,origin);if(origins.size>40)origins.delete(origins.keys().next().value!);try{saveNavigationSession(prefix,token,JSON.stringify(origin))}catch{/* memory preserves this session */}
  navigate(path,{replace:true,state:{...location.state,restoreScroll:window.scrollY}})
- const params=new URLSearchParams(location.search);params.delete('section');params.set('view',view);if(focus){params.set('focusExpenseId',focus);params.set('history','expenses')}
+ const params=new URLSearchParams(location.search);params.delete('section');params.set('view',view);if(paymentsHistory)params.set('history','payments');if(focus){params.set('focusExpenseId',focus);params.set('history','expenses')}
  navigate({pathname:location.pathname,search:params.toString()},{state:{...location.state,ledgerOrigin:token,restoreScroll:0}})
 }
-export function backFromTripLedgerView(navigate:NavigateFunction,state:unknown,actor:string,trip:string,tab:TripLedgerTab){
+export function backFromTripLedgerView(navigate:NavigateFunction,state:unknown,actor:string,trip:string,tab:TripLedgerTab,pathname='/space/'+trip){
  const token=(state as {ledgerOrigin?:unknown}|null)?.ledgerOrigin
  try{const origin=typeof token==='string'?origins.get(token)??JSON.parse(sessionStorage.getItem(prefix+token)??'null')as Origin|null:null
- if(origin&&origin.actor===actor&&origin.trip===trip&&origin.path.split('?')[0]==='/space/'+trip&&window.history.state?.idx===origin.index+1){navigate(-1);return}}catch{/* same-Trip fallback */}
- navigate('/space/'+encodeURIComponent(trip)+'?tab='+tab,{replace:true,state:{...spaceParentState(state,actor,'/space/'+trip),restoreScroll:0}})
+ if(origin&&origin.actor===actor&&origin.trip===trip&&['/space/'+trip,'/travel/trip/'+trip].includes(origin.path.split('?')[0])&&window.history.state?.idx===origin.index+1){navigate(-1);return}}catch{/* same-Trip fallback */}
+ const safePath=['/space/'+trip,'/travel/trip/'+trip].includes(pathname)?pathname:'/space/'+encodeURIComponent(trip)
+ navigate(safePath+'?tab='+tab,{replace:true,state:{...spaceParentState(state,actor,safePath),restoreScroll:0}})
 }

@@ -291,7 +291,7 @@ export default function SettlementPanel({
                           : participantNames.get(debt.creditorParticipantId) ?? t('common.member'),
                       })}
                   </p>
-                  <p className="mt-1 text-lg font-extrabold text-[var(--ms-accent)]">
+                  <p data-money-tone={trip?'outstanding':undefined} className="mt-1 text-lg font-extrabold text-[var(--ms-accent)]">
                     {amount(debt.remainingMinor, debt.currency)}
                   </p>
                   {trip?<p className="tl-debt-help">{t(mine?'tl.fullPartial':'tl.awaiting')}</p>:null}

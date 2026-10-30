@@ -6,7 +6,7 @@ import type { TravelMembers } from '../../hooks/useTravelMembers'
 import { useT } from '../../lib/i18n'
 import { AnchoredPaperPopover, TravelAmount, TravelIcon, TravelRecordsSection, TravelStatus, TravelViewSwitch, TripDateLine } from './TravelUI'
 
-export default function TripDetails({ props, records, members, membersStatus, participantId, onBack, onInfo, onMembers, onManage, onDates, canWrite, sharedRecords }: {
+export default function TripDetails({ props, records, members, membersStatus, participantId, onBack, onInfo, onMembers, onDates, canWrite, sharedRecords }: {
   sharedRecords?:{count:number;currencies:string[];status:'ready'|'error'|'loading'}; props: HomeScreenProps; records: ReactNode; members: TravelMembers; membersStatus: 'ready' | 'error' | 'loading';
   participantId: string; onBack: () => void; onInfo: (focus?:string) => void; onMembers: (focus?:string) => void; onManage: () => void; onDates: () => void; canWrite: boolean
 }) {
@@ -27,7 +27,6 @@ export default function TripDetails({ props, records, members, membersStatus, pa
       {more ? <AnchoredPaperPopover anchor={anchor} onClose={close} label={t('travel.actions')}>
         <button type="button" className="tt-popover-footer-control" onClick={() => { close(); info('trip-menu') }}><TravelIcon name="info" />{t('travel.tripInfo')}</button>
         {!personal ? <button type="button" className="tt-popover-footer-control" onClick={() => { close(); onMembers('trip-menu') }}><TravelIcon name="users" />{t('travel.members')}</button> : null}
-        <button type="button" className="tt-popover-footer-control" onClick={() => { close(); onManage() }}><TravelIcon name="settings" />{t('travel.manage')}</button>
       </AnchoredPaperPopover> : null}
       {!trip ? <section className="tt-guide tt-paper-card"><p role={props.travelStatus === 'loading' ? 'status' : 'alert'}>{t(props.travelStatus === 'loading' ? 'home.loading' : props.travelStatus === 'error' ? 'travel.unavailable' : 'travel.noAccess')}</p>
         {props.travelStatus === 'error' ? <button className="tt-link" type="button" onClick={props.onRetryTravel}>{t('common.retry')}</button> : null}</section> : <>

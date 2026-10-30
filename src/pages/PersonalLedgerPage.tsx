@@ -16,6 +16,7 @@ import ExpenseRecoveryNotices from '../components/ExpenseRecoveryNotices'
 import PendingExpenseRecoveryActions from '../components/PendingExpenseRecoveryActions'
 import HomeScreen, { RecentRecordList, type HomeScreenProps } from '../components/home/HomeScreen'
 import TripDetails from '../components/travel/TripDetails'
+import {TravelWorkspaceHome,TravelWorkspaceRoute} from '../components/travel/TravelWorkspace'
 import TripOverviewRecords from '../components/travel/TripOverviewRecords'
 import {tripVisibleExpenses} from '../lib/tripLedger'
 import { useTravelMembers } from '../hooks/useTravelMembers'
@@ -35,7 +36,8 @@ import { useT } from '../lib/i18n'
 import { createPersonalAccount } from '../lib/personalAccountRepository'
 import { useStore } from '../store/useStore'
 
-export default function PersonalLedgerPage() {
+export default function PersonalLedgerPage(){const {tripId}=useParams(),{authUser}=useAuth(),mode=useStore(s=>s.homeUi.mode),location=useLocation();if(authUser?.participantId){if(tripId&&!tripId.startsWith('affiliation:'))return <TravelWorkspaceRoute key={authUser.id+':'+tripId} tripId={tripId}/>;if(!tripId&&location.pathname==='/'&&mode==='travel'&&!location.search)return <TravelWorkspaceHome key={authUser.id}/>}return <PersonalLedgerContent/>}
+function PersonalLedgerContent() {
   const t = useT()
   const navigate = useNavigate()
   const location = useLocation()

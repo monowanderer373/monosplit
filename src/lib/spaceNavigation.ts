@@ -6,7 +6,7 @@ import { useStore } from '../store/useStore'
 
 type PageLocation = Pick<Location, 'pathname' | 'search' | 'state'>
 type ParentState = { spaceNav?: string; ledgerOrigin?: string }
-export type SpaceOrigin = { actor: string; target: string; source: string; index: number; key: string; scroll: number; focus: string; parent: ParentState; travel?: { selected: string | null; density: 'detailed' | 'compact' } }
+export type SpaceOrigin = { actor: string; target: string; source: string; index: number; key: string; scroll: number; focus: string; parent: ParentState; workspaceHome?:boolean; travel?: { selected: string | null; density: 'detailed' | 'compact' } }
 const memory = new Map<string, SpaceOrigin>(), prefix = 'tt:space-nav:'
 const uuid = /^[a-f0-9-]{36}$/i
 export const sharedSpacePath = (type: SpaceType) => '/shared?tab=' + (type === 'group' ? 'groups' : 'trips')
@@ -56,6 +56,7 @@ export function readSpaceOrigin(state: unknown, actor: string, target: string): 
     if (!v || v.actor !== actor || v.target !== targetPath(target) || !validPath(v.source) || targetPath(v.source) === targetPath(target) || !Number.isSafeInteger(v.index) || v.index < 0 || typeof v.key !== 'string' || !Number.isFinite(v.scroll) || v.scroll < 0 || typeof v.focus !== 'string' || v.focus.length>200 || v.scroll>10000000 || (v.travel&&(!['compact','detailed'].includes(v.travel.density)||(v.travel.selected!==null&&(typeof v.travel.selected!=='string'||v.travel.selected.length>200))))) return null
     // An overview may parent only the same Trip ledger; never another Trip.
     if (v.source.startsWith('/travel/trip/') && v.target.startsWith('/space/') && v.source.split('/').pop() !== v.target.split('/').pop()) return null
+    if(v.workspaceHome&&(v.source!=='/'||!/^\/travel\/trip\/[^/]+$/.test(v.target)))return null
     return {...v,parent:{...(uuid.test(v.parent?.spaceNav??'')?{spaceNav:v.parent.spaceNav}:{}),...(uuid.test(v.parent?.ledgerOrigin??'')?{ledgerOrigin:v.parent.ledgerOrigin}:{})}}
   } catch { return null }
 }
@@ -91,6 +92,7 @@ export function prepareSpaceBack(navigate: NavigateFunction, location: PageLocat
   if (!actor || location.state?.moneyAction || location.state?.routeOverlay || !/^\/(?:space|travel\/trip)\/[a-zA-Z0-9:%_-]+$/.test(location.pathname)) return
   if(window.location.pathname!==location.pathname||window.location.search!==location.search)return
   const origin = readSpaceOrigin(location.state, actor, location.pathname)
+  if(origin?.workspaceHome)return
   if (origin && window.history.state?.idx === origin.index + 1) return
   if (!origin && location.state?.spaceBackSeed === actor + ':' + location.pathname) return
   const source = origin?.source ?? fallback
@@ -99,6 +101,19 @@ export function prepareSpaceBack(navigate: NavigateFunction, location: PageLocat
   navigate(source, { replace: true, state: { ...origin?.parent, restoreScroll: scroll, spaceReturn: token } })
   save(token, { ...(origin ?? { actor, target: location.pathname, focus: '', parent: {} }), source, scroll, index: window.history.state?.idx ?? 0, key: window.history.state?.key ?? '' })
   navigate(location.pathname + location.search, { state: { ...location.state, spaceNav: token, spaceBackSeed: actor + ':' + location.pathname, restoreScroll: location.state?.restoreScroll ?? 0 } })
+}
+
+/** Replace the Travel home entry once, not a second overview/history layer. */
+export function replaceTravelWorkspace(navigate:NavigateFunction,location:PageLocation,actor:string,trip:string) {
+  if(!actor||!trip||location.state?.moneyAction||location.state?.routeOverlay||!(location.pathname==='/'||/^\/travel\/trip\/[^/]+$/.test(location.pathname)))return
+  const target='/travel/trip/'+encodeURIComponent(trip),token=crypto.randomUUID(),p=new URLSearchParams(location.search),search=new URLSearchParams()
+  if(p.get('tab')==='balances')search.set('tab','balances')
+  if(['history','summary'].includes(p.get('view')??''))search.set('view',p.get('view')!)
+  if(['expenses','payments','activity'].includes(p.get('history')??''))search.set('history',p.get('history')!)
+  if(p.get('focusExpenseId'))search.set('focusExpenseId',p.get('focusExpenseId')!.slice(0,200))
+  const store=useStore.getState()
+  save(token,{actor,target,source:'/',index:window.history.state?.idx??0,key:window.history.state?.key??'',scroll:0,focus:'travel-switch',parent:{},workspaceHome:true,travel:{selected:trip,density:store.homeUi.density}})
+  navigate(target+(search.size?'?'+search.toString():''),{replace:true,state:{spaceNav:token,restoreScroll:0}})
 }
 export function readSpaceReturn(state: unknown, actor: string, source: string) {
   const token = (state as { spaceReturn?: unknown } | null)?.spaceReturn

@@ -69,7 +69,7 @@ test.describe('local relational multi-user journey', () => {
     await expect(owner.getByText('Close Trip')).toHaveCount(0)
     await expect(owner.getByText('Final Statement')).toHaveCount(0)
     await expect(owner.getByRole('tab',{name:'Expenses',exact:true})).toHaveAttribute('aria-selected','true')
-    await expect(owner.getByTestId('space-position')).toBeVisible()
+    await expect(owner.getByTestId('trip-detail-summary')).toBeVisible()
     await expect(owner.getByTestId('space-recent')).toBeVisible()
     await expect(owner.getByTestId('space-recap')).toHaveCount(0)
     await expect(owner.getByTestId('space-balances')).toBeHidden()
@@ -101,7 +101,7 @@ test.describe('local relational multi-user journey', () => {
     await expect(guestPage.getByRole('button',{name:'Quick add expense',exact:true})).toBeDisabled()
     await expect(guestPage.getByRole('button', { name: '+ Add expense' })).toHaveCount(0)
 
-    await owner.getByRole('button', { name: 'Refresh' }).first().click()
+    await refreshSpace(owner)
     await expect(owner.getByText('4 members')).toBeVisible()
     const memberOrigin=await openTripMemberManager(owner)
     await expectTripMemberRole(owner,'Beta','full_access')
@@ -340,7 +340,11 @@ test.describe('local relational multi-user journey', () => {
 })
 
 async function refreshSpace(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Refresh' }).first().click()
+  const tripActions=page.getByRole('button',{name:'Trip actions',exact:true})
+  if(await tripActions.count()){
+    await tripActions.click()
+    await page.getByRole('dialog',{name:'Trip actions',exact:true}).getByRole('button',{name:'Refresh',exact:true}).click()
+  }else await page.getByRole('button',{name:'Refresh',exact:true}).first().click()
 }
 
 async function addExpense(
