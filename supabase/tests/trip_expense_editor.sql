@@ -66,7 +66,7 @@ select is((select count(*)from expenses where id=pg_temp.id('demoted')),0::bigin
 select is((select status from expenses where id=pg_temp.id('zero-other')),'voided','original Shared audit retained');
 select is((reconcile_personal_money_operation(pg_temp.id('save-command'))->>'state'),'not_posted','original reconciliation fence is owner scoped');
 select pg_temp.claim(2);
-insert into te values('account',public.create_personal_account(gen_random_uuid(),'Private source','cash','MYR',null,null,false));
+insert into te values('account',(public.create_personal_account(gen_random_uuid(),'Private source','cash','MYR',null,null,false)->>'account_id')::uuid);
 select lives_ok($$select save_trip_expense_editor(gen_random_uuid(),pg_temp.id('demoted'),1,pg_temp.id('trip'),'private',false,pg_temp.payload('personal',array[pg_temp.id('u2')],array[10000::bigint],array[10000::bigint],10000,'Private successor note'),array[pg_temp.id('u2')],'exact','[]',jsonb_build_object('intent_id',null,'version',null,'account_id',pg_temp.id('account')))$$,'account choice defers through original command in same Save');
 select is((select version from expenses where id=pg_temp.id('demoted')),2,'account/settings-only Save also advances expected version');
 select is((select count(*)from personal_account_entries),0::bigint,'account choice does not confirm or post a deduction');

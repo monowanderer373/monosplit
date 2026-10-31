@@ -31,7 +31,7 @@ end $$;
 -- from immutable contribution/share facts, under exactly the parent RLS.
 create function private.save_trip_editor_settings(expense uuid,consumer_ids uuid[],mode text,items jsonb)
 returns void language plpgsql security definer set search_path='' as $$
-declare e public.expenses%rowtype;item jsonb;people uuid[];units numeric;unit_amount bigint;total numeric:=0;expected jsonb:='{}'::jsonb;person uuid;i integer;digits integer;
+declare e public.expenses%rowtype;item jsonb;people uuid[];units numeric;unit_amount bigint;total numeric:=0;expected jsonb:='{}'::jsonb;person uuid;digits integer;
 begin
  if mode is null or mode not in ('equal','exact','items') or items is null or jsonb_typeof(items)<>'array' or consumer_ids is null or cardinality(consumer_ids)=0
  or array_position(consumer_ids,null) is not null or cardinality(consumer_ids)>(select count(*)from public.expense_participations p where p.expense_id=expense)
@@ -40,6 +40,7 @@ begin
  or exists(select 1 from public.expense_shares s join public.expense_participations p on p.id=s.expense_participation_id where s.expense_id=expense and s.amount_minor>0 and not(p.participant_id=any(consumer_ids)))
  then raise exception using message='invalid_consumers',errcode='P0001';end if;
  select * into e from public.expenses where id=expense;
+ consumer_ids:=array(select p.participant_id from public.expense_participations p where p.expense_id=expense and p.participant_id=any(consumer_ids)order by p.participant_order);
  if mode='equal' then
   for i in 1..cardinality(consumer_ids)loop expected:=jsonb_set(expected,array[consumer_ids[i]::text],to_jsonb(e.total_minor/cardinality(consumer_ids)+case when i<=e.total_minor%cardinality(consumer_ids)then 1 else 0 end));end loop;
  elsif mode='items' then
@@ -67,8 +68,9 @@ end $$;
 
 create function public.get_trip_expense_editor(target_expense_id uuid)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
-declare actor uuid:=private.require_personal_actor(); e public.expenses%rowtype;a public.personal_expense_affiliations%rowtype;s public.spaces%rowtype;r text;funding jsonb; settings jsonb;members jsonb;
+declare actor uuid:=public.current_participant_id(); e public.expenses%rowtype;a public.personal_expense_affiliations%rowtype;s public.spaces%rowtype;r text;funding jsonb; settings jsonb;members jsonb;
 begin
+ if actor is null then raise exception using message='not_authenticated',errcode='P0001';end if;
  if not private.can_read_expense(target_expense_id,actor) then raise exception using message='expense_not_visible',errcode='P0001';end if;
  select * into e from public.expenses where id=target_expense_id;
  if e.scope='personal' and e.created_by=actor then
@@ -85,7 +87,7 @@ begin
  from public.personal_funding_intents f join chain c on c.id=f.expense_id left join public.personal_accounts acc on acc.id=f.account_id left join public.personal_funding_bundles b on b.funding_intent_id=f.id where f.owner_participant_id=actor;
  return jsonb_build_object('schema_version',1,'audience',case when e.scope='personal' then 'private' else 'shared' end,
  'trip_id',s.id,'trip_name',case when r is null then a.label else s.name end,'role',r,'trip_status',case when r is null then null else s.status end,
- 'can_edit',e.status='active' and(case when e.scope='personal' then e.created_by=actor else r in ('owner','full_access')and(e.created_by=actor or r='owner')end),
+ 'can_edit',public.is_permanent_account() and e.status='active' and not coalesce((public.shared_restart_state(e)->>'hidden_for_viewer')::boolean,false) and(case when e.scope='personal' then e.created_by=actor else r in ('owner','full_access')and(e.created_by=actor or r='owner')end),
  'expense',to_jsonb(e)||jsonb_build_object('shared_restart_state',public.shared_restart_state(e)),'members',members,'settings',settings,'funding',funding,
  'accounts',(select coalesce(jsonb_agg(jsonb_build_object('id',own_account.id,'name',own_account.name,'currency',own_account.currency)order by own_account.name,own_account.id),'[]'::jsonb)from public.personal_accounts own_account where own_account.owner_participant_id=actor and own_account.archived_at is null and not exists(select 1 from public.personal_account_currencies c where c.account_id=own_account.id)),
  'participations',(select coalesce(jsonb_agg(to_jsonb(p)order by p.participant_order),'[]'::jsonb)from public.expense_participations p where p.expense_id=e.id),
@@ -109,6 +111,7 @@ begin
  r:=private.space_role(trip,actor);
  if e.scope='personal' then if e.created_by<>actor then raise exception using message='expense_write_denied',errcode='P0001';end if;
  elsif r not in('owner','full_access') or r is null or (e.created_by<>actor and r<>'owner') then raise exception using message='expense_write_denied',errcode='P0001';end if;
+ if coalesce((public.shared_restart_state(e)->>'hidden_for_viewer')::boolean,false)then raise exception using message='expense_write_denied',errcode='P0001';end if;
  if desired_audience not in('private','shared') or desired_audience is null then raise exception using message='invalid_audience',errcode='P0001';end if;
  ids:=array(select jsonb_array_elements_text(expense_payload->'participant_ids')::uuid);paid:=array(select jsonb_array_elements_text(expense_payload->'contribution_amounts')::bigint);shares:=array(select jsonb_array_elements_text(expense_payload->'share_amounts')::bigint);amount:=(expense_payload->>'total_minor')::bigint;
  perform private.assert_reconciled_expense_payload(amount,ids,paid,shares);
@@ -125,6 +128,9 @@ begin
   if exists(select 1 from unnest(ids)x where not exists(select 1 from public.space_members m where m.space_id=trip and m.participant_id=x and m.removed_at is null))then raise exception using message='participant_not_in_space',errcode='P0001';end if;
  end if;
  if desired_audience<>old_audience then
+  -- Reuse the existing write exclusion before checking settlement dependencies.
+  -- A competing settlement/correction fails safely; no partially hidden bill.
+  perform private.lock_collect_pay_balance();
   if e.created_by<>actor then raise exception using message='audience_owner_required',errcode='P0001';end if;
   if desired_audience='private' then
    if not coalesce(confirm_private,false)then raise exception using message='private_confirmation_required',errcode='P0001';end if;
