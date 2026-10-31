@@ -76,3 +76,15 @@ describe('compileLedgerExpense', () => {
     })
   })
 })
+
+// Issue07 adds protected Trip association metadata; ordinary Group/Direct paths
+// above retain their original scope and financial compilation.
+it('compiles new self-only Trip capture to personal while preserving the stable Trip association',()=>{
+ const result=compileLedgerExpense(buildDraft({scope:'space',spaceId:'trip',participants:[{id:'dav',displayName:'Dav',kind:'account'}],consumerParticipantIds:['dav'],payerAmounts:{dav:'100'},tripEditor:{tripId:'trip',consumerIds:['dav'],mode:'equal',items:[]}}));expect(result).toMatchObject({ok:true,command:{scope:'personal',spaceId:null,participantIds:['dav'],shareAmounts:[10000],tripEditor:{tripId:'trip',consumerIds:['dav']}}})
+})
+it('keeps explicit zero-share Trip consumers Shared and rejects a mismatched association',()=>{
+ const draft=buildDraft({scope:'space',spaceId:'trip',participants:[{id:'dav',displayName:'Dav',kind:'account'},{id:'lan',displayName:'Lan',kind:'account'}],consumerParticipantIds:['dav','lan'],payerAmounts:{dav:'100'},splitMode:'exact',exactShareAmounts:{dav:'100',lan:'0'},tripEditor:{tripId:'trip',consumerIds:['lan','dav'],mode:'exact',items:[]}});expect(compileLedgerExpense(draft)).toMatchObject({ok:true,command:{scope:'space',spaceId:'trip',shareAmounts:[10000,0],tripEditor:{consumerIds:['dav','lan']}}});expect(compileLedgerExpense({...draft,tripEditor:{...draft.tripEditor!,tripId:'another'}})).toMatchObject({ok:false,error:'invalid_scope'})
+})
+it('does not publish stale item metadata against different canonical shares',()=>{
+ const draft=buildDraft({scope:'space',spaceId:'trip',participants:[{id:'dav',displayName:'Dav',kind:'account'},{id:'lan',displayName:'Lan',kind:'account'}],consumerParticipantIds:['dav','lan'],payerAmounts:{dav:'100'},splitMode:'exact',exactShareAmounts:{dav:'100',lan:'0'},tripEditor:{tripId:'trip',consumerIds:['dav','lan'],mode:'items',items:[{id:'meal',name:'Meal',amount:'100',participantIds:['lan']}]}});expect(compileLedgerExpense(draft)).toMatchObject({ok:false,error:'invalid_shares'})
+})

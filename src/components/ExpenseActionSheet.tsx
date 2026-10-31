@@ -1,3 +1,5 @@
+import {UnifiedTripExpensePortal} from './travel/UnifiedTripExpenseEditor'
+import {loadTripEditor} from '../lib/tripExpenseEditor'
 import {useTripMembership} from '../hooks/useTripMembership'
 import {tripFinancialParticipantIds} from '../lib/tripSplit'
 import AmountInput from './AmountInput'
@@ -55,6 +57,8 @@ function ExpenseActionSheetContent({
   const zh = lang === 'zh'
   const copy = (en: string, cn: string) => zh ? cn : en
   const [open, setOpen] = useState(false)
+  const [personalTrip,setPersonalTrip]=useState(false)
+  useEffect(()=>{if(!open||expense.scope!=='personal')return;let live=true;void loadTripEditor(expense.id).then(context=>{if(live)setPersonalTrip(!!context)}).catch(()=>{/* Existing editor remains authoritative for non-associated personal records. */});return()=>{live=false}},[open,expense.id,expense.scope])
   const members=useTripMembership(open&&expense.scope==='space'?currentParticipantId+':'+expense.id+':'+expense.version:'',currentParticipantId,expense.spaceId??'')
   const knownSpace=useRef<{id:string;type:string;name:string}|null>(null)
   if(members.data)knownSpace.current={id:expense.spaceId??'',type:members.data.entry.space.type,name:members.data.entry.space.name}
@@ -313,7 +317,7 @@ function ExpenseActionSheetContent({
       aria-label={hidden ? copy('Open record', '打开记录') : mode === 'read_only' ? copy(`View ${expenseName}`, `查看 ${expenseName}`) : copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)} onClick={openSheet}>
       {triggerClassName === 'home-record-trigger' ? <span className="home-sr">{hidden ? copy('Open record', '打开记录') : copy(`Edit ${expenseName}`, `编辑 ${expenseName}`)}</span> : trigger ?? <QuickIcon name="edit" size={16} />}
     </button>
-    {open ? createPortal(<EditorDialog titleId={`expense-action-${expense.id}`} closing={closing} onClose={requestClose}>
+    {open&&(trip||personalTrip)?<UnifiedTripExpensePortal expense={expense} trigger={trigger} onRefresh={onRefresh} statusNotice={statusNotice} onExit={()=>setOpen(false)}/>:open ? createPortal(<EditorDialog titleId={`expense-action-${expense.id}`} closing={closing} onClose={requestClose}>
       <header className="expense-editor-header">
         <span className="expense-editor-icon"><QuickIcon name={({ Drinks: 'Drink', Transportation: 'Transport', Flight: 'Travel', Accommodation: 'Stay', Activities: 'Fun', Sightseeing: 'Travel' } as Record<string, string>)[category] ?? category} size={24} /></span>
         <div><h2 id={`expense-action-${expense.id}`}>{mode === 'read_only' ? copy('Record details', '记录详情') : editing ? copy('Edit record', '编辑记录') : mode === 'view_request' ? t('expenseAction.viewRequest') : t('expenseAction.cancelExpense')}</h2><p>{subtitle}</p></div>

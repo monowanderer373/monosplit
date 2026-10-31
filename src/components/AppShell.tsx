@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, lazy, Suspense, type ReactNode } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { PersonalLedgerProvider } from '../hooks/usePersonalLedger'
 import {
@@ -13,11 +13,43 @@ import { saveFeedbackLabel } from '../lib/universalQuickAdd'
 import BottomNavigation from './BottomNavigation'
 import GlobalMoneyAction from './GlobalMoneyAction'
 import GlobalMoneyActionHost from './GlobalMoneyActionHost'
+import {pendingTripEdit} from '../lib/tripEditorRecovery'
+import {useAccessibleDialog} from '../hooks/useAccessibleDialog'
+const RestoredTripExpenseEditor=lazy(()=>import('./travel/UnifiedTripExpenseEditor').then(module=>({default:module.RestoredTripExpenseEditor})))
 
+function RecoveringTripEditor(){
+ const t=useT(),ref=useAccessibleDialog<HTMLElement>(()=>{});
+ useLayoutEffect(()=>{const overflow=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{document.body.style.overflow=overflow}},[]);
+ return <section ref={ref} role="dialog" aria-modal="true" aria-label={t('common.loading')} tabIndex={-1} style={{position:'fixed',inset:0,zIndex:300,background:'#f7f5ef',display:'grid',placeItems:'center'}}><p role="status">{t('common.loading')}</p></section>
+}
 function ShellContents() {
   const t = useT()
   const { authUser } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
+  const inspectedInitialOverlay = useRef(false)
+  const [restoringEditor,setRestoringEditor]=useState<{owner:string;id:string}|null>(null)
+  useEffect(() => {
+    if (inspectedInitialOverlay.current || !authUser?.participantId) return
+    let live=true
+    queueMicrotask(()=>{
+      if(!live||inspectedInitialOverlay.current)return
+      inspectedInitialOverlay.current=true
+      const marker=location.state?.routeOverlay
+      if(typeof marker!=='string'||!marker.startsWith('trip-expense-editor:'))return
+      const id=marker.slice('trip-expense-editor:'.length)
+      try{
+        if(/^[0-9a-f-]{36}$/i.test(id)&&pendingTripEdit(authUser.participantId!,id)){
+          setRestoringEditor({owner:authUser.participantId!,id});return
+        }
+      }catch{/* Invalid recovery metadata never authorizes a financial mutation. */}
+      // No opaque in-flight command exists; unsaved amounts/notes were never
+      // persisted. Retire only this editor's marker and keep route provenance.
+      const state={...location.state};delete state.routeOverlay
+      navigate(location.pathname+location.search,{replace:true,state})
+    })
+    return()=>{live=false}
+  },[location,navigate,authUser?.participantId])
   const directQuickAddArmed = useRef(false)
   const quickAdd = useUniversalQuickAdd()
 
@@ -122,6 +154,7 @@ function ShellContents() {
       ) : null}
       {authUser?.participantId && !recordsPage && !profileSubpage && !tripDatesPage ? <GlobalMoneyAction onAdd={openGlobalAdd} composerOpen={Boolean(quickAdd.action)} disabled={targetPending} standalone={!showNavigation} /> : null}
       <GlobalMoneyActionHost />
+      {restoringEditor&&restoringEditor.owner===authUser?.participantId?<Suspense fallback={<RecoveringTripEditor/>}><RestoredTripExpenseEditor key={restoringEditor.owner+':'+restoringEditor.id} expenseId={restoringEditor.id} onExit={()=>setRestoringEditor(null)}/></Suspense>:null}
       {quickAdd.feedback ? (
         <div
           className="fixed bottom-24 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-[var(--ms-text)] px-4 py-3 text-sm font-bold text-[var(--ms-surface)] shadow-xl"
