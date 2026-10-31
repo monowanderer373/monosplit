@@ -118,9 +118,10 @@ jobs:
           python3 scripts/generate-personal-confirmation-apply.py
           python3 scripts/generate-shared-restart-apply.py
           python3 scripts/generate-trip-friends-apply.py
+          python3 scripts/generate-trip-editor-apply.py
           git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql docs/runbooks/personal-periods-production-apply.sql docs/runbooks/personal-confirmation-production-apply.sql docs/runbooks/shared-restart-production-apply.sql
           mkdir /tmp/tabby-multicurrency-migrations
-          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql supabase/migrations/202610260001_shared_restart.sql supabase/migrations/202610280001_trip_friend_requests.sql /tmp/tabby-multicurrency-migrations/
+          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql supabase/migrations/202610260001_shared_restart.sql supabase/migrations/202610280001_trip_friend_requests.sql supabase/migrations/202610310001_unified_trip_expense_editor.sql /tmp/tabby-multicurrency-migrations/
           trap 'mv /tmp/tabby-multicurrency-migrations/*.sql supabase/migrations/' EXIT
           npx supabase migration up --local
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
@@ -134,6 +135,8 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/shared-restart-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-friends-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-friends-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-editor-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-editor-production-apply.sql
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive
