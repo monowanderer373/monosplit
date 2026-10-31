@@ -27,10 +27,10 @@ Browser tests reproduced and fixed translation-closure refetching, same-URL pare
 | Unit | 866 tests / 124 files, 38.36s; focused recovery/controller/pagination13/13 | PASS |
 | ESLint / TypeScript | Actual application, including reload recovery; latest visual build also checks TypeScript | PASS |
 | Production build / PWA | 130 precache entries; no dependency/lockfile changes | PASS |
-| Actual editor React / CSS | 17 Pixel-touch production-graph browser cases, final visual45.4s | PASS |
+| Actual editor React / CSS | 18 Pixel-touch production-graph browser cases, final51.8s | PASS |
 | Native SQL / strict lint / concurrence | Source275d79c,1081 pgTAP /23files, original locks/competing UUIDs/no cash repost; same migration as final visual patch | PASS |
 | Historical upgrade | Source275d79c old installers then new complete installer twice | PASS |
-| Full authenticated/browser regressions | Quality41201783844 still running at checkpoint; final icon-only client revision gets its own exact-source Quality run | PENDING |
+| Full authenticated/browser regressions | Quality41201783844 still running at checkpoint; the final component/count revision gets its own exact-source Quality run | PENDING |
 | Reference package | 15 supplemental tests; not application/RLS proof | PASS |
 | Local disposable Supabase | Known Docker vfs capacity failure, not retried | BLOCKED |
 | Production schema / release | Actual33versions; new34th not installed, existing READYe527b9b | BLOCKED |
@@ -38,14 +38,14 @@ Browser tests reproduced and fixed translation-closure refetching, same-URL pare
 
 Browser coverage includes320/360/390/430 CSS px,125/150/200% root fonts, normal390 two-member fit, large VND/safe integer, long names, short keyboard-like viewport, focus/inert/disabled items/reduced motion, hidden amounts, Equally/Amounts/By item, original payer/consumer preservation, dirty Back, version conflict with retained draft, one Save, explicit No account versus Verify later, private conversion refusal and Keep shared, and unknown-response receipt checks after readonly/source correction/reload. These are actual application components with intercepted synthetic transport; they do not prove backend authority. The separate disposable native A/B/O/X/RLS/transactional suite does.
 
-Failed attempts are retained honestly: initial PLpgSQL grammar/shadowing, balance-lock ordering, touch focus, old scoped count assertions, old native RPC interception and a test-only wrong journal owner column. Financial assertions and the original native180s timeout were not weakened. Full browser also reported original QuickAdd Back/Forward failure; final exact-source results must resolve it before release.
+Failed attempts are retained honestly: initial PLpgSQL grammar/shadowing, balance-lock ordering, touch focus, old scoped count assertions, old native RPC interception and a test-only wrong journal owner column. Financial assertions and the original native180s timeout were not weakened. Full browser also reported original QuickAdd Back/Forward failure; final exact-source results must resolve it before release. Native Travel then caught a real list-count mismatch; the toolbar now counts the complete visible private+Shared list, while Shared summary/count remains Shared-only. The new mixed-list regression verifies count, rendered rows and own spending together.
 
 ## Design comparison and acceptance
 
 Safe comparison gallery (approved references versus actual390×864 captures, plus four200% font widths):
 `/workspace/verification/issue07-unified-editor-2026-10-31/delivery/index.html`.
 
-The latest component pass adds explicit lock/Shared icons, a single-payer avatar and visible square checked consumer controls, with scoped CSS only. All17 browser cases pass after this pass. Native date formatting/icon differs by browser; actual canonical participant order and synthetic test names/dates/amounts differ from the reference sample. Disabled Save is intentionally faded until there is a valid change. Pure paper/denim colors follow the written spec rather than generated-image gradients. Close is immediate; entry/inline expansion honor reduced motion. No physical-device fidelity claim.
+The latest component pass adds explicit lock/Shared icons, a single-payer avatar and visible square checked consumer controls, with scoped CSS only. All18 browser cases pass after this pass. Native date formatting/icon differs by browser; actual canonical participant order and synthetic test names/dates/amounts differ from the reference sample. Disabled Save is intentionally faded until there is a valid change. Pure paper/denim colors follow the written spec rather than generated-image gradients. Close is immediate; entry/inline expansion honor reduced motion. No physical-device fidelity claim.
 
 Privacy/financial acceptance requires original parent RLS at every entry, account owner-only projection, private predecessor confidentiality, explicit-audience transitions, versioned atomic correction, blocked settlement/reversal/pending-request conversion and original funding ancestry. SQL and the new real authenticated browser case cover A/B/O/X and150/250/0 versus Shared100. Historical Shared read rights are intentionally preserved; membership does not grant private access. Existing Fresh Start protection for correction chains remains. Old label-only private affiliations are not guessed into Trips, and Shared-to-private conservatively rejects any Trip settlement fact. These are deliberate compatibility/security limits, not silent reclassification or rewritten accounting.
 

@@ -84,3 +84,7 @@ test('browser reload restores the opaque command even when the corrected source 
 test('reload without an in-flight command clears only the orphan editor marker',async({page})=>{
  await fixture(page);await open(page,'Trip dinner');await page.reload();await expect(page.getByTestId('space-recent')).toContainText('Trip dinner');await expect(page.getByTestId('unified-expense-editor')).toHaveCount(0);expect(await page.evaluate(()=>history.state?.usr?.routeOverlay)).toBeUndefined();await open(page,'Trip dinner');await page.keyboard.press('Escape');await expect(page.getByTestId('unified-expense-editor')).toHaveCount(0)
 })
+
+test('visible list counts own private and Shared rows while Shared summary counts only Shared',async({page})=>{
+ const f=await fixture(page,'private');f.state.expenses.push(tripLedgerExpense('00000000-0000-4000-8000-000000000473','Shared bill',[['owner',0,0],['mia',100000,100000]]));await page.reload();await expect(page.locator('.tl-list-toolbar')).toHaveText('2 expenses');await expect(page.getByTestId('space-recent').locator('[data-expense-id]')).toHaveCount(2);await expect(page.getByTestId('trip-detail-summary')).toContainText('1 shared record');await expect(page.getByTestId('travel-spending')).toHaveText('RM 100.00')
+})
