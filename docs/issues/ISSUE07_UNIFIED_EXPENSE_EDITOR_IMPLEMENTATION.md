@@ -20,20 +20,39 @@ Fixed header/body/footer, native decimal editing without changing the raw input 
 
 Browser tests reproduced and fixed translation-closure refetching, same-URL parent history reseeding during dirty Back, and focus-formatting selection loss. The existing navigation policy now checks actual browser overlay state before a stale parent effect can reseed history.
 
-## Verification checkpoint
+## Verification checkpoint (2026-10-31 UTC)
 
-- Clean main baseline: 843 unit tests / 122 files PASS.
-- Application candidate: 859 unit tests / 123 files PASS; additional capture/date/controller cases passed (29 affected tests). Lint, TypeScript and production PWA build passed at preceding checkpoints; exact final source must be checked again.
-- Backend candidate `886367b`: 1,074 pgTAP checks / 23 files PASS, strict database lint and historical installer/replay PASS in disposable GitHub Actions. The subsequent exact9f9 run also passed all1,074 SQL checks; its new competing-session witness exposed the lock-order issue. The fix takes NOWAIT exclusion before any row lock and also protects open payment requests. Fresh exact-source CI is required.
-- Original nine editor browser cases passed: four phone widths, 125/150/200% root text, preserved payer/consumers, dirty Back, conflict, private publication, uncertain-save reconciliation and readonly. Expanded editor/overview run21/21PASS39.2s, then actual local Pixel-touch14/14PASS36.0s including private-denial recovery and No-account choice; the privacy fixture now initializes hidden state consistently. Earlier failed runs are retained as failed evidence.
-- Reference package 15 tests PASS, supplemental only.
-- Docker vfs remains blocked locally; no repeated local pull/reset. Actual PostgreSQL/Supabase validation uses disposable Actions only.
-- Physical Honor/iOS/Android keyboard, OS Back/zoom and screen reader NOT RUN.
+| Check | Current evidence | Result |
+|---|---|---|
+| Unit | 866 tests / 124 files, 38.36s; focused recovery/controller/pagination13/13 | PASS |
+| ESLint / TypeScript | Actual application, including reload recovery; latest visual build also checks TypeScript | PASS |
+| Production build / PWA | 130 precache entries; no dependency/lockfile changes | PASS |
+| Actual editor React / CSS | 17 Pixel-touch production-graph browser cases, final visual45.4s | PASS |
+| Native SQL / strict lint / concurrence | Source275d79c,1081 pgTAP /23files, original locks/competing UUIDs/no cash repost; same migration as final visual patch | PASS |
+| Historical upgrade | Source275d79c old installers then new complete installer twice | PASS |
+| Full authenticated/browser regressions | Quality41201783844 still running at checkpoint; final icon-only client revision gets its own exact-source Quality run | PENDING |
+| Reference package | 15 supplemental tests; not application/RLS proof | PASS |
+| Local disposable Supabase | Known Docker vfs capacity failure, not retried | BLOCKED |
+| Production schema / release | Actual33versions; new34th not installed, existing READYe527b9b | BLOCKED |
+| Physical Honor / OS keyboard, Back, zoom / screen reader | No physical-device execution available | NOT RUN |
+
+Browser coverage includes320/360/390/430 CSS px,125/150/200% root fonts, normal390 two-member fit, large VND/safe integer, long names, short keyboard-like viewport, focus/inert/disabled items/reduced motion, hidden amounts, Equally/Amounts/By item, original payer/consumer preservation, dirty Back, version conflict with retained draft, one Save, explicit No account versus Verify later, private conversion refusal and Keep shared, and unknown-response receipt checks after readonly/source correction/reload. These are actual application components with intercepted synthetic transport; they do not prove backend authority. The separate disposable native A/B/O/X/RLS/transactional suite does.
+
+Failed attempts are retained honestly: initial PLpgSQL grammar/shadowing, balance-lock ordering, touch focus, old scoped count assertions, old native RPC interception and a test-only wrong journal owner column. Financial assertions and the original native180s timeout were not weakened. Full browser also reported original QuickAdd Back/Forward failure; final exact-source results must resolve it before release.
+
+## Design comparison and acceptance
+
+Safe comparison gallery (approved references versus actual390×864 captures, plus four200% font widths):
+`/workspace/verification/issue07-unified-editor-2026-10-31/delivery/index.html`.
+
+The latest component pass adds explicit lock/Shared icons, a single-payer avatar and visible square checked consumer controls, with scoped CSS only. All17 browser cases pass after this pass. Native date formatting/icon differs by browser; actual canonical participant order and synthetic test names/dates/amounts differ from the reference sample. Disabled Save is intentionally faded until there is a valid change. Pure paper/denim colors follow the written spec rather than generated-image gradients. Close is immediate; entry/inline expansion honor reduced motion. No physical-device fidelity claim.
+
+Privacy/financial acceptance requires original parent RLS at every entry, account owner-only projection, private predecessor confidentiality, explicit-audience transitions, versioned atomic correction, blocked settlement/reversal/pending-request conversion and original funding ancestry. SQL and the new real authenticated browser case cover A/B/O/X and150/250/0 versus Shared100. Historical Shared read rights are intentionally preserved; membership does not grant private access. Existing Fresh Start protection for correction chains remains. Old label-only private affiliations are not guessed into Trips, and Shared-to-private conservatively rejects any Trip settlement fact. These are deliberate compatibility/security limits, not silent reclassification or rewritten accounting.
 
 ## Rollout and recovery
 
 `202610310001_unified_trip_expense_editor.sql` is the 34th forward migration. The generated `docs/runbooks/trip-editor-production-apply.sql` requires the exact existing 33-version baseline, checks complete canonical bytes and installed function hashes/privileges, and is transactional/repeatable. It installs capability; it does not execute an expense edit, Reset or cash posting. Historical CI replays old installers before the new one. Never reset a linked/shared database.
 
-Fresh read-only provider verification: existing Supabase project has 33 migrations, last `202610280001`; existing Vercel production is READY at `e527b9bc1401e8f04e13301c105a5d60a1b4bd58`. Issue07 has not been installed or released to production. Complete exact-source CI before applying the new migration. If a supported writer is unavailable, present the fully tested complete SQL once; do not claim repository edits installed it.
+Fresh read-only provider verification: existing Supabase project has 33 migrations, last `202610280001`; existing Vercel production is READY at `e527b9bc1401e8f04e13301c105a5d60a1b4bd58`. Issue07 has not been installed or released to production. Complete final exact-source CI before applying the new migration. The companion runbook is `docs/runbooks/trip-editor-sql-editor.md`; final external CI/installation evidence is recorded alongside the safe gallery. If a supported writer is unavailable, present the fully tested complete SQL once; do not claim repository edits installed it.
 
 Recovery: read PROJECT_STATUS/WORK_LOG/git diff, then `/workspace/verification/issue07-unified-editor-2026-10-31`. Preserve the working tree and PR. Finish final application/native tests, source commit/CI, provider migration verification, merge and existing-project production READY/SHA/PWA/normal-login verification. Do not replay customer or historical QA financial writes.

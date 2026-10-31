@@ -936,7 +936,8 @@ function UnifiedTripExpenseEditor({
             aria-expanded={payerOpen}
             onClick={() => setPayerOpen((v) => !v)}
           >
-            <span>
+            <span className="ue-payer-name">
+              {paidPeople.length === 1 ? <span className="ue-avatar" aria-hidden="true">{paidPeople[0].name.slice(0, 1)}</span> : null}
               {paidPeople.map((p) => p.name).join(", ") ||
                 copy("Review payments", "核对付款")}
             </span>
@@ -1203,6 +1204,7 @@ function UnifiedTripExpenseEditor({
               <div className="ue-row">
                 <span className="ue-context">{context.trip_name}</span>
                 <span className="ue-visibility">
+                  {audience === "private" || audience === "shared" ? <QuickIcon name={audience === "private" ? "lock" : "split"} size={16} /> : null}
                   {copy(
                     audience === "private"
                       ? "Only you"

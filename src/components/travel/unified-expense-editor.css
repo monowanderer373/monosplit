@@ -668,7 +668,7 @@ body[data-trip-expense-editor="open"] .tt-center-layer {
   padding: 0;
   margin: 0;
   border: 1px solid #8fa3ac;
-  border-radius: 50%;
+  border-radius: 4px;
   background: #fffdf8;
   flex-shrink: 0;
 }
@@ -678,10 +678,11 @@ body[data-trip-expense-editor="open"] .tt-center-layer {
 }
 .ue-screen .ue-check-name input[type="checkbox"]:checked::after {
   content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #fffdf8;
+  width: 5px;
+  height: 9px;
+  border: solid #fffdf8;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
 }
 .ue-screen .qa-item-people input[type="checkbox"] {
   appearance: auto;
@@ -690,4 +691,18 @@ body[data-trip-expense-editor="open"] .tt-center-layer {
   height: 18px;
   min-height: 18px;
   flex: none;
+}
+
+.ue-screen .ue-visibility,
+.ue-screen .ue-payer-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ue-screen .ue-visibility svg {
+  flex-shrink: 0;
+}
+.ue-screen .ue-payer-name {
+  overflow-wrap: anywhere;
 }
