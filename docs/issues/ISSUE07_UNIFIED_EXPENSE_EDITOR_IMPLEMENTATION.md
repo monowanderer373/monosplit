@@ -1,6 +1,6 @@
 # Issue07 — Unified Trip expense editor
 
-Implementation candidate on `feat/unified-trip-expense-editor`, draft PR #48. This document is a recovery checkpoint, not a production completion claim.
+Validated application source `3f229f1a9fbe50a236c0a8fee048a28516ecce61` / Quality41202531523 all eight jobs successful. Production schema installation is blocked by the actual read-only SQL connection. Implementation on `feat/unified-trip-expense-editor`, draft PR #48. This document is a recovery checkpoint, not a production completion claim.
 
 The approved Issue07 handoff is the source of requirements. All 24 manifest entries were checked, all specifications and the three approved/product component boards read. Existing React/TypeScript/Vite, identities, integer money, financial history and Issue01–06 remain.
 
@@ -48,6 +48,12 @@ Safe comparison gallery (approved references versus actual390×864 captures, plu
 The latest component pass adds explicit lock/Shared icons, a single-payer avatar and visible square checked consumer controls, with scoped CSS only. All18 browser cases pass after this pass. Native date formatting/icon differs by browser; actual canonical participant order and synthetic test names/dates/amounts differ from the reference sample. Disabled Save is intentionally faded until there is a valid change. Pure paper/denim colors follow the written spec rather than generated-image gradients. Close is immediate; entry/inline expansion honor reduced motion. No physical-device fidelity claim.
 
 Privacy/financial acceptance requires original parent RLS at every entry, account owner-only projection, private predecessor confidentiality, explicit-audience transitions, versioned atomic correction, blocked settlement/reversal/pending-request conversion and original funding ancestry. SQL and the new real authenticated browser case cover A/B/O/X and150/250/0 versus Shared100. Historical Shared read rights are intentionally preserved; membership does not grant private access. Existing Fresh Start protection for correction chains remains. Old label-only private affiliations are not guessed into Trips, and Shared-to-private conservatively rejects any Trip settlement fact. These are deliberate compatibility/security limits, not silent reclassification or rewritten accounting.
+
+## Final exact-source results
+
+Quality41202531523 on3f229f1a9fbe50a236c0a8fee048a28516ecce61: all8SUCCESS.866units/124files, ESLint/TypeScript/PWA build,1081pgTAP/23files/strictlint/concurrence/history;480fullbrowser,317productionUI,17Travel and12nativeTrip/multiuser (each0unexpected/flaky/skipped). CollectPay jobSUCCESS; no unavailable per-case count claimed. Local18editor+2supplemental actual application UI checks passed. The earlier table is a timestamped pre-final checkpoint; these exact-source results supersede its pending CI entry. The original QuickAdd native regression now passes; supplemental multi-member verification respects its existing consumer-removal confirmation.
+
+Fresh provider SQL is still33versions/read-only, original242functions/ACL baseline unchanged. Full safe report, current CI JSON and approved/actual comparison: `/workspace/verification/issue07-unified-editor-2026-10-31/delivery/`. Production Issue07/PWA verification remains NOT RUN until installation/release, not inferred from CI.
 
 ## Rollout and recovery
 
