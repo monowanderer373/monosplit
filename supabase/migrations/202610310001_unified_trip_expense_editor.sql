@@ -31,6 +31,7 @@ end $$;
 -- from immutable contribution/share facts, under exactly the parent RLS.
 create function private.save_trip_editor_settings(expense uuid,consumer_ids uuid[],mode text,items jsonb)
 returns void language plpgsql security definer set search_path='' as $$
+declare e public.expenses%rowtype;item jsonb;people uuid[];units numeric;unit_amount bigint;total numeric:=0;expected jsonb:='{}'::jsonb;person uuid;i integer;digits integer;
 begin
  if mode is null or mode not in ('equal','exact','items') or items is null or jsonb_typeof(items)<>'array' or consumer_ids is null or cardinality(consumer_ids)=0
  or array_position(consumer_ids,null) is not null or cardinality(consumer_ids)>(select count(*)from public.expense_participations p where p.expense_id=expense)
@@ -38,6 +39,28 @@ begin
  or exists(select 1 from unnest(consumer_ids)x where not exists(select 1 from public.expense_participations p where p.expense_id=expense and p.participant_id=x))
  or exists(select 1 from public.expense_shares s join public.expense_participations p on p.id=s.expense_participation_id where s.expense_id=expense and s.amount_minor>0 and not(p.participant_id=any(consumer_ids)))
  then raise exception using message='invalid_consumers',errcode='P0001';end if;
+ select * into e from public.expenses where id=expense;
+ if mode='equal' then
+  for i in 1..cardinality(consumer_ids)loop expected:=jsonb_set(expected,array[consumer_ids[i]::text],to_jsonb(e.total_minor/cardinality(consumer_ids)+case when i<=e.total_minor%cardinality(consumer_ids)then 1 else 0 end));end loop;
+ elsif mode='items' then
+  if jsonb_array_length(items)=0 or jsonb_array_length(items)>500 then raise exception using message='invalid_items',errcode='P0001';end if;
+  digits:=case when e.currency in('JPY','KRW','VND')then 0 when e.currency in('AUD','CNY','EUR','GBP','HKD','MYR','SGD','THB','TWD','USD')then 2 else null end;
+  if digits is null then raise exception using message='invalid_currency',errcode='P0001';end if;
+  for item in select * from jsonb_array_elements(items)loop
+   if jsonb_typeof(item)<>'object' or jsonb_typeof(item->'participantIds')is distinct from'array' or coalesce(item->>'id','')='' or coalesce(item->>'amount','')!~'^[0-9]+([.][0-9]+)?$' then raise exception using message='invalid_items',errcode='P0001';end if;
+   people:=array(select jsonb_array_elements_text(item->'participantIds')::uuid);
+   if cardinality(people)=0 or cardinality(people)<>(select count(distinct p)from unnest(people)p) or exists(select 1 from unnest(people)p where p is null or not(p=any(consumer_ids)))then raise exception using message='invalid_items',errcode='P0001';end if;
+   if length(split_part(item->>'amount','.',2))>digits then raise exception using message='invalid_items',errcode='P0001';end if;
+   units:=(item->>'amount')::numeric*power(10::numeric,digits);
+   if units<=0 or units<>trunc(units)or units>9007199254740991 then raise exception using message='invalid_items',errcode='P0001';end if;
+   unit_amount:=units::bigint;total:=total+units;
+   for i in 1..cardinality(people)loop person:=people[i];expected:=jsonb_set(expected,array[person::text],to_jsonb(coalesce((expected->>person::text)::bigint,0)+unit_amount/cardinality(people)+case when i<=unit_amount%cardinality(people)then 1 else 0 end));end loop;
+  end loop;
+  if total<>e.total_minor then raise exception using message='item_total_mismatch',errcode='P0001';end if;
+ end if;
+ -- Validate UI metadata against canonical shares; the original RPC still writes
+ -- and reconciles all financial rows. Metadata can never replace those facts.
+ if mode in('equal','items')and exists(select 1 from public.expense_shares s join public.expense_participations p on p.id=s.expense_participation_id where s.expense_id=expense and s.amount_minor<>coalesce((expected->>p.participant_id::text)::bigint,0))then raise exception using message='split_metadata_mismatch',errcode='P0001';end if;
  insert into public.expense_editor_settings(expense_id,consumer_ids,split_mode,items)values(expense,consumer_ids,mode,items)
  on conflict(expense_id)do update set consumer_ids=excluded.consumer_ids,split_mode=excluded.split_mode,items=excluded.items,updated_at=now();
 end $$;
@@ -64,16 +87,17 @@ begin
  'trip_id',s.id,'trip_name',case when r is null then a.label else s.name end,'role',r,'trip_status',case when r is null then null else s.status end,
  'can_edit',e.status='active' and(case when e.scope='personal' then e.created_by=actor else r in ('owner','full_access')and(e.created_by=actor or r='owner')end),
  'expense',to_jsonb(e)||jsonb_build_object('shared_restart_state',public.shared_restart_state(e)),'members',members,'settings',settings,'funding',funding,
+ 'accounts',(select coalesce(jsonb_agg(jsonb_build_object('id',a.id,'name',a.name,'currency',a.currency)order by a.name,a.id),'[]'::jsonb)from public.personal_accounts a where a.owner_participant_id=actor and a.archived_at is null and not exists(select 1 from public.personal_account_currencies c where c.account_id=a.id)),
  'participations',(select coalesce(jsonb_agg(to_jsonb(p)order by p.participant_order),'[]'::jsonb)from public.expense_participations p where p.expense_id=e.id),
  'contributions',(select coalesce(jsonb_agg(to_jsonb(p)),'[]'::jsonb)from public.payer_contributions p where p.expense_id=e.id),
  'shares',(select coalesce(jsonb_agg(to_jsonb(p)),'[]'::jsonb)from public.expense_shares p where p.expense_id=e.id));
 end $$;
 
-create function public.save_trip_expense_editor(request_id uuid,target_expense_id uuid,expected_version integer,target_trip_id uuid,desired_audience text,confirm_private boolean,expense_payload jsonb,consumer_ids uuid[],split_mode text default 'exact',items jsonb default '[]'::jsonb)
+create function public.save_trip_expense_editor(request_id uuid,target_expense_id uuid,expected_version integer,target_trip_id uuid,desired_audience text,confirm_private boolean,expense_payload jsonb,consumer_ids uuid[],split_mode text default 'exact',items jsonb default '[]'::jsonb,account_choice jsonb default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor uuid:=private.require_personal_actor();e public.expenses%rowtype;next_id uuid;next_version integer;trip uuid;r text;result jsonb;ids uuid[];paid bigint[];shares bigint[];amount bigint;old_ids uuid[];old_paid bigint[];old_shares bigint[];financial_changed boolean;candidate text;old_audience text;aff public.personal_expense_affiliations%rowtype;f public.personal_funding_intents%rowtype;own_paid bigint;
+declare actor uuid:=private.require_personal_actor();e public.expenses%rowtype;next_id uuid;next_version integer;trip uuid;r text;result jsonb;ids uuid[];paid bigint[];shares bigint[];amount bigint;old_ids uuid[];old_paid bigint[];old_shares bigint[];financial_changed boolean;candidate text;old_audience text;aff public.personal_expense_affiliations%rowtype;f public.personal_funding_intents%rowtype;own_paid bigint;choice_intent uuid;choice_version integer;choice_parent uuid;
 begin
- result:=private.begin_money_operation(actor,request_id,'trip_expense_edit',jsonb_build_object('target',target_expense_id,'version',expected_version,'trip',target_trip_id,'audience',desired_audience,'confirm_private',confirm_private,'payload',expense_payload,'consumers',consumer_ids,'mode',split_mode,'items',items));
+ result:=private.begin_money_operation(actor,request_id,'trip_expense_edit',jsonb_build_object('target',target_expense_id,'version',expected_version,'trip',target_trip_id,'audience',desired_audience,'confirm_private',confirm_private,'payload',expense_payload,'consumers',consumer_ids,'mode',split_mode,'items',items,'account_choice',account_choice));
  if result is not null then return result;end if;
  perform private.lock_expense_target(target_expense_id);
  if not private.can_read_expense(target_expense_id,actor)then raise exception using message='expense_not_visible',errcode='P0001';end if;
@@ -125,7 +149,8 @@ begin
    next_version:=public.update_expense_metadata(e.id,expense_payload->>'description',expense_payload->>'category',(expense_payload->>'occurred_on')::date,next_version);
   end if;
  end if;
- if desired_audience='private' then perform private.link_personal_trip_expense(actor,next_id,trip);end if;
+ if next_id=e.id and next_version=e.version then next_version:=public.update_expense_metadata(e.id,e.description,e.category,e.occurred_on,e.version);end if;
+ if desired_audience='private' and next_id<>e.id then perform private.link_personal_trip_expense(actor,next_id,trip);end if;
  perform private.save_trip_editor_settings(next_id,consumer_ids,split_mode,items);
  -- Preserve posted journals/IDs. Only unposted funding follows its canonical
  -- successor; this never posts, duplicates, reverses or estimates cash.
@@ -136,12 +161,23 @@ begin
    else perform public.cancel_pending_funding(private.money_child_request(request_id,'cancel-funding:'||f.id::text),f.id);end if;
   end loop;
  end if;
+ if account_choice is not null then
+  if jsonb_typeof(account_choice)<>'object' or not(account_choice?'intent_id') or not(account_choice?'version') or not(account_choice?'account_id') then raise exception using message='invalid_funding_selection',errcode='P0001';end if;
+  choice_intent:=(account_choice->>'intent_id')::uuid;choice_version:=(account_choice->>'version')::integer;choice_parent:=(account_choice->>'account_id')::uuid;
+  if exists(with recursive chain as(select id,corrects_expense_id from public.expenses where id=next_id union select parent.id,parent.corrects_expense_id from public.expenses parent join chain c on parent.id=c.corrects_expense_id)select 1 from public.personal_funding_intents f join chain c on c.id=f.expense_id where f.owner_participant_id=actor and f.status in('posted','reversed'))then raise exception using message='posted_funding_immutable',errcode='P0001';end if;
+  if choice_intent is not null then
+   select * into f from public.personal_funding_intents where id=choice_intent and owner_participant_id=actor and expense_id=next_id for update;
+   if f.id is null or f.status<>'pending' or f.version is distinct from choice_version+case when next_id<>e.id then 1 else 0 end then raise exception using message='version_conflict',errcode='P0001';end if;
+   perform public.cancel_pending_funding(private.money_child_request(request_id,'source-cancel'),f.id);
+  elsif exists(select 1 from public.personal_funding_intents f where f.expense_id=next_id and f.owner_participant_id=actor and f.status='pending')then raise exception using message='version_conflict',errcode='P0001';end if;
+  perform public.defer_personal_expense_funding(private.money_child_request(request_id,'source-defer'),next_id,choice_parent,next_version);
+ end if;
  return private.finish_money_operation(actor,request_id,jsonb_build_object('expense_id',next_id,'expense_version',next_version,'audience',desired_audience,'trip_id',trip));
 end $$;
 
 revoke all on function private.link_personal_trip_expense(uuid,uuid,uuid),private.save_trip_editor_settings(uuid,uuid[],text,jsonb) from public,anon,authenticated;
-revoke all on function public.get_trip_expense_editor(uuid),public.save_trip_expense_editor(uuid,uuid,integer,uuid,text,boolean,jsonb,uuid[],text,jsonb)from public,anon,authenticated;
-grant execute on function public.get_trip_expense_editor(uuid),public.save_trip_expense_editor(uuid,uuid,integer,uuid,text,boolean,jsonb,uuid[],text,jsonb)to authenticated;
+revoke all on function public.get_trip_expense_editor(uuid),public.save_trip_expense_editor(uuid,uuid,integer,uuid,text,boolean,jsonb,uuid[],text,jsonb,jsonb)from public,anon,authenticated;
+grant execute on function public.get_trip_expense_editor(uuid),public.save_trip_expense_editor(uuid,uuid,integer,uuid,text,boolean,jsonb,uuid[],text,jsonb,jsonb)to authenticated;
 
 create function public.create_trip_expense_editor(request_id uuid,target_trip_id uuid,expense_payload jsonb,consumer_ids uuid[],funding_plan jsonb default null,funding_account_id uuid default null,split_mode text default 'exact',items jsonb default '[]'::jsonb)
 returns jsonb language plpgsql security definer set search_path='' as $$
@@ -173,15 +209,5 @@ revoke all on function public.create_trip_expense_editor(uuid,uuid,jsonb,uuid[],
 grant execute on function public.create_trip_expense_editor(uuid,uuid,jsonb,uuid[],jsonb,uuid,text,jsonb)to authenticated;
 
 comment on column public.personal_expense_affiliations.trip_id is 'Owner-private stable Trip association; never a membership or read-authority source. Legacy labels stay unbound.';
-
-create function public.reconcile_trip_expense_editor(request_id uuid)
-returns jsonb language plpgsql stable security definer set search_path='' as $$
-declare actor uuid:=private.require_personal_actor();result jsonb;
-begin
- select o.result into result from public.personal_money_operations o where o.owner_participant_id=actor and o.request_id=reconcile_trip_expense_editor.request_id and o.kind='trip_expense_edit';
- return case when result is null then jsonb_build_object('state','unknown')else jsonb_build_object('state','committed','result',result)end;
-end $$;
-revoke all on function public.reconcile_trip_expense_editor(uuid)from public,anon,authenticated;
-grant execute on function public.reconcile_trip_expense_editor(uuid)to authenticated;
 
 commit;

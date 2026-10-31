@@ -16,9 +16,8 @@ signatures = {
     'private.link_personal_trip_expense': 'uuid,uuid,uuid',
     'private.save_trip_editor_settings': 'uuid,uuid[],text,jsonb',
     'public.get_trip_expense_editor': 'uuid',
-    'public.save_trip_expense_editor': 'uuid,uuid,integer,uuid,text,boolean,jsonb,uuid[],text,jsonb',
+    'public.save_trip_expense_editor': 'uuid,uuid,integer,uuid,text,boolean,jsonb,uuid[],text,jsonb,jsonb',
     'public.create_trip_expense_editor': 'uuid,uuid,jsonb,uuid[],jsonb,uuid,text,jsonb',
-    'public.reconcile_trip_expense_editor': 'uuid',
 }
 checks = []
 for name, args in signatures.items():
