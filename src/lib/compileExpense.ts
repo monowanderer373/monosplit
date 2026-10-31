@@ -1,3 +1,4 @@
+import {tripItemMinorShares} from './tripSplit'
 import type { FundingPlan } from './multicurrency'
 import { capitalizeDescription } from './description'
 import type { ExpenseScope, ParticipantKind } from '../types'
@@ -10,7 +11,10 @@ export type LedgerDraftParticipant = {
   kind: ParticipantKind
 }
 
+export type TripEditorMetadata = {tripId:string;consumerIds:string[];mode:'equal'|'exact'|'items';items:{id:string;name:string;amount:string;participantIds:string[]}[]}
+
 export type LedgerExpenseDraft = {
+  tripEditor?: TripEditorMetadata
   captureSource?: 'manual' | 'template' | 'recurring' | 'natural_language' | 'voice' | 'ocr'
   clientRequestId: string
   scope: ExpenseScope
@@ -32,6 +36,7 @@ export type LedgerExpenseDraft = {
 }
 
 export type CreateExpenseCommand = {
+  tripEditor?: TripEditorMetadata
   requestId: string
   scope: ExpenseScope
   spaceId: string | null
@@ -137,12 +142,20 @@ export function compileLedgerExpense(draft: LedgerExpenseDraft): LedgerCompileRe
       return { ok: false, error: 'invalid_shares' }
     }
 
+    if(draft.tripEditor){
+      if(draft.scope!=='space'||draft.tripEditor.tripId!==draft.spaceId||draft.tripEditor.consumerIds.length!==consumers.length||draft.tripEditor.consumerIds.some(id=>!consumers.includes(id)))return {ok:false,error:'invalid_scope'}
+      if(draft.tripEditor.mode==='items'){
+        const itemShares=tripItemMinorShares(totalMinor,draft.currency,consumers,draft.tripEditor.items)
+        if(participantIds.some(id=>(itemShares.get(id)??0)!==shares[id]))return {ok:false,error:'invalid_shares'}
+      }
+    }
     return {
       ok: true,
       command: {
         requestId: draft.clientRequestId,
-        scope: draft.scope,
-        spaceId: draft.spaceId,
+        scope: draft.tripEditor && participantIds.length===1 && participantIds[0]===draft.currentParticipantId && draft.tripEditor.consumerIds.every(id=>id===draft.currentParticipantId) ? 'personal' : draft.scope,
+        spaceId: draft.tripEditor && participantIds.length===1 && participantIds[0]===draft.currentParticipantId && draft.tripEditor.consumerIds.every(id=>id===draft.currentParticipantId) ? null : draft.spaceId,
+        ...(draft.tripEditor?{tripEditor:{...draft.tripEditor,consumerIds:participantIds.filter(id=>draft.tripEditor!.consumerIds.includes(id))}}:{}),
         totalMinor,
         currency: draft.currency.toUpperCase(),
         description: capitalizeDescription(draft.description.trim()) || null,

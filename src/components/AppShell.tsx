@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { PersonalLedgerProvider } from '../hooks/usePersonalLedger'
 import {
@@ -18,6 +18,19 @@ function ShellContents() {
   const t = useT()
   const { authUser } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
+  const inspectedInitialOverlay = useRef(false)
+  useEffect(() => {
+    if (inspectedInitialOverlay.current) return
+    inspectedInitialOverlay.current = true
+    // Draft values never survive a reload. Retire only this editor's history
+    // marker; preserve return provenance, filters and other overlay owners.
+    if (typeof location.state?.routeOverlay !== 'string'
+      || !location.state.routeOverlay.startsWith('trip-expense-editor:')) return
+    const state = {...location.state}
+    delete state.routeOverlay
+    navigate(location.pathname + location.search, {replace: true, state})
+  }, [location, navigate])
   const directQuickAddArmed = useRef(false)
   const quickAdd = useUniversalQuickAdd()
 

@@ -26,10 +26,11 @@ export function selectWorkspaceTrip(entries:readonly SpaceWithRole[],today:strin
   })[0]??null
 }
 /** Display projection of the existing personal shares and recap, never a new ledger. */
-export function tripWorkspaceSpending(expenses:readonly CanonicalExpense[],trip:string,self:string) {
+export function tripWorkspaceSpending(expenses:readonly CanonicalExpense[],trip:string,self:string,privateExpenses:readonly CanonicalExpense[]=[]) {
+  const ownPrivate=privateExpenses.filter(e=>e.scope==='personal'&&e.createdBy===self&&e.status==='active'&&!e.id.startsWith('pending:'))
   const visible=tripAuthoritativeExpenses(tripVisibleExpenses(expenses,trip)),totals=new Map<string,number>()
-  for(const row of derivePersonalLedgerRows(visible,self))totals.set(row.expense.currency,addMinor(totals.get(row.expense.currency)??0,row.personalSpendingMinor))
-  return {count:visible.length,spending:[...totals].sort(([a],[b])=>a.localeCompare(b)).map(([currency,amountMinor])=>({currency,amountMinor})),total:buildTripRecap(visible).currencies}
+  for(const row of derivePersonalLedgerRows([...visible,...ownPrivate],self))totals.set(row.expense.currency,addMinor(totals.get(row.expense.currency)??0,row.personalSpendingMinor))
+  return {count:visible.length,privateCount:ownPrivate.length,spending:[...totals].sort(([a],[b])=>a.localeCompare(b)).map(([currency,amountMinor])=>({currency,amountMinor})),total:buildTripRecap(visible).currencies}
 }
 /** Only accepted, still-effective self transfers; zero debt is not repayment proof. */
 export function tripConfirmedTransfers(payments:readonly SettlementPayment[],trip:string,self:string) {

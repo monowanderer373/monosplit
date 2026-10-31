@@ -59,7 +59,7 @@ export interface LedgerRepository {
   }): Promise<number>
 }
 
-type ExpenseRow = {
+export type ExpenseRow = {
   shared_restart_state?: unknown
   id: string
   client_request_id: string
@@ -100,7 +100,7 @@ type ExpenseRow = {
   }>
 }
 
-function mapExpenseRow(row: ExpenseRow): CanonicalExpense {
+export function mapExpenseRow(row: ExpenseRow): CanonicalExpense {
   const participations: ExpenseParticipation[] = (row.participations ?? [])
     .map((participation) => ({
       id: participation.id,
@@ -174,7 +174,9 @@ export const ledgerRepository: LedgerRepository = {
       occurred_on: command.occurredOn, participant_ids: command.participantIds,
       contribution_amounts: command.contributionAmounts, share_amounts: command.shareAmounts,
     }
-    const { data, error } = command.fundingPlan
+    const { data, error } = command.tripEditor
+      ? await supabase.rpc('create_trip_expense_editor',{request_id:command.requestId,target_trip_id:command.tripEditor.tripId,expense_payload:payload,consumer_ids:command.tripEditor.consumerIds,split_mode:command.tripEditor.mode,items:command.tripEditor.items,funding_plan:command.fundingPlan??null,funding_account_id:command.fundingAccountId??null})
+      : command.fundingPlan
       ? await supabase.rpc('create_expense_with_multicurrency_funding', {
         request_id:command.requestId,expense_payload:payload,funding_plan:command.fundingPlan,
       })
@@ -184,7 +186,7 @@ export const ledgerRepository: LedgerRepository = {
           funding_request_id:command.requestId,funding_account_id:command.fundingAccountId,funding_account_amount_minor:null,
         } : {}),
       })
-    const expenseId = command.fundingPlan || command.fundingAccountId ? data?.expense_id : data
+    const expenseId = command.tripEditor || command.fundingPlan || command.fundingAccountId ? data?.expense_id : data
     if (error || typeof expenseId !== 'string') {
       throw new LedgerRepositoryError(
         'server_rejected',

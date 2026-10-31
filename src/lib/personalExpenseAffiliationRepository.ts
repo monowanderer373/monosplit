@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 
 export type PersonalExpenseAffiliation = {
+  tripId?: string | null
   id: string
   ownerParticipantId: string
   expenseId: string
@@ -12,6 +13,7 @@ export type PersonalExpenseAffiliation = {
 }
 
 export type PersonalExpenseAffiliationRow = {
+  trip_id?: string | null
   id: string
   owner_participant_id: string
   expense_id: string
@@ -26,6 +28,7 @@ export function mapPersonalExpenseAffiliationRow(
   row: PersonalExpenseAffiliationRow,
 ): PersonalExpenseAffiliation {
   return {
+    ...(row.trip_id?{tripId:row.trip_id}:{}),
     id: row.id,
     ownerParticipantId: row.owner_participant_id,
     expenseId: row.expense_id,

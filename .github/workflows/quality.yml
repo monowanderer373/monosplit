@@ -22,6 +22,14 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Verify notifications with the production module graph
         run: npx playwright test --config=playwright.production-ui.config.ts --workers=2
+      - name: Save synthetic Issue07 editor screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue07-production-ui-evidence
+          path: test-results/issue07/
+          if-no-files-found: ignore
+          retention-days: 14
 
   app:
     runs-on: ubuntu-latest
@@ -79,6 +87,10 @@ jobs:
         env:
           TRIP_FRIEND_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: python3 supabase/tests/trip_friend_concurrency.py
+      - name: Verify Trip editor audience exclusion and duplicate Save with competing sessions
+        env:
+          TRIP_EDITOR_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python3 supabase/tests/trip_editor_concurrency.py
       - if: always()
         run: npx supabase stop --no-backup
 
@@ -286,6 +298,6 @@ jobs:
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - name: Verify Trip membership, split, dates, financial history and explicit friendship consent
-        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
+        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
       - if: always()
         run: npx supabase stop --no-backup

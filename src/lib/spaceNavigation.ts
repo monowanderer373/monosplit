@@ -91,6 +91,9 @@ export function backSpaceNavigation(navigate: NavigateFunction, state: unknown, 
 export function prepareSpaceBack(navigate: NavigateFunction, location: PageLocation, actor: string, fallback: string) {
   if (!actor || location.state?.moneyAction || location.state?.routeOverlay || !/^\/(?:space|travel\/trip)\/[a-zA-Z0-9:%_-]+$/.test(location.pathname)) return
   if(window.location.pathname!==location.pathname||window.location.search!==location.search)return
+  // A child can restore its dirty overlay before this retained parent effect
+  // runs. Browser state is authoritative even when the URL did not change.
+  if(window.history.state?.usr?.moneyAction||window.history.state?.usr?.routeOverlay)return
   const origin = readSpaceOrigin(location.state, actor, location.pathname)
   if(origin?.workspaceHome)return
   if (origin && window.history.state?.idx === origin.index + 1) return

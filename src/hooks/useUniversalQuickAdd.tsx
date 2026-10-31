@@ -620,7 +620,7 @@ export function UniversalQuickAddProvider({
       category: values.category || 'Other',
       occurredOn: values.occurredOn,
       participants,
-      ...(trip ? {consumerParticipantIds: values.selectedParticipantIds} : {}),
+      ...(trip && context.ref.kind==='space' ? {consumerParticipantIds: values.selectedParticipantIds,tripEditor:{tripId:context.ref.spaceId,consumerIds:values.selectedParticipantIds,mode:values.detailsExpanded?'items':values.splitMode,items:values.items??[]}} : {}),
       payerAmounts: values.payerAmounts,
       splitMode: values.splitMode,
       exactShareAmounts: values.exactShareAmounts,

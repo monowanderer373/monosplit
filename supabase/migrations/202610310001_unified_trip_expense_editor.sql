@@ -103,6 +103,10 @@ begin
  if result is not null then return result;end if;
  perform private.lock_expense_target(target_expense_id);
  if not private.can_read_expense(target_expense_id,actor)then raise exception using message='expense_not_visible',errcode='P0001';end if;
+ select * into e from public.expenses where id=target_expense_id;
+ -- Take the original NOWAIT balance exclusion before SELECT FOR UPDATE,
+ -- which would otherwise wait on a competing global balance writer.
+ if(e.scope='space'and desired_audience='private')or(e.scope='personal'and desired_audience='shared')then perform private.lock_collect_pay_balance();end if;
  select * into e from public.expenses where id=target_expense_id for update;
  if e.status<>'active' or e.version is distinct from expected_version then raise exception using message='version_conflict',errcode='P0001';end if;
  if e.scope='personal' then select * into aff from public.personal_expense_affiliations where expense_id=e.id and owner_participant_id=actor and trip_id is not null and archived_at is null;trip:=aff.trip_id;old_audience:='private';
@@ -128,9 +132,6 @@ begin
   if exists(select 1 from unnest(ids)x where not exists(select 1 from public.space_members m where m.space_id=trip and m.participant_id=x and m.removed_at is null))then raise exception using message='participant_not_in_space',errcode='P0001';end if;
  end if;
  if desired_audience<>old_audience then
-  -- Reuse the existing write exclusion before checking settlement dependencies.
-  -- A competing settlement/correction fails safely; no partially hidden bill.
-  perform private.lock_collect_pay_balance();
   if e.created_by<>actor then raise exception using message='audience_owner_required',errcode='P0001';end if;
   if desired_audience='private' then
    if not coalesce(confirm_private,false)then raise exception using message='private_confirmation_required',errcode='P0001';end if;
@@ -144,6 +145,7 @@ begin
   insert into public.expenses(id,client_request_id,scope,space_id,created_by,total_minor,participant_count,currency,description,category,occurred_on,status,corrects_expense_id)
   values(next_id,private.money_child_request(request_id,'audience-correction'),case when desired_audience='private'then'personal'else'space'end,case when desired_audience='shared'then trip else null end,actor,amount,cardinality(ids),e.currency,nullif(btrim(expense_payload->>'description'),''),coalesce(nullif(btrim(expense_payload->>'category'),''),'Other'),(expense_payload->>'occurred_on')::date,'active',e.id);
   perform private.insert_expense_financial_rows(next_id,actor,case when desired_audience='private'then'personal'else'space'end,ids,paid,shares);
+  insert into public.financial_events(actor_participant_id,expense_id,event_type,safe_diff)values(actor,next_id,'expense.created',jsonb_build_object('scope',case when desired_audience='private'then'personal'else'space'end,'currency',e.currency,'total_minor',amount));
   update public.expenses set status='voided',termination_kind='corrected',voided_at=now(),voided_by=actor,version=version+1 where id=e.id;
   insert into public.financial_events(actor_participant_id,expense_id,event_type,safe_diff)values(actor,e.id,'expense.corrected',jsonb_build_object('replacement_expense_id',next_id,'previous_version',e.version));
  elsif e.scope='space' and financial_changed then

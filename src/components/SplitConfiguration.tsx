@@ -82,7 +82,7 @@ export function SplitConfiguration({values,participants,currentParticipantId,lab
  {error?<p role="alert" className="qa-error">{error}</p>:null}
  </footer></div>
 }
-function QuickItems({values,participants,onUpdate,zh,keepOpen=false,strict=false}:{values:SplitValues;participants:{id:string;name:string}[];onUpdate:(patch:Partial<SplitValues>)=>void;zh:boolean;keepOpen?:boolean;strict?:boolean}){
+export function QuickItems({values,participants,onUpdate,zh,keepOpen=false,strict=false}:{values:SplitValues;participants:{id:string;name:string}[];onUpdate:(patch:Partial<SplitValues>)=>void;zh:boolean;keepOpen?:boolean;strict?:boolean}){
  const items=values.items??[]
  const [error,setError]=useState('')
  const patch=(next:NonNullable<UniversalQuickAddValues['items']>)=>onUpdate({items:next})
