@@ -87,7 +87,7 @@ begin
  'trip_id',s.id,'trip_name',case when r is null then a.label else s.name end,'role',r,'trip_status',case when r is null then null else s.status end,
  'can_edit',e.status='active' and(case when e.scope='personal' then e.created_by=actor else r in ('owner','full_access')and(e.created_by=actor or r='owner')end),
  'expense',to_jsonb(e)||jsonb_build_object('shared_restart_state',public.shared_restart_state(e)),'members',members,'settings',settings,'funding',funding,
- 'accounts',(select coalesce(jsonb_agg(jsonb_build_object('id',a.id,'name',a.name,'currency',a.currency)order by a.name,a.id),'[]'::jsonb)from public.personal_accounts a where a.owner_participant_id=actor and a.archived_at is null and not exists(select 1 from public.personal_account_currencies c where c.account_id=a.id)),
+ 'accounts',(select coalesce(jsonb_agg(jsonb_build_object('id',own_account.id,'name',own_account.name,'currency',own_account.currency)order by own_account.name,own_account.id),'[]'::jsonb)from public.personal_accounts own_account where own_account.owner_participant_id=actor and own_account.archived_at is null and not exists(select 1 from public.personal_account_currencies c where c.account_id=own_account.id)),
  'participations',(select coalesce(jsonb_agg(to_jsonb(p)order by p.participant_order),'[]'::jsonb)from public.expense_participations p where p.expense_id=e.id),
  'contributions',(select coalesce(jsonb_agg(to_jsonb(p)),'[]'::jsonb)from public.payer_contributions p where p.expense_id=e.id),
  'shares',(select coalesce(jsonb_agg(to_jsonb(p)),'[]'::jsonb)from public.expense_shares p where p.expense_id=e.id));
@@ -164,12 +164,12 @@ begin
  if account_choice is not null then
   if jsonb_typeof(account_choice)<>'object' or not(account_choice?'intent_id') or not(account_choice?'version') or not(account_choice?'account_id') then raise exception using message='invalid_funding_selection',errcode='P0001';end if;
   choice_intent:=(account_choice->>'intent_id')::uuid;choice_version:=(account_choice->>'version')::integer;choice_parent:=(account_choice->>'account_id')::uuid;
-  if exists(with recursive chain as(select id,corrects_expense_id from public.expenses where id=next_id union select parent.id,parent.corrects_expense_id from public.expenses parent join chain c on parent.id=c.corrects_expense_id)select 1 from public.personal_funding_intents f join chain c on c.id=f.expense_id where f.owner_participant_id=actor and f.status in('posted','reversed'))then raise exception using message='posted_funding_immutable',errcode='P0001';end if;
+  if exists(with recursive chain as(select id,corrects_expense_id from public.expenses where id=next_id union select parent.id,parent.corrects_expense_id from public.expenses parent join chain c on parent.id=c.corrects_expense_id)select 1 from public.personal_funding_intents owned_funding join chain c on c.id=owned_funding.expense_id where owned_funding.owner_participant_id=actor and owned_funding.status in('posted','reversed'))then raise exception using message='posted_funding_immutable',errcode='P0001';end if;
   if choice_intent is not null then
    select * into f from public.personal_funding_intents where id=choice_intent and owner_participant_id=actor and expense_id=next_id for update;
-   if f.id is null or f.status<>'pending' or f.version is distinct from choice_version+case when next_id<>e.id then 1 else 0 end then raise exception using message='version_conflict',errcode='P0001';end if;
+   if f.id is null or f.status<>'pending' or f.version is distinct from (choice_version+(case when next_id<>e.id then 1 else 0 end)) then raise exception using message='version_conflict',errcode='P0001';end if;
    perform public.cancel_pending_funding(private.money_child_request(request_id,'source-cancel'),f.id);
-  elsif exists(select 1 from public.personal_funding_intents f where f.expense_id=next_id and f.owner_participant_id=actor and f.status='pending')then raise exception using message='version_conflict',errcode='P0001';end if;
+  elsif exists(select 1 from public.personal_funding_intents owned_funding where owned_funding.expense_id=next_id and owned_funding.owner_participant_id=actor and owned_funding.status='pending')then raise exception using message='version_conflict',errcode='P0001';end if;
   perform public.defer_personal_expense_funding(private.money_child_request(request_id,'source-defer'),next_id,choice_parent,next_version);
  end if;
  return private.finish_money_operation(actor,request_id,jsonb_build_object('expense_id',next_id,'expense_version',next_version,'audience',desired_audience,'trip_id',trip));

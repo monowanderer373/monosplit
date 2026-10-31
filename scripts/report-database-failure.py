@@ -3,7 +3,7 @@ import os,re
 from pathlib import Path
 if os.environ.get('GITHUB_ACTIONS') != 'true':
     raise SystemExit('Isolated GitHub Actions diagnostics only')
-for filename in ['/tmp/tabby-db-lint.log','/tmp/tabby-history-apply.log','/tmp/tabby-db-tests.log']:
+for filename in ['/tmp/tabby-supabase-start.log','/tmp/tabby-db-lint.log','/tmp/tabby-history-apply.log','/tmp/tabby-db-tests.log']:
     path=Path(filename)
     if not path.exists():continue
     lines=path.read_text(errors='replace').splitlines()

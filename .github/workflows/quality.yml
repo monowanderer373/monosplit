@@ -48,7 +48,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx supabase start
+      - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
       - run: set -o pipefail; npx supabase db lint --fail-on warning 2>&1 | tee /tmp/tabby-db-lint.log
       - run: set -o pipefail; npx supabase test db 2>&1 | tee /tmp/tabby-db-tests.log
@@ -100,7 +100,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y postgresql-client
           fi
-      - run: npx supabase start
+      - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - name: Reconstruct schema before legacy lockdown
         run: |
           npx supabase db reset --local --version 202608300006
@@ -157,7 +157,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx supabase start
+      - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - name: Build and serve approved homepage baseline
@@ -213,7 +213,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx supabase start
+      - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - name: Build and serve approved homepage baseline
@@ -251,7 +251,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx supabase start
+      - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test e2e/travel.spec.ts e2e/inline-quick-add.spec.ts e2e/trip-period.spec.ts --workers=1
@@ -282,7 +282,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx supabase start
+      - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - name: Verify Trip membership, split, dates, financial history and explicit friendship consent
