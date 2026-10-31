@@ -1,4 +1,4 @@
-import {validCalendarDay} from "./tripCalendar";
+import { validCalendarDay } from "./tripCalendar";
 import { supabase } from "./supabase";
 import {
   currencyExponent,
@@ -67,6 +67,7 @@ export type TripEditorDraft = {
     intent_id: string | null;
     version: number | null;
     account_id: string | null;
+    defer?: boolean;
   };
 };
 export const minorText = (n: number, c: string) => {
@@ -108,7 +109,7 @@ export function initialTripEditorDraft(
   };
 }
 export function tripEditorPayload(e: CanonicalExpense, d: TripEditorDraft) {
-  if(!validCalendarDay(d.date))throw new Error("invalid_expense_date");
+  if (!validCalendarDay(d.date)) throw new Error("invalid_expense_date");
   const total = parseMajorAmount(d.amount, e.currency),
     ids = [
       ...new Set([

@@ -114,7 +114,7 @@ for (const width of [320, 360, 390, 430, 768]) test(`Travel real RPC flows and a
     await expect(page.getByTestId('travel-spending')).toContainText('425,000')
     await expect(page).toHaveURL(new RegExp(`/travel/trip/${id}$`))
     await expect(page.getByRole('navigation',{name:'Primary navigation',exact:true})).toBeVisible()
-    await expect(page.getByTestId('trip-detail-summary')).toContainText('3 records')
+    await expect(page.getByTestId('trip-detail-summary')).toContainText('3 shared records')
     await expect(page.getByTestId('trip-ledger-members')).toContainText('2 members')
     await capture(page, `04-trip-workspace-${width}`)
     await page.getByRole('button',{name:'Trip actions',exact:true}).click()

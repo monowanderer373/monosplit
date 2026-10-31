@@ -86,7 +86,7 @@ begin
  select coalesce(jsonb_agg(jsonb_build_object('id',f.id,'expense_id',f.expense_id,'status',f.status,'version',f.version,'account_id',f.account_id,'account_name',acc.name,'account_currency',f.account_currency,'expense_amount_minor',f.expense_amount_minor,'expense_currency',f.expense_currency,'primary_account_id',b.primary_account_id)order by f.created_at),'[]'::jsonb)into funding
  from public.personal_funding_intents f join chain c on c.id=f.expense_id left join public.personal_accounts acc on acc.id=f.account_id left join public.personal_funding_bundles b on b.funding_intent_id=f.id where f.owner_participant_id=actor;
  return jsonb_build_object('schema_version',1,'audience',case when e.scope='personal' then 'private' else 'shared' end,
- 'trip_id',s.id,'trip_name',case when r is null then a.label else s.name end,'role',r,'trip_status',case when r is null then null else s.status end,
+ 'trip_id',s.id,'trip_name',case when r is null then coalesce(a.label,'Trip')else s.name end,'role',r,'trip_status',case when r is null then null else s.status end,
  'can_edit',public.is_permanent_account() and e.status='active' and not coalesce((public.shared_restart_state(e)->>'hidden_for_viewer')::boolean,false) and(case when e.scope='personal' then e.created_by=actor else r in ('owner','full_access')and(e.created_by=actor or r='owner')end),
  'expense',to_jsonb(e)||jsonb_build_object('shared_restart_state',public.shared_restart_state(e)),'members',members,'settings',settings,'funding',funding,
  'accounts',(select coalesce(jsonb_agg(jsonb_build_object('id',own_account.id,'name',own_account.name,'currency',own_account.currency)order by own_account.name,own_account.id),'[]'::jsonb)from public.personal_accounts own_account where own_account.owner_participant_id=actor and own_account.archived_at is null and not exists(select 1 from public.personal_account_currencies c where c.account_id=own_account.id)),
@@ -106,7 +106,11 @@ begin
  select * into e from public.expenses where id=target_expense_id;
  -- Take the original NOWAIT balance exclusion before SELECT FOR UPDATE,
  -- which would otherwise wait on a competing global balance writer.
- if(e.scope='space'and desired_audience='private')or(e.scope='personal'and desired_audience='shared')then perform private.lock_collect_pay_balance();end if;
+ if(e.scope='space'and desired_audience='private')or(e.scope='personal'and desired_audience='shared')then
+  perform private.lock_collect_pay_balance();
+  begin lock table public.settlement_payment_requests in exclusive mode nowait;
+  exception when lock_not_available then raise exception using message='balance_changed',errcode='P0001';end;
+ end if;
  select * into e from public.expenses where id=target_expense_id for update;
  if e.status<>'active' or e.version is distinct from expected_version then raise exception using message='version_conflict',errcode='P0001';end if;
  if e.scope='personal' then select * into aff from public.personal_expense_affiliations where expense_id=e.id and owner_participant_id=actor and trip_id is not null and archived_at is null;trip:=aff.trip_id;old_audience:='private';
@@ -138,6 +142,7 @@ begin
    -- Conservative: no hiding any existing obligation or settlement/reversal fact.
    if exists(select 1 from unnest(old_ids,old_paid,old_shares)x(id,p,s)where id<>actor and(p>0 or s>0))
     or exists(select 1 from public.settlement_payments p where p.scope='space' and p.space_id=trip)
+    or exists(select 1 from public.settlement_payment_requests q where q.scope='space' and q.space_id=trip and q.status='open' and(q.expires_at is null or q.expires_at>now()))
     or public.shared_restart_state(e) is not null then raise exception using message='audience_transition_has_dependencies',errcode='P0001';end if;
   end if;
   if exists(select 1 from public.expenses child where child.corrects_expense_id=e.id)then raise exception using message='authoritative_child_exists',errcode='P0001';end if;
@@ -178,7 +183,7 @@ begin
    if f.id is null or f.status<>'pending' or f.version is distinct from (choice_version+(case when next_id<>e.id then 1 else 0 end)) then raise exception using message='version_conflict',errcode='P0001';end if;
    perform public.cancel_pending_funding(private.money_child_request(request_id,'source-cancel'),f.id);
   elsif exists(select 1 from public.personal_funding_intents owned_funding where owned_funding.expense_id=next_id and owned_funding.owner_participant_id=actor and owned_funding.status='pending')then raise exception using message='version_conflict',errcode='P0001';end if;
-  perform public.defer_personal_expense_funding(private.money_child_request(request_id,'source-defer'),next_id,choice_parent,next_version);
+  if choice_parent is not null or coalesce((account_choice->>'defer')::boolean,false)then perform public.defer_personal_expense_funding(private.money_child_request(request_id,'source-defer'),next_id,choice_parent,next_version);end if;
  end if;
  return private.finish_money_operation(actor,request_id,jsonb_build_object('expense_id',next_id,'expense_version',next_version,'audience',desired_audience,'trip_id',trip));
 end $$;
@@ -192,7 +197,7 @@ returns jsonb language plpgsql security definer set search_path='' as $$
 declare actor uuid:=private.require_personal_actor();result jsonb;ids uuid[];paid bigint[];shares bigint[];expense uuid;private_candidate boolean;operation_id uuid:=private.money_child_request(request_id,'trip-create-envelope');
 begin
  result:=private.begin_money_operation(actor,operation_id,'trip_expense_create',jsonb_build_object('request',request_id,'trip',target_trip_id,'payload',expense_payload,'consumers',consumer_ids,'funding',funding_plan,'legacy_account',funding_account_id,'mode',split_mode,'items',items));if result is not null then return result;end if;
- if not exists(select 1 from public.spaces s where s.id=target_trip_id and s.type='trip' and s.status='active' and private.space_role(s.id,actor)is not null)then raise exception using message='trip_not_accessible',errcode='P0001';end if;
+ if not exists(select 1 from public.spaces s where s.id=target_trip_id and s.type='trip' and s.status='active' and private.space_role(s.id,actor)in('owner','full_access'))then raise exception using message='trip_not_accessible',errcode='P0001';end if;
  ids:=array(select jsonb_array_elements_text(expense_payload->'participant_ids')::uuid);paid:=array(select jsonb_array_elements_text(expense_payload->'contribution_amounts')::bigint);shares:=array(select jsonb_array_elements_text(expense_payload->'share_amounts')::bigint);
  perform private.assert_reconciled_expense_payload((expense_payload->>'total_minor')::bigint,ids,paid,shares);
  if consumer_ids is null or cardinality(consumer_ids)=0 then raise exception using message='invalid_consumers',errcode='P0001';end if;

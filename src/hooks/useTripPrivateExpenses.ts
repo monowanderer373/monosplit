@@ -29,7 +29,7 @@ export function useTripPrivateExpenses(
     const load = () => {
       const request = ++sequence;
       void personalExpenseAffiliationRepository
-        .list()
+        .listForTrip(trip, self)
         .then((rows) => {
           if (current && request === sequence)
             setRead({

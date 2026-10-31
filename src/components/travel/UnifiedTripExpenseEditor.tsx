@@ -38,7 +38,11 @@ import {
   mapExpenseRow,
   type ExpenseRow,
 } from "../../lib/ledgerRepository";
-import { formatMinorAmount, parseMajorAmount, reconcileMinorAmounts } from "../../lib/money";
+import {
+  formatMinorAmount,
+  parseMajorAmount,
+  reconcileMinorAmounts,
+} from "../../lib/money";
 import { localeForLang } from "../../lib/locale";
 import { generateId } from "../../lib/id";
 import { groupAmount } from "../../lib/amountDisplay";
@@ -94,7 +98,11 @@ export default function UnifiedTripExpenseAction(props: Props) {
         onClick={() => {
           setOpen(true);
           navigate(location.pathname + location.search, {
-            state: { ...location.state, routeOverlay: key, restoreScroll:window.scrollY },
+            state: {
+              ...location.state,
+              routeOverlay: key,
+              restoreScroll: window.scrollY,
+            },
           });
         }}
       >
@@ -117,7 +125,7 @@ export function UnifiedTripExpensePortal(
   const location = useLocation(),
     navigate = useNavigate(),
     [origin] = useState(() => location),
-    [originScroll]=useState(()=>window.scrollY),
+    [originScroll] = useState(() => window.scrollY),
     [armed, setArmed] = useState(false),
     started = useRef(false),
     key = "trip-expense-editor:" + props.expense.id;
@@ -125,7 +133,11 @@ export function UnifiedTripExpensePortal(
     if (started.current) return;
     started.current = true;
     navigate(origin.pathname + origin.search, {
-      state: { ...origin.state, routeOverlay: key,restoreScroll:originScroll },
+      state: {
+        ...origin.state,
+        routeOverlay: key,
+        restoreScroll: originScroll,
+      },
     });
   }, [key, origin, originScroll, navigate]);
   // Wait for the router to commit the overlay entry before mounting its Back
@@ -153,6 +165,25 @@ function UnifiedTripExpenseEditor({
     self = authUser?.participantId ?? "",
     navigate = useNavigate(),
     location = useLocation();
+  const describeFailure = (cause: unknown) => {
+    const code = cause instanceof Error ? cause.message : "";
+    if (code === "audience_transition_has_dependencies")
+      return copy(
+        "This expense cannot be made private while shared obligations, payment requests or settlement history depend on it. Keep it shared to continue editing.",
+        "此费用仍有关联的共享义务、收付款请求或结算历史，暂不能转为私人。请选择保留共享继续编辑。",
+      );
+    if (code === "posted_funding_immutable")
+      return copy(
+        "This deduction is already posted. Its account history cannot be replaced here.",
+        "这笔扣款已经入账，不能在这里替换原账户历史。",
+      );
+    if (code === "split_metadata_mismatch" || code === "invalid_consumers")
+      return copy(
+        "Review the selected consumers and split amounts before saving.",
+        "保存前请核对消费对象和分摊金额。",
+      );
+    return t(friendlyErrorKey(cause));
+  };
   const [context, setContext] = useState<TripEditorContext | null>(null),
     [original, setOriginal] = useState<CanonicalExpense | null>(null),
     [draft, setDraft] = useState<TripEditorDraft | null>(null),
@@ -169,6 +200,10 @@ function UnifiedTripExpenseEditor({
     [unknown, setUnknown] = useState(false),
     [committed, setCommitted] = useState(false),
     [conflict, setConflict] = useState(false);
+  const changeGuard = (value: typeof guard) => {
+    if (value) setFocused(false);
+    setGuard(value);
+  };
   const ledger = usePersonalLedger(),
     settlementRead = useSettlements(
       !!context,
@@ -178,7 +213,7 @@ function UnifiedTripExpenseEditor({
     inflight = useRef(false),
     attempt = useRef<{ key: string; id: string } | null>(null),
     closing = useRef(false),
-    savedExpenseId=useRef<string|null>(null),
+    savedExpenseId = useRef<string | null>(null),
     amountRef = useRef<HTMLInputElement>(null),
     bodyRef = useRef<HTMLDivElement>(null);
   const dirty = !!draft && JSON.stringify(draft) !== baseline.current,
@@ -193,7 +228,7 @@ function UnifiedTripExpenseEditor({
   const requestClose = () => {
     if (inflight.current || unknown) return;
     if (!committed && dirty) {
-      setGuard("discard");
+      changeGuard("discard");
       return;
     }
     close();
@@ -251,7 +286,14 @@ function UnifiedTripExpenseEditor({
       if (dialog.current && v) {
         dialog.current.style.height = v.height + "px";
         dialog.current.style.top = v.offsetTop + "px";
-        requestAnimationFrame(()=>{const active=document.activeElement;if(active instanceof HTMLElement&&bodyRef.current?.contains(active))active.scrollIntoView({block:"nearest",inline:"nearest"})});
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          if (
+            active instanceof HTMLElement &&
+            bodyRef.current?.contains(active)
+          )
+            active.scrollIntoView({ block: "nearest", inline: "nearest" });
+        });
       }
     };
     update();
@@ -276,7 +318,7 @@ function UnifiedTripExpenseEditor({
       navigate(location.pathname + location.search, {
         state: { ...location.state, routeOverlay: overlayKey },
       });
-      if (!inflight.current && !unknown) setGuard("discard");
+      if (!inflight.current && !unknown) changeGuard("discard");
     } else close(true);
   });
   useEffect(() => {
@@ -327,11 +369,14 @@ function UnifiedTripExpenseEditor({
   }, [expense.id]);
   const patch = (next: Partial<TripEditorDraft>) => {
     if (!editable) return;
+    const clearsAccount =
+      !!next.paid && /^0+(?:\.0*)?$/.test(next.paid[self] ?? "0");
     setDraft((old) =>
       old
         ? {
             ...old,
             ...next,
+            ...(clearsAccount ? { accountChoice: undefined } : {}),
             ...("consumers" in next || "paid" in next
               ? { makePrivate: false }
               : {}),
@@ -385,7 +430,8 @@ function UnifiedTripExpenseEditor({
     total: number | null = null,
     allocated: number | null = null,
     share = 0,
-    balance = "",paymentComplete=false;
+    balance = "",
+    paymentComplete = false;
   if (original && draft) {
     try {
       total = parseMajorAmount(draft.amount, original.currency);
@@ -401,7 +447,22 @@ function UnifiedTripExpenseEditor({
     } catch {
       /* unfinished shares */
     }
-    try {if(total!==null){reconcileMinorAmounts(Object.fromEntries(Object.entries(draft.paid).map(([id,raw])=>[id,nonnegative(raw||"0",original.currency)])),total);paymentComplete=true}}catch{/* Keep invalid payment text in the draft. */}
+    try {
+      if (total !== null) {
+        reconcileMinorAmounts(
+          Object.fromEntries(
+            Object.entries(draft.paid).map(([id, raw]) => [
+              id,
+              nonnegative(raw || "0", original.currency),
+            ]),
+          ),
+          total,
+        );
+        paymentComplete = true;
+      }
+    } catch {
+      /* Keep invalid payment text in the draft. */
+    }
     try {
       payload = tripEditorPayload(original, draft);
       allocated = payload.total_minor;
@@ -497,7 +558,14 @@ function UnifiedTripExpenseEditor({
   const finishRefresh = async () => {
     window.dispatchEvent(new Event("tt:trip-expense-changed"));
     await onRefresh();
-    requestAnimationFrame(()=>{if(window.location.pathname!==location.pathname)return;const row=Array.from(document.querySelectorAll<HTMLElement>('[data-expense-id]')).find(node=>node.dataset.expenseId===savedExpenseId.current);const target=row?.querySelector<HTMLButtonElement>('button');if(target)target.focus({preventScroll:true})});
+    requestAnimationFrame(() => {
+      if (window.location.pathname !== location.pathname) return;
+      const row = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-expense-id]"),
+      ).find((node) => node.dataset.expenseId === savedExpenseId.current);
+      const target = row?.querySelector<HTMLButtonElement>("button");
+      if (target) target.focus({ preventScroll: true });
+    });
     inflight.current = false;
     baseline.current = JSON.stringify(draft);
     close();
@@ -506,6 +574,7 @@ function UnifiedTripExpenseEditor({
     if (inflight.current) return;
     inflight.current = true;
     setBusy(true);
+    setFocused(false);
     setError("");
     try {
       const pending = pendingTripEdit(self, expense.id);
@@ -516,7 +585,7 @@ function UnifiedTripExpenseEditor({
       attempt.current = null;
       if (result === "committed") {
         setCommitted(true);
-        setGuard(null);
+        changeGuard(null);
         await finishRefresh();
       } else
         setError(
@@ -526,7 +595,7 @@ function UnifiedTripExpenseEditor({
           ),
         );
     } catch (c) {
-      setError(t(friendlyErrorKey(c)));
+      setError(describeFailure(c));
     } finally {
       inflight.current = false;
       setBusy(false);
@@ -562,6 +631,7 @@ function UnifiedTripExpenseEditor({
       attempt.current = { key, id: generateId() };
     inflight.current = true;
     setBusy(true);
+    setFocused(false);
     setError("");
     let sent = false,
       acked = false;
@@ -572,14 +642,19 @@ function UnifiedTripExpenseEditor({
         draft,
       ]);
       sent = true;
-      const receipt=await saveTripEditor(attempt.current.id, original, context, draft);
-      savedExpenseId.current=receipt.expense_id;
+      const receipt = await saveTripEditor(
+        attempt.current.id,
+        original,
+        context,
+        draft,
+      );
+      savedExpenseId.current = receipt.expense_id;
       acked = true;
       setCommitted(true);
       forgetTripEdit(self, expense.id);
       await finishRefresh();
     } catch (c) {
-      setError(t(friendlyErrorKey(c)));
+      setError(describeFailure(c));
       if (sent && !acked && !(c instanceof TripEditorRejected))
         setUnknown(true);
       else if (sent && !acked) forgetTripEdit(self, expense.id);
@@ -600,34 +675,43 @@ function UnifiedTripExpenseEditor({
       return;
     inflight.current = true;
     setBusy(true);
+    setFocused(false);
     setError("");
     try {
       await ledgerRepository.voidExpense(original.id, original.version);
       setCommitted(true);
-      setGuard(null);
+      changeGuard(null);
       await finishRefresh();
     } catch (c) {
-      setError(t(friendlyErrorKey(c)));
+      setError(describeFailure(c));
     } finally {
       inflight.current = false;
       setBusy(false);
     }
   };
-  const allocation =
-    !draft?.consumers.length?copy("Select at least one consumer.","请选择至少一名消费对象。"):
-    total!==null&&!paymentComplete?copy("Review payer amounts. Payments must match the expense total.","请核对付款金额，付款合计须等于费用总额。"):
-    draft?.mode==="items"&&!payload?copy("Review item amounts and people; items must match the expense total.","请核对项目金额与成员，项目合计须等于费用总额。"):
-    total !== null && allocated !== null
-      ? allocated === total
-        ? copy("Allocated ", "已分配 ") +
-          money(allocated) +
-          " / " +
-          money(total)
-        : copy(
-            allocated < total ? "Remaining " : "Over allocated ",
-            allocated < total ? "尚未分配 " : "超额分配 ",
-          ) + money(Math.abs(total - allocated))
-      : copy("Review amounts and payments.", "请核对金额与付款。");
+  const allocation = !draft?.consumers.length
+    ? copy("Select at least one consumer.", "请选择至少一名消费对象。")
+    : total !== null && !paymentComplete
+      ? copy(
+          "Review payer amounts. Payments must match the expense total.",
+          "请核对付款金额，付款合计须等于费用总额。",
+        )
+      : draft?.mode === "items" && !payload
+        ? copy(
+            "Review item amounts and people; items must match the expense total.",
+            "请核对项目金额与成员，项目合计须等于费用总额。",
+          )
+        : total !== null && allocated !== null
+          ? allocated === total
+            ? copy("Allocated ", "已分配 ") +
+              money(allocated) +
+              " / " +
+              money(total)
+            : copy(
+                allocated < total ? "Remaining " : "Over allocated ",
+                allocated < total ? "尚未分配 " : "超额分配 ",
+              ) + money(Math.abs(total - allocated))
+          : copy("Review amounts and payments.", "请核对金额与付款。");
   const title = context?.can_edit
     ? copy("Edit expense", "编辑费用")
     : copy("Record details", "账目详情");
@@ -654,7 +738,11 @@ function UnifiedTripExpenseEditor({
     </section>
   ) : (
     <>
-      <label className="ue-money-label" htmlFor="ue-amount" id="ue-amount-label">
+      <label
+        className="ue-money-label"
+        htmlFor="ue-amount"
+        id="ue-amount-label"
+      >
         {copy("Amount", "金额")} · {original.currency}
       </label>
       <div className="ue-amount-row" onClick={() => amountRef.current?.focus()}>
@@ -669,7 +757,11 @@ function UnifiedTripExpenseEditor({
               className="ue-amount-input"
               aria-label={copy("Amount", "金额")}
               aria-invalid={total === null}
-              aria-describedby={total===null?"ue-amount-label ue-amount-error":"ue-amount-label"}
+              aria-describedby={
+                total === null
+                  ? "ue-amount-label ue-amount-error"
+                  : "ue-amount-label"
+              }
               inputMode="decimal"
               autoComplete="off"
               disabled={!editable}
@@ -758,23 +850,32 @@ function UnifiedTripExpenseEditor({
                 disabled={!editable}
                 value={
                   draft.accountChoice
-                    ? (draft.accountChoice.account_id ?? "")
+                    ? (draft.accountChoice.account_id ??
+                      (draft.accountChoice.defer ? "pending-unknown" : ""))
                     : (ownPending?.primary_account_id ??
                       ownPending?.account_id ??
-                      "")
+                      (ownPending ? "pending-unknown" : ""))
                 }
                 onChange={(event) =>
                   patch({
                     accountChoice: {
                       intent_id: ownPending?.id ?? null,
                       version: ownPending?.version ?? null,
-                      account_id: event.target.value || null,
+                      account_id:
+                        event.target.value &&
+                        event.target.value !== "pending-unknown"
+                          ? event.target.value
+                          : null,
+                      defer: event.target.value !== "",
                     },
                   })
                 }
               >
                 <option value="">
-                  {copy("No account selected", "尚未选择账户")}
+                  {copy("No account linked", "未关联账户")}
+                </option>
+                <option value="pending-unknown">
+                  {copy("Verify deduction later", "稍后核对扣款")}
                 </option>
                 {(context.accounts ?? []).map((a) => (
                   <option key={a.id} value={a.id}>
@@ -856,180 +957,205 @@ function UnifiedTripExpenseEditor({
           ) : null}
         </div>
       )}
-      <div className="ue-split-wrap" data-open={expanded} inert={!expanded}><div className="ue-split-inner">{expanded ? (
-        <section
-          className="ue-section ue-split"
-          aria-label={copy("Split configuration", "分摊设置")}
-        >
-          <h2>{copy("Split", "分摊")}</h2>
-          <div
-            className="ue-methods"
-            role="group"
-            aria-label={copy("Split method", "分摊方式")}
-          >
-            {(["equal", "exact", "items"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                disabled={!editable}
-                aria-pressed={draft.mode === mode}
-                onClick={() => patch({ mode })}
+      <div className="ue-split-wrap" data-open={expanded} inert={!expanded}>
+        <div className="ue-split-inner">
+          {expanded ? (
+            <section
+              className="ue-section ue-split"
+              aria-label={copy("Split configuration", "分摊设置")}
+            >
+              <h2>{copy("Split", "分摊")}</h2>
+              <div
+                className="ue-methods"
+                role="group"
+                aria-label={copy("Split method", "分摊方式")}
               >
-                {copy(
-                  mode === "equal"
-                    ? "Equally"
-                    : mode === "exact"
-                      ? "Amounts"
-                      : "By item",
-                  mode === "equal"
-                    ? "平均"
-                    : mode === "exact"
-                      ? "指定金额"
-                      : "按项目",
-                )}
-              </button>
-            ))}
-          </div>
-          {draft.mode === "items" ? (
-            <fieldset disabled={!editable} className="ue-items-fieldset">
-              <QuickItems
-                strict
-                keepOpen
-                zh={zh}
-                participants={people
-                  .filter((p) => draft.consumers.includes(p.id))
-                  .map((p) => ({ id: p.id, name: p.name }))}
-                values={{
-                  amount: draft.amount,
-                  currency: original.currency,
-                  selectedParticipantIds: draft.consumers,
-                  splitMode: "exact",
-                  exactShareAmounts: draft.shares,
-                  payerAmounts: draft.paid,
-                  detailsExpanded: true,
-                  items: draft.items,
-                }}
-                onUpdate={(v) => {
-                  if (editable)
-                    patch({
-                      ...("items" in v ? { items: v.items ?? [] } : {}),
-                      ...("exactShareAmounts" in v
-                        ? { shares: v.exactShareAmounts }
-                        : {}),
-                    });
-                }}
-              />
-            </fieldset>
-          ) : null}
-          <div className="ue-row ue-selection">
-            <span>
-              {draft.consumers.length} / {people.length}{" "}
-              {copy("selected", "已选")}
-            </span>
-            <button
-              type="button"
-              className="ue-text-button"
-              disabled={!editable}
-              onClick={() =>
-                patch({ consumers: [...new Set([...draft.consumers,...context.members.map((p) => p.id)])] })
-              }
-            >
-              {copy("Select all", "全选")}
-            </button>
-          </div>
-          {people.map((p) => {
-            const selected = draft.consumers.includes(p.id),
-              historical = !context.members.some((m) => m.id === p.id);
-            let amount = draft.shares[p.id] ?? "";
-            if (payload) {
-              const n =
-                payload.share_amounts[payload.participant_ids.indexOf(p.id)] ??
-                0;
-              amount = minorText(n, original.currency);
-            }
-            return (
-              <div className="ue-member" data-selected={selected} key={p.id}>
-                <label className="ue-check-name">
-                  {context.can_edit ? (
-                    <input
-                      type="checkbox"
-                      aria-label={p.name}
-                      disabled={!editable || historical}
-                      checked={selected}
-                      onChange={() =>
-                        patch({
-                          consumers: selected
-                            ? draft.consumers.filter((id) => id !== p.id)
-                            : [...draft.consumers, p.id],
-                        })
-                      }
-                    />
-                  ) : (
-                    <span aria-hidden="true">{selected ? "✓" : "○"}</span>
-                  )}
-                  <span className="ue-avatar" aria-hidden="true">
-                    {p.name.slice(0, 1)}
-                  </span>
-                  <span className="ue-name">
-                    {p.name}
-                    {historical ? (
-                      <small>
-                        {copy(" · Historical member", " · 历史成员")}
-                      </small>
-                    ) : null}
-                  </span>
-                </label>
-                {selected ? (
-                  context.can_edit && draft.mode === "exact" ? (
-                    <AmountInput
-                      className="ue-share"
-                      inputMode="decimal"
-                      aria-label={copy("Share for " + p.name, p.name + " 份额")}
-                      disabled={!editable}
-                      value={draft.shares[p.id] ?? ""}
-                      onValueChange={(raw) =>
-                        patch({
-                          shares: { ...draft.shares, [p.id]: raw },
-                        })
-                      }
-                    />
-                  ) : (
-                    <span className="ue-dash">{groupAmount(amount)}</span>
-                  )
-                ) : (
-                  <span className="ue-dash">—</span>
-                )}
+                {(["equal", "exact", "items"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={!editable}
+                    aria-pressed={draft.mode === mode}
+                    onClick={() => patch({ mode })}
+                  >
+                    {copy(
+                      mode === "equal"
+                        ? "Equally"
+                        : mode === "exact"
+                          ? "Amounts"
+                          : "By item",
+                      mode === "equal"
+                        ? "平均"
+                        : mode === "exact"
+                          ? "指定金额"
+                          : "按项目",
+                    )}
+                  </button>
+                ))}
               </div>
-            );
-          })}
-          <p
-            className={payload ? "ue-allocation" : "ue-error"}
-            aria-live="polite"
-          >
-            {allocation}
-          </p>
-          <div className="ue-my-share">
-            <div className="ue-row">
-              <span>{copy("Your share", "你的份额")}</span>
-              <strong>{payload ? money(share) : "—"}</strong>
-            </div>
-            <p className="ue-sub">{balance}</p>
-          </div>
-          {context.audience === "shared" &&
-          candidate === "private" &&
-          original.createdBy === self &&
-          context.can_edit ? (
-            <button
-              type="button"
-              className="ue-text-button"
-              disabled={!editable}
-              onClick={() => setGuard("private")}
-            >
-              {copy("Make private after review", "核对后转为私人")}
-            </button>
+              {draft.mode === "items" ? (
+                <fieldset disabled={!editable} className="ue-items-fieldset">
+                  <QuickItems
+                    strict
+                    keepOpen
+                    zh={zh}
+                    participants={people
+                      .filter((p) => draft.consumers.includes(p.id))
+                      .map((p) => ({ id: p.id, name: p.name }))}
+                    values={{
+                      amount: draft.amount,
+                      currency: original.currency,
+                      selectedParticipantIds: draft.consumers,
+                      splitMode: "exact",
+                      exactShareAmounts: draft.shares,
+                      payerAmounts: draft.paid,
+                      detailsExpanded: true,
+                      items: draft.items,
+                    }}
+                    onUpdate={(v) => {
+                      if (editable)
+                        patch({
+                          ...("items" in v ? { items: v.items ?? [] } : {}),
+                          ...("exactShareAmounts" in v
+                            ? { shares: v.exactShareAmounts }
+                            : {}),
+                        });
+                    }}
+                  />
+                </fieldset>
+              ) : null}
+              <div className="ue-row ue-selection">
+                <span>
+                  {draft.consumers.length} / {people.length}{" "}
+                  {copy("selected", "已选")}
+                </span>
+                <button
+                  type="button"
+                  className="ue-text-button"
+                  disabled={!editable}
+                  onClick={() =>
+                    patch({
+                      consumers: [
+                        ...new Set([
+                          ...draft.consumers,
+                          ...context.members.map((p) => p.id),
+                        ]),
+                      ],
+                    })
+                  }
+                >
+                  {copy("Select all", "全选")}
+                </button>
+              </div>
+              {people.map((p) => {
+                const selected = draft.consumers.includes(p.id),
+                  historical = !context.members.some((m) => m.id === p.id);
+                let amount = draft.shares[p.id] ?? "";
+                if (payload) {
+                  const n =
+                    payload.share_amounts[
+                      payload.participant_ids.indexOf(p.id)
+                    ] ?? 0;
+                  amount = minorText(n, original.currency);
+                }
+                return (
+                  <div
+                    className="ue-member"
+                    data-selected={selected}
+                    key={p.id}
+                  >
+                    <label className="ue-check-name">
+                      {context.can_edit ? (
+                        <input
+                          type="checkbox"
+                          aria-label={p.name}
+                          disabled={!editable || historical}
+                          checked={selected}
+                          onChange={() =>
+                            patch({
+                              consumers: selected
+                                ? draft.consumers.filter((id) => id !== p.id)
+                                : [...draft.consumers, p.id],
+                            })
+                          }
+                        />
+                      ) : (
+                        <span aria-hidden="true">{selected ? "✓" : "○"}</span>
+                      )}
+                      <span className="ue-avatar" aria-hidden="true">
+                        {p.name.slice(0, 1)}
+                      </span>
+                      <span className="ue-name">
+                        {p.name}
+                        {historical ? (
+                          <small>
+                            {copy(" · Historical member", " · 历史成员")}
+                          </small>
+                        ) : null}
+                      </span>
+                    </label>
+                    {selected ? (
+                      context.can_edit && draft.mode === "exact" ? (
+                        <AmountInput
+                          className="ue-share"
+                          inputMode="decimal"
+                          aria-label={copy(
+                            "Share for " + p.name,
+                            p.name + " 份额",
+                          )}
+                          disabled={!editable}
+                          value={draft.shares[p.id] ?? ""}
+                          onValueChange={(raw) =>
+                            patch({
+                              shares: { ...draft.shares, [p.id]: raw },
+                            })
+                          }
+                        />
+                      ) : (
+                        <span className="ue-dash">{groupAmount(amount)}</span>
+                      )
+                    ) : (
+                      <span className="ue-dash">—</span>
+                    )}
+                  </div>
+                );
+              })}
+              <p
+                className={payload ? "ue-allocation" : "ue-error"}
+                aria-live="polite"
+              >
+                {allocation}
+              </p>
+              <div className="ue-my-share">
+                <div className="ue-row">
+                  <span>{copy("Your share", "你的份额")}</span>
+                  <strong>{payload ? money(share) : "—"}</strong>
+                </div>
+                <p className="ue-sub">{balance}</p>
+              </div>
+              {context.audience === "shared" &&
+              candidate === "private" &&
+              original.createdBy === self &&
+              context.can_edit ? (
+                <button
+                  type="button"
+                  className="ue-text-button"
+                  disabled={!editable}
+                  onClick={() =>
+                    draft.makePrivate
+                      ? patch({ makePrivate: false })
+                      : changeGuard("private")
+                  }
+                >
+                  {draft.makePrivate
+                    ? copy("Keep shared", "保留共享")
+                    : copy("Make private after review", "核对后转为私人")}
+                </button>
+              ) : null}
+            </section>
           ) : null}
-        </section>
-      ) : null}</div></div>
+        </div>
+      </div>
       {statusNotice ? <p className="ue-sub">{statusNotice}</p> : null}
     </>
   );
@@ -1048,7 +1174,7 @@ function UnifiedTripExpenseEditor({
         onSubmit={(event) => {
           event.preventDefault();
           if (committed)
-            void finishRefresh().catch((c) => setError(t(friendlyErrorKey(c))));
+            void finishRefresh().catch((c) => setError(describeFailure(c)));
           else if (unknown) void reconcile();
           else if (editable && payload) void save();
         }}
@@ -1141,7 +1267,7 @@ function UnifiedTripExpenseEditor({
                 <button
                   type="button"
                   onClick={() => {
-                    if (dirty) setGuard("reload");
+                    if (dirty) changeGuard("reload");
                     else setRetry((v) => v + 1);
                   }}
                 >
@@ -1180,7 +1306,7 @@ function UnifiedTripExpenseEditor({
                       : "只关闭草稿，不会取消费用。",
                 )}
               </p>
-              <button type="button" onClick={() => setGuard(null)}>
+              <button type="button" onClick={() => changeGuard(null)}>
                 {copy("Keep editing", "继续编辑")}
               </button>
               <button
@@ -1189,16 +1315,16 @@ function UnifiedTripExpenseEditor({
                 onClick={() => {
                   if (guard === "discard") {
                     baseline.current = JSON.stringify(draft);
-                    setGuard(null);
+                    changeGuard(null);
                     close();
                   } else if (guard === "reload") {
-                    setGuard(null);
+                    changeGuard(null);
                     setRetry((v) => v + 1);
                   } else if (guard === "private") {
                     setDraft((old) =>
                       old ? { ...old, makePrivate: true } : old,
                     );
-                    setGuard(null);
+                    changeGuard(null);
                   } else void cancel();
                 }}
               >
@@ -1246,7 +1372,7 @@ function UnifiedTripExpenseEditor({
               type="button"
               className="ue-cancel"
               disabled={busy || unknown || committed || !!guard}
-              onClick={() => setGuard("cancel")}
+              onClick={() => changeGuard("cancel")}
             >
               {copy("Cancel expense", "取消费用")}
             </button>

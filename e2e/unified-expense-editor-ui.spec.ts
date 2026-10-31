@@ -11,24 +11,24 @@ async function fixture(page:Page,kind:'private'|'shared'='shared',hidden=false){
  const state=await setupTripLedger(page,{hidden});state.payments=[]
  const expense:CanonicalExpense=kind==='private'?{...tripLedgerExpense('00000000-0000-4000-8000-000000000471','Private meal',[['owner',10000,10000]]),scope:'personal',spaceId:null}:tripLedgerExpense('00000000-0000-4000-8000-000000000472','Trip dinner',[['owner',0,0],['mia',100000,100000]])
  state.expenses=[expense]
- let canEdit=true,fail=false,commitThenFail=false,committed=false
+ let canEdit=true,fail=false,commitThenFail=false,committed=false,privateDenied=false
  const people=['owner','mia'].map(id=>({id,name:id==='owner'?'You':'Mia',kind:'account',role:id==='owner'?'owner':'full_access'}))
  let settings:unknown=null
  const commands:Record<string,unknown>[]=[]
  await page.route('**/rest/v1/personal_expense_affiliations?**',route=>route.fulfill({json:kind==='private'?[{id:'affiliation',owner_participant_id:'owner',expense_id:expense.id,trip_id:tripLedgerId,label:'Hanoi Trip',archived_at:null,version:1,created_at:expense.createdAt,updated_at:expense.updatedAt}]:[]}))
  await page.route('**/rest/v1/rpc/get_trip_expense_editor',route=>{const row=apiExpense(expense);return route.fulfill({json:{schema_version:1,audience:kind,trip_id:tripLedgerId,trip_name:'Hanoi Trip',trip_status:'active',role:canEdit?'owner':'view',can_edit:canEdit,expense:row,members:people,settings,funding:[],accounts:[{id:'account',name:'Touch n Go',currency:'MYR'}],participations:row.participations,contributions:row.payer_contributions,shares:row.expense_shares}})})
- await page.route('**/rest/v1/rpc/save_trip_expense_editor',async route=>{const body=route.request().postDataJSON();commands.push(body);if(fail)return route.fulfill({status:409,json:{code:'P0001',message:'version_conflict'}});committed=true;if(commitThenFail)return route.abort('failed');return route.fulfill({json:{expense_id:expense.id,expense_version:2,audience:body.desired_audience,trip_id:tripLedgerId}})})
+ await page.route('**/rest/v1/rpc/save_trip_expense_editor',async route=>{const body=route.request().postDataJSON();commands.push(body);if(privateDenied&&body.desired_audience==='private')return route.fulfill({status:409,json:{code:'P0001',message:'audience_transition_has_dependencies'}});if(fail)return route.fulfill({status:409,json:{code:'P0001',message:'version_conflict'}});committed=true;if(commitThenFail)return route.abort('failed');return route.fulfill({json:{expense_id:expense.id,expense_version:2,audience:body.desired_audience,trip_id:tripLedgerId}})})
  await page.route('**/rest/v1/rpc/reconcile_personal_money_operation',route=>route.fulfill({json:committed?{state:'committed',result:{expense_id:expense.id,expense_version:2}}:{state:'not_posted'}}))
  await page.goto('/travel/trip/'+tripLedgerId)
  await expect(page.getByTestId('space-recent')).toContainText(expense.description!)
- return {state,expense,commands,people,setItems:()=>{settings={consumer_ids:['mia'],split_mode:'items',items:[{id:'item',name:'Meal',amount:'1000',participantIds:['mia']}]};},setReadOnly:()=>{canEdit=false},fail:()=>{fail=true},uncertain:()=>{commitThenFail=true}}
+ return {state,expense,commands,people,denyPrivate:()=>{privateDenied=true},setItems:()=>{settings={consumer_ids:['mia'],split_mode:'items',items:[{id:'item',name:'Meal',amount:'1000',participantIds:['mia']}]};},setReadOnly:()=>{canEdit=false},fail:()=>{fail=true},uncertain:()=>{commitThenFail=true}}
 }
 async function open(page:Page,name:string){await page.getByRole('button',{name:'Edit '+name,exact:true}).click();const editor=page.getByTestId('unified-expense-editor');await expect(editor.getByRole('textbox',{name:'Amount',exact:true})).toBeVisible();return editor}
 async function shot(page:Page,name:string){await mkdir('test-results/issue07',{recursive:true});await page.screenshot({path:'test-results/issue07/'+name+'.png',animations:'disabled'})}
 
 for(const width of[320,360,390,430])test('shared same-page editor '+width,async({page})=>{
  await page.setViewportSize({width,height:864});const f=await fixture(page),editor=await open(page,'Trip dinner')
- await expect(editor.getByRole('checkbox',{name:'You',exact:true})).not.toBeChecked();await expect(editor.getByRole('checkbox',{name:'Mia',exact:true})).toBeChecked()
+ await expect(editor.getByRole('checkbox',{name:'You',exact:true})).not.toBeChecked();await expect(editor.getByRole('checkbox',{name:'Mia',exact:true})).toBeChecked();await expect(editor.getByRole('checkbox',{name:'Mia',exact:true})).toHaveCSS('background-color','rgb(52, 107, 141)');await expect(editor.getByRole('checkbox',{name:'You',exact:true})).toHaveCSS('border-top-style','solid')
  await expect(editor.getByRole('button',{name:'Paid by',exact:true})).toHaveCount(0)
  await expect(editor.getByRole('button',{name:'Apply split',exact:true})).toHaveCount(0);await expect(editor.getByText('History for this expense')).toHaveCount(0)
  await expect(editor.getByRole('button',{name:'Save changes'})).toBeDisabled();await expect(page.locator('.tt-nav')).not.toBeVisible()
@@ -64,4 +64,12 @@ test('readonly item fields are disabled and focus cannot enter the underlay',asy
 })
 test('amount privacy gates editor money in visible and accessible content',async({page})=>{
  await fixture(page,'shared',true);await page.getByRole('button',{name:'Open record',exact:true}).click();const editor=page.getByTestId('unified-expense-editor');await expect(editor.getByRole('button',{name:'Show amount to continue'})).toBeVisible();expect(await editor.innerText()).not.toContain('1,000');expect(await editor.locator('[aria-label]').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label')).join(' '))).not.toContain('1,000');await expect(editor.locator('input')).toHaveCount(0);await page.keyboard.press('Escape')
+})
+
+test('No account and Verify later keep different explicit draft semantics',async({page})=>{
+ const f=await fixture(page,'private'),editor=await open(page,'Private meal');const select=editor.getByLabel('Payment account');await select.selectOption('account');await select.selectOption('');expect(f.commands).toHaveLength(0);await editor.getByRole('button',{name:'Save changes'}).click();await expect(editor).toHaveCount(0);expect(f.commands).toHaveLength(1);expect(f.commands[0]).toMatchObject({account_choice:{account_id:null,defer:false}})
+})
+
+test('failed private conversion keeps Shared visibility and can return to Shared editing',async({page})=>{
+ const f=await fixture(page);f.denyPrivate();const editor=await open(page,'Trip dinner');await editor.getByRole('button',{name:'Mia',exact:true}).click();await editor.getByLabel('Paid by You',{exact:true}).fill('1000');await editor.getByLabel('Paid by Mia',{exact:true}).fill('0');await editor.getByRole('checkbox',{name:'You',exact:true}).check();await editor.getByRole('checkbox',{name:'Mia',exact:true}).uncheck();await editor.getByRole('button',{name:'Equally',exact:true}).click();await editor.getByRole('button',{name:'Make private after review'}).click();await editor.getByRole('button',{name:'Confirm private',exact:true}).click();await expect(editor.locator('.ue-visibility')).toHaveText('Shared');await expect(editor).not.toContainText('Only you');await editor.getByRole('button',{name:'Save changes'}).click();await expect(editor).toContainText('Keep it shared to continue editing.');await editor.getByRole('button',{name:'Keep shared',exact:true}).click();await editor.getByRole('button',{name:'Save changes'}).click();await expect(editor).toHaveCount(0);expect(f.commands.map(command=>command.desired_audience)).toEqual(['private','shared'])
 })

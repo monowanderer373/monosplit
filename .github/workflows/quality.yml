@@ -299,5 +299,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Verify Trip membership, split, dates, financial history and explicit friendship consent
         run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
+      - name: Report final native browser failures without auth state
+        if: failure()
+        run: node scripts/report-browser-failures.mjs
       - if: always()
         run: npx supabase stop --no-backup

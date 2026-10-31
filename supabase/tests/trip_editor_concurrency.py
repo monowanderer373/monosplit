@@ -85,6 +85,9 @@ try:
     assert run('select count(*)from public.personal_money_operations where request_id=' + quoted(command) + ';')[-1] == '1'
     assert run('select count(*)from public.personal_account_entries where owner_participant_id=' + quoted(actor) + ';')[-1] == '0'
     print('PASS: original balance lock excludes audience conversion, rollback leaves no receipt, competing duplicate Save commits once, no cash posted')
+except subprocess.TimeoutExpired:
+    print('::error title=Trip editor concurrency::An isolated contender exceeded its bounded timeout; SQL, rows and credentials withheld')
+    raise SystemExit(1)
 finally:
     for process in processes:
         if process.poll() is None:
