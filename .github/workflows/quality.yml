@@ -22,6 +22,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Verify notifications with the production module graph
         run: npx playwright test --config=playwright.production-ui.config.ts --workers=2
+      - name: Report production browser counts without auth state
+        if: always()
+        run: node scripts/report-browser-failures.mjs
       - name: Save synthetic Issue07 editor screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -186,8 +189,8 @@ jobs:
       - run: npm run test:e2e
         env:
           COLLECT_PAY_BASELINE_URL: http://127.0.0.1:5174
-      - name: Report final browser failures without stdout or auth state
-        if: failure()
+      - name: Report final browser counts and failures without stdout or auth state
+        if: always()
         run: node scripts/report-browser-failures.mjs
       - name: Save collect/pay screenshots and DOM measurements
         if: always()
@@ -267,6 +270,9 @@ jobs:
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test e2e/travel.spec.ts e2e/inline-quick-add.spec.ts e2e/trip-period.spec.ts --workers=1
+      - name: Report Travel browser counts without auth state
+        if: always()
+        run: node scripts/report-browser-failures.mjs
       - name: Save real Travel screenshots and DOM measurements
         if: always()
         uses: actions/upload-artifact@v4
@@ -299,8 +305,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Verify Trip membership, split, dates, financial history and explicit friendship consent
         run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
-      - name: Report final native browser failures without auth state
-        if: failure()
+      - name: Report native browser counts and final failures without auth state
+        if: always()
         run: node scripts/report-browser-failures.mjs
       - if: always()
         run: npx supabase stop --no-backup

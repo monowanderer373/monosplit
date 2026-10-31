@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 const path = process.argv[2] ?? 'test-results/browser-results.json'
 if (existsSync(path)) {
   const report = JSON.parse(readFileSync(path, 'utf8'))
+  if(report.stats){const s=report.stats;console.log(`::notice title=Isolated browser results::expected=${s.expected}; unexpected=${s.unexpected}; flaky=${s.flaky}; skipped=${s.skipped}; durationMs=${Math.round(s.duration)}`)}
   const escape = value => value.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')
   const redact = value => value
     .replace(/\u001b\[[0-9;]*m/g, '')

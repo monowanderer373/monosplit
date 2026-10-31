@@ -164,7 +164,7 @@ for (const width of [320, 360, 390, 430, 768]) test(`Travel real RPC flows and a
       await page.keyboard.press('Escape')
       await expect(page.getByRole('button',{name:'切换旅程',exact:true})).toBeFocused()
       await expect(page.getByTestId('trip-ledger')).toBeVisible()
-      await expect(page.getByTestId('trip-detail-summary')).toContainText('4 条记录')
+      await expect(page.getByTestId('trip-detail-summary')).toContainText('3 条共享记录');await expect(page.getByTestId('space-recent')).toContainText('4 笔账目')
       await capture(page, 'zh-trip-details-390')
       await page.goto('/profile')
       await page.getByRole('button', { name: /语言/ }).click(); await page.getByRole('button', { name: 'English', exact: true }).click()

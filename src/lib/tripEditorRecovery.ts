@@ -42,7 +42,7 @@ export function forgetTripEdit(actor: string, expense: string) {
 }
 export async function reconcileTripEdit(
   requestId: string,
-): Promise<"committed" | "not_posted"> {
+): Promise<{state:"committed"|"not_posted";expenseId?:string}> {
   if (!supabase) throw new Error("not_configured");
   // Original transactional fence waits for an in-flight command, or retires its
   // UUID so a late HTTP request cannot commit after the user resumes editing.
@@ -53,5 +53,6 @@ export async function reconcileTripEdit(
   if (error) throw error;
   if (!data || !["committed", "not_posted"].includes(data.state))
     throw new Error("invalid_reconciliation");
-  return data.state;
+  if(data.state==="committed"&&typeof data.result?.expense_id!=="string")throw new Error("invalid_reconciliation");
+  return {state:data.state,...(data.state==="committed"?{expenseId:data.result.expense_id}:{})};
 }

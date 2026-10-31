@@ -148,6 +148,10 @@ export function UnifiedTripExpensePortal(
     <UnifiedTripExpenseEditor {...props} overlayKey={key} />
   ) : null;
 }
+export function RestoredTripExpenseEditor({expenseId,onExit}:{expenseId:string;onExit:()=>void}){
+ const ledger=usePersonalLedger();
+ return <UnifiedTripExpenseEditor expense={{id:expenseId}} trigger={null} onRefresh={ledger.refresh} onExit={onExit} overlayKey={'trip-expense-editor:'+expenseId}/>;
+}
 function UnifiedTripExpenseEditor({
   expense,
   tripId,
@@ -155,7 +159,7 @@ function UnifiedTripExpenseEditor({
   statusNotice,
   overlayKey,
   onExit,
-}: Props & { overlayKey: string; onExit: () => void }) {
+}: Omit<Props,"expense"> & {expense:Pick<CanonicalExpense,"id">&Partial<Pick<CanonicalExpense,"version"|"description">>;overlayKey:string;onExit:()=>void}) {
   const t = useT(),
     lang = useStore((s) => s.lang),
     hidden = useStore((s) => s.homeUi.balanceHidden),
@@ -342,7 +346,7 @@ function UnifiedTripExpenseEditor({
     );
   });
   const detectVersion = useEffectEvent(() => {
-    if (original && expense.version > original.version) setConflict(true);
+    if (original && expense.version!==undefined && expense.version > original.version) setConflict(true);
   });
   useEffect(() => {
     detectVersion();
@@ -565,6 +569,7 @@ function UnifiedTripExpenseEditor({
       ).find((node) => node.dataset.expenseId === savedExpenseId.current);
       const target = row?.querySelector<HTMLButtonElement>("button");
       if (target) target.focus({ preventScroll: true });
+      else {const page=Array.from(document.querySelectorAll<HTMLElement>('[data-trip-id]')).find(node=>node.dataset.tripId===context?.trip_id);page?.querySelector<HTMLElement>('.tw-title-line h2')?.focus({preventScroll:true})}
     });
     inflight.current = false;
     baseline.current = JSON.stringify(draft);
@@ -583,7 +588,8 @@ function UnifiedTripExpenseEditor({
       forgetTripEdit(self, expense.id);
       setUnknown(false);
       attempt.current = null;
-      if (result === "committed") {
+      if (result.state === "committed") {
+        savedExpenseId.current=result.expenseId??null;
         setCommitted(true);
         changeGuard(null);
         await finishRefresh();
@@ -1348,14 +1354,14 @@ function UnifiedTripExpenseEditor({
             </div>
           ) : null}
         </div>
-        {context?.can_edit && !loading && !hidden ? (
+        {(context?.can_edit||unknown||committed) && !loading && (!hidden||unknown||committed) ? (
           <footer className="ue-footer">
             <button
               className="ue-save"
               type="submit"
               disabled={
                 busy ||
-                conflict ||
+                (!unknown&&!committed&&conflict) ||
                 !!guard ||
                 (!unknown && !committed && (!payload || !dirty))
               }
@@ -1368,14 +1374,14 @@ function UnifiedTripExpenseEditor({
                     ? copy("Check save status", "检查保存状态")
                     : copy("Save changes", "保存修改")}
             </button>
-            <button
+            {context?.can_edit?            <button
               type="button"
               className="ue-cancel"
               disabled={busy || unknown || committed || !!guard}
               onClick={() => changeGuard("cancel")}
             >
               {copy("Cancel expense", "取消费用")}
-            </button>
+            </button>:null}
           </footer>
         ) : null}
       </form>

@@ -83,7 +83,7 @@ try:
     assert first.returncode == second.returncode == 0
     assert run('select version from public.expenses where id=' + quoted(target) + ';')[-1] == '2'
     assert run('select count(*)from public.personal_money_operations where request_id=' + quoted(command) + ';')[-1] == '1'
-    assert run('select count(*)from public.personal_account_entries where owner_participant_id=' + quoted(actor) + ';')[-1] == '0'
+    assert run('select count(*)from public.personal_account_entries j join public.personal_accounts a on a.id=j.account_id where a.owner_participant_id=' + quoted(actor) + ';')[-1] == '0'
     print('PASS: original balance lock excludes audience conversion, rollback leaves no receipt, competing duplicate Save commits once, no cash posted')
 except subprocess.TimeoutExpired:
     print('::error title=Trip editor concurrency::An isolated contender exceeded its bounded timeout; SQL, rows and credentials withheld')

@@ -302,14 +302,13 @@ test.describe('local relational multi-user journey', () => {
     // while the real mutation request is in flight, without stubbing its response.
     await setTripMemberRole(owner,'Beta','full_access')
     await waitForSpaceRole(beta,spaceId,'full_access')
-    let mutationArrived!:()=>void,releaseMutation!:()=>void
-    const arrived=new Promise<void>(resolve=>{mutationArrived=resolve})
+    let mutationIntercepted=false,releaseMutation!:()=>void
     const release=new Promise<void>(resolve=>{releaseMutation=resolve})
-    const mutationPattern='**/rest/v1/rpc/create_expense*'
-    await member.route(mutationPattern,async route=>{mutationArrived();await release;await route.continue()})
+    const mutationPattern='**/rest/v1/rpc/create_trip_expense_editor'
+    await member.route(mutationPattern,async route=>{mutationIntercepted=true;await release;await route.continue()})
     try{
       await staleDialog.getByRole('button',{name:'Save and close'}).click()
-      await arrived
+      await expect.poll(()=>mutationIntercepted,{timeout:15000}).toBe(true)
       await setTripMemberRole(owner,'Beta','view')
       await waitForSpaceRole(beta,spaceId,'view')
       releaseMutation()
