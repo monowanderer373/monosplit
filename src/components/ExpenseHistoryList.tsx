@@ -129,15 +129,15 @@ function ExpenseHistoryRow({
           </p>
         ) : null}
         {entry.lifecycle === 'cancelled' ? (
-          <p className="mt-2 text-xs text-[var(--ms-text-secondary)]">
+          <p data-history-explanation className="mt-2 text-xs text-[var(--ms-text-secondary)]">
             {t('history.cancelledHelp')}
           </p>
         ) : entry.lifecycle === 'corrected' ? (
-          <p className="mt-2 text-xs text-[var(--ms-text-secondary)]">
+          <p data-history-explanation className="mt-2 text-xs text-[var(--ms-text-secondary)]">
             {t('history.correctedHelp')}
           </p>
         ) : entry.lifecycle === 'legacy_voided' ? (
-          <p className="mt-2 text-xs text-[var(--ms-text-secondary)]">
+          <p data-history-explanation className="mt-2 text-xs text-[var(--ms-text-secondary)]">
             {t('history.legacyHelp')}
           </p>
         ) : null}

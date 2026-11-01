@@ -374,7 +374,7 @@ export default function SettlementPanel({
       ) : null}
 
       {view!=='trip-current'&&(!trip||!hidden)?<SettlementHistoryList
-        excludePending={historyCompletedOnly}
+        excludePending={historyCompletedOnly} compact={historyCompletedOnly}
         context={context}
         currentParticipantId={currentParticipantId}
         participantNames={participantNames}
