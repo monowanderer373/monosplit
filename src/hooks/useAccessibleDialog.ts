@@ -42,6 +42,8 @@ function setBackgroundInert(dialog: HTMLElement): () => void {
       sibling.setAttribute('aria-hidden', 'true')
     }
     branch = branch.parentElement
+    // A nested confirmation owns only its parent dialog, not that dialog's already-inert background.
+    if (branch.getAttribute('role') === 'dialog') break
   }
 
   return () => {

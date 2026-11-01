@@ -706,3 +706,26 @@ body[data-trip-expense-editor="open"] .tt-center-layer {
 .ue-screen .ue-payer-name {
   overflow-wrap: anywhere;
 }
+
+/* Confirmations never occupy space in the scrolling expense draft. */
+.ue-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgb(38 59 76 / 26%);
+}
+.ue-screen .ue-confirm {
+  width: min(100%, 360px);
+  max-height: 100%;
+  overflow: auto;
+  margin: 0;
+  padding: 20px;
+  background: var(--ue-paper);
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgb(38 59 76 / 16%);
+}
+.ue-confirm h2 { margin: 0 0 10px; font-size: 1.125rem; }
+.ue-confirm p { margin: 0 0 14px; }

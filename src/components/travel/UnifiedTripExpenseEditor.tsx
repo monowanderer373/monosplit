@@ -58,6 +58,11 @@ import {
 } from "../../lib/tripEditorRecovery";
 import "./unified-expense-editor.css";
 
+function EditorConfirmation({children,onDismiss}:{children:ReactNode;onDismiss:()=>void}) {
+  const ref=useAccessibleDialog<HTMLElement>(onDismiss);
+  return <div className="ue-confirm-overlay" onClick={event=>{if(event.target===event.currentTarget)onDismiss()}}><section ref={ref} className="ue-confirm" role="dialog" aria-modal="true" aria-labelledby="ue-confirm-title" tabIndex={-1}>{children}</section></div>;
+}
+
 type Props = {
   tripId?: string;
   expense: CanonicalExpense;
@@ -1285,8 +1290,8 @@ function UnifiedTripExpenseEditor({
             </div>
           ) : null}
           {guard ? (
-            <div className="ue-confirm" role="alert">
-              <h2>
+            <EditorConfirmation onDismiss={()=>{if(!busy)changeGuard(null)}}>
+              <h2 id="ue-confirm-title">
                 {copy(
                   guard === "discard" || guard === "reload"
                     ? "Discard unsaved changes?"
@@ -1314,7 +1319,7 @@ function UnifiedTripExpenseEditor({
                       : "只关闭草稿，不会取消费用。",
                 )}
               </p>
-              <button type="button" onClick={() => changeGuard(null)}>
+              <button type="button" disabled={busy} onClick={() => changeGuard(null)}>
                 {copy("Keep editing", "继续编辑")}
               </button>
               <button
@@ -1353,7 +1358,7 @@ function UnifiedTripExpenseEditor({
                         : "确认转为私人",
                 )}
               </button>
-            </div>
+            </EditorConfirmation>
           ) : null}
         </div>
         {(context?.can_edit||unknown||committed) && !loading && (!hidden||unknown||committed) ? (
