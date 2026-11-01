@@ -2,6 +2,11 @@
 
 Checkpoint: 2026-10-31 (Asia/Bangkok). Issue 01–07 are published and verified within the documented read-only production limits; previously published Full Reset remains intact. Preserve existing work; never reset to an old handover.
 
+## Active — centered Trip editor confirmations (2026-11-01)
+- Working copy /tmp/tabby-dialog-fix because original /workspace mount is read-only (actual EROFS30); original clean main7365ed9 preserved. Branchfix/center-trip-editor-confirmation.
+- Inline discard/reload/cancel/private guards become fixed centered paper dialogs, outside layout flow; same draft and original financial actions. Nested focus trap/Escape/return focus and background inert ownership corrected so closing both dialogs doesnot leave app inert. Normal390x864 two-person layout retained; short screens/large fonts/long lists keep body-only scrolling.
+- Focused9unitPASS/lint/typecheckPASS; actual production-module phone browser first18/19PASS, old expectation assumed blurred amount after Keep editing. New focus restore correctly returns to amount; test now explicitly verifies focus then blur/grouping. Final19 browser rerun in progress; no deployed changes yet. No schema/financial changes or SQL required. Finish finalbrowser, GitHubCI/merge/production/live/PWA; preserve originalworkspace.
+
 ## Integrated — Issue07 unified Trip expense editor (2026-10-31)
 - Published application main98387dbdb70ccc134a208afc83692fd46a70e787 / PR48MERGED, whole Git tree equals validatedd6e07a9. Exact Quality41215872123 all8SUCCESS:866units/124files/lint/TS/PWA,1081SQL/23/strictlint/concurrence/history;317productionUI,17Travel,12nativeTrip/multiuser directPASS;fullbrowser479direct+1retryPASS/0unexpected/skip. Retry: existing phase5c Direct correction Edit entry30s timeout, cause not established; original timeout/assertions unchanged. Earlier3f229f1 all480directPASS is separate evidence, not substituted for final source.
 - Operator installed schema; independent34exactversions/fivebodyhashes/RLS/grants/242originalfunction+ACL equality PASS. Normal2ownedQA read-only/newRPC parent/account privacy/anonymous rejection PASS; retainedproductionQA Tripempty, nonemptyprivate/shared editor Save/conversion financial behavior is isolated nativeCI evidence only. No customer or production expense/account/member/invite QA facts created.
