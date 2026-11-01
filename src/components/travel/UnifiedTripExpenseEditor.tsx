@@ -58,8 +58,8 @@ import {
 } from "../../lib/tripEditorRecovery";
 import "./unified-expense-editor.css";
 
-function EditorConfirmation({children,onDismiss}:{children:ReactNode;onDismiss:()=>void}) {
-  const ref=useAccessibleDialog<HTMLElement>(onDismiss);
+function EditorConfirmation({children,onDismiss,returnFocusRef}:{children:ReactNode;onDismiss:()=>void;returnFocusRef:{current:HTMLElement|null}}) {
+  const ref=useAccessibleDialog<HTMLElement>(onDismiss,undefined,returnFocusRef);
   return <div className="ue-confirm-overlay" onClick={event=>{if(event.target===event.currentTarget)onDismiss()}}><section ref={ref} className="ue-confirm" role="dialog" aria-modal="true" aria-labelledby="ue-confirm-title" tabIndex={-1}>{children}</section></div>;
 }
 
@@ -209,7 +209,10 @@ function UnifiedTripExpenseEditor({
     [unknown, setUnknown] = useState(false),
     [committed, setCommitted] = useState(false),
     [conflict, setConflict] = useState(false);
+  const lastEditorFocus = useRef<HTMLElement|null>(null);
+  const guardReturnFocus = useRef<HTMLElement|null>(null);
   const changeGuard = (value: typeof guard) => {
+    if (value && !guard) guardReturnFocus.current=lastEditorFocus.current;
     if (value) setFocused(false);
     setGuard(value);
   };
@@ -1179,6 +1182,7 @@ function UnifiedTripExpenseEditor({
       aria-modal="true"
       aria-label={title}
       tabIndex={-1}
+      onFocusCapture={event=>{if(!guard && event.target instanceof HTMLElement)lastEditorFocus.current=event.target}}
       data-testid="unified-expense-editor"
     >
       <form
@@ -1290,7 +1294,7 @@ function UnifiedTripExpenseEditor({
             </div>
           ) : null}
           {guard ? (
-            <EditorConfirmation onDismiss={()=>{if(!busy)changeGuard(null)}}>
+            <EditorConfirmation returnFocusRef={guardReturnFocus} onDismiss={()=>{if(!busy)changeGuard(null)}}>
               <h2 id="ue-confirm-title">
                 {copy(
                   guard === "discard" || guard === "reload"

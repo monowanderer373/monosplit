@@ -111,8 +111,8 @@ export function useAccessibleDialog<T extends HTMLElement>(
       window.cancelAnimationFrame(frame)
       document.removeEventListener('keydown', handleKeyDown, true)
       restoreBackground()
-      if (previouslyFocused?.isConnected) previouslyFocused.focus()
-      else returnTarget?.focus()
+      if (returnTarget?.isConnected) returnTarget.focus()
+      else if (previouslyFocused?.isConnected) previouslyFocused.focus()
     }
   }, [initialFocusRef, returnFocusRef])
 
