@@ -1319,6 +1319,7 @@ function UnifiedTripExpenseEditor({
                       : "只关闭草稿，不会取消费用。",
                 )}
               </p>
+              {error ? <p role="alert" className="ue-error">{error}</p> : null}
               <button type="button" disabled={busy} onClick={() => changeGuard(null)}>
                 {copy("Keep editing", "继续编辑")}
               </button>
