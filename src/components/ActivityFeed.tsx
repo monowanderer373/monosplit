@@ -13,13 +13,15 @@ type Props = {
   settlementIds?: readonly string[]
   refreshKey?: string
   pageable?: boolean
+  detailUpdatesOnly?: boolean
+  expenseLabels?: ReadonlyMap<string,string>
 }
 
 export default function ActivityFeed({
   spaceId,
   expenseIds = [],
   settlementIds = [],
-  refreshKey = '', pageable=false,
+  refreshKey = '', pageable=false, detailUpdatesOnly=false, expenseLabels,
 }: Props) {
   const t = useT()
   const lang = useStore((state) => state.lang)
@@ -40,7 +42,9 @@ export default function ActivityFeed({
     })
       .then((events) => {
         if (!active) return
-        setActivity(pageable?events:events.slice(0, 12))
+        const allowedIds=new Set(expenseIdKey.split(':'))
+        const selected=detailUpdatesOnly?events.filter(e=>!!e.expenseId&&allowedIds.has(e.expenseId)&&['expense.metadata_updated','expense.restored'].includes(e.eventType)):events
+        setActivity(pageable?selected:selected.slice(0,12))
         setError('')
       })
       .catch((cause) => {
@@ -50,12 +54,13 @@ export default function ActivityFeed({
     return () => {
       active = false
     }
-  }, [expenseIdKey, refreshKey, settlementIdKey, spaceId,pageable,retry])
+  }, [expenseIdKey, refreshKey, settlementIdKey, spaceId,pageable,retry,detailUpdatesOnly])
 
+  if(detailUpdatesOnly&&!loading&&!error&&!activity.length)return null
   return (
     <section data-testid="financial-activity">
       <p className="ms-label">{t('activity.label')}</p>
-      <h2 className="mt-1 text-xl font-extrabold">{t('activity.title')}</h2>
+      <h2 className="mt-1 text-xl font-extrabold">{detailUpdatesOnly?(lang==='zh'?'资料更新与恢复':'Detail updates and restorations'):t('activity.title')}</h2>
       {error ? <p role="alert" className="mt-2 text-xs text-[var(--ms-danger)]">{t(error)}{pageable?<button type="button" className="ms-btn-ghost" onClick={()=>setRetry(n=>n+1)}>{t('common.retry')}</button>:null}</p> : null}
       <div className="ms-list tt-paper-list mt-3">
         {loading&&activity.length===0?<p role="status" className="p-5">{t('common.loading')}</p>:error&&activity.length===0?null:activity.length === 0 ? (
@@ -66,6 +71,7 @@ export default function ActivityFeed({
             <article className="ms-row tt-record-card">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">{t(activityEventKey(event.eventType))}</p>
+                {event.expenseId&&expenseLabels?.get(event.expenseId)?<p className="text-sm">{expenseLabels.get(event.expenseId)}</p>:null}
                 <p className="mt-1 text-xs text-[var(--ms-text-muted)]">{formatDateTime(event.createdAt, lang)}</p>
               </div>
             </article>

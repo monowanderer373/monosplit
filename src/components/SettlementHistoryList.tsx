@@ -19,13 +19,15 @@ export default function SettlementHistoryList({
   currentParticipantId,
   participantNames,
   expenses,
-  settlements, renderAction,
+  settlements, renderAction, excludePending=false, compact=false,
 }: {
   context: BalanceContext
   currentParticipantId: string
   participantNames: ReadonlyMap<string, string>
   expenses: readonly CanonicalExpense[]
   settlements: readonly SettlementPayment[]
+  compact?: boolean
+  excludePending?: boolean
   renderAction?: (payment: SettlementPayment, allocation: SettlementAllocation) => ReactNode
 }) {
   const t = useT()
@@ -38,13 +40,13 @@ export default function SettlementHistoryList({
         context,
       )
       return {
-        entries: deriveSettlementHistoryEntries(settlements, attributions),
+        entries: deriveSettlementHistoryEntries(settlements, attributions).filter(entry=>!excludePending||entry.allocation.state!=='pending'),
         failed: false,
       }
     } catch {
       return { entries: [], failed: true }
     }
-  }, [context, expenses, settlements])
+  }, [context, expenses, settlements,excludePending])
 
   if (!result.failed && result.entries.length === 0) return null
 
@@ -106,7 +108,7 @@ export default function SettlementHistoryList({
                       ))}
                     </div>
                     {entry.currentAppliedMinor != null && entry.currentCreditMinor != null ? (
-                      <div className="mt-3 rounded-xl border border-[var(--ms-border)] p-3">
+                      <AllocationDetails compact={compact} lang={lang}><div className="mt-3 rounded-xl border border-[var(--ms-border)] p-3">
                         <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--ms-text-muted)]">
                           {t('history.currentDerived')}
                         </p>
@@ -126,7 +128,7 @@ export default function SettlementHistoryList({
                             ),
                           })}
                         </p>
-                      </div>
+                      </div></AllocationDetails>
                     ) : null}
                     {renderAction?.(entry.settlement,entry.allocation)}
                   </div>
@@ -138,6 +140,11 @@ export default function SettlementHistoryList({
       )}
     </section>
   )
+}
+
+function AllocationDetails({compact,lang,children}:{compact:boolean;lang:'en'|'zh';children:ReactNode}){
+ if(!compact)return <>{children}</>
+ return <details className="tw-history-allocation"><summary>{lang==='zh'?'分配详情':'Allocation details'}</summary>{children}</details>
 }
 
 function participantName(

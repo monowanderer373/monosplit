@@ -80,10 +80,10 @@ test('Chinese narrow layout uses real labels and has no horizontal overflow',asy
  await setup(page,{lang:'zh'});await page.setViewportSize({width:320,height:740});await page.goto(path);await expect(page.getByRole('list',{name:'成员',exact:true})).toBeVisible();await expect(page.locator('.tm-row').first()).toContainText('我');await expect(page.locator('.tm-row').first()).toContainText('创建者');await expect(page.locator('[data-participant-id="alex"]')).toContainText('可编辑');await expect(page.locator('[data-participant-id="mia"]')).toContainText('仅查看');await page.evaluate(()=>document.documentElement.style.fontSize='200%');expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);await capture(page,'chinese-320-200')
 })
 
-test('all overview Members entries share one destination without nested buttons',async({page})=>{
+test('the overview Members entry retains its destination without nested buttons or duplicate menu',async({page})=>{
  await setup(page);await page.goto('/travel/trip/'+id);await expect(page.getByRole('heading',{name:'Hanoi Trip',exact:true})).toBeVisible();await expect(page.locator('.tt-members-entry button')).toHaveCount(0)
  await page.getByTestId('trip-ledger-members').click();await expect(page.getByRole('list',{name:'Members',exact:true})).toBeVisible();await page.goBack();await expect(page.getByTestId('trip-ledger-members')).toBeVisible()
- await page.getByTestId('trip-ledger-members').click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'));await page.goBack();await page.getByRole('button',{name:/actions/i}).click();await page.locator('.tt-popover').getByRole('button',{name:'Members',exact:true}).click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'))
+ await page.getByTestId('trip-ledger-members').click();await expect(page).toHaveURL(new RegExp('/space/'+id+'/members$'));await page.goBack();await expect(page.getByTestId('trip-ledger-members')).toBeVisible();await expect(page.getByRole('button',{name:'Trip actions',exact:true})).toHaveCount(0);await expect(page.locator('.tt-popover')).toHaveCount(0)
 })
 
 test('personal affiliations and invalid Members IDs cannot become shared contexts and return safely',async({page})=>{

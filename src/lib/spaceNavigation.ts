@@ -110,7 +110,7 @@ export function prepareSpaceBack(navigate: NavigateFunction, location: PageLocat
 export function replaceTravelWorkspace(navigate:NavigateFunction,location:PageLocation,actor:string,trip:string) {
   if(!actor||!trip||location.state?.moneyAction||location.state?.routeOverlay||!(location.pathname==='/'||/^\/travel\/trip\/[^/]+$/.test(location.pathname)))return
   const target='/travel/trip/'+encodeURIComponent(trip),token=crypto.randomUUID(),p=new URLSearchParams(location.search),search=new URLSearchParams()
-  if(p.get('tab')==='balances')search.set('tab','balances')
+  if(['balances','history'].includes(p.get('tab')??''))search.set('tab',p.get('tab')!)
   if(['history','summary'].includes(p.get('view')??''))search.set('view',p.get('view')!)
   if(['expenses','payments','activity'].includes(p.get('history')??''))search.set('history',p.get('history')!)
   if(p.get('focusExpenseId'))search.set('focusExpenseId',p.get('focusExpenseId')!.slice(0,200))
