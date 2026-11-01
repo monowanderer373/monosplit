@@ -117,9 +117,9 @@ for (const width of [320, 360, 390, 430, 768]) test(`Travel real RPC flows and a
     await expect(page.getByTestId('trip-detail-summary')).toContainText('3 shared records')
     await expect(page.getByTestId('trip-ledger-members')).toContainText('2 members')
     await capture(page, `04-trip-workspace-${width}`)
-    await page.goto(page.url().split('?')[0]+'?view=summary')
-    await expect(page.getByTestId('space-recap')).toContainText('850,000')
-    await page.getByRole('button',{name:'Trip',exact:true}).click()
+    // Summary remains a legacy deep link, without interrupting this tab's unsaved Quick Add draft.
+    const legacySummary = await page.context().newPage()
+    try { await legacySummary.goto(page.url().split('?')[0]+'?view=summary'); await expect(legacySummary.getByTestId('space-recap')).toContainText('850,000') } finally { await legacySummary.close() }
     await page.getByTestId('trip-ledger-members').click()
     await expect(page).toHaveURL(new RegExp(`/space/${id}/members$`))
     await expect(page.getByTestId('trip-members-page').getByRole('heading',{name:'Members',exact:true})).toBeVisible()
