@@ -26,6 +26,7 @@ type Props = {
   canPropose: boolean
   state?: ReturnType<typeof useSettlements>
   view?: 'trip-current' | 'trip-history'
+  historyCompletedOnly?: boolean
   draftKey?: string
   onChanged?: () => Promise<unknown>
 }
@@ -54,7 +55,7 @@ export default function SettlementPanel({
   currentParticipantId,
   participantNames,
   expenses,
-  canPropose, state: sharedState, view, draftKey, onChanged,
+  canPropose, state: sharedState, view, draftKey, onChanged, historyCompletedOnly=false,
 }: Props) {
   const t = useT()
   const ownState = useSettlements(!sharedState)
@@ -373,6 +374,7 @@ export default function SettlementPanel({
       ) : null}
 
       {view!=='trip-current'&&(!trip||!hidden)?<SettlementHistoryList
+        excludePending={historyCompletedOnly}
         context={context}
         currentParticipantId={currentParticipantId}
         participantNames={participantNames}

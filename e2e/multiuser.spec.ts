@@ -339,11 +339,8 @@ test.describe('local relational multi-user journey', () => {
 })
 
 async function refreshSpace(page: Page): Promise<void> {
-  const tripActions=page.getByRole('button',{name:'Trip actions',exact:true})
-  if(await tripActions.count()){
-    await tripActions.click()
-    await page.getByRole('dialog',{name:'Trip actions',exact:true}).getByRole('button',{name:'Refresh',exact:true}).click()
-  }else await page.getByRole('button',{name:'Refresh',exact:true}).first().click()
+  if(await page.getByTestId('trip-ledger').count())await page.evaluate(()=>window.dispatchEvent(new Event('focus')))
+  else await page.getByRole('button',{name:'Refresh',exact:true}).first().click()
 }
 
 async function addExpense(

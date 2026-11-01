@@ -33,10 +33,11 @@ export function tripDirectionalTotals(lines: readonly RelationalDebtLine[], part
   }
   return [...totals.values()].sort((a,b) => a.currency.localeCompare(b.currency))
 }
-export type TripLedgerTab = 'expenses' | 'balances'
+export type TripLedgerTab = 'expenses' | 'balances' | 'history'
 export function tripLedgerView(params: URLSearchParams) {
   const section=params.get('section'), view=params.get('view')
-  return { tab: (params.get('tab') === 'balances' || section === 'balances' ? 'balances' : 'expenses') as TripLedgerTab,
-    view: view === 'history' || section === 'history' || section === 'activity' ? 'history' as const : view === 'summary' || section === 'recap' ? 'summary' as const : 'main' as const,
-    history: params.get('history') === 'payments' ? 'payments' as const : params.get('history') === 'activity' || section === 'activity' ? 'activity' as const : 'expenses' as const }
+  const historical=params.get('tab')==='history'||view==='history'||section==='history'||section==='activity'
+  return {tab:(historical?'history':params.get('tab')==='balances'||section==='balances'?'balances':'expenses') as TripLedgerTab,
+    view:view==='summary'||section==='recap'?'summary' as const:'main' as const,
+    history:params.get('history')==='payments'?'payments' as const:params.get('history')==='expenses'?'expenses' as const:'all' as const}
 }

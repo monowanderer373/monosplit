@@ -1,10 +1,10 @@
 import {saveNavigationSession} from './navigationStorage'
 import {spaceParentState} from './spaceNavigation'
 import type{Location,NavigateFunction}from'react-router-dom'
-import type{TripLedgerTab}from'./tripLedger'
+import{tripLedgerView,type TripLedgerTab}from'./tripLedger'
 type Ui={limit:number;scroll:Record<TripLedgerTab,number>;focus:string;focusPath:string}
 const views=new Map<string,Ui>();let identity=''
-export function tripLedgerUi(actor:string,trip:string){if(identity!==actor){views.clear();identity=actor}const key=actor+':'+trip;if(!views.has(key))views.set(key,{limit:20,scroll:{expenses:0,balances:0},focus:'',focusPath:''});return views.get(key)!}
+export function tripLedgerUi(actor:string,trip:string){if(identity!==actor){views.clear();identity=actor}const key=actor+':'+trip;if(!views.has(key))views.set(key,{limit:20,scroll:{expenses:0,balances:0,history:0},focus:'',focusPath:''});return views.get(key)!}
 export function setTripLedgerFocus(actor:string,trip:string,focus:string,path=''){const ui=tripLedgerUi(actor,trip);ui.focus=focus;ui.focusPath=path}
 export function setTripLedgerScroll(actor:string,trip:string,tab:TripLedgerTab,scroll:number){tripLedgerUi(actor,trip).scroll[tab]=scroll}
 export function setTripLedgerLimit(actor:string,trip:string,limit:number){tripLedgerUi(actor,trip).limit=limit}
@@ -12,6 +12,11 @@ type Origin={actor:string;trip:string;path:string;index:number;scroll:number}
 const origins=new Map<string,Origin>(),prefix='tt:trip-ledger-origin:'
 export function openTripLedgerView(navigate:NavigateFunction,location:Pick<Location,'pathname'|'search'|'state'>,actor:string,trip:string,view:'history'|'summary',focus?:string,paymentsHistory=false){
  const path=location.pathname+location.search;if(!['/space/'+trip,'/travel/trip/'+trip].includes(location.pathname))return
+ if(view==='history'){
+  setTripLedgerScroll(actor,trip,tripLedgerView(new URLSearchParams(location.search)).tab,window.scrollY)
+  const params=new URLSearchParams(location.search);params.delete('view');params.delete('section');params.set('tab','history');if(paymentsHistory)params.set('history','payments');if(focus){params.set('focusExpenseId',focus);params.set('history','expenses')}
+  navigate({pathname:location.pathname,search:params.toString()},{replace:true,state:{...location.state,restoreScroll:0}});return
+ }
  const token=crypto.randomUUID(),origin={actor,trip,path,index:window.history.state?.idx??0,scroll:window.scrollY}
  origins.set(token,origin);if(origins.size>40)origins.delete(origins.keys().next().value!);try{saveNavigationSession(prefix,token,JSON.stringify(origin))}catch{/* memory preserves this session */}
  navigate(path,{replace:true,state:{...location.state,restoreScroll:window.scrollY}})

@@ -25,3 +25,7 @@
 .tw-page .tl-tabs{flex-wrap:wrap;gap:8px 22px;min-width:0}.tw-page .tl-tabs button{overflow-wrap:normal;white-space:nowrap}
 
 .tw-page .tl-list-toolbar{position:absolute;width:1px;height:1px;min-height:0;margin:0;overflow:hidden;clip-path:inset(50%)}.tw-page .tl-date-heading{margin-top:20px}
+
+.tw-history{padding-top:16px}.tw-history-help,.tw-history-empty{font-size:.8125rem;color:var(--tw-sub);line-height:1.6}.tw-history .tl-history-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 20px}.tw-history .tl-history-tabs button{min-height:44px;border:1px solid var(--tw-line);border-radius:20px;padding:8px 14px;background:transparent;color:var(--tw-sub)}.tw-history .tl-history-tabs button[aria-pressed=true]{background:#e3eef3;color:#346b8d;border-color:#bad0dc}.tw-history [data-testid=expense-history]>p.ms-label,.tw-history [data-testid=expense-history]>p.mt-1,.tw-history [data-testid=financial-activity]>p.ms-label,.tw-history [data-testid=settlement-history]>p.ms-label,.tw-history [data-testid=settlement-history]>p.mt-1{display:none}.tw-history h2,.tw-history h3{font-size:1rem;font-weight:600;line-height:1.4}.tw-history-changes+.tw-history-payments{margin-top:24px;padding-top:16px;border-top:1px solid var(--tw-line)}.tw-history .tt-record-card{min-width:0}.tw-history .truncate{white-space:normal;overflow-wrap:anywhere}.tw-history .tl-settlements>h2{display:none}
+
+.tw-history .tt-record-card{flex-wrap:wrap;gap:10px;overflow-wrap:anywhere}.tw-history .tt-record-card>p{max-width:100%;white-space:normal;overflow-wrap:anywhere}

@@ -19,13 +19,14 @@ export default function SettlementHistoryList({
   currentParticipantId,
   participantNames,
   expenses,
-  settlements, renderAction,
+  settlements, renderAction, excludePending=false,
 }: {
   context: BalanceContext
   currentParticipantId: string
   participantNames: ReadonlyMap<string, string>
   expenses: readonly CanonicalExpense[]
   settlements: readonly SettlementPayment[]
+  excludePending?: boolean
   renderAction?: (payment: SettlementPayment, allocation: SettlementAllocation) => ReactNode
 }) {
   const t = useT()
@@ -38,13 +39,13 @@ export default function SettlementHistoryList({
         context,
       )
       return {
-        entries: deriveSettlementHistoryEntries(settlements, attributions),
+        entries: deriveSettlementHistoryEntries(settlements, attributions).filter(entry=>!excludePending||entry.allocation.state!=='pending'),
         failed: false,
       }
     } catch {
       return { entries: [], failed: true }
     }
-  }, [context, expenses, settlements])
+  }, [context, expenses, settlements,excludePending])
 
   if (!result.failed && result.entries.length === 0) return null
 
