@@ -45,6 +45,7 @@ export type SettlementPayment = {
   reversedBy: string | null
   createdAt: string
   updatedAt: string
+  fxCashOnly?: boolean
   allocations: SettlementAllocation[]
 }
 
@@ -137,6 +138,7 @@ type SettlementPaymentRow = {
   reversed_by: string | null
   created_at: string
   updated_at: string
+  fx_cash_only?: boolean
   allocations?: SettlementAllocationRow[]
 }
 
@@ -175,6 +177,7 @@ function mapSettlement(row: SettlementPaymentRow): SettlementPayment {
     reversedBy: row.reversed_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    fxCashOnly: row.fx_cash_only === true,
     allocations: (row.allocations ?? []).map((allocation) => ({
       id: allocation.id,
       settlementPaymentId: allocation.settlement_payment_id,
@@ -195,7 +198,7 @@ function serverRejected(message?: string): SettlementRepositoryError {
 
 const settlementSelect = `
   id, client_request_id, scope, space_id, debtor_participant_id, currency,
-  amount_minor, payment_date, status, version, note, reversed_at, reversed_by,
+  amount_minor, payment_date, status, version, note, fx_cash_only, reversed_at, reversed_by,
   created_at, updated_at,
   allocations:settlement_allocations(
     id, settlement_payment_id, creditor_participant_id, amount_minor,

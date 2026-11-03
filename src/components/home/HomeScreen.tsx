@@ -106,6 +106,8 @@ export type HomeScreenProps = {
   onViewTrip?: (id: string) => void
   onRetryTravel?: () => void
   tripSpendingStatus?: 'loading' | 'error' | 'ready'
+  quoteCurrency?: string
+  identityId?: string
   travelPaginationKey?: string
   onOpenSharedContext: (context: SharedContext) => void
   onOpenCollectPay?: (direction: 'collect' | 'pay') => void

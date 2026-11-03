@@ -4,7 +4,8 @@ import type { ReactNode } from 'react'
 import type { HomeScreenProps } from '../home/HomeScreen'
 import type { TravelMembers } from '../../hooks/useTravelMembers'
 import { useT } from '../../lib/i18n'
-import { AnchoredPaperPopover, TravelAmount, TravelIcon, TravelRecordsSection, TravelStatus, TravelViewSwitch, TripDateLine } from './TravelUI'
+import { AnchoredPaperPopover, TravelIcon, TravelRecordsSection, TravelStatus, TravelViewSwitch, TripDateLine } from './TravelUI'
+import { TripMoneyCard } from './TripMoneyCard'
 
 export default function TripDetails({ props, records, members, membersStatus, participantId, onBack, onInfo, onMembers, onDates, canWrite, sharedRecords }: {
   sharedRecords?:{count:number;currencies:string[];status:'ready'|'error'|'loading'}; props: HomeScreenProps; records: ReactNode; members: TravelMembers; membersStatus: 'ready' | 'error' | 'loading';
@@ -34,7 +35,7 @@ export default function TripDetails({ props, records, members, membersStatus, pa
           {personal?<><p className="tt-detail-date"><TripDateLine trip={trip.trip}/></p><img className="tt-detail-map" src="/travel/travel-map-ticket.png" alt=""/></>:<div className="td-overview-date-row"><TripDateEntry trip={trip.trip} canEdit={canWrite} onOpen={onDates}/><span className="td-overview-currency">{trip.trip.defaultCurrency}</span></div>}
         </header>
         <section className="tt-detail-summary tt-paper-card" data-testid="trip-detail-summary"><img className="tt-map-wash" src="/travel/map-wash.svg" alt="" />
-          <p className="tt-amount-label">{t('home.mySpending')}</p><p className="tt-amount"><TravelAmount lines={props.tripSpending} currency={trip.trip.defaultCurrency} hidden={props.balanceHidden} status={props.tripSpendingStatus ?? 'ready'} /></p>
+          <div className="tt-amount" data-testid="travel-spending"><TripMoneyCard spending={props.tripSpending} hidden={props.balanceHidden} status={props.tripSpendingStatus ?? 'ready'} quoteCurrency={props.quoteCurrency} identity={props.identityId} /></div>
           <div className="tt-detail-facts"><span className="tt-detail-fact"><TravelIcon name="receipt" />{(sharedRecords?.status??props.tripSpendingStatus) === 'ready' ? t('travel.recordCount', { count: sharedRecords?.count??props.recordGroups.reduce((sum, group) => sum + group.records.length, 0) }) : t('home.amountUnavailable')}</span>
             {!personal ? <button type="button" className="tt-detail-fact" data-space-focus="trip-member-count" onClick={()=>onMembers('trip-member-count')}><TravelIcon name="users" />{membersStatus === 'ready' ? t('travel.memberCount', { count: members.length }) : t(membersStatus === 'error' ? 'home.amountUnavailable' : 'home.loading')}</button> : null}
             <button className="tt-link" type="button" data-space-focus="trip-info" onClick={()=>info()}>{t('travel.tripInfo')}<TravelIcon name="arrow-right" /></button></div>

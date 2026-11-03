@@ -257,7 +257,7 @@ function PersonalLedgerContent() {
     travelPaginationKey: `${ledger.participantId}:${location.key}:${model.trip?.trip.id ?? ''}`,
     recordsViewKey: `${ledger.participantId}:${tripId ?? homeUi.mode}:${model.selectedAccountId}:${model.trip?.trip.id ?? ''}`,
     trip: detailTrip, trips: model.trips, travelStatus: model.travelStatus, tripSpending: detailTrip ? model.tripSpending : [],
-    tripSpendingStatus: model.tripSpendingStatus,
+    tripSpendingStatus: model.tripSpendingStatus, quoteCurrency: authUser?.defaultCurrency, identityId: authUser?.id,
     onSelectTrip: selectedTripId => setTravelTrip(authUser.id, selectedTripId),
     onCreateTrip: () => openSpaceNavigation(navigate,location,authUser.id,'/shared?tab=trips&create=1&return=travel','travel-switch'),
     onManageTrips: () => openSpaceNavigation(navigate,location,authUser.id,'/shared?tab=trips','travel-switch'),
