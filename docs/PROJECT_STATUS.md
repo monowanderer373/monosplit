@@ -1,6 +1,6 @@
 # Tabby Tally project status
 
-Checkpoint: 2026-11-03 (Asia/Bangkok). Issue 08 closeout is on production. Tabby Tally `skiqsxvmxvmxfzhrzcxh` records migrations `202611030001` and `202611030002`. Public entry `assets/index-CSz3ZjSt.js` is production deployment `7524237202` for merge `a673630` and contains that full SHA.
+Checkpoint: 2026-11-03 (Asia/Bangkok). Issue 08 closeout is on production. Tabby Tally `skiqsxvmxvmxfzhrzcxh` records migrations `202611030001` and `202611030002`. The closeout application deploy is `7524237202` for merge `a673630`; its public entry `assets/index-CSz3ZjSt.js` contains that full SHA. A later docs-only publish does not change settlement behavior.
 
 ## Published — Issue 08 trip fixes and cross-currency settlement (2026-11-03)
 - Historical selected consumers can be unchecked or replaced onto a current member through the existing editor correction. A prior participant may stay at paid 0 and share 0. Positive amounts for a removed member stay rejected. Unselected historical people are not re-added. Select all still adds only current members. The red “Split needs review” mark is derived from the loaded roster and a positive share; an unloaded roster does not alarm. Deleting a role does not rewrite old bills, and the payer map is not moved with a consumer replacement.
