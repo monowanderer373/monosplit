@@ -120,7 +120,7 @@ revoke all on function private.pending_pair_minor(uuid,uuid,uuid,text) from publ
 
 create function public.propose_fx_settlement_bundle(request_id uuid, target_space_id uuid, counterparty_id uuid, target_currency text, rate_mode text, custom_rates jsonb, cash_minor bigint, payer_account_id uuid)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor uuid:=private.require_personal_actor(); existing public.settlement_fx_bundles%rowtype; code text; you_owe bigint; they_owe bigint; legs jsonb:='[]'::jsonb; you_value bigint:=0; they_value bigint:=0; full_minor bigint; net bigint; row jsonb; covered bigint; remaining bigint; num numeric; den numeric; rates jsonb:='{}'::jsonb; snap jsonb; expenses jsonb; new_bundle uuid; account public.personal_accounts%rowtype; leg_index integer; scale_target numeric; scale_code numeric;
+declare actor uuid:=private.require_personal_actor(); existing public.settlement_fx_bundles%rowtype; code text; you_owe bigint; they_owe bigint; legs jsonb:='[]'::jsonb; you_value bigint:=0; they_value bigint:=0; full_minor bigint; net bigint; row jsonb; covered bigint; remaining bigint; num numeric; den numeric; rates jsonb:='{}'::jsonb; snap jsonb; expenses jsonb; new_bundle uuid; account public.personal_accounts%rowtype; scale_target numeric; scale_code numeric;
 begin
   if request_id is null or counterparty_id is null or counterparty_id=actor or rate_mode not in ('system','custom') or cash_minor is null or cash_minor<0 then raise exception using message='invalid_amount', errcode='P0001'; end if;
   if private.currency_digits(target_currency) is null then raise exception using message='invalid_currency', errcode='P0001'; end if;
