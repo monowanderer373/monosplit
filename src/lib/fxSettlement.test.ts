@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fraction, unavailableFx, type FxSnapshot } from './fx'
-import { coverMinor, convertMinor, quotePair, systemForeignPerTarget } from './fxSettlement'
+import { coverMinor, convertMinor, quotePair, settlementRequestId, systemForeignPerTarget } from './fxSettlement'
 import { replaceHistoricalConsumer, splitNeedsReview, tripEditorPayload } from './tripExpenseEditor'
 import type { CanonicalExpense } from '../types'
 
@@ -35,8 +35,8 @@ describe('issue 08 settlement arithmetic', () => {
     expect(crossed.ok && crossed.coverages.map(row => [row.direction, row.coveredMinor])).toEqual([
       ['you_owe', 5000n], ['they_owe', 60000n],
     ])
-    expect(coverMinor(1n, 1n, 100n)).toBe(0n)
-    const tiny = { ...lines([['VND', 1], ['VND', 1], ['VND', 1]]), intent: 'partial' as const, cashMinor: 1n, rateFor: () => fraction(100n) }
+    expect(coverMinor(1n, 1n, 10000n)).toBe(0n)
+    const tiny = { ...lines([['VND', 1]]), intent: 'partial' as const, cashMinor: 1n, rateFor: () => fraction(1n, 100n) }
     expect(() => quotePair(tiny)).toThrow('amount_too_small')
     expect(() => quotePair({ ...lines([['MYR', 100]]), intent: 'partial', cashMinor: 0n })).toThrow('invalid_amount')
   })
@@ -57,6 +57,12 @@ const expense = (shares: number[], payers: number[]): CanonicalExpense => ({
   participations: people.map((id, order) => ({ id: 'p-' + id, expenseId: 'bill', participantId: id, nameSnapshot: id, order, state: 'accepted', trackingMode: 'tracked' })),
   payerContributions: payers.map((amountMinor, index) => ({ expenseParticipationId: 'p-' + people[index], expenseId: 'bill', amountMinor })),
   shares: shares.map((amountMinor, index) => ({ expenseParticipationId: 'p-' + people[index], expenseId: 'bill', amountMinor })),
+})
+
+it('keeps one request id until the form changes', () => {
+  const first = settlementRequestId(null, 'full', 'a')
+  expect(settlementRequestId(first, 'full', 'b')).toBe(first)
+  expect(settlementRequestId(first, 'partial', 'b').id).toBe('b')
 })
 
 describe('historical consumer repair', () => {

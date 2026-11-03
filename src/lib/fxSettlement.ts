@@ -75,6 +75,16 @@ export function coverMinor(remaining: bigint, cash: bigint, full: bigint): bigin
   return covered > remaining ? remaining : covered
 }
 
+function groupLines(lines: readonly MoneyLine[]): MoneyLine[] {
+  const totals = new Map<string, number>()
+  for (const line of lines) totals.set(line.currency, (totals.get(line.currency) ?? 0) + line.amountMinor)
+  return [...totals.entries()].map(([currency, amountMinor]) => ({ currency, amountMinor }))
+}
+
+export function settlementRequestId(current: { fingerprint: string; id: string } | null, fingerprint: string, nextId: string) {
+  return current?.fingerprint === fingerprint ? current : { fingerprint, id: nextId }
+}
+
 export function quotePair(input: {
   youOwe: readonly MoneyLine[]
   theyOwe: readonly MoneyLine[]
@@ -83,10 +93,12 @@ export function quotePair(input: {
   intent: 'full' | 'partial' | 'offset'
   cashMinor?: bigint
 }) {
-  const currencies = [...new Set([...input.youOwe, ...input.theyOwe].map(line => line.currency))].sort()
+  const youOwe = groupLines(input.youOwe)
+  const theyOwe = groupLines(input.theyOwe)
+  const currencies = [...new Set([...youOwe, ...theyOwe].map(line => line.currency))].sort()
   const rateFor = (currency: string) => input.rateFor(currency)
-  const you = valueLines(input.youOwe, input.target, rateFor)
-  const they = valueLines(input.theyOwe, input.target, rateFor)
+  const you = valueLines(youOwe, input.target, rateFor)
+  const they = valueLines(theyOwe, input.target, rateFor)
   const missing = [...new Set([...you.missing, ...they.missing])].sort()
   if (missing.length || you.totalMinor == null || they.totalMinor == null) return { ok: false as const, missing, currencies }
   const net = you.totalMinor - they.totalMinor
@@ -96,7 +108,7 @@ export function quotePair(input: {
   if (direction === 'collect' && input.intent !== 'offset') return { ok: true as const, direction, fullMinor: full, cashMinor: 0n, coverages: [] as Coverage[], currencies, missing }
   const cash = input.intent === 'full' || input.intent === 'offset' ? full : input.cashMinor ?? -1n
   if (input.intent === 'partial' && (cash <= 0n || cash >= full)) throw new Error('invalid_amount')
-  const cover = (lines: readonly MoneyLine[], directionName: Coverage['direction']) => lines.filter(line => line.amountMinor > 0).map(line => {
+  const cover = (lines: readonly MoneyLine[], directionName: Coverage['direction']) => groupLines(lines).filter(line => line.amountMinor > 0).map(line => {
     const rate = rateFor(line.currency)!
     const remaining = BigInt(line.amountMinor)
     const covered = coverMinor(remaining, cash, full)

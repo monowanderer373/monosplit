@@ -1,20 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AmountInput from './AmountInput'
 import { supabase } from '../lib/supabase'
 import { useStore } from '../store/useStore'
 import { localeForLang } from '../lib/locale'
 import { currencyExponent, parseMajorAmount } from '../lib/money'
 import { exactAmount, fraction } from '../lib/fx'
-import { customForeignPerTarget, quotePair, systemForeignPerTarget, type MoneyLine } from '../lib/fxSettlement'
+import { customForeignPerTarget, quotePair, settlementRequestId, systemForeignPerTarget, type MoneyLine } from '../lib/fxSettlement'
 import { useInsightsFx } from '../hooks/useInsightsFx'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../lib/i18n'
 import { generateId } from '../lib/id'
 
+type StoredRate = { numerator: string; denominator: string; source?: string; provider?: string; rateDate?: string; submittedAt?: string; targetRateDate?: string; targetProvider?: string }
+type StoredCoverage = { direction: string; currency: string; covered: number; remaining: number }
+type ReviewBundle = { id: string; version: number; cashMinor: number; rates: Record<string, StoredRate>; mode: string; coverages: StoredCoverage[]; submittedAt?: string }
+
 export function PairSettlementView({ self, other, otherName, youOwe, theyOwe, target, spaceId, expenses, review, onClose, onDone }: {
   self: string; other: string; otherName: string; youOwe: MoneyLine[]; theyOwe: MoneyLine[]; target: string; spaceId: string
   expenses: readonly { id: string; description: string | null; occurredOn: string; currency: string; totalMinor: number }[]
-  review?: { id: string; version: number; cashMinor: number; rates: Record<string, { numerator: string; denominator: string }>; mode: string } | null
+  review?: ReviewBundle | null
   onClose: () => void; onDone: () => Promise<unknown>
 }) {
   const t = useT(), { authUser } = useAuth(), lang = useStore(s => s.lang)
@@ -28,8 +32,11 @@ export function PairSettlementView({ self, other, otherName, youOwe, theyOwe, ta
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const request = useRef<{ fingerprint: string; id: string } | null>(null)
   const money = (minor: bigint | number, currency: string) => exactAmount(BigInt(minor), currencyExponent(currency), localeForLang(lang))
   const foreign = [...youOwe, ...theyOwe].map(line => line.currency).filter(code => code !== target)
+  const fingerprint = JSON.stringify({ other, spaceId, target, mode, intent, partial, rates, accountId })
+  request.current = settlementRequestId(request.current, fingerprint, generateId())
   const rateFor = (currency: string) => {
     if (currency === target) return fraction(1n)
     if (mode === 'custom') return rates[currency] ? customForeignPerTarget(rates[currency]) : null
@@ -41,11 +48,23 @@ export function PairSettlementView({ self, other, otherName, youOwe, theyOwe, ta
     quoted = review || (intent === 'partial' && !partial) ? null : quotePair({ youOwe, theyOwe, target, rateFor, intent, cashMinor: intent === 'partial' ? BigInt(parseMajorAmount(partial, target)) : undefined })
   } catch (cause) { quoted = null; quoteError = cause instanceof Error ? cause.message : 'invalid_amount' }
   useEffect(() => { if (!supabase) return; void supabase.from('personal_accounts').select('id,name,currency').eq('owner_participant_id', self).is('archived_at', null).then(({ data }) => setAccounts((data ?? []).filter(account => account.currency === target))) }, [self, target])
+  const directionLabel = (direction: string) => direction === 'you_owe' || direction === 'payer_owes' ? t('fx.pay') : t('fx.collect')
+  const shown = review ? review.coverages.map(row => ({ direction: row.direction, currency: row.currency, coveredMinor: BigInt(row.covered) })) : quoted?.ok ? quoted.coverages : []
+  const billsFor = (currency: string) => expenses.filter(expense => expense.currency === currency)
+  const rateText = (code: string, rate: StoredRate) => {
+    const exact = `1 ${target} = ${rate.denominator === '1' ? rate.numerator : `${rate.numerator}/${rate.denominator}`} ${code}`
+    if (rate.source === 'custom') return `Custom · ${rate.submittedAt?.slice(0, 16) ?? review?.submittedAt?.slice(0, 16) ?? ''} · ${exact}`
+    return [rate.provider, rate.rateDate, rate.targetProvider, rate.targetRateDate, exact].filter(Boolean).join(' · ')
+  }
   const submit = async () => {
     if (!supabase || busy || !quoted?.ok || quoted.direction === 'collect') return
     setBusy(true); setError('')
+    const requestId = request.current?.id
+    if (!requestId) { setBusy(false); return }
+    const prior = await supabase.from('settlement_fx_bundles').select('id').eq('client_request_id', requestId).eq('payer_participant_id', self).maybeSingle()
+    if (prior.data) { setBusy(false); await onDone(); return }
     const { error: rpcError } = await supabase.rpc('propose_fx_settlement_bundle', {
-      request_id: generateId(), target_space_id: spaceId, counterparty_id: other, target_currency: target,
+      request_id: requestId, target_space_id: spaceId, counterparty_id: other, target_currency: target,
       rate_mode: mode, custom_rates: mode === 'custom' ? rates : {}, cash_minor: Number(quoted.cashMinor), payer_account_id: quoted.cashMinor > 0n ? accountId || null : null,
     })
     setBusy(false)
@@ -55,7 +74,7 @@ export function PairSettlementView({ self, other, otherName, youOwe, theyOwe, ta
   const respond = async (response: 'accepted' | 'declined') => {
     if (!supabase || !review || busy) return
     setBusy(true)
-    const { error: rpcError } = await supabase.rpc('respond_fx_settlement_bundle', { target_bundle_id: review.id, response, expected_version: review.version })
+    const { error: rpcError } = await supabase.rpc('respond_fx_settlement_bundle', { target_bundle_id: review.id, response, expected_version: review.version, receiver_account_id: review.cashMinor > 0 ? accountId || null : null })
     setBusy(false)
     if (rpcError) { setError(rpcError.message); return }
     await onDone()
@@ -68,8 +87,8 @@ export function PairSettlementView({ self, other, otherName, youOwe, theyOwe, ta
       <p>{t('fx.pay')} {youOwe.map(line => `${line.currency} ${money(line.amountMinor, line.currency)}`).join(' · ') || '—'}</p>
       <p>{t('fx.collect')} {theyOwe.map(line => `${line.currency} ${money(line.amountMinor, line.currency)}`).join(' · ') || '—'}</p>
       <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>{t('fx.included')}</button>
-      {open ? <ul>{expenses.map(expense => <li key={expense.id}>{expense.occurredOn} · {expense.description ?? expense.currency} · {money(expense.totalMinor, expense.currency)}</li>)}</ul> : null}
-      {review ? <p>{review.mode} · {Object.entries(review.rates).filter(([code]) => code !== target).map(([code, rate]) => `1 ${target} = ${rate.denominator === '1' ? rate.numerator : `${rate.numerator}/${rate.denominator}`} ${code}`).join(' · ')}</p> : <>
+      {open ? <ul>{shown.map(row => <li key={row.direction + row.currency}>{directionLabel(row.direction)} {row.currency} {money(row.coveredMinor, row.currency)}{billsFor(row.currency).map(expense => <span key={expense.id}> · {expense.description ?? expense.currency} {money(expense.totalMinor, expense.currency)}</span>)}</li>)}</ul> : null}
+      {review ? <p>{Object.entries(review.rates).filter(([code]) => code !== target).map(([code, rate]) => rateText(code, rate)).join(' · ')}</p> : <>
         <div role="group">{(['system', 'custom'] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value); setError('') }}>{t(value === 'system' ? 'fx.system' : 'fx.custom')}</button>)}</div>
         {mode === 'custom' ? foreign.map(code => <label key={code}>1 {target} = <AmountInput value={rates[code] ?? ''} onValueChange={value => setRates(current => ({ ...current, [code]: value }))} aria-label={code} /> {code}</label>) : null}
         <div role="group">{(['full', 'partial'] as const).map(value => <button key={value} type="button" aria-pressed={intent === value} onClick={() => { setIntent(value); setError('') }}>{t(value === 'full' ? 'fx.full' : 'fx.partial')}</button>)}</div>
@@ -77,8 +96,9 @@ export function PairSettlementView({ self, other, otherName, youOwe, theyOwe, ta
         {intent === 'partial' && quoted?.ok ? <p>{t('fx.remaining')} {money(quoted.fullMinor - quoted.cashMinor, target)}</p> : null}
         <label>{t('fx.record')}<select value={accountId} onChange={event => setAccountId(event.target.value)}><option value="" />{accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
       </>}
+      {review && review.cashMinor > 0 ? <label>{t('fx.record')}<select value={accountId} onChange={event => setAccountId(event.target.value)}><option value="" />{accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}
       {quoteError || error ? <p role="alert">{quoteError || error}</p> : null}
     </div>
-    <footer>{review ? <><button type="button" disabled={busy} onClick={() => void respond('accepted')}>{t('settlement.confirmReceived')}</button><button type="button" disabled={busy} onClick={() => void respond('declined')}>{t('common.decline')}</button></> : <button type="button" disabled={busy || !quoted?.ok || quoted.direction === 'collect' || (quoted.cashMinor > 0n && !accountId)} onClick={() => void submit()}>{quoted?.ok && quoted.direction === 'offset' ? t('fx.offset') : t('fx.record')}</button>}</footer>
+    <footer>{review ? <><button type="button" disabled={busy || (review.cashMinor > 0 && !accountId)} onClick={() => void respond('accepted')}>{t('settlement.confirmReceived')}</button><button type="button" disabled={busy} onClick={() => void respond('declined')}>{t('common.decline')}</button></> : <button type="button" disabled={busy || !quoted?.ok || quoted.direction === 'collect' || (quoted.cashMinor > 0n && !accountId)} onClick={() => void submit()}>{quoted?.ok && quoted.direction === 'offset' ? t('fx.offset') : t('fx.record')}</button>}</footer>
   </section>
 }
