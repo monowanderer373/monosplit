@@ -102,7 +102,7 @@ export default function SettlementPanel({
     const rows=[...totals.entries()].map(([key, value]) => ({ key, ...value }))
     return trip?rows.sort((a,b)=>Number(b.debtorParticipantId===currentParticipantId||b.creditorParticipantId===currentParticipantId)-Number(a.debtorParticipantId===currentParticipantId||a.creditorParticipantId===currentParticipantId)):rows
   }, [debtLines,trip,currentParticipantId])
-  const [fxBundles, setFxBundles] = useState<{id:string;version:number;status:string;payer_participant_id:string;counterparty_participant_id:string;cash_minor:number;full_net_minor:number;rate_mode:string;quote:{rates?:Record<string,{numerator:string;denominator:string}>}}[]>([])
+  const [fxBundles, setFxBundles] = useState<{id:string;version:number;status:string;payer_participant_id:string;counterparty_participant_id:string;cash_minor:number;full_net_minor:number;rate_mode:string;quote:{rates?:Record<string,{numerator:string;denominator:string;source?:string;provider?:string;rateDate?:string;submittedAt?:string;targetRateDate?:string;targetProvider?:string}>;coverages?:{direction:string;currency:string;covered:number;remaining:number}[];submittedAt?:string}}[]>([])
   const [pairTarget, setPairTarget] = useState<string | null>(null)
   useEffect(() => {
     if (!trip || context.scope !== 'space' || !supabase) return
@@ -112,10 +112,10 @@ export default function SettlementPanel({
   }, [trip, context, settlementState.settlements])
 
   const incoming = contextSettlements.flatMap((settlement) => settlement.allocations
-    .filter((allocation) => allocation.creditorParticipantId === currentParticipantId)
+    .filter((allocation) => allocation.creditorParticipantId === currentParticipantId && !fxSettlementPayment(settlement))
     .map((allocation) => ({ settlement, allocation })))
   const outgoingPending = contextSettlements.flatMap((settlement) => (
-    settlement.debtorParticipantId === currentParticipantId
+    settlement.debtorParticipantId === currentParticipantId && !fxSettlementPayment(settlement)
       ? settlement.allocations
         .filter((allocation) => allocation.state === 'pending')
         .map((allocation) => ({ settlement, allocation }))
@@ -201,6 +201,36 @@ export default function SettlementPanel({
     }
   }
 
+  const cancelBundle = async (bundleId: string, version: number) => {
+    if (!supabase || draft.get().action || hidden) return
+    setAction(bundleId)
+    setError('')
+    try {
+      const { error: rpcError } = await supabase.rpc('cancel_fx_settlement_bundle', { target_bundle_id: bundleId, expected_version: version })
+      if (rpcError) throw rpcError
+      await onChanged?.()
+    } catch (cause) {
+      setError(friendlyErrorKey(cause))
+    } finally {
+      setAction('')
+    }
+  }
+
+  const reverseBundle = async (bundleId: string, version: number) => {
+    if (!supabase || draft.get().action || hidden) return
+    setAction(bundleId)
+    setError('')
+    try {
+      const { error: rpcError } = await supabase.rpc('reverse_fx_settlement_bundle', { reversal_request_id: requestId('fx-reverse:'+bundleId), target_bundle_id: bundleId, expected_version: version })
+      if (rpcError) throw rpcError
+      await onChanged?.()
+    } catch (cause) {
+      setError(friendlyErrorKey(cause))
+    } finally {
+      setAction('')
+    }
+  }
+
   return (
     <section className={trip?'tl-settlements':''} aria-busy={!!action}>
       {trip&&hidden?<button type="button" className="ms-btn-ghost" onClick={()=>useStore.getState().setHomeUi({balanceHidden:false})}>{t('notice.show')}</button>:null}
@@ -272,9 +302,9 @@ export default function SettlementPanel({
         const theyOwe = rows.filter(row => row.creditorParticipantId === currentParticipantId).map(row => ({ currency: row.currency, amountMinor: row.remainingMinor }))
         const pending = fxBundles.find(bundle => bundle.status === 'pending' && (bundle.payer_participant_id === other || bundle.counterparty_participant_id === other) && (bundle.payer_participant_id === currentParticipantId || bundle.counterparty_participant_id === currentParticipantId))
         const name = participantNames.get(other) ?? t('common.member')
-        return <article className="ms-row" key={other}><div><p>{name}</p><p>{[...youOwe, ...theyOwe].map(row => row.currency).join(' · ')}</p></div>{pending ? (pending.counterparty_participant_id === currentParticipantId ? <button type="button" onClick={() => setPairTarget('review:'+pending.id)}>{t('fx.review')}</button> : <span>{t('tl.awaiting')}</span>) : youOwe.length ? <button type="button" className="ms-btn-primary" disabled={!canPropose} onClick={() => setPairTarget(other)}>{t('fx.pay')}</button> : <button type="button" onClick={() => setPairTarget(other)}>{t('fx.summary')}</button>}</article>
+        return <article className="ms-row" key={other}><div><p>{name}</p><p>{[...youOwe, ...theyOwe].map(row => row.currency).join(' · ')}</p></div>{pending ? (pending.counterparty_participant_id === currentParticipantId ? <button type="button" onClick={() => setPairTarget('review:'+pending.id)}>{t('fx.review')}</button> : <button type="button" disabled={!!action||hidden} onClick={() => void cancelBundle(pending.id, pending.version)}>{t('settlement.cancelProposal')}</button>) : youOwe.length ? <button type="button" className="ms-btn-primary" disabled={!canPropose} onClick={() => setPairTarget(other)}>{t('fx.pay')}</button> : <button type="button" onClick={() => setPairTarget(other)}>{t('fx.summary')}</button>}</article>
       }) : null}
-      {pairTarget && context.scope==='space' ? <PairSettlementView self={currentParticipantId} other={pairTarget.startsWith('review:') ? fxBundles.find(bundle => bundle.id===pairTarget.slice(7))?.payer_participant_id ?? '' : pairTarget} otherName={participantNames.get(pairTarget.startsWith('review:') ? fxBundles.find(bundle => bundle.id===pairTarget.slice(7))?.payer_participant_id ?? '' : pairTarget) ?? t('common.member')} youOwe={debts.filter(debt => debt.debtorParticipantId===currentParticipantId && (debt.creditorParticipantId===pairTarget || debt.creditorParticipantId===(fxBundles.find(bundle => 'review:'+bundle.id===pairTarget)?.payer_participant_id))).map(debt => ({currency:debt.currency,amountMinor:debt.remainingMinor}))} theyOwe={debts.filter(debt => debt.creditorParticipantId===currentParticipantId && (debt.debtorParticipantId===pairTarget || debt.debtorParticipantId===(fxBundles.find(bundle => 'review:'+bundle.id===pairTarget)?.payer_participant_id))).map(debt => ({currency:debt.currency,amountMinor:debt.remainingMinor}))} target={quoteCurrency} spaceId={context.spaceId} expenses={expenses.map(expense => ({id:expense.id,description:expense.description,occurredOn:expense.occurredOn,currency:expense.currency,totalMinor:expense.totalMinor}))} review={pairTarget.startsWith('review:') ? (() => { const bundle = fxBundles.find(item => item.id===pairTarget.slice(7)); return bundle ? {id:bundle.id,version:bundle.version,cashMinor:bundle.cash_minor,rates:bundle.quote?.rates??{},mode:bundle.rate_mode} : null })() : null} onClose={() => setPairTarget(null)} onDone={async () => { setPairTarget(null); await onChanged?.() }} /> : null}
+      {pairTarget && context.scope==='space' ? <PairSettlementView self={currentParticipantId} other={pairTarget.startsWith('review:') ? fxBundles.find(bundle => bundle.id===pairTarget.slice(7))?.payer_participant_id ?? '' : pairTarget} otherName={participantNames.get(pairTarget.startsWith('review:') ? fxBundles.find(bundle => bundle.id===pairTarget.slice(7))?.payer_participant_id ?? '' : pairTarget) ?? t('common.member')} youOwe={debts.filter(debt => debt.debtorParticipantId===currentParticipantId && (debt.creditorParticipantId===pairTarget || debt.creditorParticipantId===(fxBundles.find(bundle => 'review:'+bundle.id===pairTarget)?.payer_participant_id))).map(debt => ({currency:debt.currency,amountMinor:debt.remainingMinor}))} theyOwe={debts.filter(debt => debt.creditorParticipantId===currentParticipantId && (debt.debtorParticipantId===pairTarget || debt.debtorParticipantId===(fxBundles.find(bundle => 'review:'+bundle.id===pairTarget)?.payer_participant_id))).map(debt => ({currency:debt.currency,amountMinor:debt.remainingMinor}))} target={quoteCurrency} spaceId={context.spaceId} expenses={expenses.map(expense => ({id:expense.id,description:expense.description,occurredOn:expense.occurredOn,currency:expense.currency,totalMinor:expense.totalMinor}))} review={pairTarget.startsWith('review:') ? (() => { const bundle = fxBundles.find(item => item.id===pairTarget.slice(7)); return bundle ? {id:bundle.id,version:bundle.version,cashMinor:bundle.cash_minor,rates:bundle.quote?.rates??{},mode:bundle.rate_mode,coverages:bundle.quote?.coverages??[],submittedAt:bundle.quote?.submittedAt} : null })() : null} onClose={() => setPairTarget(null)} onDone={async () => { setPairTarget(null); await onChanged?.() }} /> : null}
       {view!=='trip-history'?<div className="ms-list tt-paper-list">
         {debts.length === 0 ? (
           <p className="p-6 text-center text-sm text-[var(--ms-text-muted)]">{t('settlement.empty')}</p>
@@ -385,8 +415,8 @@ export default function SettlementPanel({
         <div className="mt-4">
           <p className="text-xs font-extrabold text-[var(--ms-text-secondary)]">{t('settlement.receipts')}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {incoming.filter(({ allocation }) => (
-              allocation.state === 'accepted' && allocation.reversalMinor === 0
+            {incoming.filter(({ settlement, allocation }) => (
+              !fxSettlementPayment(settlement) && allocation.state === 'accepted' && allocation.reversalMinor === 0
             )).map(({ settlement, allocation }) => (
               <button key={allocation.id} className="ms-btn-ghost py-2 text-xs" disabled={!!action||trip&&hidden} onClick={() => void reverse(allocation.id)}>
                 {t('settlement.reverse', { amount: amount(allocation.amountMinor, settlement.currency) })}
@@ -396,6 +426,7 @@ export default function SettlementPanel({
         </div>
       ) : null}
 
+      {view==='trip-history'&&fxBundles.filter(bundle => bundle.status==='accepted' && (bundle.payer_participant_id===currentParticipantId || bundle.counterparty_participant_id===currentParticipantId)).map(bundle => <button key={bundle.id} type="button" className="ms-btn-ghost" disabled={!!action||hidden} onClick={() => void reverseBundle(bundle.id, bundle.version)}>{t('settlement.reverse', { amount: amount(bundle.cash_minor, quoteCurrency) })}</button>)}
       {view!=='trip-current'&&(!trip||!hidden)?<SettlementHistoryList
         excludePending={historyCompletedOnly} compact={historyCompletedOnly}
         context={context}
@@ -403,9 +434,13 @@ export default function SettlementPanel({
         participantNames={participantNames}
         expenses={expenses}
         settlements={trip?settlementState.settlements.filter(p=>settlementMatchesContext(p,context)):contextSettlements}
-        renderAction={view==='trip-history'?(payment,allocation)=>allocation.creditorParticipantId===currentParticipantId&&allocation.state==='accepted'&&allocation.reversalMinor===0&&!allocation.sharedRestartCleared?<button type="button" className="ms-btn-ghost" disabled={!!action||hidden} onClick={()=>void reverse(allocation.id)}>{t('settlement.reverse',{amount:amount(allocation.amountMinor,payment.currency)})}</button>:null:undefined}
+        renderAction={view==='trip-history'?(payment,allocation)=>!fxSettlementPayment(payment)&&allocation.creditorParticipantId===currentParticipantId&&allocation.state==='accepted'&&allocation.reversalMinor===0&&!allocation.sharedRestartCleared?<button type="button" className="ms-btn-ghost" disabled={!!action||hidden} onClick={()=>void reverse(allocation.id)}>{t('settlement.reverse',{amount:amount(allocation.amountMinor,payment.currency)})}</button>:null:undefined}
       />:null}
 
     </section>
   )
+}
+
+function fxSettlementPayment(payment: { fxCashOnly?: boolean; note?: string | null }) {
+  return payment.fxCashOnly === true || payment.note === 'fx-cash' || payment.note === 'fx-coverage'
 }
