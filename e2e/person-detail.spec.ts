@@ -117,7 +117,7 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
   await expect(page.getByText('Final Statement')).toHaveCount(0)
   await expect(page.getByTestId('trip-detail-summary')).toBeVisible()
   await expect(page.getByTestId('space-position')).toBeHidden()
-  await page.getByRole('tab',{name:'Balances',exact:true}).click()
+  await page.getByRole('tab',{name:'Settle up',exact:true}).click()
   await expect(page.getByTestId('space-position')).toBeVisible()
   await page.getByRole('tab',{name:'Expenses',exact:true}).click()
   await expect(page.getByTestId('space-recent')).toBeVisible()

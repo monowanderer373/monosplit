@@ -3,9 +3,9 @@
 ## 2026-11-03 — Issue 08 historical shares, spending card, FX settlement
 - Branch `feat/issue08-trip-fixes` at `a53023c` (`origin/main`). Not committed or pushed. `.tmp-issue08/` and `.superdesign/` stay untracked.
 - Editor allows a selected removed consumer to be cleared or replaced; server placeholder exception is limited to a prior participant with both amounts at 0. Spending card is shared. Settlement adds `propose/respond/cancel/reverse_fx_settlement_bundle` and `settlement_payments.fx_cash_only`.
-- Local Vitest 873 passed / 125 files. ESLint passed. `npm run build` passed. After Docker started, local reset applied the migration and pgTAP `issue08_fx_settlement.sql` passed 13 tests. No remote migration yet. No browser or device pass.
+- Local Vitest 873 passed / 125 files. ESLint passed. `npm run build` passed. Local reset, db lint, and pgTAP `issue08_fx_settlement.sql` 13 tests passed. PR #51 pushed. Vercel preview Ready. Linked remote migration list failed with password authentication for `supabase_admin`; production database and production Vercel were not changed. Quality 41632420464 database/app/historical/collect-pay passed. travel-browser and trip-members-browser failed because the trip tab is now Settle up and the ledger spending card had dropped `travel-spending`. Those selectors and the ledger test id were restored to the new label and card.
 
-
+## 2026-10-19 — Compact Home, nav blur, right notifications
 - Branched `feat/compact-home-right-notices` from `origin/main` `5199678`; did not reset to pack SHA `387387f` or pop stash.
 - Home three-card density, account actions/privacy in picker, paper nav 16px inset + blur in `paper.css`, AccountNotice body portal to the right of the bell with preview/view-all and interruptible motion.
 - Quality `39165396440`: app/production-ui/database/historical/collect-pay/travel PASS; browser 320 passed / 1 failed (`insights.spec` JPY). Root cause: Frankfurter stamped `2026-10-19` while runner UTC was still `2026-10-18`, so cold `normalize_rates` rejected the whole display-only batch. Quality `39166725419` browser then passed after a migration attempt, but historical-upgrade correctly refused a 27th baseline file. Replaced that with a local last-good FX seed (127.0.0.1 only); no ledger tables and no new production migration.

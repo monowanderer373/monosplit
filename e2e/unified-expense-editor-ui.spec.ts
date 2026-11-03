@@ -86,7 +86,7 @@ test('reload without an in-flight command clears only the orphan editor marker',
 })
 
 test('visible list counts own private and Shared rows while Shared summary counts only Shared',async({page})=>{
- const f=await fixture(page,'private');f.state.expenses.push(tripLedgerExpense('00000000-0000-4000-8000-000000000473','Shared bill',[['owner',0,0],['mia',100000,100000]]));await page.reload();await expect(page.locator('.tl-list-toolbar')).toHaveText('2 expenses');await expect(page.getByTestId('space-recent').locator('[data-expense-id]')).toHaveCount(2);await expect(page.getByTestId('trip-detail-summary')).toContainText('1 shared record');await expect(page.getByTestId('travel-spending')).toHaveText('RM 100.00')
+ const f=await fixture(page,'private');f.state.expenses.push(tripLedgerExpense('00000000-0000-4000-8000-000000000473','Shared bill',[['owner',0,0],['mia',100000,100000]]));await page.reload();await expect(page.locator('.tl-list-toolbar')).toHaveText('2 expenses');await expect(page.getByTestId('space-recent').locator('[data-expense-id]')).toHaveCount(2);await expect(page.getByTestId('trip-detail-summary')).toContainText('1 shared record');await expect(page.getByTestId('travel-spending')).toContainText('RM 100.00')
 })
 
 test('dirty X opens a centered confirmation without growing or scrolling the editor',async({page})=>{
