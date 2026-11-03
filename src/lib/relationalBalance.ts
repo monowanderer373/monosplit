@@ -17,6 +17,7 @@ export type ConfirmedSettlement = {
     | 'mixed_closed'
   paymentDate: string
   createdAt: string
+  fxCashOnly?: boolean
   allocations: Array<{
     id?: string
     creditorParticipantId: string
@@ -219,7 +220,7 @@ function relevantTransferFacts(
     .flatMap((settlement) => settlement.allocations
       .map((allocation, allocationIndex) => ({ settlement, allocation, allocationIndex }))
       .filter(({ settlement, allocation }) => (
-        !allocation.sharedRestartCleared && (allocation.state === 'accepted' || allocation.state === 'reversed')
+        !allocation.sharedRestartCleared && !settlement.fxCashOnly && (allocation.state === 'accepted' || allocation.state === 'reversed')
         && allocationAppliesToContext(
           settlement,
           context,

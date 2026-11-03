@@ -1,0 +1,11 @@
+.tw-money-card{min-width:0}
+.tw-money-card .tw-estimated-total{margin:6px 0 10px;color:#8c533d;font-size:clamp(24px,6.9vw,28px);line-height:1.2;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tw-money-card .tw-estimated-total span{font-size:.72em;font-weight:500}
+.tw-money-card .tw-originals{display:grid;gap:6px 12px;margin:0;max-width:220px;color:#263b4c;font-size:14px;line-height:1.4;font-weight:400}
+.tw-money-card .tt-amount-line{display:grid;grid-template-columns:40px minmax(0,1fr);gap:0 12px;margin:0}
+.tw-money-card .tw-originals dt,.tw-money-card .tw-originals dd{margin:0;font:inherit}
+.tw-money-card .tw-originals dd{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tw-money-card .tw-rate-note{margin:8px 0 0;color:#607286;font-size:12px;line-height:1.4}
+.tw-money-card .tw-rate-note button{font:inherit;border:0;background:transparent;color:inherit;min-height:44px;padding:0 4px}
+.tw-money-card .tw-spending-foot{margin-top:10px;padding-top:10px;border-top:1px dashed #9eb6c3;display:flex;flex-direction:column;align-items:flex-start;gap:4px;color:#344e60;font-size:12px;line-height:1.4}
+@media(max-width:359px){.tw-money-card .tw-originals{font-size:13px;gap:6px 10px}}

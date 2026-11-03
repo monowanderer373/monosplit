@@ -28,6 +28,7 @@ import {
   tripEditorPayload,
   tripEditorCandidate,
   saveTripEditor,
+  replaceHistoricalConsumer,
   minorText,
   nonnegative,
   type TripEditorContext,
@@ -207,6 +208,7 @@ function UnifiedTripExpenseEditor({
     >(null),
     [busy, setBusy] = useState(false),
     [unknown, setUnknown] = useState(false),
+    [replacing, setReplacing] = useState<string | null>(null),
     [committed, setCommitted] = useState(false),
     [conflict, setConflict] = useState(false);
   const lastEditorFocus = useRef<HTMLElement|null>(null);
@@ -1084,7 +1086,7 @@ function UnifiedTripExpenseEditor({
                         <input
                           type="checkbox"
                           aria-label={p.name}
-                          disabled={!editable || historical}
+                          disabled={!editable || (historical && !selected)}
                           checked={selected}
                           onChange={() =>
                             patch({
@@ -1104,11 +1106,26 @@ function UnifiedTripExpenseEditor({
                         {p.name}
                         {historical ? (
                           <small>
-                            {copy(" · Historical member", " · 历史成员")}
+                            {copy(" · Removed", " · 已退出")}
                           </small>
                         ) : null}
                       </span>
                     </label>
+                    {historical && selected && editable && original && draft ? (
+                      replacing === p.id ? (
+                        <select aria-label={copy("Give this share to", "把该份额给")} defaultValue="" onChange={event => {
+                          const to = event.target.value
+                          if (!to) return
+                          patch(replaceHistoricalConsumer(original, draft, p.id, to))
+                          setReplacing(null)
+                        }}>
+                          <option value="">{copy("Give this share to", "把该份额给")}</option>
+                          {context.members.filter(member => member.id !== p.id).map(member => <option key={member.id} value={member.id}>{member.id === self ? copy("You", "我") : member.name}</option>)}
+                        </select>
+                      ) : (
+                        <button type="button" className="ue-text-button" onClick={() => setReplacing(p.id)}>{copy("Replace", "替换")}</button>
+                      )
+                    ) : null}
                     {selected ? (
                       context.can_edit && draft.mode === "exact" ? (
                         <AmountInput

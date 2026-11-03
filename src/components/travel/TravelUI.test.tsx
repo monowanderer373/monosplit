@@ -73,7 +73,7 @@ describe('Travel states and accessible selector', () => {
     const view = render(<HomeScreen {...props} />)
     expect(screen.getByTestId('travel-spending').querySelectorAll('.tt-amount-line')).toHaveLength(2)
     view.rerender(<HomeScreen {...props} balanceHidden />)
-    expect(screen.getByTestId('travel-spending').textContent).toBe('••••')
+    expect(screen.getByTestId('travel-spending').textContent).toContain('••••')
     view.rerender(<HomeScreen {...props} tripSpendingStatus="error" />)
     expect(screen.getByTestId('travel-spending').textContent).not.toContain('15.00')
   })

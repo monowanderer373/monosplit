@@ -3,7 +3,10 @@ export const tripLedgerTranslations={
 
  'tl.members':{en:'{{count}} members',zh:'{{count}} 位成员'},'tl.reviewOne':{en:'1 payment needs your review',zh:'1 笔付款需要你确认'},'tl.sentOne':{en:'1 payment awaiting confirmation',zh:'1 笔付款等待对方确认'},'tl.outstanding':{en:'Outstanding',zh:'当前往来'},'tl.awaiting':{en:'Awaiting payment',zh:'等待付款'},'tl.fullPartial':{en:'Full or partial repayment',zh:'全额或部分还款'},
  'tl.cannotAdd':{en:'You cannot add expenses to this trip right now.',zh:'此旅程当前不允许新增账目。'},
- 'tl.expenses':{en:'Expenses',zh:'账目'},'tl.balances':{en:'Balances',zh:'结算'},'tl.history':{en:'History',zh:'历史记录'},'tl.summary':{en:'Trip summary',zh:'行程统计'},
+ 'tl.expenses':{en:'Expenses',zh:'账目'},'tl.balances':{en:'Settle up',zh:'结算'},'tl.history':{en:'History',zh:'历史记录'},'tl.summary':{en:'Trip summary',zh:'行程统计'},
+ 'tw.referenceEstimate':{en:'Reference estimate',zh:'参考估值'},'tw.rates':{en:'Rates',zh:'汇率'},'tw.estimateUnavailable':{en:'Estimate unavailable',zh:'无法估值'},
+ 'tw.splitReview':{en:'Split needs review',zh:'分摊待调整'},'tw.removed':{en:'Removed',zh:'已退出'},'tw.replace':{en:'Replace',zh:'替换'},'tw.useMember':{en:'Give this share to',zh:'把该份额给'},
+ 'fx.pay':{en:'Pay',zh:'付款'},'fx.review':{en:'Review',zh:'确认'},'fx.summary':{en:'View summary',zh:'查看摘要'},'fx.system':{en:'System',zh:'系统'},'fx.custom':{en:'Custom',zh:'自定义'},'fx.full':{en:'Full',zh:'全额'},'fx.partial':{en:'Partial',zh:'部分'},'fx.record':{en:'Record payment',zh:'记录付款'},'fx.offset':{en:'Confirm offset',zh:'确认互抵'},'fx.included':{en:'View included expenses',zh:'查看包含的费用'},'fx.collect':{en:'To collect',zh:'待收回'},'fx.remaining':{en:'Remaining',zh:'剩余'},
  'tl.collect':{en:'To collect',zh:'待收回'},'tl.pay':{en:'To pay',zh:'待支付'},'tl.repay':{en:'Pay',zh:'还款'},'tl.none':{en:'You have no outstanding balance',zh:'你目前没有未结金额'},
  'tl.review':{en:'{{count}} payments need your review',zh:'{{count}} 笔付款需要你确认'},'tl.sent':{en:'{{count}} payments awaiting confirmation',zh:'{{count}} 笔付款等待对方确认'},
  'tl.more':{en:'Show more',zh:'查看更多'},'tl.count':{en:'{{count}} expenses',zh:'共 {{count}} 笔账目'},'tl.empty':{en:'No expenses yet',zh:'暂无账目'},'tl.addHint':{en:'Use the + below to record your first expense.',zh:'使用下方 ＋ 记录第一笔账目。'},

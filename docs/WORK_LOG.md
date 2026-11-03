@@ -1,5 +1,10 @@
 # Work log
 
+## 2026-11-03 — Issue 08 historical shares, spending card, FX settlement
+- Branch `feat/issue08-trip-fixes` at `a53023c` (`origin/main`). Not committed or pushed. `.tmp-issue08/` and `.superdesign/` stay untracked.
+- Editor allows a selected removed consumer to be cleared or replaced; server placeholder exception is limited to a prior participant with both amounts at 0. Spending card is shared. Settlement adds `propose/respond/cancel/reverse_fx_settlement_bundle` and `settlement_payments.fx_cash_only`.
+- Local Vitest 873 passed / 125 files. ESLint passed. `npm run build` passed. Local reset, db lint, and pgTAP `issue08_fx_settlement.sql` 13 tests passed. PR #51 pushed. Vercel preview Ready. Production `db push` to Tabby Tally `skiqsxvmxvmxfzhrzcxh` applied only `202611030001` and finished. Frontend is not on main. Quality 41649249207 failed the spending-card color on the wrapper; the estimate assertion moved to `.tw-estimated-total` (`925dfc4`). Quality 41653374004 production-ui then failed because archived trips hid Pay. Settlement proposal stays available unless the trip is voided.
+
 ## 2026-10-19 — Compact Home, nav blur, right notifications
 - Branched `feat/compact-home-right-notices` from `origin/main` `5199678`; did not reset to pack SHA `387387f` or pop stash.
 - Home three-card density, account actions/privacy in picker, paper nav 16px inset + blur in `paper.css`, AccountNotice body portal to the right of the bell with preview/view-all and interruptible motion.

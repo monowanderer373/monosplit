@@ -161,6 +161,36 @@ export function tripEditorPayload(e: CanonicalExpense, d: TripEditorDraft) {
       : ids.map((id) => shares.get(id) ?? 0),
   };
 }
+/** Move one historical consumer's share onto a current member. Payers stay put. */
+export function replaceHistoricalConsumer(expense: CanonicalExpense, draft: TripEditorDraft, fromId: string, toId: string): TripEditorDraft {
+  if (fromId === toId || !draft.consumers.includes(fromId)) throw new Error('invalid_replacement')
+  const paid = { ...draft.paid }
+  if (draft.mode === 'items') {
+    return {
+      ...draft,
+      paid,
+      consumers: [...new Set(draft.consumers.map(id => id === fromId ? toId : id))],
+      items: draft.items.map(item => ({ ...item, participantIds: [...new Set(item.participantIds.map(id => id === fromId ? toId : id))] })),
+    }
+  }
+  if (draft.mode === 'equal' && !draft.consumers.includes(toId)) {
+    return { ...draft, paid, consumers: draft.consumers.map(id => id === fromId ? toId : id) }
+  }
+  const current = tripEditorPayload(expense, draft)
+  const shares = new Map<string, number>()
+  current.participant_ids.forEach((id, index) => shares.set(id, (shares.get(id) ?? 0) + current.share_amounts[index]))
+  shares.set(toId, (shares.get(toId) ?? 0) + (shares.get(fromId) ?? 0))
+  shares.delete(fromId)
+  const consumers = draft.consumers.filter(id => id !== fromId)
+  if (!consumers.includes(toId)) consumers.push(toId)
+  return {
+    ...draft,
+    paid,
+    mode: 'exact',
+    consumers,
+    shares: Object.fromEntries(consumers.map(id => [id, minorText(shares.get(id) ?? 0, expense.currency)])),
+  }
+}
 export function tripEditorCandidate(
   e: CanonicalExpense,
   d: TripEditorDraft,
@@ -242,4 +272,13 @@ export async function saveTripEditor(
     audience: EditorAudience;
     trip_id: string;
   };
+}
+/** Red dot only after the live roster is known. Removing a role does not rewrite other bills. */
+export function splitNeedsReview(expense: CanonicalExpense, activeMemberIds: ReadonlySet<string> | null) {
+  if (!activeMemberIds || expense.scope !== 'space' || expense.status !== 'active') return false
+  return expense.shares.some(share => {
+    if (share.amountMinor <= 0) return false
+    const person = expense.participations.find(row => row.id === share.expenseParticipationId)
+    return !!person && !activeMemberIds.has(person.participantId)
+  })
 }

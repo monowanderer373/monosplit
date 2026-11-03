@@ -1,5 +1,5 @@
 import AmountInput from './AmountInput'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSettlementDraft } from '../hooks/useSettlementDraft'
 import { useStore } from '../store/useStore'
 import { localeForLang } from '../lib/locale'
@@ -17,6 +17,8 @@ import {
 } from '../lib/settlementIntent'
 import { friendlyErrorKey, useT, type TranslationKey } from '../lib/i18n'
 import SettlementHistoryList from './SettlementHistoryList'
+import { PairSettlementView } from './PairSettlementView'
+import { supabase } from '../lib/supabase'
 
 type Props = {
   context: BalanceContext
@@ -28,6 +30,7 @@ type Props = {
   view?: 'trip-current' | 'trip-history'
   historyCompletedOnly?: boolean
   draftKey?: string
+  quoteCurrency?: string
   onChanged?: () => Promise<unknown>
 }
 
@@ -55,7 +58,7 @@ export default function SettlementPanel({
   currentParticipantId,
   participantNames,
   expenses,
-  canPropose, state: sharedState, view, draftKey, onChanged, historyCompletedOnly=false,
+  canPropose, state: sharedState, view, draftKey, onChanged, historyCompletedOnly=false, quoteCurrency='MYR',
 }: Props) {
   const t = useT()
   const ownState = useSettlements(!sharedState)
@@ -99,6 +102,14 @@ export default function SettlementPanel({
     const rows=[...totals.entries()].map(([key, value]) => ({ key, ...value }))
     return trip?rows.sort((a,b)=>Number(b.debtorParticipantId===currentParticipantId||b.creditorParticipantId===currentParticipantId)-Number(a.debtorParticipantId===currentParticipantId||a.creditorParticipantId===currentParticipantId)):rows
   }, [debtLines,trip,currentParticipantId])
+  const [fxBundles, setFxBundles] = useState<{id:string;version:number;status:string;payer_participant_id:string;counterparty_participant_id:string;cash_minor:number;full_net_minor:number;rate_mode:string;quote:{rates?:Record<string,{numerator:string;denominator:string}>}}[]>([])
+  const [pairTarget, setPairTarget] = useState<string | null>(null)
+  useEffect(() => {
+    if (!trip || context.scope !== 'space' || !supabase) return
+    let active = true
+    void supabase.from('settlement_fx_bundles').select('id,version,status,payer_participant_id,counterparty_participant_id,cash_minor,full_net_minor,rate_mode,quote').eq('space_id', context.spaceId).then(({ data }) => { if (active) setFxBundles(data ?? []) }, () => {})
+    return () => { active = false }
+  }, [trip, context, settlementState.settlements])
 
   const incoming = contextSettlements.flatMap((settlement) => settlement.allocations
     .filter((allocation) => allocation.creditorParticipantId === currentParticipantId)
@@ -254,10 +265,22 @@ export default function SettlementPanel({
       ) : null}
 
       {view==='trip-current'&&debts.length?<h3 className="tl-outstanding-title">{t('tl.outstanding')}</h3>:null}
+      {view==='trip-current'&&context.scope==='space'? [...new Set(debts.flatMap(debt => [debt.debtorParticipantId, debt.creditorParticipantId]))].filter(id => id !== currentParticipantId).map(other => {
+        const rows = debts.filter(debt => debt.debtorParticipantId === other || debt.creditorParticipantId === other)
+        if (new Set(rows.map(row => row.currency)).size < 2) return null
+        const youOwe = rows.filter(row => row.debtorParticipantId === currentParticipantId).map(row => ({ currency: row.currency, amountMinor: row.remainingMinor }))
+        const theyOwe = rows.filter(row => row.creditorParticipantId === currentParticipantId).map(row => ({ currency: row.currency, amountMinor: row.remainingMinor }))
+        const pending = fxBundles.find(bundle => bundle.status === 'pending' && (bundle.payer_participant_id === other || bundle.counterparty_participant_id === other) && (bundle.payer_participant_id === currentParticipantId || bundle.counterparty_participant_id === currentParticipantId))
+        const name = participantNames.get(other) ?? t('common.member')
+        return <article className="ms-row" key={other}><div><p>{name}</p><p>{[...youOwe, ...theyOwe].map(row => row.currency).join(' · ')}</p></div>{pending ? (pending.counterparty_participant_id === currentParticipantId ? <button type="button" onClick={() => setPairTarget('review:'+pending.id)}>{t('fx.review')}</button> : <span>{t('tl.awaiting')}</span>) : youOwe.length ? <button type="button" className="ms-btn-primary" disabled={!canPropose} onClick={() => setPairTarget(other)}>{t('fx.pay')}</button> : <button type="button" onClick={() => setPairTarget(other)}>{t('fx.summary')}</button>}</article>
+      }) : null}
+      {pairTarget && context.scope==='space' ? <PairSettlementView self={currentParticipantId} other={pairTarget.startsWith('review:') ? fxBundles.find(bundle => bundle.id===pairTarget.slice(7))?.payer_participant_id ?? '' : pairTarget} otherName={participantNames.get(pairTarget.startsWith('review:') ? fxBundles.find(bundle => bundle.id===pairTarget.slice(7))?.payer_participant_id ?? '' : pairTarget) ?? t('common.member')} youOwe={debts.filter(debt => debt.debtorParticipantId===currentParticipantId && (debt.creditorParticipantId===pairTarget || debt.creditorParticipantId===(fxBundles.find(bundle => 'review:'+bundle.id===pairTarget)?.payer_participant_id))).map(debt => ({currency:debt.currency,amountMinor:debt.remainingMinor}))} theyOwe={debts.filter(debt => debt.creditorParticipantId===currentParticipantId && (debt.debtorParticipantId===pairTarget || debt.debtorParticipantId===(fxBundles.find(bundle => 'review:'+bundle.id===pairTarget)?.payer_participant_id))).map(debt => ({currency:debt.currency,amountMinor:debt.remainingMinor}))} target={quoteCurrency} spaceId={context.spaceId} expenses={expenses.map(expense => ({id:expense.id,description:expense.description,occurredOn:expense.occurredOn,currency:expense.currency,totalMinor:expense.totalMinor}))} review={pairTarget.startsWith('review:') ? (() => { const bundle = fxBundles.find(item => item.id===pairTarget.slice(7)); return bundle ? {id:bundle.id,version:bundle.version,cashMinor:bundle.cash_minor,rates:bundle.quote?.rates??{},mode:bundle.rate_mode} : null })() : null} onClose={() => setPairTarget(null)} onDone={async () => { setPairTarget(null); await onChanged?.() }} /> : null}
       {view!=='trip-history'?<div className="ms-list tt-paper-list">
         {debts.length === 0 ? (
           <p className="p-6 text-center text-sm text-[var(--ms-text-muted)]">{t('settlement.empty')}</p>
         ) : debts.map((debt, index) => {
+          const otherPerson = debt.debtorParticipantId === currentParticipantId ? debt.creditorParticipantId : debt.debtorParticipantId
+          if (view==='trip-current' && debts.some(row => (row.debtorParticipantId===otherPerson || row.creditorParticipantId===otherPerson) && row.currency!==debt.currency && (row.debtorParticipantId===currentParticipantId || row.creditorParticipantId===currentParticipantId))) return null
           const mine = debt.debtorParticipantId === currentParticipantId
           const intent = intents[debt.key]
           let explicitAmount = ''
