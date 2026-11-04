@@ -31,7 +31,7 @@ test('keeps capture history and split cancellation separate without losing the d
   await capture.getByRole('button', { name: 'Food', exact: true }).click()
   await capture.getByRole('textbox', { name: 'Note' }).fill('Dinner')
   let split = await openQuickSplit(capture, page)
-  await expect(capture.getByTestId('quick-add-ledger')).toContainText('History Trip')
+  await expect(split.locator('header')).toContainText('History Trip')
   await split.getByRole('button', { name: 'Amounts', exact: true }).click()
   await split.getByRole('textbox', { name: 'Share for History Tester' }).fill('120')
   // Cancel discards panel edits, while keeping the surrounding capture draft.
@@ -111,7 +111,7 @@ test('preserves an explicit category and currency while adding and removing a sp
   // Trip consumer changes remain in its complete membership panel, not the Friends picker.
   await expect(split.getByRole('button',{name:'Edit people',exact:true})).toHaveCount(0)
   await expect(split.getByRole('checkbox',{name:'You',exact:true})).toBeChecked()
-  await expect(split.locator('.qa-trip-context')).toHaveText('Category Trip')
+  await expect(split.locator('header')).toContainText('Category Trip')
   await split.getByRole('button', { name: 'Apply split', exact: true }).click()
   await expect(capture.getByRole('button', { name: 'Shopping', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(capture.getByLabel('Currency', { exact: true })).toHaveValue('USD')
