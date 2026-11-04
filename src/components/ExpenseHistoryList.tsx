@@ -4,6 +4,7 @@ import type { DirectExpenseChangeRequest } from '../lib/expenseChangeRepository'
 import {
   deriveExpenseRevisionEntries,
   type ExpenseRevisionEntry,
+  type TripRevisionContext,
 } from '../lib/financialHistory'
 import { categoryKey, useT } from '../lib/i18n'
 import { formatDate } from '../lib/locale'
@@ -13,18 +14,21 @@ import { useStore } from '../store/useStore'
 export default function ExpenseHistoryList({
   expenses,
   directRequests,
-  focusExpenseId, includeCurrent=false,
+  focusExpenseId, includeCurrent=false, tripContext, emptyMessage, onRetry,
 }: {
   expenses: readonly CanonicalExpense[]
   directRequests: readonly DirectExpenseChangeRequest[]
   focusExpenseId?: string
   includeCurrent?: boolean
+  tripContext?: TripRevisionContext
+  emptyMessage?: string
+  onRetry?: () => void
 }) {
   const t = useT()
   const lang = useStore((state) => state.lang)
   const result = useMemo(() => {
     try {
-      const entries = deriveExpenseRevisionEntries(expenses, directRequests)
+      const entries = deriveExpenseRevisionEntries(expenses, directRequests, tripContext)
       const focusedChain = focusExpenseId
         ? entries.find((entry) => entry.expense.id === focusExpenseId)?.chainId
         : undefined
@@ -46,9 +50,9 @@ export default function ExpenseHistoryList({
     } catch {
       return { entries: [], failed: true }
     }
-  }, [directRequests, expenses, focusExpenseId,includeCurrent])
+  }, [directRequests, expenses, focusExpenseId,includeCurrent,tripContext])
 
-  if (!result.failed && result.entries.length === 0) return null
+  if (!result.failed && result.entries.length === 0) return emptyMessage ? <p className="tw-history-empty">{emptyMessage}</p> : null
   const expenseById = new Map(expenses.map((expense) => [expense.id, expense]))
 
   return (
@@ -59,9 +63,10 @@ export default function ExpenseHistoryList({
         {t('history.expenseHelp')}
       </p>
       {result.failed ? (
-        <p className="mt-3 rounded-xl bg-[var(--ms-danger-bg)] p-3 text-sm font-bold text-[var(--ms-danger)]">
-          {t('history.unavailable')}
-        </p>
+        <div role="alert" className="mt-3 rounded-xl bg-[var(--ms-danger-bg)] p-3 text-sm font-bold text-[var(--ms-danger)]">
+          <p>{t('history.unavailable')}</p>
+          {onRetry ? <button type="button" className="ms-btn-ghost" onClick={onRetry}>{t('common.retry')}</button> : null}
+        </div>
       ) : (
         <div className="ms-list tt-paper-list mt-3">
           {result.entries.map((entry, index) => (

@@ -33,7 +33,8 @@ export function useInsightsFx(identity: string, needed: boolean, pinned?: string
     }).finally(() => { if (active) setResult(old => old.key === key ? {...old,updating:false} : old) })
     return () => { active=false }
   },[load,key,identity])
-  const retry = async () => {
+  const retry = async (force = false) => {
+    if (force) requests.delete(key)
     const snapshot = await load()
     setResult(old => old.key === key ? {key,identity,snapshot:snapshot ?? {...old.snapshot,status:old.snapshot.id ? 'cached' : 'unavailable'},updating:false} : old)
   }

@@ -35,6 +35,7 @@ export function convertMinor(minor: bigint, currency: string, target: string, fo
 export function systemForeignPerTarget(currency: string, target: string, fx: FxSnapshot): Fraction | null {
   if (currency === target) return fraction(1n)
   const perMyr = (code: string) => {
+    if (code === 'MYR') return fraction(1n)
     const rate = fx.rates[code]
     if (!rate) return null
     const foreign = decimalFraction(rate.denominator)
@@ -104,6 +105,7 @@ export function quotePair(input: {
   const net = you.totalMinor - they.totalMinor
   const direction = net > 0n ? 'pay' as const : net < 0n ? 'collect' as const : 'offset' as const
   const full = net < 0n ? -net : net
+  if (direction === 'offset' && (you.totalMinor <= 0n || they.totalMinor <= 0n) && [...youOwe,...theyOwe].some(line=>line.amountMinor>0)) throw new Error('amount_too_small')
   if (input.intent === 'offset' && full !== 0n) throw new Error('invalid_amount')
   if (direction === 'collect' && input.intent !== 'offset') return { ok: true as const, direction, fullMinor: full, cashMinor: 0n, coverages: [] as Coverage[], currencies, missing }
   const cash = input.intent === 'full' || input.intent === 'offset' ? full : input.cashMinor ?? -1n
