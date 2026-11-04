@@ -2,6 +2,10 @@
 
 Checkpoint: 2026-11-03 (Asia/Bangkok). Issue 08 closeout is on production. Tabby Tally `skiqsxvmxvmxfzhrzcxh` records migrations `202611030001` and `202611030002`. The closeout application deploy is `7524237202` for merge `a673630`; its public entry `assets/index-CSz3ZjSt.js` contains that full SHA. A later docs-only publish does not change settlement behavior.
 
+## Active — Trip original currency amount alignment (2026-11-04)
+- Clean latest main49a637b; branchfix/trip-currency-alignment in /tmp/tabby-amount-alignment. Only runtime change: scoped `.tw-money-card .tw-originals dd` text-align right→left. Fixed currency columns, spacing, estimate, FX arithmetic, Issue08 settlement behavior and all other UI remain unchanged.
+- Production-module browser checks at320/390/430px passed3/3 (27.9s), including equal numeric column starts, left-aligned text, unchanged186.50 MYR/261,000 VND, no horizontal overflow and zero fixture writes. Actual React/CSS with fictional intercepted transport; screenshots /tmp/tabby-amount-evidence. Build passed as web-server prerequisite. No new committed tests for this one-property visual adjustment. CI/publication still pending; no SQL needed.
+
 ## Published — Issue 08 trip fixes and cross-currency settlement (2026-11-03)
 - Historical selected consumers can be unchecked or replaced onto a current member through the existing editor correction. A prior participant may stay at paid 0 and share 0. Positive amounts for a removed member stay rejected. Unselected historical people are not re-added. Select all still adds only current members. The red “Split needs review” mark is derived from the loaded roster and a positive share; an unloaded roster does not alarm. Deleting a role does not rewrite old bills, and the payer map is not moved with a consumer replacement.
 - My spending uses one `TripMoneyCard` on the trip ledger, travel home, and trip details. The main figure is a home-currency estimate; original currencies stay in a fixed column. A missing rate leaves the originals and says the estimate is unavailable. Shared trip total is shown only on the trip ledger, where that total already exists.
