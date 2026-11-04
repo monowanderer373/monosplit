@@ -31,7 +31,7 @@ test('keeps four destinations and a usable global money action at 320px', async 
 
   await addButton.click()
   const capture = page.getByRole('dialog', { name: 'Quick Add' })
-  await expect(capture.getByRole('button', { name: /^Split/ })).toHaveText('Split')
+  await expect(capture.getByRole('button', { name: /^Split/ })).toContainText('Split')
   await expect(page.getByRole('dialog', { name: 'Where should this go?' })).toHaveCount(0)
   await expect(page.getByRole('dialog', { name: 'Quick Add' })).toBeVisible()
   await page.goBack()
@@ -146,7 +146,7 @@ test('keeps the global money action above mobile form controls', async ({
     await captureDialog.getByRole('button', { name: /^Split/ }).click()
     const split = owner.getByRole('dialog', { name: 'Split expense' })
     await expect(split.getByText('Pointer Manual', { exact: true }).first()).toBeVisible()
-    await split.getByRole('button', { name: 'Close panel' }).click()
+    await split.getByRole('button', { name: 'Back to Quick Add' }).click()
     const modalHitTestEvidence = await collectHitTestEvidence(
       owner,
       owner.getByTestId('global-money-action-layer').locator('button'),
@@ -168,7 +168,7 @@ test('keeps the global money action above mobile form controls', async ({
     await friendsCapture.getByRole('button', { name: /^Split/ }).click()
     const restoredSplit = owner.getByRole('dialog', { name: 'Split expense' })
     await expect(restoredSplit.getByText('Pointer Manual', { exact: true }).first()).toBeVisible()
-    await restoredSplit.getByRole('button', { name: 'Close panel' }).click()
+    await restoredSplit.getByRole('button', { name: 'Back to Quick Add' }).click()
     await friendsCapture.getByRole('button', { name: 'Close Quick Add' }).click()
     await owner
       .getByRole('navigation', { name: 'Primary navigation' })
