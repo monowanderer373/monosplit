@@ -74,6 +74,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
           python3 supabase/tests/collect_pay_lock_concurrency.py
+      - name: Verify FX settlement with overlapping database sessions
+        env:
+          FX_SETTLEMENT_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python3 supabase/tests/fx_settlement_concurrency.py
       - name: Verify atomic multicurrency funding with competing sessions
         env:
           MULTICURRENCY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

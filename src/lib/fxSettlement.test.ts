@@ -84,3 +84,20 @@ describe('historical consumer repair', () => {
     expect(splitNeedsReview(bill, new Set(['you', 'yii', 'exson', 'chong']))).toBe(false)
   })
 })
+
+it('values a receiver’s MYR186.50 and VND261000 without treating its zero submission cash as zero debt',()=>{
+ const q=quotePair({...lines([], [['MYR',18650],['VND',261000]]),intent:'full'})
+ expect(q.ok&&q.direction).toBe('collect');expect(q.ok&&q.fullMinor).toBe(23000n);expect(q.ok&&q.cashMinor).toBe(0n)
+})
+it('rebases MYR and VND through a complete USD reference without a made-up MYR rate',()=>{
+ const fx:FxSnapshot={...unavailableFx,status:'fresh',rates:{USD:{currency:'USD',quote:'MYR',numerator:'4',denominator:'1',direction:'MYR-per-foreign',rateDate:'2026-11-04',fetchedAt:'2026-11-04T00:00:00Z',provider:'Frankfurter'},VND:{currency:'VND',quote:'MYR',numerator:'1',denominator:'6000',direction:'MYR-per-foreign',rateDate:'2026-11-04',fetchedAt:'2026-11-04T00:00:00Z',provider:'Frankfurter'}}}
+ expect(systemForeignPerTarget('MYR','USD',fx)).toEqual(fraction(4n))
+ expect(systemForeignPerTarget('VND','USD',fx)).toEqual(fraction(24000n))
+ const q=quotePair({youOwe:[{currency:'MYR',amountMinor:10000}],theyOwe:[{currency:'VND',amountMinor:120000}],target:'USD',rateFor:c=>systemForeignPerTarget(c,'USD',fx),intent:'full'})
+ expect(q.ok&&q.fullMinor).toBe(2000n)
+})
+it('does not forgive one-way debt when an extreme rate rounds its cash value to zero',()=>{
+ expect(()=>quotePair({...lines([['VND',1]]),rateFor:()=>fraction(600000000n),intent:'full'})).toThrow('amount_too_small')
+ const q=quotePair({...lines([['MYR',10000]],[['VND',600000]]),intent:'full'})
+ expect(q.ok&&q.direction).toBe('offset');expect(q.ok&&q.cashMinor).toBe(0n);expect(q.ok&&q.coverages.map(c=>c.coveredMinor)).toEqual([10000n,600000n])
+})

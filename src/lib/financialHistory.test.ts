@@ -349,3 +349,28 @@ function obligation(id: string, amountMinor: number): CanonicalExpense {
   ]
   return expense
 }
+
+describe('authorized Trip audience revision history', () => {
+  const context = {tripId:'trip',ownerParticipantId:'owner',privateExpenseIds:new Set(['personal'])}
+  const personal = directExpense('personal',1000,{scope:'personal'})
+  const shared = directExpense('shared',1000,{scope:'space',spaceId:'trip'})
+  for (const direction of ['private-to-shared','shared-to-private']) it('keeps the verified '+direction+' version chain',()=>{
+    const [p,c]=direction==='private-to-shared'?[personal,shared]:[shared,personal]
+    const parent={...p,status:'voided' as const,terminationKind:'corrected' as const}
+    const child={...c,correctsExpenseId:p.id}
+    expect(()=>deriveExpenseRevisionEntries([parent,child],[])).toThrow(FinancialHistoryError)
+    expect(deriveExpenseRevisionEntries([parent,child],[],context).map(e=>[e.role,e.lifecycle])).toEqual([['original','corrected'],['correction','active']])
+    expect(()=>deriveExpenseRevisionEntries([parent,child],[],{...context,privateExpenseIds:new Set()})).toThrow(FinancialHistoryError)
+    expect(()=>deriveExpenseRevisionEntries([parent,child],[],{...context,ownerParticipantId:'stranger'})).toThrow(FinancialHistoryError)
+    expect(()=>deriveExpenseRevisionEntries([parent,child],[],{...context,tripId:'other-trip'})).toThrow(FinancialHistoryError)
+    expect(()=>deriveExpenseRevisionEntries([{...parent,status:'active'},child],[],context)).toThrow(FinancialHistoryError)
+    expect(()=>deriveExpenseRevisionEntries([parent,{...child,currency:'USD'}],[],context)).toThrow(FinancialHistoryError)
+  })
+  it('does not admit duplicate rows, unrelated Direct revisions or grant visibility to a hidden parent',()=>{
+    expect(()=>deriveExpenseRevisionEntries([personal,personal],[],context)).toThrow(FinancialHistoryError)
+    const parent={...directExpense('direct',1000),status:'voided' as const,terminationKind:'corrected' as const}
+    expect(()=>deriveExpenseRevisionEntries([parent,{...shared,correctsExpenseId:parent.id}],[],context)).toThrow(FinancialHistoryError)
+    const child={...shared,correctsExpenseId:personal.id}
+    expect(deriveExpenseRevisionEntries([child],[],{...context,privateExpenseIds:new Set()})).toMatchObject([{previousVisible:false,expense:{id:'shared'}}])
+  })
+})

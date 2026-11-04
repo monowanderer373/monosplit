@@ -36,9 +36,25 @@ export type ExpenseRevisionEntry = {
   isCurrent: boolean
 }
 
+/** Display context only: personal parents already passed personal RLS and Trip affiliation reads. */
+export type TripRevisionContext = {
+  tripId: string
+  ownerParticipantId: string
+  privateExpenseIds: ReadonlySet<string>
+}
+
+function permittedTripTransition(parent: CanonicalExpense, child: CanonicalExpense, context?: TripRevisionContext) {
+  if (!context || parent.createdBy !== context.ownerParticipantId || child.createdBy !== context.ownerParticipantId) return false
+  const personal = parent.scope === 'personal' ? parent : child.scope === 'personal' ? child : null
+  const shared = parent.scope === 'space' ? parent : child.scope === 'space' ? child : null
+  return !!personal && !!shared && personal.spaceId == null && shared.spaceId === context.tripId
+    && context.privateExpenseIds.has(personal.id)
+}
+
 export function deriveExpenseRevisionEntries(
   expenses: readonly CanonicalExpense[],
   directRequests: readonly DirectExpenseChangeRequest[],
+  tripContext?: TripRevisionContext,
 ): ExpenseRevisionEntry[] {
   const byId = new Map<string, CanonicalExpense>()
   for (const expense of expenses) {
@@ -67,7 +83,7 @@ export function deriveExpenseRevisionEntries(
     if (
       parent.status !== 'voided'
       || parent.terminationKind !== 'corrected'
-      || parent.scope !== child.scope
+      || (parent.scope !== child.scope && !permittedTripTransition(parent, child, tripContext))
       || parent.currency !== child.currency
     ) throw new FinancialHistoryError()
     if (child.scope === 'direct') {

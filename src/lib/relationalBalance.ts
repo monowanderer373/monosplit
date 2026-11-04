@@ -143,7 +143,7 @@ function signedDirection(
   return debtorParticipantId === lowerParticipantId ? amountMinor : -amountMinor
 }
 
-function deriveExpenseObligations(
+export function deriveExpenseObligations(
   expenses: readonly CanonicalExpense[],
   context: BalanceContext,
 ): ExpenseObligation[] {
