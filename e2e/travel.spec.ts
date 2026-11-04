@@ -230,7 +230,7 @@ test('Group global Quick Add keeps ledger ownership separate from splitting', as
     const quick = page.getByRole('dialog', { name: 'Quick Add', exact: true })
     await expect(quick.getByTestId('quick-add-ledger')).toContainText('Household')
     await expect(quick.getByLabel('Currency', { exact: true })).toHaveValue('SGD')
-    await expect(quick.getByRole('button', { name: /^Split/ })).toHaveText('Split')
+    await expect(quick.getByRole('button', { name: /^Split/ }).locator('span').first()).toHaveText('Split')
     await enterQuickAmount(quick, '18')
     await quick.getByRole('button', { name: 'Food', exact: true }).click()
     await quick.getByRole('textbox', { name: 'Note', exact: true }).fill('Own group expense')

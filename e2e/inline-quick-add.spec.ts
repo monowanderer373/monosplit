@@ -59,7 +59,7 @@ for(const width of [320,360,390,430])test(`Inline ledger selection and real frie
   await header.click();await quick.getByRole('tab',{name:'Friends',exact:true}).click()
   for(const name of ['Ada','Ben','Cora'])await quick.getByRole('checkbox',{name,exact:true}).check()
   await expect(quick.getByText('3 selected',{exact:true})).toBeVisible();await expect(header).toContainText('Mountain weekend')
-  await expect(quick.getByRole('button',{name:/^Split/})).toHaveText('Split');await capture(page,`04-friends-${width}`)
+  await expect(quick.getByRole('button',{name:/^Split/}).locator('span').first()).toHaveText('Split');await capture(page,`04-friends-${width}`)
   await quick.getByRole('searchbox').fill('Ada');await expect(quick.getByText('3 selected',{exact:true})).toBeVisible()
   await quick.getByRole('button',{name:'Use selected friends',exact:true}).click()
   const split=page.getByRole('dialog',{name:'Split expense',exact:true})
@@ -93,6 +93,6 @@ for(const width of [320,360,390,430])test(`Inline ledger selection and real frie
   await quick.getByRole('button',{name:'Close Quick Add',exact:true}).click();await expect(quick).toHaveCount(0)
   await page.goto(`/person/${people[1]}`);await expect(page.getByRole('heading',{name:'Ben',exact:true})).toBeVisible();await page.getByRole('button',{name:'Quick add expense',exact:true}).click()
   await expect(header).toContainText('Ben');await quick.getByRole('button',{name:/^Split/}).click();await expect(split.getByRole('checkbox',{name:'Ben',exact:true})).toBeChecked();await expect(split.getByRole('checkbox',{name:'Ada',exact:true})).not.toBeChecked()
-  await split.getByRole('button',{name:'Close panel',exact:true}).click();await quick.getByRole('button',{name:'Close Quick Add',exact:true}).click();await expect(quick).toHaveCount(0)
+  await split.getByRole('button',{name:'Back to Quick Add',exact:true}).click();await quick.getByRole('button',{name:'Close Quick Add',exact:true}).click();await expect(quick).toHaveCount(0)
  }finally{await actor.context.close()}
 })

@@ -68,7 +68,7 @@ test('keeps Person Detail money-first and inherits that Person', async ({
     await inherited.getByRole('button', { name: /^Split/ }).click()
     const split = owner.getByRole('dialog', { name: 'Split expense' })
     await expect(split.getByText('Lan cash', { exact: true }).first()).toBeVisible()
-    await split.getByRole('button', { name: 'Close panel' }).click()
+    await split.getByRole('button', { name: 'Back to Quick Add' }).click()
     await inherited.getByRole('button', { name: 'Close Quick Add' }).click()
 
     await owner.getByRole('button', { name: 'Quick add expense' }).click()
