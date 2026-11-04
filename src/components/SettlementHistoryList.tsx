@@ -19,7 +19,7 @@ export default function SettlementHistoryList({
   currentParticipantId,
   participantNames,
   expenses,
-  settlements, renderAction, excludePending=false, compact=false,
+  settlements, renderAction, excludePending=false, compact=false, excludeBundleFacts=false,
 }: {
   context: BalanceContext
   currentParticipantId: string
@@ -28,6 +28,7 @@ export default function SettlementHistoryList({
   settlements: readonly SettlementPayment[]
   compact?: boolean
   excludePending?: boolean
+  excludeBundleFacts?: boolean
   renderAction?: (payment: SettlementPayment, allocation: SettlementAllocation) => ReactNode
 }) {
   const t = useT()
@@ -40,13 +41,13 @@ export default function SettlementHistoryList({
         context,
       )
       return {
-        entries: deriveSettlementHistoryEntries(settlements, attributions).filter(entry=>!excludePending||entry.allocation.state!=='pending'),
+        entries: deriveSettlementHistoryEntries(settlements, attributions).filter(entry=>(!excludePending||entry.allocation.state!=='pending')&&(!excludeBundleFacts||!(entry.settlement.fxCashOnly||entry.settlement.note==='fx-cash'||entry.settlement.note==='fx-coverage'))),
         failed: false,
       }
     } catch {
       return { entries: [], failed: true }
     }
-  }, [context, expenses, settlements,excludePending])
+  }, [context, expenses, settlements,excludePending,excludeBundleFacts])
 
   if (!result.failed && result.entries.length === 0) return null
 

@@ -140,7 +140,7 @@ jobs:
           python3 scripts/generate-trip-editor-apply.py
           git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql docs/runbooks/personal-periods-production-apply.sql docs/runbooks/personal-confirmation-production-apply.sql docs/runbooks/shared-restart-production-apply.sql
           mkdir /tmp/tabby-multicurrency-migrations
-          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql supabase/migrations/202610260001_shared_restart.sql supabase/migrations/202610280001_trip_friend_requests.sql supabase/migrations/202610310001_unified_trip_expense_editor.sql supabase/migrations/202611030001_issue08_historical_placeholder_and_fx_settlement.sql supabase/migrations/202611030002_issue08_fx_cash_and_bundle_controls.sql /tmp/tabby-multicurrency-migrations/
+          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql supabase/migrations/202610260001_shared_restart.sql supabase/migrations/202610280001_trip_friend_requests.sql supabase/migrations/202610310001_unified_trip_expense_editor.sql supabase/migrations/202611030001_issue08_historical_placeholder_and_fx_settlement.sql supabase/migrations/202611030002_issue08_fx_cash_and_bundle_controls.sql supabase/migrations/202611040001_issue08_closeout_guards.sql /tmp/tabby-multicurrency-migrations/
           trap 'mv /tmp/tabby-multicurrency-migrations/*.sql supabase/migrations/' EXIT
           npx supabase migration up --local
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
@@ -156,6 +156,13 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-friends-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-editor-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-editor-production-apply.sql
+      - name: Verify Issue08 closeout installer upgrade and replay
+        run: |
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202611030001_issue08_historical_placeholder_and_fx_settlement.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202611030002_issue08_fx_cash_and_bundle_controls.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version,name)values('202611030001','issue08_historical_placeholder_and_fx_settlement'),('202611030002','issue08_fx_cash_and_bundle_controls');"
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/issue08-closeout-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/issue08-closeout-production-apply.sql
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive
@@ -308,7 +315,7 @@ jobs:
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - name: Verify Trip membership, split, dates, financial history and explicit friendship consent
-        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
+        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/issue08-closeout-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
       - name: Report native browser counts and final failures without auth state
         if: always()
         run: node scripts/report-browser-failures.mjs

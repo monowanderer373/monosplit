@@ -19,17 +19,20 @@ import type { ConfirmedSettlement } from '../lib/relationalBalance'
 import './pair-settlement.css'
 
 type Props={self:string;other:string;otherName:string;youOwe:MoneyLine[];theyOwe:MoneyLine[];target:string;spaceId:string;tripName?:string;expenses:readonly CanonicalExpense[];settlements:readonly ConfirmedSettlement[];pageMode:'summary'|'pay'|'review';canPropose:boolean;review?:FxBundle|null;bundleStatus?:'loading'|'ready'|'error';onClose:()=>void;onDone:()=>Promise<unknown>;onRefresh?:()=>Promise<unknown>}
-export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:homeCurrency,spaceId,tripName,expenses,settlements,pageMode,canPropose,review,bundleStatus,onClose,onDone,onRefresh}:Props){
+export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:homeCurrency,spaceId,tripName,expenses,settlements,pageMode,canPropose,review:providedReview,bundleStatus,onClose,onDone,onRefresh}:Props){
   const t=useT(),{authUser}=useAuth(),lang=useStore(s=>s.lang),isReview=pageMode==='review'
+  const review=providedReview&&[providedReview.payer_participant_id,providedReview.counterparty_participant_id].includes(self)?providedReview:null
   const target=isReview&&review?review.target_currency:homeCurrency
   const fx=useInsightsFx(authUser?.id??self,!isReview)
   const [mode,setMode]=useState<'system'|'custom'>('system'),[intent,setIntent]=useState<'full'|'partial'>('full'),[partial,setPartial]=useState(''),[rates,setRates]=useState<Record<string,string>>({})
-  const [accountId,setAccountId]=useState(''),[accounts,setAccounts]=useState<QuickAccount[]>([]),[accountStatus,setAccountStatus]=useState<'loading'|'ready'|'error'>('loading'),[accountRetry,setAccountRetry]=useState(0)
+  const [accountId,setAccountId]=useState(''),[accountRetry,setAccountRetry]=useState(0)
+  const [accountRead,setAccountRead]=useState<{key:string;rows:QuickAccount[];status:'ready'|'error'}|null>(null)
   const [open,setOpen]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false)
   const busyRef=useRef(false),request=useRef<{fingerprint:string;id:string}|null>(null)
   const close=()=>{if(!busyRef.current)onClose()}
   const dialog=useAccessibleDialog<HTMLElement>(close)
   const money=(n:bigint|number,currency=target)=>exactAmount(BigInt(n),currencyExponent(currency),localeForLang(lang))
+  const rateDisplay=(n:string,d:string)=>{if(!n||!d)return '—';const value=Number(n)/Number(d);return Number.isFinite(value)?new Intl.NumberFormat(localeForLang(lang),{maximumFractionDigits:6}).format(value):n+'/'+d}
   const display=(n:bigint|number,currency=target)=>`${currency==='MYR'?'RM':currency} ${money(n,currency)}`
   const foreign=[...new Set([...youOwe,...theyOwe].map(l=>l.currency).filter(c=>c!==target))].sort()
   const rateFor=(code:string)=>code===target?fraction(1n):mode==='custom'?(rates[code]?customForeignPerTarget(rates[code]):null):systemForeignPerTarget(code,target,fx.snapshot)
@@ -38,8 +41,11 @@ export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:h
   const summary=pageMode==='summary'||(!isReview&&full?.ok&&full.direction==='collect')
   const canReview=isReview&&review?.status==='pending'&&review.counterparty_participant_id===self
   const canPay=!isReview&&!summary&&canPropose&&full?.ok&&(full.direction==='pay'||full.direction==='offset')
-  const cash=isReview?review?.cash_minor:quoted?.ok?quoted.cashMinor:null
-  const needsAccount=(canReview||canPay)&&cash!=null&&cash>0
+  const needsAccount=!!(canReview&&review&&review.cash_minor>0||canPay&&full?.ok&&full.fullMinor>0n)
+  const accountScope=self+':'+target
+  const accounts=accountRead?.key===accountScope?accountRead.rows:[]
+  const accountStatus=accountRead?.key===accountScope?accountRead.status:'loading'
+  const accountValid=accountStatus==='ready'&&accounts.some(a=>a.id===accountId&&a.currency===target)
   const sources=pairExpenseSources(expenses,spaceId,self,other)
   const versions=pairExpenseVersions(expenses,spaceId,self,other)
   const sourceChanged=!!review?.quote.expenses?.some(v=>!expenses.some(e=>e.id===v.id&&e.version===v.version&&e.scope==='space'&&e.spaceId===spaceId&&e.status==='active'))
@@ -54,15 +60,16 @@ export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:h
   useEffect(()=>{
     if(!needsAccount)return
     let active=true
-    void loadQuickAccounts().then(rows=>{if(active){setAccounts(rows.filter(a=>a.currency===target));setAccountStatus('ready')}},()=>{if(active)setAccountStatus('error')})
+    void loadQuickAccounts().then(rows=>{if(active)setAccountRead({key:accountScope,rows:rows.filter(a=>a.currency===target),status:'ready'})},()=>{if(active)setAccountRead({key:accountScope,rows:[],status:'error'})})
     return()=>{active=false}
-  },[needsAccount,target,self,accountRetry])
+  },[needsAccount,target,self,accountRetry,accountScope])
   useEffect(()=>{
     const viewport=window.visualViewport
     if(!viewport)return
-    const resize=()=>{dialog.current?.style.setProperty('--fx-height',viewport.height+'px');dialog.current?.style.setProperty('--fx-top',viewport.offsetTop+'px')}
+    let frame=0
+    const resize=()=>{dialog.current?.style.setProperty('--fx-height',viewport.height+'px');dialog.current?.style.setProperty('--fx-top',viewport.offsetTop+'px');const active=document.activeElement;if(active instanceof HTMLElement&&dialog.current?.contains(active)&&active.matches('input,select')){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>active.scrollIntoView({block:'nearest',behavior:'instant'}))}}
     resize();viewport.addEventListener('resize',resize);viewport.addEventListener('scroll',resize)
-    return()=>{viewport.removeEventListener('resize',resize);viewport.removeEventListener('scroll',resize)}
+    return()=>{cancelAnimationFrame(frame);viewport.removeEventListener('resize',resize);viewport.removeEventListener('scroll',resize)}
   },[dialog])
   const refresh=async()=>{setError('');await Promise.all([fx.retry(true),onRefresh?.()])}
   const receipt=async()=>{
@@ -103,13 +110,13 @@ export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:h
       {open?<section className="fx-included">{sourceChanged?<p role="alert">{t('fx.sourceChanged')}</p>:<ul>{sources.map(row=><li key={row.expenseId}><strong>{row.expense.description??row.expense.currency}</strong><small>{formatDate(row.expense.occurredOn,lang)}</small><p>{t('fx.pairOriginal')} · {display(row.amountMinor,row.currency)}</p>{applications.has(row.expenseId)?<p>{t('fx.applied')} · {display(applications.get(row.expenseId)!,row.currency)}</p>:null}</li>)}</ul>}<p className="fx-muted">{t('fx.previewHelp')}</p></section>:null}
       {coverage.length?<section className="fx-coverage"><h3>{t('fx.sources')}</h3>{coverage.map(c=><div key={c.direction+c.currency}><span>{t(c.direction==='you_owe'?'fx.pay':'fx.collect')} · {c.currency}</span><span>{display(c.coveredMinor,c.currency)}<small>{t('fx.remaining')} {display(c.remainingMinor,c.currency)}</small></span></div>)}</section>:null}
       <section className="fx-rates"><h3>{t('fx.exchangeRate')}</h3>{!isReview&&pageMode==='pay'?<div className="fx-segment" role="group" aria-label={t('fx.exchangeRate')}>{(['system','custom']as const).map(v=><button key={v} type="button" aria-pressed={mode===v} disabled={busy} onClick={()=>{setMode(v);setError('')}}>{t(v==='system'?'fx.system':'fx.custom')}</button>)}</div>:null}
-      {!isReview&&pageMode==='pay'&&mode==='custom'?foreign.map(code=><label className="fx-rate-input" key={code}><span>1 {target} =</span><AmountInput aria-label={code} value={rates[code]??''} onValueChange={value=>setRates(r=>({...r,[code]:value}))} disabled={busy}/><span>{code}</span></label>):rateRows.map(([code,r])=><p className="fx-rate-value" key={code}>1 {target} = {r.numerator?(r.denominator==='1'?r.numerator:r.numerator+'/'+r.denominator):'—'} {code}{r.provider||r.rateDate?<small>{[r.provider,r.rateDate].filter(Boolean).join(' · ')}</small>:null}</p>)}
+      {!isReview&&pageMode==='pay'&&mode==='custom'?foreign.map(code=><label className="fx-rate-input" key={code}><span>1 {target} =</span><AmountInput aria-label={code} value={rates[code]??''} onValueChange={value=>setRates(r=>({...r,[code]:value}))} disabled={busy}/><span>{code}</span></label>):rateRows.map(([code,r])=><p className="fx-rate-value" key={code}>1 {target} = {rateDisplay(r.numerator,r.denominator)} {code}{r.provider||r.rateDate?<small>{[r.provider,r.rateDate].filter(Boolean).join(' · ')}</small>:null}</p>)}
       {!isReview?<><p className="fx-muted">{t('tw.referenceEstimate')} · {fx.snapshot.status}{fx.snapshot.fetchedAt?' · '+fx.snapshot.fetchedAt.slice(0,10):''}</p>{!full?.ok?<p className="fx-muted" role="status">{t(fx.updating?'common.loading':'fx.rateUnavailable')}</p>:null}<button type="button" className="fx-text" disabled={busy||fx.updating} onClick={()=>void refresh()}>{t('fx.refreshQuote')}</button></>:null}</section>
       {canPay?<section className="fx-payment"><h3>{t('fx.payment')}</h3><div className="fx-segment" role="group" aria-label={t('fx.payment')}>{(['full','partial']as const).map(v=><button key={v} type="button" aria-pressed={intent===v} disabled={busy||full?.ok&&full.direction==='offset'} onClick={()=>{setIntent(v);setError('')}}>{t(v==='full'?'fx.full':'fx.partial')}</button>)}</div>{intent==='partial'?<label className="fx-partial"><span>{target==='MYR'?'RM':target}</span><AmountInput aria-label={t('fx.partial')} value={partial} onValueChange={setPartial} disabled={busy}/></label>:null}{intent==='partial'&&quoted?.ok?<p className="fx-muted">{t('fx.remaining')} ≈ {display(quoted.fullMinor-quoted.cashMinor)}</p>:null}{accountField}<p className="fx-muted">{t(full?.ok&&full.direction==='offset'?'fx.offsetHelp':'fx.confirmHelp',{name:otherName})}</p></section>:summary?<p className="fx-awaiting">{t('fx.awaitingReporter',{name:otherName})}</p>:null}
       {canReview?accountField:null}{sourceChanged&&isReview?<p role="alert" className="fx-error">{t('fx.sourceChanged')}</p>:null}
       {quoteError||error?<div role="alert" className="fx-error"><p>{errorText(quoteError||error)}</p>{/balance_changed|version_conflict|quote_changed/.test(error)?<button type="button" disabled={busy} onClick={()=>void refresh()}>{t('fx.refreshQuote')}</button>:null}</div>:null}
       </>}
     </div>
-    {canReview?<footer className="fx-footer"><div className="fx-review-actions"><button type="button" className="fx-secondary" disabled={busy} onClick={()=>void respond('declined')}>{t('common.decline')}</button><button type="button" className="fx-primary" disabled={busy||sourceChanged||review!.cash_minor>0&&!accountId} onClick={()=>void respond('accepted')}>{t('settlement.confirmReceived')}</button></div></footer>:!isReview&&pageMode==='pay'&&!summary?<footer className="fx-footer"><button type="button" className="fx-primary" disabled={busy||!canPay||!quoted?.ok||quoted.cashMinor>0n&&!accountId} onClick={()=>void submit()}>{t(full?.ok&&full.direction==='offset'?'fx.offset':'fx.record')}</button><small>{t('fx.recordHelp')}</small></footer>:null}
+    {canReview?<footer className="fx-footer"><div className="fx-review-actions"><button type="button" className="fx-secondary" disabled={busy} onClick={()=>void respond('declined')}>{t('common.decline')}</button><button type="button" className="fx-primary" disabled={busy||sourceChanged||review!.cash_minor>0&&!accountValid} onClick={()=>void respond('accepted')}>{t('settlement.confirmReceived')}</button></div></footer>:!isReview&&pageMode==='pay'&&!summary?<footer className="fx-footer"><button type="button" className="fx-primary" disabled={busy||!canPay||!quoted?.ok||quoted.cashMinor>0n&&!accountValid} onClick={()=>void submit()}>{t(full?.ok&&full.direction==='offset'?'fx.offset':'fx.record')}</button><small>{t('fx.recordHelp')}</small></footer>:null}
   </div></section>,document.getElementById('root')??document.body)
 }

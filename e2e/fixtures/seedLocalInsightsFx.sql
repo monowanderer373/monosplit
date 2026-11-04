@@ -6,6 +6,8 @@ begin
   insert into tabby_fx.snapshots(rates, fetched_at)
   values (
     jsonb_build_object(
+      'VND', jsonb_build_object('currency','VND','quote','MYR','numerator','1','denominator','6320','direction','MYR-per-foreign','originalBase','MYR','originalQuote','VND','originalRate','6320','rateDate',current_date::text,'fetchedAt',now(),'provider','Frankfurter','providerKeys','[]'::jsonb,'mode','blended-reference'),
+      'USD', jsonb_build_object('currency','USD','quote','MYR','numerator','1','denominator','0.24552','direction','MYR-per-foreign','originalBase','MYR','originalQuote','USD','originalRate','0.24552','rateDate',current_date::text,'fetchedAt',now(),'provider','Frankfurter','providerKeys','[]'::jsonb,'mode','blended-reference'),
       'JPY', jsonb_build_object(
         'currency','JPY','quote','MYR','numerator','1','denominator','33',
         'direction','MYR-per-foreign','originalBase','MYR','originalQuote','JPY',
