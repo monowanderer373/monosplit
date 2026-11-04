@@ -73,7 +73,7 @@ test('compact capture has twelve category slots, simple entries and dismissible 
  const {quick,state}=await setup(page)
  await expect(quick.locator('.qa-category-or-picker-slot .qa-category')).toHaveCount(12)
  await expect(quick.locator('.qa-context-row')).not.toContainText('ACCOUNT');await expect(quick.locator('.qa-context-row')).not.toContainText('Personal');await expect(quick.locator('.qa-context-row')).not.toContainText('⌄')
- await expect(quick.locator('.qa-split-trigger')).toHaveText('Split');await expect(quick.locator('.qa-split-trigger svg')).toHaveCount(0)
+ await expect(quick.locator('.qa-split-trigger')).toContainText('Split');await expect(quick.locator('.qa-split-trigger svg')).toHaveCount(1)
  await expect(quick.getByRole('button',{name:'Save options'})).toHaveCount(0);await expect(quick.locator('.qa-save-options')).toHaveCount(0)
  const save=quick.getByRole('button',{name:'Save and close',exact:true});await save.click();const toast=quick.locator('.qa-toast');await expect(toast).toContainText('Choose a category');await expect(toast).toHaveCount(0,{timeout:2500})
  await save.click();await expect(toast).toBeVisible();await quick.getByRole('button',{name:'Food',exact:true}).click();await expect(toast).toHaveCount(0);await expect(quick.getByRole('textbox',{name:'Amount',exact:true})).toHaveValue('18.9');expect(state.writes).toHaveLength(0)

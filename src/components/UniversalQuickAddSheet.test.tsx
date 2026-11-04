@@ -119,7 +119,7 @@ describe('Quick Add capture',()=>{
   fireEvent.click(screen.getByRole('button',{name:/Split/}))
   await screen.findByRole('dialog',{name:'Split expense'})
   fireEvent.click(screen.getByRole('button',{name:'Apply split'}))
-  expect(screen.queryByRole('dialog',{name:'Split expense'})).toBeNull()
+  await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Split expense'})).toBeNull())
   expect((screen.getByRole('textbox',{name:'Amount'}) as HTMLInputElement).value).toBe('')
   expect(mocked.submit).not.toHaveBeenCalled()
  })

@@ -35,7 +35,7 @@ test('keeps capture history and split cancellation separate without losing the d
   await split.getByRole('button', { name: 'Amounts', exact: true }).click()
   await split.getByRole('textbox', { name: 'Share for History Tester' }).fill('120')
   // Cancel discards panel edits, while keeping the surrounding capture draft.
-  await split.getByRole('button', { name: 'Close panel' }).click()
+  await split.getByRole('button', { name: 'Back to Quick Add' }).click()
   await expect(capture.getByRole('textbox', { name: 'Amount' })).toHaveValue('120')
   await expect(capture.getByRole('textbox', { name: 'Note' })).toHaveValue('Dinner')
   split = await openQuickSplit(capture, page)
