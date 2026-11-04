@@ -3,7 +3,11 @@ import{createClient,type SupabaseClient}from'@supabase/supabase-js'
 import{test,expect}from'@playwright/test'
 import{createConfirmedAccount,openAuthenticatedBrowser,seedLocalInsightsDisplayFx,type FixtureAccount}from'./fixtures/localSupabase'
 const anon='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
-async function client(account:FixtureAccount){const c=createClient('http://127.0.0.1:54321',anon,{auth:{persistSession:false,autoRefreshToken:false}});const{error}=await c.auth.signInWithPassword({email:account.email,password:account.password});if(error)throw error;return c}
+async function client(account:FixtureAccount){const c=createClient('http://127.0.0.1:54321',anon,{auth:{persistSession:false,autoRefreshToken:false}});const{error}=await c.auth.signInWithPassword({email:account.email,password:account.password});if(error)throw error;
+ // GoTrue and PostgREST are separate disposable containers: wait only for a
+ // freshly issued token's clock boundary, before any financial command runs.
+ for(let attempt=0;;attempt++){const ready=await c.rpc('current_participant_id');if(!ready.error)return c;if(ready.error.code!=='PGRST303'||ready.error.message!=='JWT issued at future'||attempt>=8)throw ready.error;await new Promise(resolve=>setTimeout(resolve,250))}
+}
 async function rpc(c:SupabaseClient,name:string,args:Record<string,unknown>={}){const{data,error}=await c.rpc(name,args);if(error)throw error;return data}
 async function rows(c:SupabaseClient,table:string,field:string,id:string){const{data,error}=await c.from(table).select('*').eq(field,id);if(error)throw error;return data}
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
