@@ -1,3 +1,9 @@
+## 2026-11-05 — Trip batch mixed-currency settlement (in progress)
+
+- Branch `feat/trip-batch-mixed-settlement` starts at current main b0065d5; read ZIP README/01–03 and opened interactive preview over local HTTP. Preserving Issue01–08 and Quick Add fullscreen.
+- Additive frozen-review/one-transaction batch proposal over Issue08 pair readers, coverage reservations, private cash legs, existing confirmation journals and whole-child reverse. Client fullscreen entry/review/result and opaque interrupted-request recovery in progress.
+- Focused SQL, native concurrency/browser and production-module phone verification pending; no production financial QA writes. Actual hosted SQL role independently remains supabase_read_only_user (CREATE false). Do not publish frontend until migration verified.
+
 # Work log
 
 ## 2026-11-03 — Issue 08 historical shares, spending card, FX settlement
