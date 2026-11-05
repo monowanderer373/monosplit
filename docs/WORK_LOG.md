@@ -1,3 +1,8 @@
+## 2026-11-05 — Source scroll restoration verified
+
+- Extra320/390px checks reproduced a real batch-only return problem: native Back restored focus but source scroll returned to0. Record the actor/path/scroll/trigger at the actual batch entry, then restore after dialog/route cleanup. Global navigation helpers remain unchanged. Added all four native/header Back checks at nonzero source scroll; all16batch phone journeys now pass (50.2s), no skipped/retried assertions.
+- Previous functional source4858c09 passed all8 jobs:903units,1221SQL+concurrency/installer routes,360productionUI direct,15native,17Travel,10CollectPay; fullbrowser525direct+1retry. Final current scroll-source change requires new-head Quality results. No schema changes; approved final V2 installer still exact74,536bytes at53b5c2e. Hosted role remains read-only and new schema absent; production not promoted.
+
 ## 2026-11-05 — Interrupted-request test causality and final UI states
 
 - Reproduced the earlier recovery-heading failure locally. Error context correctly said "No payment was registered": the test refreshed while its simulated submit was still in flight, before the commit-then-abort fixture executed. This was an incorrect test assumption, not evidence of a duplicated or lost financial commit. Test now waits for the injected commit and completed transport failure; a separate no-commit case verifies the retired first ID and explicit new review/request. Actual server late-request fencing already passes real competing-session tests.

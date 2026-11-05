@@ -1,5 +1,5 @@
 import AmountInput from './AmountInput'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInRouterContext } from 'react-router-dom'
 import { useSettlementDraft } from '../hooks/useSettlementDraft'
 import { useStore } from '../store/useStore'
@@ -129,9 +129,24 @@ function SettlementPanelBody({
   const [localPair,setLocalPair]=useState<PairPage|null>(null)
   const pair=pairNavigation??{value:localPair,open:setLocalPair,close:()=>setLocalPair(null)}
   const [heldBatch,setHeldBatch]=useState<PairPage|null>(null)
-  const closeHeldBatch=useCallback(()=>setHeldBatch(null),[])
+  const batchSource=useRef<{actor:string;path:string;scroll:number;trigger:HTMLElement|null}|null>(null)
+  const restoreBatchSource=useCallback(()=>{
+    const source=batchSource.current;if(!source||source.actor!==currentParticipantId)return
+    batchSource.current=null
+    // Run after the dialog restores focus and the route restores its own entry.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(window.location.pathname+window.location.search+window.location.hash!==source.path)return
+      const trigger=source.trigger?.isConnected?source.trigger:document.querySelector<HTMLElement>('[data-testid="trip-ledger"] [role="tab"][aria-selected="true"]')
+      trigger?.focus({preventScroll:true});window.scrollTo({top:source.scroll,behavior:'instant'})
+    }))
+  },[currentParticipantId])
+  const closeHeldBatch=useCallback(()=>{setHeldBatch(null);restoreBatchSource()},[restoreBatchSource])
   useEffect(()=>{if(pair.value?.mode==='batch')setHeldBatch(pair.value)},[pair.value])
-  const openPair=(value:PairPage)=>{if(value.mode!=='batch')setHeldBatch(null);pair.open(value)}
+  const openPair=(value:PairPage)=>{
+    if(value.mode==='batch')batchSource.current={actor:currentParticipantId,path:window.location.pathname+window.location.search+window.location.hash,scroll:window.scrollY,trigger:document.activeElement instanceof HTMLElement?document.activeElement:null}
+    else{setHeldBatch(null);batchSource.current=null}
+    pair.open(value)
+  }
   const fx=useInsightsFx(currentParticipantId,view==='trip-current'&&!hidden&&debts.some(d=>d.currency!==quoteCurrency||d.currency!=='MYR'))
   const otherIds=[...new Set([...debts.map(d=>d.debtorParticipantId===currentParticipantId?d.creditorParticipantId:d.debtorParticipantId),...fxBundles.filter(b=>b.status==='pending').map(b=>b.payer_participant_id===currentParticipantId?b.counterparty_participant_id:b.payer_participant_id)])]
   const pairs=otherIds.map(other=>{
@@ -353,7 +368,7 @@ function SettlementPanelBody({
           {excluded&&!p.pending?<p className="fx-pair-status batch-excluded">{excluded}</p>:null}{!p.pending&&outgoing&&(p.currencies.length>1||!p.quote?.ok||!!excluded)?<button type="button" className="fx-legacy-link" disabled={hidden||!canPropose||fxRead.status!=='ready'} onClick={()=>openPair({other:p.other,mode:'pay'})}>Single-currency settlement</button>:null}{p.pending?<p className="fx-pair-status">{t('settlement.awaitingConfirmation')}</p>:p.quote?.ok&&p.quote.direction==='collect'?<p className="fx-pair-status">{t('tl.awaiting')}</p>:null}</article>
         })}</div>
       </>:null}
-      {batchPage&&!hidden&&context.scope==='space'?<TripBatchSettlement key={currentParticipantId+':'+context.spaceId+':'+batchPage.other} nativeExit={!!heldBatch&&!!pairNavigation&&activePair?.mode!=='batch'} onNativeExit={closeHeldBatch} actor={currentParticipantId} trip={context.spaceId} tripName={tripName} candidates={batchCandidates} only={batchPage.other==='all'?undefined:batchPage.other} onClose={()=>{setHeldBatch(null);pair.close()}} onChanged={async()=>{await onChanged?.();fxRead.retry()}}/>:null}
+      {batchPage&&!hidden&&context.scope==='space'?<TripBatchSettlement key={currentParticipantId+':'+context.spaceId+':'+batchPage.other} nativeExit={!!heldBatch&&!!pairNavigation&&activePair?.mode!=='batch'} onNativeExit={closeHeldBatch} actor={currentParticipantId} trip={context.spaceId} tripName={tripName} candidates={batchCandidates} only={batchPage.other==='all'?undefined:batchPage.other} onClose={()=>{setHeldBatch(null);pair.close();restoreBatchSource()}} onChanged={async()=>{await onChanged?.();fxRead.retry()}}/>:null}
       {activePair&&activePair.mode!=='batch'&&!hidden&&context.scope==='space'?<PairSettlementView key={activePair.other+activePair.mode+activePair.bundleId} self={currentParticipantId} other={activePair.other} otherName={participantNames.get(activePair.other)??t('common.member')} {...pairLines(debts,currentParticipantId,activePair.other)} target={quoteCurrency} spaceId={context.spaceId} tripName={tripName} expenses={expenses} settlements={contextSettlements} pageMode={activePair.mode} canPropose={canPropose} review={activeBundle} bundleStatus={fxRead.status} onClose={pair.close} onRefresh={onChanged} onDone={async()=>{pair.close();await onChanged?.();fxRead.retry()}}/>:null}
       {view!=='trip-history'?<div>{view==='trip-current'?<button type="button" className="ms-btn-ghost fx-legacy-options" aria-expanded={legacyVisible||!!expanded} onClick={()=>setLegacyVisible(v=>!v)}>Single-currency options</button>:null}<div className="ms-list tt-paper-list fx-legacy-native" hidden={view==='trip-current'&&!legacyVisible&&!expanded}>
         {debts.length === 0 ? (
