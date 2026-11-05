@@ -1,3 +1,9 @@
+## 2026-11-05 — Complete functional validation; final palette alignment
+
+- Source53b5c2e: all8 Quality jobs passed.902units/lint/TS/build;1221SQL + actual batch/legacy overlap/fences; fresh001+002/old001upgrade/replay;15native multi-user;17Travel;10CollectPay;523full-browser direct0flaky. ProductionUI356direct+1flaky recovery-heading case (passed second retry); unchanged local20-case recovery repeat passed; original flaky evidence retained. Hosted unchanged UI rerun requested before final palette alignment, not a hidden clean-run claim.
+- Match new batch page exactly to written01 palette (#F6F3EB/#233846/#2E667D/#E6EFF0/#86523D) and16–18px gutters. Existing Travel/MySpending/Issue01–08 styles unchanged. Fresh-source checks and mobile screenshots pending after this CSS-only application change.
+- Final operator script53b5c2e remains byte-identical74,536bytes; applies001+002/upgrade001, marker TABBY_TRIP_BATCH_INSTALL_COMPLETE_20261105_V2. Hosted verification still reports missing batch installation and read-only connection. No merge/promotion before schema verification; no customer production financial QA writes. Prepared guarded release/provider/public/PWA scripts in /tmp/tabby-batch-release and actual-module synthetic screenshots in /workspace/artifacts/trip-batch.
+
 ## 2026-11-05 — Direct-RPC rate boundary hardening
 
 - Final negative tests found the original001 validator did not enforce the new Custom precision/upper bound on a VND source when the actual cash was MYR only. UI already rejected it. Added guarded additive002 to validate the same limits on both source and cash conversion and require System cash rate metadata. No expense/cash/history rewrites;001 remains immutable.
