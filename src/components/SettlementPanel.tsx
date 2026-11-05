@@ -145,9 +145,12 @@ function SettlementPanelBody({
   const totalPay=pairs.reduce((n,p)=>n+(p.quote?.ok&&p.quote.direction==='pay'?p.quote.fullMinor:0n),0n)
   const totalCollect=pairs.reduce((n,p)=>n+(p.quote?.ok&&p.quote.direction==='collect'?p.quote.fullMinor:0n),0n)
   const batchCandidates:BatchCandidate[]=pairs.map(p=>({id:p.other,name:participantNames.get(p.other)??t('common.member'),youOwe:p.youOwe,theyOwe:p.theyOwe,
-    blocked:!canPropose?'You cannot record payments in this trip':currentMemberIds&&!currentMemberIds.has(p.other)?'Not a current trip member':fxRead.status!=='ready'?'Payment status unavailable':p.pending||contextSettlements.some(s=>s.allocations.some(a=>a.state==='pending'&&((s.debtorParticipantId===currentParticipantId&&a.creditorParticipantId===p.other)||(s.debtorParticipantId===p.other&&a.creditorParticipantId===currentParticipantId))))?'Pending payment — review or cancel first':undefined}))
-  const batchEligible=batchCandidates.filter(c=>{if(c.blocked)return false;try{const q=quotePair({...c,target:'MYR',rateFor:code=>systemForeignPerTarget(code,'MYR',fx.snapshot),intent:'full'});return q.ok&&q.direction==='pay'}catch{return false}})
-  const batchPayTotal=batchEligible.reduce((sum,c)=>{const q=quotePair({...c,target:'MYR',rateFor:code=>systemForeignPerTarget(code,'MYR',fx.snapshot),intent:'full'});return sum+(q.ok?q.fullMinor:0n)},0n)
+    blocked:!canPropose?'You cannot record payments in this trip':currentMemberIds&&!currentMemberIds.has(p.other)?'Not a current trip member':fxRead.status!=='ready'?'Payment status unavailable':p.pending||contextSettlements.some(s=>s.allocations.some(a=>a.state==='pending'&&((s.debtorParticipantId===currentParticipantId&&a.creditorParticipantId===p.other)||(s.debtorParticipantId===p.other&&a.creditorParticipantId===currentParticipantId))))?'Pending payment — review or cancel first':!fx.updating&&p.currencies.some(code=>code!=='MYR'&&code!=='VND'&&!systemForeignPerTarget(code,'MYR',fx.snapshot))?'System rate unavailable. Use single-currency settlement':undefined}))
+  const batchQuotes=new Map(batchCandidates.map(c=>{let q:ReturnType<typeof quotePair>|null=null;try{q=quotePair({...c,target:'MYR',rateFor:code=>systemForeignPerTarget(code,'MYR',fx.snapshot),intent:'full'})}catch{/* Unpriced stays unavailable. */}return[c.id,q]as const}))
+  const batchEligible=batchCandidates.filter(c=>{const q=batchQuotes.get(c.id);return !c.blocked&&q?.ok&&q.direction==='pay'})
+  const batchUnpriced=batchCandidates.some(c=>!c.blocked&&c.youOwe.length>0&&!batchQuotes.get(c.id)?.ok&&[...c.youOwe,...c.theyOwe].every(l=>l.currency==='VND'||!!systemForeignPerTarget(l.currency,'MYR',fx.snapshot)))
+  const batchNoPayments=pairs.every(p=>{const q=batchQuotes.get(p.other);return !p.youOwe.length||q?.ok&&q.direction!=='pay'})
+  const batchPayTotal=batchEligible.reduce((sum,c)=>{const q=batchQuotes.get(c.id)!;return sum+(q.ok?q.fullMinor:0n)},0n)
   const recovery=context.scope==='space'?readBatchRecovery(currentParticipantId,context.spaceId):null
   const activePair=pair.value
   const batchPage=activePair?.mode==='batch'?activePair:heldBatch
@@ -340,7 +343,7 @@ function SettlementPanelBody({
         <p className="fx-muted">{t('fx.estimatedIn',{currency:quoteCurrency})}</p>
         <div className="tw-balance-grid fx-estimated-summary" data-testid="pair-totals"><div><span>{t('fx.pay')}</span><strong>{totalsKnown?estimated(totalPay):t('tw.estimateUnavailable')}</strong></div><div><span>{t('fx.collect')}</span><strong>{totalsKnown?estimated(totalCollect):t('tw.estimateUnavailable')}</strong></div></div>
         {fxRead.status==='error'?<p role="alert">{t('tl.unavailable')} <button type="button" className="ms-btn-ghost" onClick={fxRead.retry}>{t('common.retry')}</button></p>:null}
-        {!hidden&&(batchEligible.length>0||batchCandidates.some(c=>!c.blocked&&c.youOwe.length>0)||recovery)?<button type="button" className="batch-launch" disabled={!!action||fxRead.status!=='ready'} onClick={()=>openPair({other:'all',mode:'batch'})}>{recovery?'Check payment result':batchEligible.length?'Settle all · RM '+exactAmount(batchPayTotal,2,localeForLang(lang)):'Settle all'}</button>:!hidden&&!pairs.some(p=>p.youOwe.length>0)?<p className="batch-empty-pay">No payments due.</p>:null}
+        {!hidden&&(batchEligible.length>0||batchUnpriced||recovery)?<button type="button" className="batch-launch" disabled={!!action||fxRead.status!=='ready'} onClick={()=>openPair({other:'all',mode:'batch'})}>{recovery?'Check payment result':batchEligible.length?'Settle all · RM '+exactAmount(batchPayTotal,2,localeForLang(lang)):'Settle all'}</button>:!hidden&&batchNoPayments?<p className="batch-empty-pay">No payments due.</p>:null}
         <div className="fx-pair-list">{pairs.map(p=>{
           const name=participantNames.get(p.other)??t('common.member')
           const excluded=batchCandidates.find(c=>c.id===p.other)?.blocked
