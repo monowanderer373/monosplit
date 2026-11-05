@@ -1,3 +1,7 @@
+## 2026-11-05 — Native Back timing correction
+
+- b569a04 introduced a premature exit frame while React Router was still entering the batch route. The unchanged mobile interactions failed; no financial calls occurred. Retain the batch page only after the route has actually been active. Opening state assertion added. Same eight production-module batch journeys then passed (40.2s), including native Back, keyboard viewport, draft return, result reconciliation and enlarged type. Added20-person/long-name keyboard layout case pending execution. No schema change; operator installer remains exact ab0ef2f bytes.
+
 ## 2026-11-05 — Batch settlement validation checkpoint
 
 - PR58 / ab0ef2f schema: database1198 SQL PASS plus actual batch/batch and legacy/batch overlap, existing receipt fences/concurrency; historical upgrade and twice-run installer PASS; app897 and productionUI PASS. First work-in-progress runs retained failures/cancelled obsolete jobs. Actual native cash confirmation reached correct MYR/VND journals with other child still Pending; wrong VND-vs-₫ test expectation and moved compatibility UI expectation corrected; rerun required through whole reverse/cancel.

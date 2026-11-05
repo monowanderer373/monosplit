@@ -1,5 +1,5 @@
 import AmountInput from './AmountInput'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useInRouterContext } from 'react-router-dom'
 import { useSettlementDraft } from '../hooks/useSettlementDraft'
 import { useStore } from '../store/useStore'
@@ -129,7 +129,8 @@ function SettlementPanelBody({
   const pair=pairNavigation??{value:localPair,open:setLocalPair,close:()=>setLocalPair(null)}
   const [heldBatch,setHeldBatch]=useState<PairPage|null>(null)
   const closeHeldBatch=useCallback(()=>setHeldBatch(null),[])
-  const openPair=(value:PairPage)=>{setHeldBatch(value.mode==='batch'?value:null);pair.open(value)}
+  useEffect(()=>{if(pair.value?.mode==='batch')setHeldBatch(pair.value)},[pair.value])
+  const openPair=(value:PairPage)=>{if(value.mode!=='batch')setHeldBatch(null);pair.open(value)}
   const fx=useInsightsFx(currentParticipantId,view==='trip-current'&&!hidden&&debts.some(d=>d.currency!==quoteCurrency||d.currency!=='MYR'))
   const otherIds=[...new Set([...debts.map(d=>d.debtorParticipantId===currentParticipantId?d.creditorParticipantId:d.debtorParticipantId),...fxBundles.filter(b=>b.status==='pending').map(b=>b.payer_participant_id===currentParticipantId?b.counterparty_participant_id:b.payer_participant_id)])]
   const pairs=otherIds.map(other=>{
