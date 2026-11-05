@@ -24,13 +24,13 @@ revoke all on private.trip_batch_quotes,private.trip_batch_cash from public,anon
 -- Shared Issue08 pair calculator. Financial readers, proportional coverage and rounding are unchanged.
 create function private.fx_pair_quote(actor uuid,target_space_id uuid,counterparty_id uuid,target_currency text,rate_mode text,custom_rates jsonb,cash_minor bigint,batch boolean default false)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare code text; you_owe bigint; they_owe bigint; legs jsonb:='[]'; covered_rows jsonb:='[]'; you_value bigint:=0; they_value bigint:=0; full_minor bigint; net bigint; row jsonb; covered bigint; remaining bigint; num numeric; den numeric; rates jsonb:='{}'; snap jsonb; quote_row jsonb; expenses jsonb; scale_target numeric; scale_code numeric; submitted text:=pg_catalog.clock_timestamp()::text;
+declare code text; you_owe bigint; they_owe bigint; legs jsonb:='[]'::jsonb; covered_rows jsonb:='[]'::jsonb; you_value bigint:=0; they_value bigint:=0; full_minor bigint; net bigint; row jsonb; covered bigint; remaining bigint; num numeric; den numeric; rates jsonb:='{}'::jsonb; snap jsonb; quote_row jsonb; expenses jsonb; scale_target numeric; scale_code numeric; submitted text:=pg_catalog.clock_timestamp()::text;
 begin
   if rate_mode='system' or batch then
     select s.rates into snap from tabby_fx.snapshots s join tabby_fx.refresh_state r on r.snapshot_id=s.id;
     if snap is null and not batch then raise exception using message='fx_rate_unavailable', errcode='P0001'; end if;
   elsif custom_rates is null or jsonb_typeof(custom_rates)<>'object' then raise exception using message='invalid_rate', errcode='P0001'; end if;
-  for code in select distinct e.currency from public.expenses e where e.scope='space' and e.space_id=target_space_id and e.status='active' loop
+  for code in select distinct e.currency from public.expenses e where e.scope='space' and e.space_id=target_space_id and e.status='active' order by e.currency loop
     you_owe := private.space_signed_outstanding(target_space_id, actor, counterparty_id, code) - private.pending_pair_minor(target_space_id, actor, counterparty_id, code);
     they_owe := private.space_signed_outstanding(target_space_id, counterparty_id, actor, code) - private.pending_pair_minor(target_space_id, counterparty_id, actor, code);
     if you_owe>0 then legs:=legs||jsonb_build_array(jsonb_build_object('direction','payer_owes','currency',code,'remaining',you_owe)); end if;
@@ -144,10 +144,10 @@ revoke all on function private.trip_batch_account(uuid,uuid,text) from public,an
 create function private.trip_batch_review(actor uuid,target_space_id uuid,rate_mode text,vnd_per_myr text,expected_snapshot_id uuid,recipients jsonb)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare recipient jsonb; cash jsonb; account_id uuid; other uuid; code text; minor bigint; myr bigint; vnd bigint; equivalent bigint; n numeric; d numeric;
- snap jsonb; snapshot uuid; snapshot_needed boolean:=false; vr jsonb; custom_rates jsonb:='{}'; q jsonb; rows jsonb:='[]'; cash_rows jsonb; accounts jsonb:='{}'; authorizations jsonb:='{}'; auth jsonb;
+ snap jsonb; snapshot uuid; snapshot_needed boolean:=false; vr jsonb; custom_rates jsonb:='{}'::jsonb; q jsonb; rows jsonb:='[]'::jsonb; cash_rows jsonb; accounts jsonb:='{}'::jsonb; authorizations jsonb:='{}'::jsonb; auth jsonb;
 begin
  if rate_mode is null or rate_mode not in('system','custom') or jsonb_typeof(recipients) is distinct from 'array' or jsonb_array_length(recipients) not between 1 and 100 then raise exception using message='invalid_amount',errcode='P0001';end if;
- if not exists(select 1 from public.spaces s where s.id=target_space_id and s.type='trip' and s.status='active') or private.space_role(target_space_id,actor) is null then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
+ if not exists(select 1 from public.spaces s where s.id=target_space_id and s.type='trip' and s.status<>'voided') or private.space_role(target_space_id,actor) is null then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
  if(select count(distinct r->>'participantId')from jsonb_array_elements(recipients)r)<>jsonb_array_length(recipients)then raise exception using message='duplicate_recipient',errcode='P0001';end if;
  select r.snapshot_id,s.rates into snapshot,snap from tabby_fx.refresh_state r join tabby_fx.snapshots s on s.id=r.snapshot_id where r.singleton for share of r,s;
  if rate_mode='custom' then
@@ -211,25 +211,25 @@ end $$;
 
 create function public.submit_trip_settlement_batch(quote_id uuid,request_id uuid)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor uuid:=private.require_personal_actor();frozen private.trip_batch_quotes%rowtype;latest jsonb;receipt jsonb;batch uuid;child uuid;child_request uuid;q jsonb;c jsonb;coverage jsonb;payment uuid;allocation uuid;account uuid;children jsonb:='[]';
+declare submit_actor uuid:=private.require_personal_actor();frozen private.trip_batch_quotes%rowtype;latest jsonb;receipt jsonb;batch uuid;child uuid;child_request uuid;q jsonb;c jsonb;coverage jsonb;payment uuid;allocation uuid;account uuid;children jsonb:='[]'::jsonb;
 begin
- receipt:=private.begin_money_operation(actor,request_id,'trip_batch_submit',jsonb_build_object('quoteId',quote_id));
+ receipt:=private.begin_money_operation(submit_actor,request_id,'trip_batch_submit',jsonb_build_object('quoteId',quote_id));
  if receipt is not null then return receipt;end if;
  perform private.lock_collect_pay_balance();
- select * into frozen from private.trip_batch_quotes r where r.id=quote_id and r.actor=submit_trip_settlement_batch.actor for update;
+ select * into frozen from private.trip_batch_quotes r where r.id=quote_id and r.actor=submit_actor for update;
  if frozen.id is null then raise exception using message='quote_not_found',errcode='P0001';end if;
  if frozen.expires_at<=clock_timestamp()then raise exception using message='quote_expired',errcode='P0001';end if;
- latest:=private.trip_batch_review(actor,frozen.space_id,frozen.draft->>'rateMode',frozen.draft->>'vndPerMyr',(frozen.draft->>'snapshotId')::uuid,frozen.draft->'recipients');
+ latest:=private.trip_batch_review(submit_actor,frozen.space_id,frozen.draft->>'rateMode',frozen.draft->>'vndPerMyr',(frozen.draft->>'snapshotId')::uuid,frozen.draft->'recipients');
  -- Time metadata is informational; all source revisions, rates, rounding, account versions and money must match.
  if latest->'accounts' is distinct from frozen.review->'accounts' or latest->'snapshotId' is distinct from frozen.review->'snapshotId'
   or (select jsonb_agg(c-'submittedAt'-'rates' order by c->>'participantId')from jsonb_array_elements(latest->'children')c) is distinct from(select jsonb_agg(c-'submittedAt'-'rates' order by c->>'participantId')from jsonb_array_elements(frozen.review->'children')c)
   or (select jsonb_agg((select jsonb_object_agg(key,value-'submittedAt')from jsonb_each(c->'rates'))order by c->>'participantId')from jsonb_array_elements(latest->'children')c) is distinct from(select jsonb_agg((select jsonb_object_agg(key,value-'submittedAt')from jsonb_each(c->'rates'))order by c->>'participantId')from jsonb_array_elements(frozen.review->'children')c)
  then raise exception using message='quote_changed',errcode='P0001';end if;
- insert into public.trip_settlement_batches(payer_participant_id,space_id,client_request_id)values(actor,frozen.space_id,request_id)returning id into batch;
+ insert into public.trip_settlement_batches(payer_participant_id,space_id,client_request_id)values(submit_actor,frozen.space_id,request_id)returning id into batch;
  for q in select r from jsonb_array_elements(frozen.review->'children')r order by r->>'participantId'loop
   child_request:=private.money_child_request(request_id,q->>'participantId');
   insert into public.settlement_fx_bundles(client_request_id,space_id,payer_participant_id,counterparty_participant_id,target_currency,cash_minor,full_net_minor,rate_mode,status,payer_account_id,quote,batch_id)
-   values(child_request,frozen.space_id,actor,(q->>'participantId')::uuid,'MYR',(q->>'cash_minor')::bigint,(q->>'full_net_minor')::bigint,frozen.draft->>'rateMode','pending',null,q,batch)returning id into child;
+   values(child_request,frozen.space_id,submit_actor,(q->>'participantId')::uuid,'MYR',(q->>'cash_minor')::bigint,(q->>'full_net_minor')::bigint,frozen.draft->>'rateMode','pending',null,q,batch)returning id into child;
   for coverage in select r from jsonb_array_elements(q->'coverages')r loop
    insert into public.settlement_fx_coverages(bundle_id,direction,currency,covered_minor,remaining_minor,rate_numerator,rate_denominator)
     values(child,coverage->>'direction',coverage->>'currency',(coverage->>'covered')::bigint,(coverage->>'remaining')::bigint,q->'rates'->(coverage->>'currency')->>'numerator',q->'rates'->(coverage->>'currency')->>'denominator');
@@ -237,15 +237,15 @@ begin
   for c in select r from jsonb_array_elements(q->'cashLegs')r order by r->>'currency'loop
    account:=(frozen.review->'accounts'->(c->>'currency')->>'id')::uuid;
    insert into public.settlement_payments(client_request_id,scope,space_id,debtor_participant_id,currency,amount_minor,payment_date,status,note,fx_cash_only,cash_tracking_required)
-    values(private.money_child_request(child_request,c->>'currency'),'space',frozen.space_id,actor,c->>'currency',(c->>'amountMinor')::bigint,current_date,'pending','fx-cash',true,true)returning id into payment;
+    values(private.money_child_request(child_request,c->>'currency'),'space',frozen.space_id,submit_actor,c->>'currency',(c->>'amountMinor')::bigint,current_date,'pending','fx-cash',true,true)returning id into payment;
    insert into public.settlement_allocations(settlement_payment_id,creditor_participant_id,amount_minor,state)values(payment,(q->>'participantId')::uuid,(c->>'amountMinor')::bigint,'pending')returning id into allocation;
    insert into public.personal_settlement_cash_legs(owner_participant_id,client_request_id,payload_fingerprint,settlement_payment_id,settlement_allocation_id,role,account_id,cash_amount_minor,account_currency,shared_amount_minor,gift_extra_minor,status)
-    values(actor,private.money_child_request(child_request,'payer:'||(c->>'currency')),private.personal_payload_fingerprint(jsonb_build_object('allocation_id',allocation,'role','payer','account_id',account,'cash_amount_minor',(c->>'amountMinor')::bigint,'account_currency',c->>'currency','shared_amount_minor',(c->>'amountMinor')::bigint,'gift_extra_minor',0)),payment,allocation,'payer',account,(c->>'amountMinor')::bigint,c->>'currency',(c->>'amountMinor')::bigint,0,'pending');
+    values(submit_actor,private.money_child_request(child_request,'payer:'||(c->>'currency')),private.personal_payload_fingerprint(jsonb_build_object('allocation_id',allocation,'role','payer','account_id',account,'cash_amount_minor',(c->>'amountMinor')::bigint,'account_currency',c->>'currency','shared_amount_minor',(c->>'amountMinor')::bigint,'gift_extra_minor',0)),payment,allocation,'payer',account,(c->>'amountMinor')::bigint,c->>'currency',(c->>'amountMinor')::bigint,0,'pending');
    insert into private.trip_batch_cash(bundle_id,currency,payment_id)values(child,c->>'currency',payment);
   end loop;
   children:=children||jsonb_build_array(jsonb_build_object('bundleId',child,'participantId',q->>'participantId','status','pending','cashLegs',q->'cashLegs'));
  end loop;
- return private.finish_money_operation(actor,request_id,jsonb_build_object('batchId',batch,'children',children,'status','pending'));
+ return private.finish_money_operation(submit_actor,request_id,jsonb_build_object('batchId',batch,'children',children,'status','pending'));
 end $$;
 
 create function private.fx_release_bundle_cash(bundle uuid,legacy_payment uuid)

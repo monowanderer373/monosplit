@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import {describe,it,expect,beforeEach} from 'vitest'
 import {batchCash,batchPairPreview,batchRate,nativeBatchTotals,readBatchRecovery,saveBatchRecovery,clearBatchRecovery} from './tripBatchSettlement'
 import {unavailableFx,fraction} from './fx'

@@ -124,6 +124,7 @@ function SettlementPanelBody({
   }, [debtLines,trip,currentParticipantId])
   const fxRead=useFxSettlementBundles(currentParticipantId,context.scope==='space'?context.spaceId:undefined,trip&&!hidden,settlementState.settlements)
   const fxBundles=fxRead.rows
+  const [legacyVisible,setLegacyVisible]=useState(false)
   const [localPair,setLocalPair]=useState<PairPage|null>(null)
   const pair=pairNavigation??{value:localPair,open:setLocalPair,close:()=>setLocalPair(null)}
   const fx=useInsightsFx(currentParticipantId,view==='trip-current'&&!hidden&&debts.some(d=>d.currency!==quoteCurrency||d.currency!=='MYR'))
@@ -343,11 +344,12 @@ function SettlementPanelBody({
       </>:null}
       {activePair?.mode==='batch'&&!hidden&&context.scope==='space'?<TripBatchSettlement actor={currentParticipantId} trip={context.spaceId} tripName={tripName} candidates={batchCandidates} only={activePair.other==='all'?undefined:activePair.other} onClose={pair.close} onChanged={async()=>{await onChanged?.();fxRead.retry()}}/>:null}
       {activePair&&activePair.mode!=='batch'&&!hidden&&context.scope==='space'?<PairSettlementView key={activePair.other+activePair.mode+activePair.bundleId} self={currentParticipantId} other={activePair.other} otherName={participantNames.get(activePair.other)??t('common.member')} {...pairLines(debts,currentParticipantId,activePair.other)} target={quoteCurrency} spaceId={context.spaceId} tripName={tripName} expenses={expenses} settlements={contextSettlements} pageMode={activePair.mode} canPropose={canPropose} review={activeBundle} bundleStatus={fxRead.status} onClose={pair.close} onRefresh={onChanged} onDone={async()=>{pair.close();await onChanged?.();fxRead.retry()}}/>:null}
-      {view!=='trip-history'?<div className="ms-list tt-paper-list">
+      {view!=='trip-history'?<div>{view==='trip-current'?<button type="button" className="ms-btn-ghost fx-legacy-options" aria-expanded={legacyVisible||!!expanded} onClick={()=>setLegacyVisible(v=>!v)}>Single-currency options</button>:null}<div className="ms-list tt-paper-list fx-legacy-native" hidden={view==='trip-current'&&!legacyVisible&&!expanded}>
         {debts.length === 0 ? (
           <p className="p-6 text-center text-sm text-[var(--ms-text-muted)]">{t('settlement.empty')}</p>
         ) : debts.map((debt, index) => {
-          if(view==='trip-current')return null
+          const otherPerson=debt.debtorParticipantId===currentParticipantId?debt.creditorParticipantId:debt.debtorParticipantId
+          if(view==='trip-current'&&(pairs.some(p=>p.other===otherPerson&&p.pending)||debts.some(row=>(row.debtorParticipantId===otherPerson||row.creditorParticipantId===otherPerson)&&row.currency!==debt.currency)))return null
 
           const mine = debt.debtorParticipantId === currentParticipantId
           const intent = intents[debt.key]
@@ -445,7 +447,7 @@ function SettlementPanelBody({
             </div>
           )
         })}
-      </div>:null}
+      </div></div>:null}
 
       {!trip&&incoming.some(({ allocation }) => (
         allocation.state === 'accepted' && allocation.reversalMinor === 0

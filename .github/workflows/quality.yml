@@ -31,6 +31,7 @@ jobs:
         with:
           name: issue07-production-ui-evidence
           path: test-results/issue07/
+            test-results/trip-batch/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -77,7 +78,9 @@ jobs:
       - name: Verify FX settlement with overlapping database sessions
         env:
           FX_SETTLEMENT_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-        run: python3 supabase/tests/fx_settlement_concurrency.py
+        run: |
+          python3 supabase/tests/fx_settlement_concurrency.py
+          python3 supabase/tests/trip_batch_concurrency.py
       - name: Verify atomic multicurrency funding with competing sessions
         env:
           MULTICURRENCY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -163,6 +166,8 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version,name)values('202611030001','issue08_historical_placeholder_and_fx_settlement'),('202611030002','issue08_fx_cash_and_bundle_controls');"
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/issue08-closeout-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/issue08-closeout-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive
@@ -315,7 +320,7 @@ jobs:
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - name: Verify Trip membership, split, dates, financial history and explicit friendship consent
-        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/issue08-closeout-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
+        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/issue08-closeout-backend.spec.ts e2e/trip-batch-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
       - name: Report native browser counts and final failures without auth state
         if: always()
         run: node scripts/report-browser-failures.mjs
