@@ -166,8 +166,8 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version,name)values('202611030001','issue08_historical_placeholder_and_fx_settlement'),('202611030002','issue08_fx_cash_and_bundle_controls');"
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/issue08-closeout-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/issue08-closeout-production-apply.sql
-          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql
-          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql 2>&1 | tee /tmp/tabby-batch-upgrade.log
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql 2>&1 | tee /tmp/tabby-batch-upgrade.log
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive

@@ -1,3 +1,9 @@
+## 2026-11-05 — Batch settlement validation checkpoint
+
+- PR58 / ab0ef2f schema: database1198 SQL PASS plus actual batch/batch and legacy/batch overlap, existing receipt fences/concurrency; historical upgrade and twice-run installer PASS; app897 and productionUI PASS. First work-in-progress runs retained failures/cancelled obsolete jobs. Actual native cash confirmation reached correct MYR/VND journals with other child still Pending; wrong VND-vs-₫ test expectation and moved compatibility UI expectation corrected; rerun required through whole reverse/cancel.
+- Added further real SQL cases for native MYR/VND contra Partial/reversal, rate flip, stale system snapshot and Custom-VND/System-USD. Schema itself remains exact SHA256426c3c45a2617be0a7f8874f2a71f35d65cc68115fad2104c4daf5daccc14de9; operator's already-issued ab0ef2f installer remains canonical66,800bytes. No production financial QA writes.
+- Eight focused production-module phone tests passed with isolated fixtures. Final polish adds native Back exit retention, pure-MYR hides FX, amount-qualified Settle all, original currency coverage details, actual current result statuses and scalable type. Final all-eight Quality validation and schema install/live verification outstanding. Source and test changes stay within Trip settlement and directly affected compatibility checks.
+
 ## 2026-11-05 — Trip batch mixed-currency settlement (in progress)
 
 - Branch `feat/trip-batch-mixed-settlement` starts at current main b0065d5; read ZIP README/01–03 and opened interactive preview over local HTTP. Preserving Issue01–08 and Quick Add fullscreen.

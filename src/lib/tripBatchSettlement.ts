@@ -11,7 +11,8 @@ export type BatchReceipt={batchId:string;status:string;children:{bundleId:string
 export type BatchDraft={selected:boolean;myr:string;vnd:string}
 
 export function batchRate(code:string,mode:'system'|'custom',custom:string,snapshot:FxSnapshot):Fraction|null{
- return code==='VND'&&mode==='custom'?customForeignPerTarget(custom):systemForeignPerTarget(code,'MYR',snapshot)
+ if(code==='VND'&&mode==='custom'){if(!/^[0-9]{1,12}(?:\.[0-9]{1,12})?$/.test(custom))throw new Error('invalid_rate');return customForeignPerTarget(custom)}
+ return systemForeignPerTarget(code,'MYR',snapshot)
 }
 export function batchCash(raw:string,currency:'MYR'|'VND'){
  if(raw.trim()===''||/^0+(?:\.0{1,2})?$/.test(raw))return 0

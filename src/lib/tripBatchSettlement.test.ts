@@ -38,6 +38,7 @@ describe('Trip batch reuses Issue08 coverage and keeps cash currencies separate'
   expect(batchRate('VND','system','6000',unavailableFx)).toBeNull();expect(batchRate('VND','custom','6000',unavailableFx)).toEqual(fraction(6000n));expect(batchRate('USD','custom','6000',unavailableFx)).toBeNull()
   expect(()=>batchPairPreview(person('A',100),{selected:true,myr:'0',vnd:'100'},true,c=>c==='MYR'?fraction(1n):null)).toThrow('fx_rate_unavailable')
  })
+ it.each(['1000000000000','0','1e3','6000.0000000000001'])('rejects custom VND rate outside contract precision or range %s',raw=>expect(()=>batchRate('VND','custom',raw,unavailableFx)).toThrow())
  it('net collect/offset or zero effective coverage is excluded',()=>{
   expect(()=>batchPairPreview({...person('A',100),theyOwe:[{currency:'MYR',amountMinor:200}]},{selected:true,myr:'1',vnd:''},false,rateFor)).toThrow('not_net_payer')
  })
