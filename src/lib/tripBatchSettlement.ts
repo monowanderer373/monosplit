@@ -15,8 +15,9 @@ export function batchRate(code:string,mode:'system'|'custom',custom:string,snaps
  return systemForeignPerTarget(code,'MYR',snapshot)
 }
 export function batchCash(raw:string,currency:'MYR'|'VND'){
- if(raw.trim()===''||/^0+(?:\.0{1,2})?$/.test(raw))return 0
+ if(raw.trim()==='')return 0
  if(!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(raw)||currency==='VND'&&!/^[0-9]+$/.test(raw))throw new Error('invalid_amount')
+ if(/^0+(?:\.0{1,2})?$/.test(raw))return 0
  const minor=parseMajorAmount(raw,currency)
  if(!Number.isSafeInteger(minor)||minor<0)throw new Error('invalid_amount')
  return minor

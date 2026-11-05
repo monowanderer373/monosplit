@@ -19,7 +19,7 @@ describe('Trip batch reuses Issue08 coverage and keeps cash currencies separate'
   const q=batchPairPreview(person('A',24560),{selected:true,myr:'0',vnd:'1473600'},true,rateFor)
   expect(q.cashLegs).toEqual([{currency:'VND',amountMinor:1473600}]);expect(q.quote.coverages[0].remainingMinor).toBe(0n)
  })
- it.each(['0','-1','1.1','1.00','1e3','NaN','9007199254740992'])('rejects invalid VND cash %s',raw=>{
+ it.each(['0','-1','0.00','1.1','1.00','1e3','NaN','9007199254740992'])('rejects invalid VND cash %s',raw=>{
   if(raw==='0')expect(()=>batchPairPreview(person('A',100),{selected:true,myr:'0',vnd:raw},true,rateFor)).toThrow()
   else expect(()=>batchCash(raw,'VND')).toThrow()
  })

@@ -1,19 +1,20 @@
 -- COMPLETE FILE: existing Tabby Tally / skiqsxvmxvmxfzhrzcxh only.
--- Installs batch capability. Does NOT register payments, edit expenses, clear debt or post money.
--- Canonical migration SHA256: 426c3c45a2617be0a7f8874f2a71f35d65cc68115fad2104c4daf5daccc14de9
+-- Installs001+002 capability or safely adds002 to the original001 installation.
+-- Does NOT register payments, edit expenses, clear debt or post money.
 begin;
 set local lock_timeout='10s';
 select pg_advisory_xact_lock(hashtextextended('tabby.trip.batch.install',0));
 do $tabby_trip_batch_install$
 declare migration_sql text;
 begin
- if(select array_agg(version order by version)from supabase_migrations.schema_migrations where version<>'202611050001')is distinct from array['202608300001','202608300002','202608300003','202608300004','202608300005','202608300006','202608300007','202608300008','202608300009','202608300010','202608300011','202608300012','202609080001','202609210001','202609210002','202609210003','202609210004','202609210005','202609210006','202609210007','202609240001','202610050001','202610090001','202610090002','202610130001','202610130002','20261016130602','20261016132156','202610250001','202610250002','202610250003','202610260001','202610280001','202610310001','202611030001','202611030002','202611040001']::text[]then raise exception 'Unexpected Tabby migration baseline';end if;
+ if(select array_agg(version order by version)from supabase_migrations.schema_migrations where version not in('202611050001','202611050002'))is distinct from array['202608300001','202608300002','202608300003','202608300004','202608300005','202608300006','202608300007','202608300008','202608300009','202608300010','202608300011','202608300012','202609080001','202609210001','202609210002','202609210003','202609210004','202609210005','202609210006','202609210007','202609240001','202610050001','202610090001','202610090002','202610130001','202610130002','20261016130602','20261016132156','202610250001','202610250002','202610250003','202610260001','202610280001','202610310001','202611030001','202611030002','202611040001']::text[]then raise exception 'Unexpected Tabby migration baseline';end if;
  if not exists(select 1 from supabase_migrations.schema_migrations where version='202611050001')then
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.propose_fx_settlement_bundle(uuid,uuid,uuid,text,text,jsonb,bigint,uuid)'))is distinct from '7f89fc778418a465f223f817934099e7'then raise exception 'Unexpected function: public.propose_fx_settlement_bundle(uuid,uuid,uuid,text,text,jsonb,bigint,uuid)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.respond_fx_settlement_bundle(uuid,text,integer,uuid)'))is distinct from '75c822e78689d335b7ba250d9438c514'then raise exception 'Unexpected function: public.respond_fx_settlement_bundle(uuid,text,integer,uuid)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.cancel_fx_settlement_bundle(uuid,integer)'))is distinct from '9770306dd33df392160ee4cc6229978a'then raise exception 'Unexpected function: public.cancel_fx_settlement_bundle(uuid,integer)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.reverse_fx_settlement_bundle(uuid,uuid,integer)'))is distinct from '987f1096706963d8a08e32e7c26b910e'then raise exception 'Unexpected function: public.reverse_fx_settlement_bundle(uuid,uuid,integer)';end if;
-  migration_sql:=convert_from(decode($tabby_payload$
+  -- Canonical payload SHA256: 426c3c45a2617be0a7f8874f2a71f35d65cc68115fad2104c4daf5daccc14de9
+  migration_sql:=convert_from(decode($tabby_payload_0$
 LS0gVHJpcCBiYXRjaCBzZXR0bGVtZW50OiBhdG9taWMgcHJvcG9zYWxzOyBpbmRlcGVuZGVudCB3aG9sZS1jaGlsZCBjb25maXJt
 YXRpb24gYW5kIHJldmVyc2FsLgotLSBObyBoaXN0b3JpY2FsIHJld3JpdGVzLiBOYXRpdmUgZGVidCBhbmQgY2FzaCBzdGlsbCB1
 c2UgSXNzdWUwOCdzIGV4aXN0aW5nIHJlYWRlcnMgYW5kIGpvdXJuYWxzLgpiZWdpbjsKY3JlYXRlIHRhYmxlIHB1YmxpYy50cmlw
@@ -599,15 +600,67 @@ biBmdW5jdGlvbiBwdWJsaWMucXVvdGVfdHJpcF9zZXR0bGVtZW50X2JhdGNoKHV1aWQsdGV4dCx0ZXh0
 YmxpYy5zdWJtaXRfdHJpcF9zZXR0bGVtZW50X2JhdGNoKHV1aWQsdXVpZCkscHVibGljLnJlc3BvbmRfdHJpcF9iYXRjaF9jaGls
 ZCh1dWlkLHRleHQsaW50ZWdlcixqc29uYikgdG8gYXV0aGVudGljYXRlZDsKbm90aWZ5IHBncnN0LCdyZWxvYWQgc2NoZW1hJzsK
 Y29tbWl0Owo=
-$tabby_payload$,'base64'),'UTF8');
+$tabby_payload_0$,'base64'),'UTF8');
   if encode(extensions.digest(migration_sql,'sha256'),'hex')<>'426c3c45a2617be0a7f8874f2a71f35d65cc68115fad2104c4daf5daccc14de9'then raise exception 'Incomplete trip batch payload';end if;
   execute replace(regexp_replace(migration_sql,'commit;\s*$','','i'),E'begin;\n','');
   insert into supabase_migrations.schema_migrations(version,name,statements)values('202611050001','trip_batch_mixed_settlement',array[migration_sql]);
  end if;
+ if not exists(select 1 from supabase_migrations.schema_migrations where version='202611050002')then
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.fx_pair_quote(uuid,uuid,uuid,text,text,jsonb,bigint,boolean)'))is distinct from '1cae10a41b2abf0bd44670e14de14c37'then raise exception 'Unexpected function: private.fx_pair_quote(uuid,uuid,uuid,text,text,jsonb,bigint,boolean)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.propose_fx_settlement_bundle(uuid,uuid,uuid,text,text,jsonb,bigint,uuid)'))is distinct from '5d0f6a08ae247bc3f9d75e43d6ad2ade'then raise exception 'Unexpected function: public.propose_fx_settlement_bundle(uuid,uuid,uuid,text,text,jsonb,bigint,uuid)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.trip_batch_account(uuid,uuid,text)'))is distinct from 'efcb29454edc9892f09345e821fbc620'then raise exception 'Unexpected function: private.trip_batch_account(uuid,uuid,text)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.trip_batch_review(uuid,uuid,text,text,uuid,jsonb)'))is distinct from 'ed809a8ee34f82d1e7a6fd0f24946a62'then raise exception 'Unexpected function: private.trip_batch_review(uuid,uuid,text,text,uuid,jsonb)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.quote_trip_settlement_batch(uuid,text,text,uuid,jsonb)'))is distinct from '01c51df88f6bed7121b49e4566dacdd8'then raise exception 'Unexpected function: public.quote_trip_settlement_batch(uuid,text,text,uuid,jsonb)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.submit_trip_settlement_batch(uuid,uuid)'))is distinct from '4957b0614b8315b45284508fe54d4b8c'then raise exception 'Unexpected function: public.submit_trip_settlement_batch(uuid,uuid)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.fx_release_bundle_cash(uuid,uuid)'))is distinct from '16e38eb7d1bbd83b4044e157b1a01ec6'then raise exception 'Unexpected function: private.fx_release_bundle_cash(uuid,uuid)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.respond_fx_bundle(uuid,text,integer,jsonb,boolean)'))is distinct from 'c8006e3950ff3cba48da728d091cbe64'then raise exception 'Unexpected function: private.respond_fx_bundle(uuid,text,integer,jsonb,boolean)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.cancel_fx_settlement_bundle(uuid,integer)'))is distinct from '924ef06ac69089ea9f62194023f532b5'then raise exception 'Unexpected function: public.cancel_fx_settlement_bundle(uuid,integer)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.reverse_fx_settlement_bundle(uuid,uuid,integer)'))is distinct from '5b0eeb2bdab5617d1d06bbed80704664'then raise exception 'Unexpected function: public.reverse_fx_settlement_bundle(uuid,uuid,integer)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.respond_fx_settlement_bundle(uuid,text,integer,uuid)'))is distinct from 'f87644372ddc6d54f8a2b20df17dd282'then raise exception 'Unexpected function: public.respond_fx_settlement_bundle(uuid,text,integer,uuid)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.respond_trip_batch_child(uuid,text,integer,jsonb)'))is distinct from '44edffb1cca036e648fc9a72e9d0a9d9'then raise exception 'Unexpected function: public.respond_trip_batch_child(uuid,text,integer,jsonb)';end if;
+  -- Canonical payload SHA256: 4817dc4a628ab80e75b677caaf4d08fce59833d9b095317ea6fde4f91348a22e
+  migration_sql:=convert_from(decode($tabby_payload_1$
+LS0gVmFsaWRhdGUgQ3VzdG9tIFZORCBwcmVjaXNpb24vcmFuZ2Ugb24gc291cmNlIGNvbnZlcnNpb24gYXMgd2VsbCBhcyBWTkQg
+Y2FzaC4KLS0gUmVxdWlyZSBjb21wbGV0ZSBtZXRhZGF0YSBmb3IgU3lzdGVtIGNhc2gtb25seSBjb252ZXJzaW9uLiBObyBmaW5h
+bmNpYWwgd3JpdGVzLgpiZWdpbjsKZG8gJGJhdGNoX3JhdGVfZ3VhcmRzJApkZWNsYXJlIGRlZmluaXRpb24gdGV4dDtwYXRjaGVk
+IHRleHQ7CmJlZ2luCiBpZihzZWxlY3QgbWQ1KHByb3NyYylmcm9tIHBnX3Byb2Mgd2hlcmUgb2lkPSdwcml2YXRlLnRyaXBfYmF0
+Y2hfcmV2aWV3KHV1aWQsdXVpZCx0ZXh0LHRleHQsdXVpZCxqc29uYiknOjpyZWdwcm9jZWR1cmUpaXMgZGlzdGluY3QgZnJvbSAn
+ZWQ4MDlhOGVlMzRmODJkMWU3YTZmZDBmMjQ5NDZhNjIndGhlbiByYWlzZSBleGNlcHRpb24gJ1VuZXhwZWN0ZWQgYmF0Y2ggcmF0
+ZSBiYXNlbGluZSc7ZW5kIGlmOwogZGVmaW5pdGlvbjo9cGdfZ2V0X2Z1bmN0aW9uZGVmKCdwcml2YXRlLnRyaXBfYmF0Y2hfcmV2
+aWV3KHV1aWQsdXVpZCx0ZXh0LHRleHQsdXVpZCxqc29uYiknOjpyZWdwcm9jZWR1cmUpOwogcGF0Y2hlZDo9cmVwbGFjZShkZWZp
+bml0aW9uLCRvbGRfY3VzdG9tJCAgY3VzdG9tX3JhdGVzOj1qc29uYl9idWlsZF9vYmplY3QoJ1ZORCcsdm5kX3Blcl9teXIpOwog
+IGlmIGNvYWxlc2NlKHZuZF9wZXJfbXlyLCcnKX4nXlswLTldezEsMTJ9KFwuWzAtOV17MSwxMn0pPyQnIGFuZCB2bmRfcGVyX215
+cjo6bnVtZXJpYz4wIHRoZW4gdnI6PWpzb25iX2J1aWxkX29iamVjdCgnbnVtZXJhdG9yJyx2bmRfcGVyX215ciwnZGVub21pbmF0
+b3InLCcxJywnc291cmNlJywnY3VzdG9tJywncHJvdmlkZXInLCdDdXN0b20nKTtlbmQgaWY7JG9sZF9jdXN0b20kLCRuZXdfY3Vz
+dG9tJCAgLS0gSW52YWxpZC9vdmVyc2l6ZWQgcmF0ZXMgbXVzdCBuZXZlciByZWFjaCB0aGUgbGVnYWN5IHVucmVzdHJpY3RlZCBD
+dXN0b20gY2FsY3VsYXRvci4KICAtLSBJZGVudGl0eS1vbmx5IE1ZUiBzdGlsbCBuZWVkcyBubyBGWCwgZXZlbiB3aGVuIGFuIHVu
+dXNlZCBDdXN0b20gZHJhZnQgaXMgaW5jb21wbGV0ZS4KICBjdXN0b21fcmF0ZXM6PSd7IlZORCI6IjAifSc6Ompzb25iOwogIGlm
+IGNvYWxlc2NlKHZuZF9wZXJfbXlyLCcnKX4nXlswLTldezEsMTJ9KFwuWzAtOV17MSwxMn0pPyQnIHRoZW4KICAgaWYgdm5kX3Bl
+cl9teXI6Om51bWVyaWM+MCB0aGVuCiAgICBjdXN0b21fcmF0ZXM6PWpzb25iX2J1aWxkX29iamVjdCgnVk5EJyx2bmRfcGVyX215
+cik7CiAgICB2cjo9anNvbmJfYnVpbGRfb2JqZWN0KCdudW1lcmF0b3InLHZuZF9wZXJfbXlyLCdkZW5vbWluYXRvcicsJzEnLCdz
+b3VyY2UnLCdjdXN0b20nLCdwcm92aWRlcicsJ0N1c3RvbScpOwogICBlbmQgaWY7CiAgZW5kIGlmOyRuZXdfY3VzdG9tJCk7CiBw
+YXRjaGVkOj1yZXBsYWNlKHBhdGNoZWQsJG9sZF9jYXNoJCAgIGlmIHZyIGlzIG51bGwgb3IgdnItPj4ncHJvdmlkZXInIGlzIG51
+bGwgdGhlbiByYWlzZSBleGNlcHRpb24gdXNpbmcgbWVzc2FnZT0nZnhfcmF0ZV91bmF2YWlsYWJsZScsZXJyY29kZT0nUDAwMDEn
+O2VuZCBpZjskb2xkX2Nhc2gkLCRuZXdfY2FzaCQgICBpZiB2ciBpcyBudWxsIGFuZCByYXRlX21vZGU9J2N1c3RvbScgdGhlbiBy
+YWlzZSBleGNlcHRpb24gdXNpbmcgbWVzc2FnZT0naW52YWxpZF9yYXRlJyxlcnJjb2RlPSdQMDAwMSc7ZW5kIGlmOwogICBpZiB2
+ciBpcyBudWxsIG9yIGNvYWxlc2NlKHZyLT4+J3Byb3ZpZGVyJywnJyk9Jycgb3IocmF0ZV9tb2RlPSdzeXN0ZW0nIGFuZCBjb2Fs
+ZXNjZSh2ci0+PidyYXRlRGF0ZScsJycpIX4nXlswLTldezR9LVswLTldezJ9LVswLTldezJ9JCcpdGhlbiByYWlzZSBleGNlcHRp
+b24gdXNpbmcgbWVzc2FnZT0nZnhfcmF0ZV91bmF2YWlsYWJsZScsZXJyY29kZT0nUDAwMDEnO2VuZCBpZjskbmV3X2Nhc2gkKTsK
+IGlmIHBhdGNoZWQ9ZGVmaW5pdGlvbiB0aGVuIHJhaXNlIGV4Y2VwdGlvbiAnTWlzc2luZyBiYXRjaCByYXRlIGd1YXJkcyc7ZW5k
+IGlmOwogZXhlY3V0ZSBwYXRjaGVkOwogaWYoc2VsZWN0IG1kNShwcm9zcmMpZnJvbSBwZ19wcm9jIHdoZXJlIG9pZD0ncHJpdmF0
+ZS50cmlwX2JhdGNoX3Jldmlldyh1dWlkLHV1aWQsdGV4dCx0ZXh0LHV1aWQsanNvbmIpJzo6cmVncHJvY2VkdXJlKWlzIGRpc3Rp
+bmN0IGZyb20gJ2Y0OTkzY2EzN2EwY2YyNmVjYjA3NTliYjljNDhiMmFhJ3RoZW4gcmFpc2UgZXhjZXB0aW9uICdVbmV4cGVjdGVk
+IGJhdGNoIHJhdGUgZ3VhcmRzJztlbmQgaWY7CmVuZDsKJGJhdGNoX3JhdGVfZ3VhcmRzJDsKbm90aWZ5IHBncnN0LCdyZWxvYWQg
+c2NoZW1hJzsKY29tbWl0Owo=
+$tabby_payload_1$,'base64'),'UTF8');
+  if encode(extensions.digest(migration_sql,'sha256'),'hex')<>'4817dc4a628ab80e75b677caaf4d08fce59833d9b095317ea6fde4f91348a22e'then raise exception 'Incomplete trip batch payload';end if;
+  execute replace(regexp_replace(migration_sql,'commit;\s*$','','i'),E'begin;\n','');
+  insert into supabase_migrations.schema_migrations(version,name,statements)values('202611050002','batch_rate_metadata_guards',array[migration_sql]);
+ end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.fx_pair_quote(uuid,uuid,uuid,text,text,jsonb,bigint,boolean)'))is distinct from '1cae10a41b2abf0bd44670e14de14c37'then raise exception 'Unexpected function: private.fx_pair_quote(uuid,uuid,uuid,text,text,jsonb,bigint,boolean)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.propose_fx_settlement_bundle(uuid,uuid,uuid,text,text,jsonb,bigint,uuid)'))is distinct from '5d0f6a08ae247bc3f9d75e43d6ad2ade'then raise exception 'Unexpected function: public.propose_fx_settlement_bundle(uuid,uuid,uuid,text,text,jsonb,bigint,uuid)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.trip_batch_account(uuid,uuid,text)'))is distinct from 'efcb29454edc9892f09345e821fbc620'then raise exception 'Unexpected function: private.trip_batch_account(uuid,uuid,text)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.trip_batch_review(uuid,uuid,text,text,uuid,jsonb)'))is distinct from 'f4993ca37a0cf26ecb0759bb9c48b2aa'then raise exception 'Unexpected function: private.trip_batch_review(uuid,uuid,text,text,uuid,jsonb)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.quote_trip_settlement_batch(uuid,text,text,uuid,jsonb)'))is distinct from '01c51df88f6bed7121b49e4566dacdd8'then raise exception 'Unexpected function: public.quote_trip_settlement_batch(uuid,text,text,uuid,jsonb)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.submit_trip_settlement_batch(uuid,uuid)'))is distinct from '4957b0614b8315b45284508fe54d4b8c'then raise exception 'Unexpected function: public.submit_trip_settlement_batch(uuid,uuid)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.fx_release_bundle_cash(uuid,uuid)'))is distinct from '16e38eb7d1bbd83b4044e157b1a01ec6'then raise exception 'Unexpected function: private.fx_release_bundle_cash(uuid,uuid)';end if;
@@ -622,4 +675,4 @@ end;
 $tabby_trip_batch_install$;
 notify pgrst,'reload schema';
 commit;
-select 'TABBY_TRIP_BATCH_INSTALL_COMPLETE_20261105' as installation_status;
+select 'TABBY_TRIP_BATCH_INSTALL_COMPLETE_20261105_V2' as installation_status;

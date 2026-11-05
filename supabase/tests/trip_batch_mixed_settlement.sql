@@ -148,4 +148,26 @@ select is(pg_temp.j('custom-other')->'children'->0->'rates'->'USD'->>'source','s
 select is(pg_temp.j('custom-other')->'children'->0->'rates'->'VND'->>'source','custom','custom applies to VND source and cash');
 select is((pg_temp.j('custom-other')->'children'->0->>'full_net_minor')::bigint,22960::bigint,'other source uses pinned system USD rate');
 select throws_ok($$select public.quote_trip_settlement_batch(pg_temp.id('trip'),'custom','6000',null,jsonb_build_array(pg_temp.cash(2,10000,600000)))$$,'P0001','quote_changed','system-priced other source is pinned even in Custom VND mode');
+
+
+-- Direct authenticated RPCs must enforce rate bounds even when cash is MYR-only.
+select pg_temp.claim(1);
+select throws_ok($$select public.quote_trip_settlement_batch(pg_temp.id('trip'),'custom','1000000000000','d0511000-0000-4000-8000-000000000092',jsonb_build_array(pg_temp.cash(2,100,0)))$$,'P0001','invalid_rate','oversized Custom rate on VND source cannot bypass server limits with MYR cash');
+select throws_ok($$select public.quote_trip_settlement_batch(pg_temp.id('trip'),'custom','6000.0000000000001','d0511000-0000-4000-8000-000000000092',jsonb_build_array(pg_temp.cash(2,100,0)))$$,'P0001','invalid_rate','excess Custom precision on VND source rejected server-side');
+select throws_ok($$select public.quote_trip_settlement_batch(pg_temp.id('trip'),'custom','0','d0511000-0000-4000-8000-000000000092',jsonb_build_array(pg_temp.cash(2,0,600000)))$$,'P0001','invalid_rate','zero Custom rate for VND cash rejected');
+select throws_ok($$select pg_temp.quote(jsonb_build_array(jsonb_build_object('participantId',pg_temp.id('u2'),'cash',jsonb_build_array(jsonb_build_object('currency','MYR','amountMinor','100','accountId',pg_temp.id('recMYR'))))))$$,'P0001','settlement_cash_account_invalid','payer cannot use recipient account');
+select throws_ok($$select pg_temp.quote(jsonb_build_array(jsonb_build_object('participantId',pg_temp.id('u2'),'cash',jsonb_build_array(jsonb_build_object('currency','MYR','amountMinor','100','accountId',pg_temp.id('payVND'))))))$$,'P0001','settlement_cash_account_invalid','payer currency account must match actual cash currency');
+insert into bi values('private-bill',(public.create_trip_expense_editor(gen_random_uuid(),pg_temp.id('trip'),jsonb_build_object('expense_scope','personal','target_space_id',null,'participant_ids',array[pg_temp.id('u1')],'contribution_amounts',array[1000000],'share_amounts',array[1000000],'total_minor',1000000,'currency_code','MYR','description','Private affiliated source','category','Food','occurred_on','2026-11-05'),array[pg_temp.id('u1')])->>'expense_id')::uuid);
+insert into bj values('privacy',public.quote_trip_settlement_batch(pg_temp.id('trip'),'custom','6000','d0511000-0000-4000-8000-000000000092',jsonb_build_array(pg_temp.cash(2,10000,600000))));
+select is((pg_temp.j('privacy')->'children'->0->>'full_net_minor')::bigint,22960::bigint,'private affiliated expense cannot inflate batch debt');
+select ok(not exists(select 1 from jsonb_array_elements(pg_temp.j('privacy')->'children'->0->'expenses')e where e->>'id'=pg_temp.id('private-bill')::text),'private expense not included in frozen shared source versions');
+select pg_temp.claim(2);
+select is((select count(*)from public.expenses where id=pg_temp.id('private-bill')),0::bigint,'recipient cannot read private expense linked to the same Trip');
+reset role;
+insert into tabby_fx.snapshots(id,rates,fetched_at)values('d0511000-0000-4000-8000-000000000093','{"VND":{"numerator":"1","denominator":"6000","provider":"Frankfurter"}}',now());
+update tabby_fx.refresh_state set snapshot_id='d0511000-0000-4000-8000-000000000093';
+set local role authenticated;
+select pg_temp.claim(1);
+select throws_ok($$select public.quote_trip_settlement_batch(pg_temp.id('trip'),'system',null,'d0511000-0000-4000-8000-000000000093',jsonb_build_array(pg_temp.cash(3,0,600000)))$$,'P0001','fx_rate_unavailable','System VND cash on a MYR-only debt needs complete date/provider metadata');
+select lives_ok($$select public.quote_trip_settlement_batch(pg_temp.id('trip'),'custom',null,null,jsonb_build_array(pg_temp.cash(3,100,0)))$$,'identity-only MYR still works with no FX or Custom input');
 select * from finish();rollback;

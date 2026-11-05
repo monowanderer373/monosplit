@@ -1,3 +1,9 @@
+## 2026-11-05 — Direct-RPC rate boundary hardening
+
+- Final negative tests found the original001 validator did not enforce the new Custom precision/upper bound on a VND source when the actual cash was MYR only. UI already rejected it. Added guarded additive002 to validate the same limits on both source and cash conversion and require System cash rate metadata. No expense/cash/history rewrites;001 remains immutable.
+- Complete installer now installs001+002 or upgrades existing001 atomically, then verifies12 final bodies/RLS/ACL. New marker TABBY_TRIP_BATCH_INSTALL_COMPLETE_20261105_V2; prior operator request for001-only must be superseded after isolated002 validation. Both migration byte payloads verified across LF/CRLF/editor indent/wrapping.
+- Latest actual1211SQL/legacy+batch concurrency passed on001;002 negative/privacy tests and upgrade routes pending latest CI. Local49focused production-module journeys passed on the native-back fix, including20people/150%type/420px viewport. Unit rate/cash parsing now21PASS, including rejecting fractional zero VND. No production financial QA writes.
+
 ## 2026-11-05 — Native Back timing correction
 
 - b569a04 introduced a premature exit frame while React Router was still entering the batch route. The unchanged mobile interactions failed; no financial calls occurred. Retain the batch page only after the route has actually been active. Opening state assertion added. Same eight production-module batch journeys then passed (40.2s), including native Back, keyboard viewport, draft return, result reconciliation and enlarged type. Added20-person/long-name keyboard layout case pending execution. No schema change; operator installer remains exact ab0ef2f bytes.
