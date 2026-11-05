@@ -1,3 +1,8 @@
+## 2026-11-05 — Interrupted-request test causality and final UI states
+
+- Reproduced the earlier recovery-heading failure locally. Error context correctly said "No payment was registered": the test refreshed while its simulated submit was still in flight, before the commit-then-abort fixture executed. This was an incorrect test assumption, not evidence of a duplicated or lost financial commit. Test now waits for the injected commit and completed transport failure; a separate no-commit case verifies the retired first ID and explicit new review/request. Actual server late-request fencing already passes real competing-session tests.
+- Client now shows Recording/Checking while the server request is active and offers result reconciliation only after an interrupted result. No financial RPC/receipt semantics changed. Ten local batch phone journeys pass; optional active-member roster excludes historical nonmembers from batch without hiding old balances or removing single-currency options. Final current-source full CI required;001+002 installer remains exact74,536bytes at53b5c2e.
+
 ## 2026-11-05 — Complete functional validation; final palette alignment
 
 - Source53b5c2e: all8 Quality jobs passed.902units/lint/TS/build;1221SQL + actual batch/legacy overlap/fences; fresh001+002/old001upgrade/replay;15native multi-user;17Travel;10CollectPay;523full-browser direct0flaky. ProductionUI356direct+1flaky recovery-heading case (passed second retry); unchanged local20-case recovery repeat passed; original flaky evidence retained. Hosted unchanged UI rerun requested before final palette alignment, not a hidden clean-run claim.
