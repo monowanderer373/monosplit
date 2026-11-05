@@ -7,7 +7,7 @@ for filename in ['/tmp/tabby-supabase-start.log','/tmp/tabby-db-lint.log','/tmp/
     path=Path(filename)
     if not path.exists():continue
     lines=path.read_text(errors='replace').splitlines()
-    indices=set() if filename.endswith('supabase-start.log') else set(range(max(0,len(lines)-35),len(lines)))
+    indices=set(range(len(lines))) if filename.endswith('db-lint.log') else set() if filename.endswith('supabase-start.log') else set(range(max(0,len(lines)-35),len(lines)))
     for n,line in enumerate(lines):
         if re.search(r'ERROR:|not ok|Failed test|Parse errors|Dubious',line):
             indices.update(range(max(0,n-2),min(len(lines),n+9)))

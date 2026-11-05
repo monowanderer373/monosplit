@@ -88,7 +88,7 @@ revoke all on function private.fx_pair_quote(uuid,uuid,uuid,text,text,jsonb,bigi
 
 create or replace function public.propose_fx_settlement_bundle(request_id uuid, target_space_id uuid, counterparty_id uuid, target_currency text, rate_mode text, custom_rates jsonb, cash_minor bigint, payer_account_id uuid)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor uuid:=private.require_personal_actor(); existing public.settlement_fx_bundles%rowtype; code text; you_owe bigint; they_owe bigint; legs jsonb:='[]'::jsonb; covered_rows jsonb:='[]'::jsonb; you_value bigint:=0; they_value bigint:=0; full_minor bigint; net bigint; row jsonb; covered bigint; remaining bigint; num numeric; den numeric; rates jsonb:='{}'::jsonb; snap jsonb; quote_row jsonb; expenses jsonb; new_bundle uuid; account public.personal_accounts%rowtype; scale_target numeric; scale_code numeric; payment_id uuid; allocation_id uuid; submitted text:=pg_catalog.clock_timestamp()::text;
+declare actor uuid:=private.require_personal_actor();existing public.settlement_fx_bundles%rowtype;quote_row jsonb;rates jsonb;expenses jsonb;legs jsonb;covered_rows jsonb;full_minor bigint;submitted text;account public.personal_accounts%rowtype;new_bundle uuid;row jsonb;payment_id uuid;allocation_id uuid;
 begin
   if request_id is null or counterparty_id is null or counterparty_id=actor or rate_mode not in ('system','custom') or cash_minor is null or cash_minor<0 then raise exception using message='invalid_amount', errcode='P0001'; end if;
   if private.currency_digits(target_currency) is null then raise exception using message='invalid_currency', errcode='P0001'; end if;
@@ -222,8 +222,8 @@ begin
  latest:=private.trip_batch_review(submit_actor,frozen.space_id,frozen.draft->>'rateMode',frozen.draft->>'vndPerMyr',(frozen.draft->>'snapshotId')::uuid,frozen.draft->'recipients');
  -- Time metadata is informational; all source revisions, rates, rounding, account versions and money must match.
  if latest->'accounts' is distinct from frozen.review->'accounts' or latest->'snapshotId' is distinct from frozen.review->'snapshotId'
-  or (select jsonb_agg(c-'submittedAt'-'rates' order by c->>'participantId')from jsonb_array_elements(latest->'children')c) is distinct from(select jsonb_agg(c-'submittedAt'-'rates' order by c->>'participantId')from jsonb_array_elements(frozen.review->'children')c)
-  or (select jsonb_agg((select jsonb_object_agg(key,value-'submittedAt')from jsonb_each(c->'rates'))order by c->>'participantId')from jsonb_array_elements(latest->'children')c) is distinct from(select jsonb_agg((select jsonb_object_agg(key,value-'submittedAt')from jsonb_each(c->'rates'))order by c->>'participantId')from jsonb_array_elements(frozen.review->'children')c)
+  or (select jsonb_agg(entry.value-'submittedAt'-'rates' order by entry.value->>'participantId')from jsonb_array_elements(latest->'children')as entry(value)) is distinct from(select jsonb_agg(entry.value-'submittedAt'-'rates' order by entry.value->>'participantId')from jsonb_array_elements(frozen.review->'children')as entry(value))
+  or (select jsonb_agg((select jsonb_object_agg(key,value-'submittedAt')from jsonb_each(entry.value->'rates'))order by entry.value->>'participantId')from jsonb_array_elements(latest->'children')as entry(value)) is distinct from(select jsonb_agg((select jsonb_object_agg(key,value-'submittedAt')from jsonb_each(entry.value->'rates'))order by entry.value->>'participantId')from jsonb_array_elements(frozen.review->'children')as entry(value))
  then raise exception using message='quote_changed',errcode='P0001';end if;
  insert into public.trip_settlement_batches(payer_participant_id,space_id,client_request_id)values(submit_actor,frozen.space_id,request_id)returning id into batch;
  for q in select r from jsonb_array_elements(frozen.review->'children')r order by r->>'participantId'loop
@@ -259,7 +259,7 @@ end $$;
 revoke all on function private.fx_release_bundle_cash(uuid,uuid) from public,anon,authenticated;
 create function private.respond_fx_bundle(target_bundle_id uuid,response text,expected_version integer,receiver_accounts jsonb,allow_batch boolean)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor uuid:=public.current_participant_id(); bundle public.settlement_fx_bundles%rowtype; coverage public.settlement_fx_coverages%rowtype; expenses jsonb; payment_id uuid; debtor uuid; creditor uuid; allocation_id uuid; account public.personal_accounts%rowtype; payer_leg uuid; receiver_leg uuid; cash_row record; receiver_account_id uuid;
+declare actor uuid:=public.current_participant_id(); bundle public.settlement_fx_bundles%rowtype; coverage public.settlement_fx_coverages%rowtype; expenses jsonb; payment_id uuid; debtor uuid; creditor uuid; allocation_id uuid; account public.personal_accounts%rowtype; payer_leg uuid; receiver_leg uuid; cash_row record; receiver_account_id uuid; frozen_leg jsonb;
 begin
   if actor is null or response not in ('accepted','declined') then raise exception using message='invalid_amount', errcode='P0001'; end if;
   perform private.lock_collect_pay_balance();
@@ -281,6 +281,15 @@ begin
     update public.settlement_fx_bundles set status='declined', version=version+1 where id=bundle.id;
     return jsonb_build_object('bundle_id',bundle.id,'status','declined','version',bundle.version+1);
   end if;
+  -- A prior settlement reversal can change the net direction without changing an expense revision.
+  -- For a frozen batch child require the same native pair snapshot, not just sufficient coverage.
+  if bundle.batch_id is not null then
+    for frozen_leg in select r from jsonb_array_elements(bundle.quote->'legs')r loop
+      debtor:=case when frozen_leg->>'direction'='payer_owes' then bundle.payer_participant_id else bundle.counterparty_participant_id end;
+      creditor:=case when frozen_leg->>'direction'='payer_owes' then bundle.counterparty_participant_id else bundle.payer_participant_id end;
+      if private.space_signed_outstanding(bundle.space_id,debtor,creditor,frozen_leg->>'currency') is distinct from (frozen_leg->>'remaining')::bigint then raise exception using message='balance_changed',errcode='P0001';end if;
+    end loop;
+  end if;
   -- A confirmed single-currency payment can change coverage without editing an expense version.
   for coverage in select * from public.settlement_fx_coverages where bundle_id=bundle.id and covered_minor>0 loop
     debtor:=case when coverage.direction='payer_owes' then bundle.payer_participant_id else bundle.counterparty_participant_id end;
@@ -297,6 +306,10 @@ begin
     if receiver_account_id is null or receiver_account_id=bundle.payer_account_id then raise exception using message='settlement_cash_account_invalid', errcode='P0001'; end if;
     select * into account from public.personal_accounts where id=receiver_account_id and owner_participant_id=actor and archived_at is null and account_class='asset' and currency=cash_row.currency;
     if account.id is null then raise exception using message='settlement_cash_account_invalid', errcode='P0001'; end if;
+    if bundle.batch_id is not null then
+      perform private.trip_batch_account(actor,receiver_account_id,cash_row.currency);
+      perform private.trip_batch_account(bundle.payer_participant_id,(select l.account_id from public.personal_settlement_cash_legs l where l.settlement_payment_id=cash_row.payment_id and l.role='payer' and l.status='pending'),cash_row.currency);
+    end if;
     select id into allocation_id from public.settlement_allocations where settlement_payment_id=cash_row.payment_id and state='pending';
     if allocation_id is null then raise exception using message='allocation_not_pending', errcode='P0001'; end if;
     insert into public.personal_settlement_cash_legs(owner_participant_id,client_request_id,payload_fingerprint,settlement_payment_id,settlement_allocation_id,role,account_id,cash_amount_minor,account_currency,shared_amount_minor,gift_extra_minor,status)
