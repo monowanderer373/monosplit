@@ -185,5 +185,33 @@ reset role;
 select is(private.space_signed_outstanding(pg_temp.id('offset-trip'),pg_temp.id('u4'),pg_temp.id('u2'),'MYR'),0::bigint,'offset fully covers MYR');
 select is(private.space_signed_outstanding(pg_temp.id('offset-trip'),pg_temp.id('u2'),pg_temp.id('u4'),'VND'),0::bigint,'offset fully covers VND');
 
+-- Actual VND cash is independent from MYR-equivalent debt and requires a
+-- matching owned account, even for a custom-rate partial payment.
+set local role authenticated;
+select pg_temp.claim(1);
+insert into i8 values('cash-trip',public.create_space('trip','Native cash regression',null,null,'MYR'));
+reset role;
+insert into public.space_members(space_id,participant_id,role)values(pg_temp.id('cash-trip'),pg_temp.id('u2'),'full_access'),(pg_temp.id('cash-trip'),pg_temp.id('u4'),'view');
+set local role authenticated;
+select pg_temp.claim(2);
+select public.create_trip_expense_editor(gen_random_uuid(),pg_temp.id('cash-trip'),pg_temp.close_payload('MYR',pg_temp.id('u2'),pg_temp.id('u4'),20000)||jsonb_build_object('target_space_id',pg_temp.id('cash-trip')),array[pg_temp.id('u2'),pg_temp.id('u4')]);
+select public.create_trip_expense_editor(gen_random_uuid(),pg_temp.id('cash-trip'),pg_temp.close_payload('VND',pg_temp.id('u2'),pg_temp.id('u4'),600000)||jsonb_build_object('target_space_id',pg_temp.id('cash-trip')),array[pg_temp.id('u2'),pg_temp.id('u4')]);
+select pg_temp.claim(4);
+select throws_ok($$select public.propose_fx_settlement_bundle(gen_random_uuid(),pg_temp.id('cash-trip'),pg_temp.id('u2'),'VND','custom','{"MYR":"0.00016"}'::jsonb,500000,null)$$,'P0001','settlement_cash_account_invalid','no account cannot record VND cash');
+select throws_ok($$select public.propose_fx_settlement_bundle(gen_random_uuid(),pg_temp.id('cash-trip'),pg_temp.id('u2'),'VND','custom','{"MYR":"0.00016"}'::jsonb,500000,pg_temp.id('account4'))$$,'P0001','settlement_cash_account_invalid','MYR account cannot fund VND cash');
+insert into i8 values('vnd-payer',(public.create_personal_account(gen_random_uuid(),'Native VND cash','cash','VND',null,null,false)->>'account_id')::uuid);
+select is((select count(*)::int from public.settlement_fx_bundles where space_id=pg_temp.id('cash-trip')),0,'creating an account or failed validation never records a payment');
+insert into i8 values('vnd-partial',(public.propose_fx_settlement_bundle(gen_random_uuid(),pg_temp.id('cash-trip'),pg_temp.id('u2'),'VND','custom','{"MYR":"0.00016"}'::jsonb,500000,pg_temp.id('vnd-payer'),null,(select jsonb_agg(jsonb_build_object('id',id,'version',version)order by id)from public.expenses where space_id=pg_temp.id('cash-trip')),1850000,'partial')->>'bundle_id')::uuid);
+select is((select cash_minor from public.settlement_fx_bundles where id=pg_temp.id('vnd-partial')),500000::bigint,'VND partial stores 500000 actual VND, not 500000 MYR');
+select is((select status from public.settlement_fx_bundles where id=pg_temp.id('vnd-partial')),'pending','a recorded partial still needs recipient confirmation');
+select pg_temp.claim(2);
+insert into i8 values('vnd-receiver',(public.create_personal_account(gen_random_uuid(),'Receive VND','cash','VND',null,null,false)->>'account_id')::uuid);
+select lives_ok($$select public.respond_fx_settlement_bundle(pg_temp.id('vnd-partial'),'accepted',1,pg_temp.id('vnd-receiver'))$$,'recipient confirms VND into their own VND account');
+reset role;
+select is((select sum(amount_minor)::bigint from public.personal_account_entries where account_id=pg_temp.id('vnd-payer')),-500000::bigint,'payer journal debits exactly 500000 VND');
+select is((select sum(amount_minor)::bigint from public.personal_account_entries where account_id=pg_temp.id('vnd-receiver')),500000::bigint,'recipient journal credits exactly 500000 VND');
+select is(private.space_signed_outstanding(pg_temp.id('cash-trip'),pg_temp.id('u4'),pg_temp.id('u2'),'MYR'),14595::bigint,'partial coverage reduces original MYR by 5405 minor');
+select is(private.space_signed_outstanding(pg_temp.id('cash-trip'),pg_temp.id('u4'),pg_temp.id('u2'),'VND'),437838::bigint,'partial coverage reduces original VND by 162162');
+
 select * from finish();
 rollback;
