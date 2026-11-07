@@ -25,7 +25,7 @@ export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:h
   const review=providedReview&&[providedReview.payer_participant_id,providedReview.counterparty_participant_id].includes(self)?providedReview:null
   const [paymentCurrency,setPaymentCurrency]=useState(homeCurrency)
   const target=isReview&&review?review.target_currency:paymentCurrency
-  const paymentCurrencies=[...new Set([homeCurrency,...youOwe.map(l=>l.currency),...theyOwe.map(l=>l.currency)])].sort()
+  const paymentCurrencies=[...new Set([homeCurrency,paymentCurrency,...youOwe.map(l=>l.currency),...theyOwe.map(l=>l.currency)])].sort()
   const fx=useInsightsFx(authUser?.id??self,!isReview)
   const [mode,setMode]=useState<'system'|'custom'>('system'),[intent,setIntent]=useState<'full'|'partial'>('full'),[partial,setPartial]=useState(''),[rates,setRates]=useState<Record<string,string>>({})
   const [accountId,setAccountId]=useState(''),[accountRetry,setAccountRetry]=useState(0)
