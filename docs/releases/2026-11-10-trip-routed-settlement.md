@@ -136,5 +136,46 @@ fixtures are not GoTrue/PostgREST; the hosted native-browser suite supplies that
 
 ## Completion checkpoint
 
-Final exact-source CI and the safe screenshot gallery are being collected. This
-candidate report must not be used as evidence of a production deployment.
+Validated source **9e869f8835803beaa1783bd2fc17d371d43bdb63**:
+[Quality42827393350](https://github.com/monowanderer373/monosplit/actions/runs/42827393350),
+**all eight jobs succeeded**. A documentation-only completion commit follows;
+application, tests, scripts and migrations remain identical to this validated source.
+
+| Check | Actual result |
+|---|---|
+| Package reference tests |15 passed|
+| Unit tests |910 /129 files passed|
+| ESLint / TypeScript / production PWA build |Passed|
+| Strict full Supabase database lint |Passed|
+| Original pgTAP files, fresh hosted database |1298 /26 files passed; routed67 included|
+| Original + routed real-session concurrency |All passed; routed/legacy/batch overlap, nonce replay and retirement fence included|
+| Historical installer |Fresh, batch001-only, full batch, routed001-only forward upgrade and full replay passed|
+| Production-module mobile UI |383 passed,0flaky/skipped/unexpected|
+| Full browser suite |550 passed,0flaky/skipped/unexpected|
+| Real authenticated Trip multi-user browser |16 passed,0flaky/skipped/unexpected|
+| Travel / CollectPay browser |17 /10 passed|
+| Focused local mobile |49 old-single/batch/routed passed; final routed12 passed|
+| Final metadata audit on isolated database |24/24function bodies and ACLs; exact versions/private grants/RLS passed|
+
+The last local26-file rerun initially found old zero-count assertions counting
+committed concurrency-fixture facts. Failures were retained. Replaying the original
+bodies with a clean auth/financial fixture baseline inside each test's existing
+transaction and rollback passed1298/26, with committed QA user/payment/journal counts
+unchanged. The hosted fresh-database run passed original files unchanged. No
+financial assertions or timeouts were weakened.
+
+Safe gallery: `/workspace/artifacts/trip-routed-settlement/index.html`;
+11original PNGs: four real isolated Supabase/browser captures and seven compiled
+application/controlled-interface captures. The intermediary native screenshot uses
+the Pixel7 default412x839 viewport; other native captures use390x844. Filename
+suffixes are identifiers, not physical device claims. Original CI immediate frames
+are retained; a separate two-party approval/reversal layout probe verifies the full
+390x844 terminal header/body/footer and zero outer scroll.
+
+**Deployment remains blocked on operator V2 schema installation**, independently
+verified using only metadata reads. Current production role is read-only and no
+candidate schema is installed. The final132260-byte frozen V2 link was sent; it
+supersedes the original installer and safely upgrades an already-installed001.
+No merge, production deployment, customer financial tests or production data
+cleanup was performed. Next: independent24-function/version/ACL/RLS verification,
+then merge/publish and verify the actual public production version.
