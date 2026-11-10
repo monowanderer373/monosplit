@@ -77,6 +77,13 @@ select is((select count(*)::int from public.personal_settlement_cash_legs where 
 select is(private.space_signed_outstanding(pg_temp.rid('trip'),pg_temp.rid('u1'),pg_temp.rid('u2'),'VND'),0::bigint,'shared PS to Lii source reduced exactly once');
 select is(private.space_signed_outstanding(pg_temp.rid('trip'),pg_temp.rid('u1'),pg_temp.rid('u3'),'VND'),50000::bigint,'route is consumed before PS direct debt');
 select is(private.space_signed_outstanding(pg_temp.rid('trip'),pg_temp.rid('u2'),pg_temp.rid('u4'),'VND'),20000::bigint,'unpaid Lii to Alex remains outstanding');
+-- Routed cash and coverage must never be undone independently by legacy clients.
+insert into rr select 'one-'||r.kind,a.id from private.trip_routed_receipts r join public.settlement_allocations a on a.settlement_payment_id=r.payment where r.proposal=pg_temp.rid('proposal')and a.creditor_participant_id=pg_temp.rid('u3')and exists(select 1 from public.settlement_payments p where p.id=r.payment and p.debtor_participant_id=pg_temp.rid('u1'));
+set local role authenticated;
+select pg_temp.rclaim(1);
+select throws_ok($$select public.reverse_settlement_allocation(gen_random_uuid(),pg_temp.rid('one-cash'),1,'partial')$$,'P0001','fx_bundle_reversal_required','legacy clients cannot reverse one routed cash leg');
+select throws_ok($$select public.reverse_settlement_allocation(gen_random_uuid(),pg_temp.rid('one-coverage'),1,'partial')$$,'P0001','fx_bundle_reversal_required','legacy clients cannot reverse one routed native coverage');
+reset role;
 -- A second payer pays only Dav; Alex is untouched.
 set local role authenticated;
 select pg_temp.rclaim(5);
