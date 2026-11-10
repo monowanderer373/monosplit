@@ -6,7 +6,7 @@ import re,hashlib,base64,textwrap
 root=Path(__file__).resolve().parents[1];versions_to_install=['202611050001','202611050002']
 paths=[next((root/'supabase/migrations').glob(v+'_*.sql'))for v in versions_to_install]
 raws=[p.read_bytes()for p in paths];sqls=[r.decode()for r in raws]
-versions=sorted(p.name.split('_')[0]for p in(root/'supabase/migrations').glob('*.sql')if p not in paths)
+versions=sorted(p.name.split('_')[0]for p in(root/'supabase/migrations').glob('*.sql')if p not in paths and p.name.split('_')[0]<versions_to_install[0])
 functions=[]
 for m in re.finditer(r'create(?: or replace)? function ([\w.]+)\((.*?)\)\s*returns.*?\bas \$\$(.*?)\$\$;',sqls[0],re.S|re.I):
  name,args,body=m.groups();types=','.join(re.split(r'\s+',a.strip())[1]for a in args.split(','));functions.append((name+'('+types+')',hashlib.md5(body.encode()).hexdigest()))

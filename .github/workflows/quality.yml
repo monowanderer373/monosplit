@@ -32,6 +32,7 @@ jobs:
           name: issue07-production-ui-evidence
           path: test-results/issue07/
             test-results/trip-batch/
+            test-results/trip-routed/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -47,6 +48,7 @@ jobs:
       - run: npm ci
       - run: npm audit --omit=dev
       - run: python3 scripts/verify-trip-batch-installer.py
+      - run: python3 scripts/verify-trip-routed-installer.py
       - run: npm test
       - run: npm run lint
       - run: npm run build
@@ -82,6 +84,7 @@ jobs:
         run: |
           python3 supabase/tests/fx_settlement_concurrency.py
           python3 supabase/tests/trip_batch_concurrency.py
+          ROUTED_SETTLEMENT_TEST_DB_URL="$FX_SETTLEMENT_TEST_DB_URL" python3 supabase/tests/trip_routed_concurrency.py
       - name: Verify atomic multicurrency funding with competing sessions
         env:
           MULTICURRENCY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -170,15 +173,22 @@ jobs:
           python3 - <<'PYCODE'
           from pathlib import Path
           import re
+          routed=Path('docs/runbooks/trip-routed-production-apply.sql').read_text()
+          routed,n=re.subn(r'(?m)^commit;$','rollback;',routed);assert n==1
+          Path('/tmp/tabby-routed-fresh-rollback.sql').write_text(routed)
           sql=Path('docs/runbooks/trip-batch-production-apply.sql').read_text()
           sql,n=re.subn(r'(?m)^commit;$','rollback;',sql);assert n==1
           Path('/tmp/tabby-batch-fresh-rollback.sql').write_text(sql)
           PYCODE
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/tabby-routed-fresh-rollback.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/tabby-batch-fresh-rollback.sql 2>&1 | tee /tmp/tabby-batch-upgrade.log
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202611050001_trip_batch_mixed_settlement.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version,name)values('202611050001','trip_batch_mixed_settlement');"
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/tabby-routed-fresh-rollback.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql 2>&1 | tee /tmp/tabby-batch-upgrade.log
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql 2>&1 | tee /tmp/tabby-batch-upgrade.log
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-routed-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-routed-production-apply.sql
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive
@@ -331,7 +341,7 @@ jobs:
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - name: Verify Trip membership, split, dates, financial history and explicit friendship consent
-        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/issue08-closeout-backend.spec.ts e2e/trip-batch-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
+        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/issue08-closeout-backend.spec.ts e2e/trip-batch-backend.spec.ts e2e/trip-routed-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
       - name: Report native browser counts and final failures without auth state
         if: always()
         run: node scripts/report-browser-failures.mjs

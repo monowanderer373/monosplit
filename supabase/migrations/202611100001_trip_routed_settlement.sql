@@ -29,10 +29,13 @@ revoke all on private.trip_routed_proposals,private.trip_routed_approvals,privat
 create function private.routed_value(minor bigint,code text,n numeric,d numeric)
 returns bigint language plpgsql immutable set search_path='' as $$
 #variable_conflict use_variable
+declare converted bigint;
 begin
- if minor<0 or minor>9007199254740991 or code not in('VND','MYR') or n<=0 or d<=0 then raise exception using message='invalid_amount',errcode='P0001';end if;
+ if minor<0 or minor>9007199254740991 or code not in('VND','MYR')then raise exception using message='invalid_amount',errcode='P0001';end if;
  if code='VND' then return minor;end if;
- return private.fx_round_div(minor::numeric*n,100*d);
+ if n is null or d is null or n<=0 or d<=0 then raise exception using message='fx_rate_unavailable',errcode='P0001';end if;
+ converted:=private.fx_round_div(minor::numeric*n,100*d);
+ if converted>9007199254740991 then raise exception using message='invalid_amount',errcode='P0001';end if;return converted;
 end $$;
 
 create function private.routed_edge(trip uuid,debtor uuid,creditor uuid,n numeric,d numeric)
@@ -47,6 +50,7 @@ begin
   if a>0 then native:=native||jsonb_build_array(jsonb_build_object('from',debtor,'to',creditor,'currency',code,'minor',a));value:=value+private.routed_value(a,code,n,d);end if;
   if b>0 then native:=native||jsonb_build_array(jsonb_build_object('from',creditor,'to',debtor,'currency',code,'minor',b));value:=value-private.routed_value(b,code,n,d);end if;
  end loop;
+ if abs(value)>9007199254740991 then raise exception using message='invalid_amount',errcode='P0001';end if;
  return jsonb_build_object('id',debtor::text||':'||creditor::text,'from',debtor,'to',creditor,'minor',greatest(value,0),'native',native,'expenses',private.fx_pair_expense_versions(trip,debtor,creditor));
 end $$;
 
@@ -56,7 +60,7 @@ returns jsonb language plpgsql security definer set search_path='' as $$
 declare payments jsonb:=draft->'payments';p jsonb;line jsonb;e jsonb;leg jsonb;member uuid;sender uuid;receiver uuid;via uuid;k text;
  edges jsonb:='{}'::jsonb;reserved jsonb:='{}'::jsonb;ids jsonb:='{}'::jsonb;lefts jsonb:='{}'::jsonb;totals jsonb:='{}'::jsonb;lines jsonb:='[]'::jsonb;next_lines jsonb:='[]'::jsonb;issues jsonb:='[]'::jsonb;native jsonb:='[]'::jsonb;remaining jsonb:='[]'::jsonb;actors jsonb:='[]'::jsonb;sources jsonb:='[]'::jsonb;
  amount bigint;value bigint;route bigint;direct bigint;unapplied bigint;cap bigint;covered bigint;total bigint;net bigint;
- n numeric;d numeric;snapshot uuid;rates jsonb;quote jsonb;mode text:=draft->>'rateMode';
+ n numeric;d numeric;cash_group record;snapshot uuid;rates jsonb;quote jsonb;mode text:=draft->>'rateMode';
 begin
  if actor is null or private.space_role(trip,actor)is null then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
  perform 1 from public.spaces s where s.id=trip and s.type='trip'and s.status<>'voided'for share;
@@ -68,11 +72,7 @@ begin
  else
   select r.snapshot_id,s.rates into snapshot,rates from tabby_fx.refresh_state r join tabby_fx.snapshots s on s.id=r.snapshot_id where r.singleton for share of r,s;
   n:=(rates->'VND'->>'denominator')::numeric;d:=(rates->'VND'->>'numerator')::numeric;
-  if exists(select 1 from jsonb_array_elements(payments)q where q->>'tenderCurrency'='MYR')or exists(select 1 from public.expenses x where x.space_id=trip and x.scope='space'and x.status='active'and x.currency='MYR')then
-   if n is null or d is null or n<=0 or d<=0 or rates->'VND'->>'provider'is null or rates->'VND'->>'rateDate'is null then raise exception using message='fx_rate_unavailable',errcode='P0001';end if;
-   if snapshot is distinct from nullif(draft->>'snapshotId','')::uuid then raise exception using message='quote_changed',errcode='P0001';end if;
-   quote:=jsonb_build_object('numerator',n::text,'denominator',d::text,'source','system','provider',rates->'VND'->>'provider','rateDate',rates->'VND'->>'rateDate','snapshotId',snapshot);
-  else n:=1;d:=1;quote:=jsonb_build_object('numerator','1','denominator','1','source','identity');end if;
+  quote:=jsonb_build_object('numerator',n::text,'denominator',d::text,'source','system','provider',rates->'VND'->>'provider','rateDate',rates->'VND'->>'rateDate','snapshotId',snapshot);
  end if;
  for p in select q from jsonb_array_elements(payments)q order by q->>'id'loop
   sender:=(p->>'payer')::uuid;receiver:=(p->>'recipient')::uuid;via:=nullif(p->'via'->>'person','')::uuid;
@@ -109,6 +109,17 @@ begin
    end loop;
   end if;
   lines:=lines||jsonb_build_array(jsonb_build_object('payment',p,'valueMinor',value,'viaMinor',route,'directMinor',0,'unappliedMinor',value-route));
+ end loop;
+ if mode='system' then
+  if exists(select 1 from jsonb_array_elements(payments)q where q->>'tenderCurrency'='MYR')or exists(select 1 from jsonb_each(edges)edge cross join lateral jsonb_array_elements(edge.value->'native')leg where leg->>'currency'='MYR')then
+   if n is null or d is null or n<=0 or d<=0 or quote->>'provider'is null or quote->>'rateDate'is null then raise exception using message='fx_rate_unavailable',errcode='P0001';end if;
+   if snapshot is distinct from nullif(draft->>'snapshotId','')::uuid then raise exception using message='quote_changed',errcode='P0001';end if;
+  else n:=1;d:=1;quote:=jsonb_build_object('numerator','1','denominator','1','source','identity');end if;
+ end if;
+ -- Aggregated actual cash must explain the same value; splitting MYR cents
+ -- across payees must not manufacture a VND of extra native coverage.
+ for cash_group in select q->'payment'->>'payer' payer,q->'payment'->>'tenderCurrency' code,sum((q->'payment'->>'tenderMinor')::bigint)::bigint amount,sum((q->>'valueMinor')::bigint)::bigint equivalent,jsonb_agg(q->'payment'->>'id') ids from jsonb_array_elements(lines)q group by 1,2 loop
+  if private.routed_value(cash_group.amount,cash_group.code,n,d)<>cash_group.equivalent then issues:=issues||jsonb_build_array(jsonb_build_object('code','NATIVE_PRECISION','paymentIds',cash_group.ids));end if;
  end loop;
  for k,total in select entry.key,entry.value::text::bigint from jsonb_each(reserved)entry loop
   cap:=(edges->k->>'minor')::bigint;
@@ -164,7 +175,7 @@ begin
  select * into p from private.trip_routed_proposals where id=target;
  if p.id is null or private.space_role(p.space_id,actor)is null or not exists(select 1 from private.trip_routed_approvals a where a.proposal=p.id and a.actor=actor)then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
  select count(*),count(*)filter(where a.decision='approve')into required,approved from private.trip_routed_approvals a where a.proposal=p.id;
- return jsonb_build_object('id',p.id,'tripId',p.space_id,'version',p.version,'status',p.status,'createdAt',p.created_at,'postedAt',p.posted_at,'reversedAt',p.reversed_at,'plan',private.routed_public_plan(p.plan),'approvedCount',approved,'requiredCount',required,'isAuthor',actor=p.author,'needsDecision',p.status='pending'and exists(select 1 from private.trip_routed_approvals a where a.proposal=p.id and a.actor=actor and a.decision is null),'needsAccounts',(select coalesce(jsonb_agg(jsonb_build_object('lineId',q->'payment'->>'id','role',case when q->'payment'->>'payer'=actor::text then'payer'else'receiver'end,'currency',q->'payment'->>'tenderCurrency')),'[]')from jsonb_array_elements(p.plan->'lines')q where actor::text in(q->'payment'->>'payer',q->'payment'->>'recipient')));
+ return jsonb_build_object('id',p.id,'tripId',p.space_id,'version',p.version,'status',p.status,'createdAt',p.created_at,'postedAt',p.posted_at,'reversedAt',p.reversed_at,'plan',private.routed_public_plan(p.plan),'approvedCount',approved,'requiredCount',required,'isAuthor',actor=p.author,'canReverse',p.status='posted'and not exists(select 1 from jsonb_array_elements(p.plan->'lines')l where actor::text not in(l->'payment'->>'payer',l->'payment'->>'recipient')),'needsDecision',p.status='pending'and exists(select 1 from private.trip_routed_approvals a where a.proposal=p.id and a.actor=actor and a.decision is null),'needsAccounts',(select coalesce(jsonb_agg(jsonb_build_object('lineId',q->'payment'->>'id','role',case when q->'payment'->>'payer'=actor::text then'payer'else'receiver'end,'currency',q->'payment'->>'tenderCurrency')),'[]')from jsonb_array_elements(p.plan->'lines')q where actor::text in(q->'payment'->>'payer',q->'payment'->>'recipient')));
 end $$;
 
 create function public.submit_trip_routed_settlement(target_space_id uuid,draft jsonb,request_id uuid,reviewed_digest text,expires_at timestamptz)
@@ -264,13 +275,13 @@ begin
  return private.routed_view(p.id);
 end $$;
 
-create function public.read_trip_routed_settlements(target_space_id uuid,request_id uuid default null)
+create function public.read_trip_routed_settlements(target_space_id uuid,request_id uuid default null,proposal_id uuid default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
 #variable_conflict use_variable
 declare actor uuid:=private.require_personal_actor();p record;rows jsonb:='[]'::jsonb;
 begin
  if private.space_role(target_space_id,actor)is null then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
- for p in select q.id from private.trip_routed_proposals q join private.trip_routed_approvals a on a.proposal=q.id and a.actor=actor where q.space_id=target_space_id and(request_id is null or(q.author=actor and q.request_id=read_trip_routed_settlements.request_id))order by q.created_at desc limit 100 loop rows:=rows||jsonb_build_array(private.routed_view(p.id));end loop;
+ for p in select q.id from private.trip_routed_proposals q join private.trip_routed_approvals a on a.proposal=q.id and a.actor=actor where q.space_id=target_space_id and(proposal_id is null or q.id=proposal_id)and(request_id is null or(q.author=actor and q.request_id=read_trip_routed_settlements.request_id))order by q.created_at desc limit 100 loop rows:=rows||jsonb_build_array(private.routed_view(p.id));end loop;
  return rows;
 end $$;
 
@@ -281,7 +292,7 @@ declare actor uuid:=private.require_personal_actor();p private.trip_routed_propo
 begin
  receipt:=private.begin_money_operation(actor,request_id,'trip_routed_reverse',jsonb_build_object('proposal',proposal_id,'version',expected_version));
  perform private.lock_collect_pay_balance();select * into p from private.trip_routed_proposals where id=proposal_id for update;
- if p.id is null or private.space_role(p.space_id,actor)is null or not exists(select 1 from private.trip_routed_approvals a where a.proposal=p.id and a.actor=actor)then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
+ if p.id is null or private.space_role(p.space_id,actor)is null or not exists(select 1 from private.trip_routed_approvals a where a.proposal=p.id and a.actor=actor)or exists(select 1 from jsonb_array_elements(p.plan->'lines')l where actor::text not in(l->'payment'->>'payer',l->'payment'->>'recipient'))then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
  if receipt is not null then return private.routed_view(p.id);end if;
  if p.status='reversed'then perform private.finish_money_operation(actor,request_id,jsonb_build_object('proposalId',p.id));return private.routed_view(p.id);end if;
  if p.status<>'posted'or p.version<>expected_version then raise exception using message='version_conflict',errcode='P0001';end if;
@@ -299,7 +310,7 @@ end $$;
 
 -- No browser role can call calculators, inspect private snapshots/accounts or post.
 revoke all on function private.routed_value(bigint,text,numeric,numeric),private.routed_edge(uuid,uuid,uuid,numeric,numeric),private.routed_build(uuid,uuid,jsonb),private.routed_public_plan(jsonb),private.routed_digest(uuid,uuid,jsonb,jsonb,timestamptz),private.routed_view(uuid),private.post_routed_proposal(uuid)from public,anon,authenticated;
-revoke all on function public.preview_trip_routed_settlement(uuid,jsonb,timestamptz),public.submit_trip_routed_settlement(uuid,jsonb,uuid,text,timestamptz),public.decide_trip_routed_settlement(uuid,text,integer,jsonb),public.read_trip_routed_settlements(uuid,uuid),public.reverse_trip_routed_settlement(uuid,uuid,integer)from public,anon;
-grant execute on function public.preview_trip_routed_settlement(uuid,jsonb,timestamptz),public.submit_trip_routed_settlement(uuid,jsonb,uuid,text,timestamptz),public.decide_trip_routed_settlement(uuid,text,integer,jsonb),public.read_trip_routed_settlements(uuid,uuid),public.reverse_trip_routed_settlement(uuid,uuid,integer)to authenticated;
+revoke all on function public.preview_trip_routed_settlement(uuid,jsonb,timestamptz),public.submit_trip_routed_settlement(uuid,jsonb,uuid,text,timestamptz),public.decide_trip_routed_settlement(uuid,text,integer,jsonb),public.read_trip_routed_settlements(uuid,uuid,uuid),public.reverse_trip_routed_settlement(uuid,uuid,integer)from public,anon;
+grant execute on function public.preview_trip_routed_settlement(uuid,jsonb,timestamptz),public.submit_trip_routed_settlement(uuid,jsonb,uuid,text,timestamptz),public.decide_trip_routed_settlement(uuid,text,integer,jsonb),public.read_trip_routed_settlements(uuid,uuid,uuid),public.reverse_trip_routed_settlement(uuid,uuid,integer)to authenticated;
 notify pgrst,'reload schema';
 commit;
