@@ -110,12 +110,12 @@ begin
   end if;
   lines:=lines||jsonb_build_array(jsonb_build_object('payment',p,'valueMinor',value,'viaMinor',route,'directMinor',0,'unappliedMinor',value-route));
  end loop;
- for k,total in select entry.key,entry.value::text::bigint from jsonb_each(reserved)entryloop
+ for k,total in select entry.key,entry.value::text::bigint from jsonb_each(reserved)entry loop
   cap:=(edges->k->>'minor')::bigint;
   if total>cap then issues:=issues||jsonb_build_array(jsonb_build_object('code','SHARED_LIMIT','paymentIds',totals->k,'capacityMinor',cap));end if;
  end loop;
  if jsonb_array_length(issues)=0 then
-  for k,total in select entry.key,entry.value::text::bigint from jsonb_each(reserved)entryloop lefts:=lefts||jsonb_build_object(k,(lefts->>k)::bigint-total);end loop;
+  for k,total in select entry.key,entry.value::text::bigint from jsonb_each(reserved)entry loop lefts:=lefts||jsonb_build_object(k,(lefts->>k)::bigint-total);end loop;
   for line in select q from jsonb_array_elements(lines)q loop
    p:=line->'payment';k:=(p->>'payer')||':'||(p->>'recipient');unapplied:=(line->>'unappliedMinor')::bigint;
    direct:=least(unapplied,(lefts->>k)::bigint);lefts:=lefts||jsonb_build_object(k,(lefts->>k)::bigint-direct);
@@ -136,7 +136,7 @@ begin
   if total>0 and net<>total then issues:=issues||jsonb_build_array(jsonb_build_object('code','NATIVE_PRECISION','paymentIds',totals->k));end if;
   sources:=sources||jsonb_build_array(e);
  end loop;
- if jsonb_array_length(issues)>0 then native:='[]'::jsonb;remaining:='[]'::jsonb;select jsonb_agg(q||jsonb_build_object('viaMinor',0,'directMinor',0,'unappliedMinor',q->'valueMinor'))into lines from jsonb_array_elements(lines)q;for e in select entry.value from jsonb_each(edges)entryloop remaining:=remaining||e->'native';end loop;end if;
+ if jsonb_array_length(issues)>0 then native:='[]'::jsonb;remaining:='[]'::jsonb;select jsonb_agg(q||jsonb_build_object('viaMinor',0,'directMinor',0,'unappliedMinor',q->'valueMinor'))into lines from jsonb_array_elements(lines)q;for e in select entry.value from jsonb_each(edges)entry loop remaining:=remaining||e->'native';end loop;end if;
  return jsonb_build_object('ledgerCurrency','VND','lines',lines,'issues',issues,'remaining',remaining,'rate',quote,'native',native,'sources',sources,'actors',actors);
 end $$;
 
