@@ -32,6 +32,7 @@ export function clearRoutedAttempt(scope:string,trip:string){sessionStorage.remo
 export function clearRoutedRecovery(){try{for(let i=sessionStorage.length-1;i>=0;i--){const k=sessionStorage.key(i);if(k?.startsWith(prefix))sessionStorage.removeItem(k)}}catch{/* unavailable storage holds no usable recovery record */}}
 export function notifyRouted(trip:string){window.dispatchEvent(new CustomEvent('tt:routed-changed',{detail:{trip}}))}
 const messages={
+ unallocated:['Unallocated while this review is invalid','当前预览无效，尚未分配'],
  noFx:['VND-only: no currency conversion is applied.','仅使用 VND，无需进行货币换算。'],
  actualOnly:['Only add money actually paid. Leave an unpaid MYR transfer out; its debt remains outstanding.','只录入实际已付的钱。尚未转出的 MYR 不要加为付款，其欠款会继续保留。'],asRecorded:['Immediately after this settlement','此笔结算完成时'],
  noCash:['No cash is posted to your accounts. Confirm only the original-currency debt reductions.','你的账户不会产生现金流水，仅需确认原币欠款抵扣。'],
