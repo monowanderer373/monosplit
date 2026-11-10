@@ -1,3 +1,47 @@
+## 2026-11-05 — Final result-action and unavailable-reference guards
+
+- ea73696 passed all8 required jobs:903units,1221SQL+real concurrency/installer paths,364productionUI direct0flaky,15native direct0flaky,17Travel/10CollectPay. Fullbrowser529direct+1flaky new native flow. First failure was an ignored Done click while onChanged refresh still held the submit lock: receipt Done lacked the busy-disabled state already used by the header. Add that state and a controlled refresh-gate test (no sleep/timeout increase or weakened monetary assertion).
+- Actual entered cash totals now remain independent of quote validity. Missing FX cannot remove a selected person's actual cash from the headline or present a false zero reference; malformed cash shows Check payment amounts. Review remains disabled until amounts/rates/coverage/accounts validate.
+- All18actual-module mobile batch cases pass55.2s, including both recovery outcomes, source scroll/focus, rate failures and delayed-refresh Done. No schema/financial-engine change; installer remains53b5c2e exact74,536bytes/V2. Fresh current-head CI and independent production schema installation still required. No customer production financial QA writes.
+
+## 2026-11-05 — Source scroll restoration verified
+
+- Extra320/390px checks reproduced a real batch-only return problem: native Back restored focus but source scroll returned to0. Record the actor/path/scroll/trigger at the actual batch entry, then restore after dialog/route cleanup. Global navigation helpers remain unchanged. Added all four native/header Back checks at nonzero source scroll; all16batch phone journeys now pass (50.2s), no skipped/retried assertions.
+- Previous functional source4858c09 passed all8 jobs:903units,1221SQL+concurrency/installer routes,360productionUI direct,15native,17Travel,10CollectPay; fullbrowser525direct+1retry. Final current scroll-source change requires new-head Quality results. No schema changes; approved final V2 installer still exact74,536bytes at53b5c2e. Hosted role remains read-only and new schema absent; production not promoted.
+
+## 2026-11-05 — Interrupted-request test causality and final UI states
+
+- Reproduced the earlier recovery-heading failure locally. Error context correctly said "No payment was registered": the test refreshed while its simulated submit was still in flight, before the commit-then-abort fixture executed. This was an incorrect test assumption, not evidence of a duplicated or lost financial commit. Test now waits for the injected commit and completed transport failure; a separate no-commit case verifies the retired first ID and explicit new review/request. Actual server late-request fencing already passes real competing-session tests.
+- Client now shows Recording/Checking while the server request is active and offers result reconciliation only after an interrupted result. No financial RPC/receipt semantics changed. Ten local batch phone journeys pass; optional active-member roster excludes historical nonmembers from batch without hiding old balances or removing single-currency options. Final current-source full CI required;001+002 installer remains exact74,536bytes at53b5c2e.
+
+## 2026-11-05 — Complete functional validation; final palette alignment
+
+- Source53b5c2e: all8 Quality jobs passed.902units/lint/TS/build;1221SQL + actual batch/legacy overlap/fences; fresh001+002/old001upgrade/replay;15native multi-user;17Travel;10CollectPay;523full-browser direct0flaky. ProductionUI356direct+1flaky recovery-heading case (passed second retry); unchanged local20-case recovery repeat passed; original flaky evidence retained. Hosted unchanged UI rerun requested before final palette alignment, not a hidden clean-run claim.
+- Match new batch page exactly to written01 palette (#F6F3EB/#233846/#2E667D/#E6EFF0/#86523D) and16–18px gutters. Existing Travel/MySpending/Issue01–08 styles unchanged. Fresh-source checks and mobile screenshots pending after this CSS-only application change.
+- Final operator script53b5c2e remains byte-identical74,536bytes; applies001+002/upgrade001, marker TABBY_TRIP_BATCH_INSTALL_COMPLETE_20261105_V2. Hosted verification still reports missing batch installation and read-only connection. No merge/promotion before schema verification; no customer production financial QA writes. Prepared guarded release/provider/public/PWA scripts in /tmp/tabby-batch-release and actual-module synthetic screenshots in /workspace/artifacts/trip-batch.
+
+## 2026-11-05 — Direct-RPC rate boundary hardening
+
+- Final negative tests found the original001 validator did not enforce the new Custom precision/upper bound on a VND source when the actual cash was MYR only. UI already rejected it. Added guarded additive002 to validate the same limits on both source and cash conversion and require System cash rate metadata. No expense/cash/history rewrites;001 remains immutable.
+- Complete installer now installs001+002 or upgrades existing001 atomically, then verifies12 final bodies/RLS/ACL. New marker TABBY_TRIP_BATCH_INSTALL_COMPLETE_20261105_V2; prior operator request for001-only must be superseded after isolated002 validation. Both migration byte payloads verified across LF/CRLF/editor indent/wrapping.
+- Latest actual1211SQL/legacy+batch concurrency passed on001;002 negative/privacy tests and upgrade routes pending latest CI. Local49focused production-module journeys passed on the native-back fix, including20people/150%type/420px viewport. Unit rate/cash parsing now21PASS, including rejecting fractional zero VND. No production financial QA writes.
+
+## 2026-11-05 — Native Back timing correction
+
+- b569a04 introduced a premature exit frame while React Router was still entering the batch route. The unchanged mobile interactions failed; no financial calls occurred. Retain the batch page only after the route has actually been active. Opening state assertion added. Same eight production-module batch journeys then passed (40.2s), including native Back, keyboard viewport, draft return, result reconciliation and enlarged type. Added20-person/long-name keyboard layout case pending execution. No schema change; operator installer remains exact ab0ef2f bytes.
+
+## 2026-11-05 — Batch settlement validation checkpoint
+
+- PR58 / ab0ef2f schema: database1198 SQL PASS plus actual batch/batch and legacy/batch overlap, existing receipt fences/concurrency; historical upgrade and twice-run installer PASS; app897 and productionUI PASS. First work-in-progress runs retained failures/cancelled obsolete jobs. Actual native cash confirmation reached correct MYR/VND journals with other child still Pending; wrong VND-vs-₫ test expectation and moved compatibility UI expectation corrected; rerun required through whole reverse/cancel.
+- Added further real SQL cases for native MYR/VND contra Partial/reversal, rate flip, stale system snapshot and Custom-VND/System-USD. Schema itself remains exact SHA256426c3c45a2617be0a7f8874f2a71f35d65cc68115fad2104c4daf5daccc14de9; operator's already-issued ab0ef2f installer remains canonical66,800bytes. No production financial QA writes.
+- Eight focused production-module phone tests passed with isolated fixtures. Final polish adds native Back exit retention, pure-MYR hides FX, amount-qualified Settle all, original currency coverage details, actual current result statuses and scalable type. Final all-eight Quality validation and schema install/live verification outstanding. Source and test changes stay within Trip settlement and directly affected compatibility checks.
+
+## 2026-11-05 — Trip batch mixed-currency settlement (in progress)
+
+- Branch `feat/trip-batch-mixed-settlement` starts at current main b0065d5; read ZIP README/01–03 and opened interactive preview over local HTTP. Preserving Issue01–08 and Quick Add fullscreen.
+- Additive frozen-review/one-transaction batch proposal over Issue08 pair readers, coverage reservations, private cash legs, existing confirmation journals and whole-child reverse. Client fullscreen entry/review/result and opaque interrupted-request recovery in progress.
+- Focused SQL, native concurrency/browser and production-module phone verification pending; no production financial QA writes. Actual hosted SQL role independently remains supabase_read_only_user (CREATE false). Do not publish frontend until migration verified.
+
 # Work log
 
 ## 2026-11-03 — Issue 08 historical shares, spending card, FX settlement

@@ -3,11 +3,11 @@ import os,re
 from pathlib import Path
 if os.environ.get('GITHUB_ACTIONS') != 'true':
     raise SystemExit('Isolated GitHub Actions diagnostics only')
-for filename in ['/tmp/tabby-supabase-start.log','/tmp/tabby-db-lint.log','/tmp/tabby-history-apply.log','/tmp/tabby-db-tests.log']:
+for filename in ['/tmp/tabby-supabase-start.log','/tmp/tabby-db-lint.log','/tmp/tabby-history-apply.log','/tmp/tabby-batch-upgrade.log','/tmp/tabby-db-tests.log']:
     path=Path(filename)
     if not path.exists():continue
     lines=path.read_text(errors='replace').splitlines()
-    indices=set() if filename.endswith('supabase-start.log') else set(range(max(0,len(lines)-35),len(lines)))
+    indices=set(range(len(lines))) if filename.endswith('db-lint.log') else set() if filename.endswith('supabase-start.log') else set(range(max(0,len(lines)-35),len(lines)))
     for n,line in enumerate(lines):
         if re.search(r'ERROR:|not ok|Failed test|Parse errors|Dubious',line):
             indices.update(range(max(0,n-2),min(len(lines),n+9)))
