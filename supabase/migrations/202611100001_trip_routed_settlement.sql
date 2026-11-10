@@ -38,7 +38,7 @@ end $$;
 create function private.routed_edge(trip uuid,debtor uuid,creditor uuid,n numeric,d numeric)
 returns jsonb language plpgsql security definer set search_path='' as $$
 #variable_conflict use_variable
-declare code text;a bigint;b bigint;value bigint:=0;native jsonb:='[]';
+declare code text;a bigint;b bigint;value bigint:=0;native jsonb:='[]'::jsonb;
 begin
  for code in select distinct e.currency from public.expenses e where e.space_id=trip and e.scope='space'and e.status='active'order by e.currency loop
   a:=private.space_signed_outstanding(trip,debtor,creditor,code)-private.pending_pair_minor(trip,debtor,creditor,code);
@@ -53,8 +53,8 @@ end $$;
 create function private.routed_build(actor uuid,trip uuid,draft jsonb)
 returns jsonb language plpgsql security definer set search_path='' as $$
 #variable_conflict use_variable
-declare payments jsonb:=draft->'payments';p jsonb;line jsonb;e jsonb;leg jsonb;member uuid;sender uuid;receiver uuid;via uuid;k text;code text;
- edges jsonb:='{}';reserved jsonb:='{}';ids jsonb:='{}';lefts jsonb:='{}';totals jsonb:='{}';lines jsonb:='[]';next_lines jsonb:='[]';issues jsonb:='[]';native jsonb:='[]';remaining jsonb:='[]';actors jsonb:='[]';sources jsonb:='[]';
+declare payments jsonb:=draft->'payments';p jsonb;line jsonb;e jsonb;leg jsonb;member uuid;sender uuid;receiver uuid;via uuid;k text;
+ edges jsonb:='{}'::jsonb;reserved jsonb:='{}'::jsonb;ids jsonb:='{}'::jsonb;lefts jsonb:='{}'::jsonb;totals jsonb:='{}'::jsonb;lines jsonb:='[]'::jsonb;next_lines jsonb:='[]'::jsonb;issues jsonb:='[]'::jsonb;native jsonb:='[]'::jsonb;remaining jsonb:='[]'::jsonb;actors jsonb:='[]'::jsonb;sources jsonb:='[]'::jsonb;
  amount bigint;value bigint;route bigint;direct bigint;unapplied bigint;cap bigint;covered bigint;total bigint;net bigint;
  n numeric;d numeric;snapshot uuid;rates jsonb;quote jsonb;mode text:=draft->>'rateMode';
 begin
@@ -99,10 +99,10 @@ begin
   if value=0 then issues:=issues||jsonb_build_array(jsonb_build_object('code','ZERO_VALUE','paymentIds',jsonb_build_array(p->>'id')));end if;
   if via is not null then
    cap:=least(value,(edges->(sender::text||':'||via::text)->>'minor')::bigint,(edges->(via::text||':'||receiver::text)->>'minor')::bigint);
-   if cap<=0 then raise exception using message='no_open_route',errcode='P0001';end if;
+   if cap<=0 then issues:=issues||jsonb_build_array(jsonb_build_object('code','NO_OPEN_ROUTE','paymentIds',jsonb_build_array(p->>'id')));end if;
    if p->'via' ? 'minor'and coalesce(p->'via'->>'minor','')!~'^[0-9]{1,16}$'then raise exception using message='invalid_amount',errcode='P0001';end if;
    route:=coalesce((p->'via'->>'minor')::bigint,cap);
-   if route<=0 or route>value then raise exception using message='invalid_routed_amount',errcode='P0001';end if;
+   if route<0 or route>value or(route=0 and cap>0)then raise exception using message='invalid_routed_amount',errcode='P0001';end if;
    for k in select sender::text||':'||via::text union all select via::text||':'||receiver::text loop
     reserved:=reserved||jsonb_build_object(k,coalesce((reserved->>k)::bigint,0)+route);
     totals:=totals||jsonb_build_object(k,coalesce(totals->k,'[]')||jsonb_build_array(p->>'id'));
@@ -110,12 +110,12 @@ begin
   end if;
   lines:=lines||jsonb_build_array(jsonb_build_object('payment',p,'valueMinor',value,'viaMinor',route,'directMinor',0,'unappliedMinor',value-route));
  end loop;
- for k,total in select key,value::text::bigint from jsonb_each(reserved)loop
+ for k,total in select entry.key,entry.value::text::bigint from jsonb_each(reserved)entryloop
   cap:=(edges->k->>'minor')::bigint;
   if total>cap then issues:=issues||jsonb_build_array(jsonb_build_object('code','SHARED_LIMIT','paymentIds',totals->k,'capacityMinor',cap));end if;
  end loop;
  if jsonb_array_length(issues)=0 then
-  for k,total in select key,value::text::bigint from jsonb_each(reserved)loop lefts:=lefts||jsonb_build_object(k,(lefts->>k)::bigint-total);end loop;
+  for k,total in select entry.key,entry.value::text::bigint from jsonb_each(reserved)entryloop lefts:=lefts||jsonb_build_object(k,(lefts->>k)::bigint-total);end loop;
   for line in select q from jsonb_array_elements(lines)q loop
    p:=line->'payment';k:=(p->>'payer')||':'||(p->>'recipient');unapplied:=(line->>'unappliedMinor')::bigint;
    direct:=least(unapplied,(lefts->>k)::bigint);lefts:=lefts||jsonb_build_object(k,(lefts->>k)::bigint-direct);
@@ -124,7 +124,7 @@ begin
    next_lines:=next_lines||jsonb_build_array(line||jsonb_build_object('directMinor',direct,'unappliedMinor',unapplied-direct));
   end loop;lines:=next_lines;
  end if;
- for k,e in select key,value from jsonb_each(edges)order by key loop
+ for k,e in select entry.key,entry.value from jsonb_each(edges)entry order by entry.key loop
   total:=(e->>'minor')::bigint-(lefts->>k)::bigint;net:=0;
   for leg in select q from jsonb_array_elements(e->'native')q loop
    covered:=case when total=0 then 0 else least((leg->>'minor')::bigint,private.fx_round_div((leg->>'minor')::numeric*total,(e->>'minor')::numeric))end;
@@ -136,12 +136,12 @@ begin
   if total>0 and net<>total then issues:=issues||jsonb_build_array(jsonb_build_object('code','NATIVE_PRECISION','paymentIds',totals->k));end if;
   sources:=sources||jsonb_build_array(e);
  end loop;
- if jsonb_array_length(issues)>0 then native:='[]';remaining:='[]';select jsonb_agg(q||jsonb_build_object('viaMinor',0,'directMinor',0,'unappliedMinor',q->'valueMinor'))into lines from jsonb_array_elements(lines)q;for e in select value from jsonb_each(edges)loop remaining:=remaining||e->'native';end loop;end if;
+ if jsonb_array_length(issues)>0 then native:='[]'::jsonb;remaining:='[]'::jsonb;select jsonb_agg(q||jsonb_build_object('viaMinor',0,'directMinor',0,'unappliedMinor',q->'valueMinor'))into lines from jsonb_array_elements(lines)q;for e in select entry.value from jsonb_each(edges)entryloop remaining:=remaining||e->'native';end loop;end if;
  return jsonb_build_object('ledgerCurrency','VND','lines',lines,'issues',issues,'remaining',remaining,'rate',quote,'native',native,'sources',sources,'actors',actors);
 end $$;
 
 create function private.routed_public_plan(plan jsonb)
-returns jsonb language sql immutable set search_path='' as $$select plan-'native'-'sources'-'actors'$$;
+returns jsonb language sql immutable set search_path='' as $$select(plan-'native'-'sources'-'actors')||jsonb_build_object('coverage',(select coalesce(jsonb_agg(q-'edgeId'),'[]')from jsonb_array_elements(plan->'native')q))$$;
 create function private.routed_digest(trip uuid,actor uuid,draft jsonb,plan jsonb,expires timestamptz)
 returns text language sql immutable set search_path='' as $$select encode(extensions.digest(jsonb_build_object('trip',trip,'actor',actor,'draft',draft,'plan',plan,'expires',expires)::text,'sha256'),'hex')$$;
 
@@ -189,7 +189,7 @@ end $$;
 create function private.post_routed_proposal(target uuid)
 returns void language plpgsql security definer set search_path='' as $$
 #variable_conflict use_variable
-declare p private.trip_routed_proposals%rowtype;line jsonb;leg jsonb;role text;owner uuid;account uuid;pid uuid;aid uuid;cash_leg uuid;auth jsonb;saved jsonb;states jsonb:='[]';e jsonb;n numeric;d numeric;
+declare p private.trip_routed_proposals%rowtype;line jsonb;leg jsonb;role text;owner uuid;account uuid;pid uuid;aid uuid;cash_leg uuid;auth jsonb;saved jsonb;states jsonb:='[]'::jsonb;e jsonb;n numeric;d numeric;
 begin
  select * into p from private.trip_routed_proposals where id=target;
  -- Validate EVERY saved owner authorization before the first cash write.
@@ -230,7 +230,7 @@ end $$;
 create function public.decide_trip_routed_settlement(proposal_id uuid,decision text,expected_version integer,accounts jsonb default '{}')
 returns jsonb language plpgsql security definer set search_path='' as $$
 #variable_conflict use_variable
-declare actor uuid:=private.require_personal_actor();p private.trip_routed_proposals%rowtype;a private.trip_routed_approvals%rowtype;line jsonb;key text;role text;auths jsonb:='{}';chosen jsonb:='{}';latest jsonb;stale boolean:=false;
+declare actor uuid:=private.require_personal_actor();p private.trip_routed_proposals%rowtype;a private.trip_routed_approvals%rowtype;line jsonb;key text;role text;auths jsonb:='{}'::jsonb;chosen jsonb:='{}'::jsonb;latest jsonb;stale boolean:=false;
 begin
  perform private.lock_collect_pay_balance();select * into p from private.trip_routed_proposals where id=proposal_id for update;
  if p.id is null or private.space_role(p.space_id,actor)is null or decision is null or decision not in('approve','decline','cancel')then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
@@ -252,7 +252,7 @@ begin
   auths:=auths||jsonb_build_object(key,private.trip_batch_account(actor,nullif(accounts->>key,'')::uuid,line->'payment'->>'tenderCurrency'));chosen:=chosen||jsonb_build_object(key,accounts->key);
  end loop;
  if chosen is distinct from accounts then raise exception using message='settlement_cash_account_invalid',errcode='P0001';end if;
- update private.trip_routed_approvals set decision='approve',trip_routed_approvals.accounts=chosen,authorizations=auths where proposal=p.id and trip_routed_approvals.actor=actor;
+ update private.trip_routed_approvals set decision='approve',accounts=chosen,authorizations=auths where proposal=p.id and trip_routed_approvals.actor=actor;
  if not exists(select 1 from private.trip_routed_approvals q where q.proposal=p.id and q.decision is distinct from'approve')then
   begin
    latest:=private.routed_build(p.author,p.space_id,p.draft);
@@ -267,7 +267,7 @@ end $$;
 create function public.read_trip_routed_settlements(target_space_id uuid,request_id uuid default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
 #variable_conflict use_variable
-declare actor uuid:=private.require_personal_actor();p record;rows jsonb:='[]';
+declare actor uuid:=private.require_personal_actor();p record;rows jsonb:='[]'::jsonb;
 begin
  if private.space_role(target_space_id,actor)is null then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
  for p in select q.id from private.trip_routed_proposals q join private.trip_routed_approvals a on a.proposal=q.id and a.actor=actor where q.space_id=target_space_id and(request_id is null or(q.author=actor and q.request_id=read_trip_routed_settlements.request_id))order by q.created_at desc limit 100 loop rows:=rows||jsonb_build_array(private.routed_view(p.id));end loop;
@@ -277,7 +277,7 @@ end $$;
 create function public.reverse_trip_routed_settlement(proposal_id uuid,request_id uuid,expected_version integer)
 returns jsonb language plpgsql security definer set search_path='' as $$
 #variable_conflict use_variable
-declare actor uuid:=private.require_personal_actor();p private.trip_routed_proposals%rowtype;receipt jsonb;states jsonb:='[]';e jsonb;allocation record;previous text:=current_setting('tabby.fx_bundle_reversal',true);
+declare actor uuid:=private.require_personal_actor();p private.trip_routed_proposals%rowtype;receipt jsonb;states jsonb:='[]'::jsonb;e jsonb;allocation record;previous text:=current_setting('tabby.fx_bundle_reversal',true);
 begin
  receipt:=private.begin_money_operation(actor,request_id,'trip_routed_reverse',jsonb_build_object('proposal',proposal_id,'version',expected_version));
  perform private.lock_collect_pay_balance();select * into p from private.trip_routed_proposals where id=proposal_id for update;
