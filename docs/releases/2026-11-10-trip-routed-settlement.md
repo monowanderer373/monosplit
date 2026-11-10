@@ -56,15 +56,19 @@ existing supported settlement flow. No proxy authority or historical repair is i
 - New migration: `202611100001_trip_routed_settlement.sql` (three private audit tables,
   seven private helpers, five authenticated RPCs). Existing journal/settlement facts
   are reused; canonical expenses are not rewritten.
+- Forward migration `202611100002_routed_native_balance_projection.sql` projects each
+  directional native balance once from frozen original balances minus exact coverage.
+  It also keeps invalid shared-cap previews readable. It does not change posting,
+  drafts, receipts or historical facts; distributed001 remains byte-identical.
 - Previously pending prerequisite migrations: `202611050001` and `202611050002`.
 - Complete installer: [trip-routed-production-apply.sql](../runbooks/trip-routed-production-apply.sql),
-  **129,240 bytes**, SHA256
-  `d315c23905ca543fd995fd4fedf66b552fee0fb644348ec8fe49bd973fad21fd`.
-  Contains exact canonical batch001+002+routed payloads and 24 final function
+  **132,260 bytes**, SHA256
+  `f38a4629cfb1897ed2e76f65f6ea0da4ba26095ad9917a7f12df37ffc4ec999e`.
+  Contains exact canonical batch001+002+routed001+002 payloads and 24 final function
   fingerprints/ACL/RLS guards. Accepts no batch, original001-only, full batch and
-  already-routed replay. Installs capabilities only; no payment, confirmation,
+  routed001-only upgrade and complete replay. Installs capabilities only; no payment, confirmation,
   reversal, balance edit, expense edit or Reset.
-- Installer marker: `TABBY_TRIP_ROUTED_INSTALL_COMPLETE_20261110`.
+- Installer marker: `TABBY_TRIP_ROUTED_INSTALL_COMPLETE_20261110_V2`.
 - Reproducible read-only audit: `scripts/verify-trip-routed-production.py` accepts
   only a disposable loopback DB for local tests or the existing project via the secure
   Management API binding. It reads schema metadata, never customer financial rows.
@@ -75,7 +79,7 @@ existing supported settlement flow. No proxy authority or historical repair is i
   HTTP; **15/15** supplied Node24 reference tests passed.
 - Local official PostgreSQL17 with minimal auth fixtures: all migrations applied;
   original 26 SQL files initially 1,273 assertions passed, with routed assertions
-  subsequently expanded from 42 to **64**, all passed. Final64 include dual recipients,
+  subsequently expanded from 42 to **67**, all passed. Final67 include dual recipients,
   upstream/downstream shared caps, actual cash, no via cash, Dav-only/Alex-pending,
   MYR/VND mixed and untransferred MYR, precision bounds, transaction failure rollback,
   replay, stale/expiry, cancel/decline, permissions and whole/dependent reversal.
@@ -100,6 +104,12 @@ existing supported settlement flow. No proxy authority or historical repair is i
   checkpoint below. Native five-user routed SDK/browser journey passed on2ca817a:
   actual -500,000/+400,000/+100,000 VND journals, no intermediary account, outside
   observer denied, all parties consent, whole reversal and unchanged expenses.
+- An additional real PostgreSQL boundary probe reproduced duplicate displayed native
+  balances when the same sheet both pays and receives through opposite orientations.
+  No duplicate money was posted. Red/green assertions now cover one exact remaining
+  balance; the forward002 projection also fixes null remaining JSON on invalid
+  shared-cap previews. Native browser tests explicitly exercise shared-cap rejection
+  before the valid dual-recipient flow. V2 upgrade/replay passes locally.
 - Initial hosted failures are retained: typed SQL literal/SET lint and a parser
   typo were corrected, footer overflow fixed; test-only failures were a recovery
   assertion before network arrival and a legacy mutation audit misclassifying the
@@ -113,9 +123,10 @@ four FX wrapper bodies remain their pre-batch versions. The candidate 24-body au
 therefore correctly blocks release; it does not indicate a fault in the installed
 old financial schema. No production financial QA writes were performed.
 
-After final CI, an operator must run the complete installer in the existing
+After final CI, an operator must run the complete V2 installer in the existing
 [SQL Editor](https://supabase.com/dashboard/project/skiqsxvmxvmxfzhrzcxh/sql/new).
-The next executable step is an independent 24-body/version/ACL/RLS verification,
+If the original routed001 installer was already run, V2 skips it and adds002;
+no rollback or financial repair is required. The next executable step is an independent 24-body/version/ACL/RLS verification,
 then merge and existing Vercel production publication under the user's standing
 release authorization. Do not deploy the UI before that schema verification.
 

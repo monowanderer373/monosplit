@@ -1,6 +1,8 @@
 from pathlib import Path
 import re,hashlib,base64,textwrap
-root=Path(__file__).resolve().parents[1];s=(root/'docs/runbooks/trip-routed-production-apply.sql').read_text();r=next((root/'supabase/migrations').glob('202611100001_*.sql')).read_bytes()
-for content in[s,s.replace('\n','\r\n'),'\n'.join('  '+line for line in s.splitlines())]:
- payload=''.join(re.search(r'\$tabby_routed_payload\$(.*?)\$tabby_routed_payload\$',content,re.S)[1].split());assert base64.b64decode(payload,validate=True)==r;assert hashlib.sha256(r).hexdigest()in content;assert base64.b64decode(''.join(textwrap.fill(payload,37).split()))==r
-print('PASS: complete batch+routed exact canonical transport, LF/CRLF/indent/wrapped payload')
+root=Path(__file__).resolve().parents[1];s=(root/'docs/runbooks/trip-routed-production-apply.sql').read_text()
+for version,tag in[('202611100001','tabby_routed_payload'),('202611100002','tabby_routed_payload_1')]:
+ raw=next((root/'supabase/migrations').glob(version+'_*.sql')).read_bytes()
+ for content in[s,s.replace('\n','\r\n'),'\n'.join('  '+line for line in s.splitlines())]:
+  payload=''.join(re.search(r'\$'+tag+r'\$(.*?)\$'+tag+r'\$',content,re.S)[1].split());assert base64.b64decode(payload,validate=True)==raw;assert hashlib.sha256(raw).hexdigest()in content;assert base64.b64decode(''.join(textwrap.fill(payload,37).split()))==raw
+print('PASS: complete batch+routed001+002 exact canonical transport, LF/CRLF/indent/wrapped payload')

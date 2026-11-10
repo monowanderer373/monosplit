@@ -34,6 +34,7 @@ insert into rv values('preview',public.preview_trip_routed_settlement(pg_temp.ri
 select is(jsonb_array_length((select v->'plan'->'issues'from rv where k='preview')),0,'two recipients share one upstream cap exactly');
 select ok(not((select v->'plan'from rv where k='preview') ?|array['native','sources','actors','accounts']),'public preview excludes native IDs, accounts and internal approval identities');
 select ok(exists(select 1 from jsonb_array_elements(public.preview_trip_routed_settlement(pg_temp.rid('trip'),pg_temp.rdraft(jsonb_build_array(pg_temp.rpayment('dav',1,3,400000,2,200000),pg_temp.rpayment('alex',1,4,120000,2,100000))))->'plan'->'issues')q where q->>'code'='SHARED_LIMIT'and jsonb_array_length(q->'paymentIds')=2),'upstream cap reports both affected payment rows');
+select is(jsonb_typeof(public.preview_trip_routed_settlement(pg_temp.rid('trip'),pg_temp.rdraft(jsonb_build_array(pg_temp.rpayment('dav',1,3,400000,2,200000),pg_temp.rpayment('alex',1,4,120000,2,100000))))->'plan'->'remaining'),'array','invalid shared-cap preview remains a readable native-balance array');
 select pg_temp.rclaim(3);
 select ok(exists(select 1 from jsonb_array_elements(public.preview_trip_routed_settlement(pg_temp.rid('trip'),pg_temp.rdraft(jsonb_build_array(pg_temp.rpayment('ps',1,3,400000,2,250000),pg_temp.rpayment('exson',5,3,300000,2,200000))))->'plan'->'issues')q where q->>'code'='SHARED_LIMIT'and jsonb_array_length(q->'paymentIds')=2),'downstream cap is shared across payers');
 select throws_ok($$select public.preview_trip_routed_settlement(pg_temp.rid('trip'),(select v from rv where k='draft'))$$,'P0001','routed_participant_denied','Dav cannot also record an unrelated payment to Alex');
@@ -193,5 +194,14 @@ select is(public.preview_trip_routed_settlement(pg_temp.rid('trip'),pg_temp.rdra
 select ok(exists(select 1 from jsonb_array_elements(public.preview_trip_routed_settlement(pg_temp.rid('trip'),pg_temp.rdraft(jsonb_build_array(pg_temp.rpayment('cent-dav',1,3,1,2,62,'MYR'),pg_temp.rpayment('cent-alex',1,4,1,2,62,'MYR')))||'{"vndPerMyr":"6238"}'::jsonb)->'plan'->'issues')q where q->>'code'='NATIVE_PRECISION'and jsonb_array_length(q->'paymentIds')=2),'cash rounding across recipients cannot manufacture native coverage');
 reset role;
 select throws_ok($$select private.routed_value(1000000000000,'MYR',1000000,1)$$,'P0001','invalid_amount','converted values cannot exceed exact client integer range');
+-- Opposite cash directions can reference the same native pair through opposite
+-- capacity orientations. Project each native balance once after all coverage.
+set local role authenticated;
+select pg_temp.rclaim(2);
+select pg_temp.rbill(pg_temp.rid('trip'),2,3,600000),pg_temp.rbill(pg_temp.rid('trip'),1,2,500000);
+select pg_temp.rclaim(1);
+insert into rv values('opposite-preview',public.preview_trip_routed_settlement(pg_temp.rid('trip'),pg_temp.rdraft(jsonb_build_array(pg_temp.rpayment('out',1,3,100000),pg_temp.rpayment('in',3,1,100000,2,100000)))));
+select is((select count(*)::int from rv cross join lateral jsonb_array_elements(v->'plan'->'remaining')q where k='opposite-preview'and q->>'from'=pg_temp.rid('u1')::text and q->>'to'=pg_temp.rid('u3')::text),1,'opposite cash directions project each original-currency pair once');
+select is((select(q->>'minor')::bigint from rv cross join lateral jsonb_array_elements(v->'plan'->'remaining')q where k='opposite-preview'and q->>'from'=pg_temp.rid('u1')::text and q->>'to'=pg_temp.rid('u3')::text limit 1),150000::bigint,'remaining balance includes the actual reduction from either orientation');
 select * from finish();
 rollback;

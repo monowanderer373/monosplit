@@ -1,4 +1,4 @@
--- COMPLETE: existing Tabby Tally skiqsxvmxvmxfzhrzcxh. Installs batch001+002 and routed settlement.
+-- COMPLETE V2: existing Tabby Tally skiqsxvmxvmxfzhrzcxh. Installs batch001+002 and routed001+002.
 -- Does not register payments, modify balances, confirm, reverse or Reset.
 -- COMPLETE FILE: existing Tabby Tally / skiqsxvmxvmxfzhrzcxh only.
 -- Installs001+002 capability or safely adds002 to the original001 installation.
@@ -9,7 +9,7 @@ select pg_advisory_xact_lock(hashtextextended('tabby.trip.batch.install',0));
 do $tabby_trip_batch_install$
 declare migration_sql text;
 begin
- if(select array_agg(version order by version)from supabase_migrations.schema_migrations where version not in('202611050001','202611050002','202611100001'))is distinct from array['202608300001','202608300002','202608300003','202608300004','202608300005','202608300006','202608300007','202608300008','202608300009','202608300010','202608300011','202608300012','202609080001','202609210001','202609210002','202609210003','202609210004','202609210005','202609210006','202609210007','202609240001','202610050001','202610090001','202610090002','202610130001','202610130002','20261016130602','20261016132156','202610250001','202610250002','202610250003','202610260001','202610280001','202610310001','202611030001','202611030002','202611040001']::text[]then raise exception 'Unexpected Tabby migration baseline';end if;
+ if(select array_agg(version order by version)from supabase_migrations.schema_migrations where version not in('202611050001','202611050002','202611100001','202611100002'))is distinct from array['202608300001','202608300002','202608300003','202608300004','202608300005','202608300006','202608300007','202608300008','202608300009','202608300010','202608300011','202608300012','202609080001','202609210001','202609210002','202609210003','202609210004','202609210005','202609210006','202609210007','202609240001','202610050001','202610090001','202610090002','202610130001','202610130002','20261016130602','20261016132156','202610250001','202610250002','202610250003','202610260001','202610280001','202610310001','202611030001','202611030002','202611040001']::text[]then raise exception 'Unexpected Tabby migration baseline';end if;
  if not exists(select 1 from supabase_migrations.schema_migrations where version='202611050001')then
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.propose_fx_settlement_bundle(uuid,uuid,uuid,text,text,jsonb,bigint,uuid)'))is distinct from '7f89fc778418a465f223f817934099e7'then raise exception 'Unexpected function: public.propose_fx_settlement_bundle(uuid,uuid,uuid,text,text,jsonb,bigint,uuid)';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('public.respond_fx_settlement_bundle(uuid,text,integer,uuid)'))is distinct from '75c822e78689d335b7ba250d9438c514'then raise exception 'Unexpected function: public.respond_fx_settlement_bundle(uuid,text,integer,uuid)';end if;
@@ -679,7 +679,7 @@ notify pgrst,'reload schema';
 do $tabby_routed_install$
 declare migration_sql text;
 begin
- if(select array_agg(version order by version)from supabase_migrations.schema_migrations where version<>'202611100001')is distinct from array['202608300001','202608300002','202608300003','202608300004','202608300005','202608300006','202608300007','202608300008','202608300009','202608300010','202608300011','202608300012','202609080001','202609210001','202609210002','202609210003','202609210004','202609210005','202609210006','202609210007','202609240001','202610050001','202610090001','202610090002','202610130001','202610130002','20261016130602','20261016132156','202610250001','202610250002','202610250003','202610260001','202610280001','202610310001','202611030001','202611030002','202611040001','202611050001','202611050002']::text[]then raise exception 'Unexpected routed migration baseline';end if;
+ if(select array_agg(version order by version)from supabase_migrations.schema_migrations where version not in('202611100001','202611100002'))is distinct from array['202608300001','202608300002','202608300003','202608300004','202608300005','202608300006','202608300007','202608300008','202608300009','202608300010','202608300011','202608300012','202609080001','202609210001','202609210002','202609210003','202609210004','202609210005','202609210006','202609210007','202609240001','202610050001','202610090001','202610090002','202610130001','202610130002','20261016130602','20261016132156','202610250001','202610250002','202610250003','202610260001','202610280001','202610310001','202611030001','202611030002','202611040001','202611050001','202611050002']::text[]then raise exception 'Unexpected routed migration baseline';end if;
  if not exists(select 1 from supabase_migrations.schema_migrations where version='202611100001')then
   -- Canonical SHA256 496dc097cbee3bd46c8cd2e4b7c939ddacff1cefce2a0ecf02016e779ec047bb
   migration_sql:=convert_from(decode($tabby_routed_payload$
@@ -1134,13 +1134,44 @@ $tabby_routed_payload$,'base64'),'UTF8');
   execute replace(regexp_replace(migration_sql,'commit;\s*$','','i'),E'begin;\n','');
   insert into supabase_migrations.schema_migrations(version,name,statements)values('202611100001','trip_routed_settlement',array[migration_sql]);
  end if;
+ if not exists(select 1 from supabase_migrations.schema_migrations where version='202611100002')then
+  -- Canonical SHA256 af517e92e62c6a87d1cf6de5b0e1bd2f3abf8f556330eb983387471128020226
+  migration_sql:=convert_from(decode($tabby_routed_payload_1$
+LS0gRm9yd2FyZCBwcm9qZWN0aW9uLW9ubHkgZml4LiBUaGUgZGlzdHJpYnV0ZWQgMDAxIHJlbWFpbnMgdW5jaGFuZ2VkLgotLSBP
+cHBvc2l0ZSBjYXBhY2l0eSBvcmllbnRhdGlvbnMgY2FuIGNhcnJ5IHRoZSBzYW1lIG9yaWdpbmFsIG5hdGl2ZSBwYWlyLgotLSBQ
+cm9qZWN0IGVhY2ggYmFsYW5jZSBvbmNlIGZyb20gZnJvemVuIG9yaWdpbmFsIGJhbGFuY2VzIG1pbnVzIGV4YWN0IGNvdmVyYWdl
+LAotLSBpbmNsdWRpbmcgaW52YWxpZCBkcmFmdHMgKHdob3NlIG9yaWdpbmFsIHRlbnRhdGl2ZSByZW1haW5pbmcgSlNPTiBtYXkg
+YmUgbnVsbCkuCi0tIE5vIGRyYWZ0LCByZWNlaXB0LCBjYXNoLCBjb3ZlcmFnZSwgZXhwZW5zZSBvciBoaXN0b3JpY2FsIHJlY29y
+ZCBpcyByZXdyaXR0ZW4uCmJlZ2luOwpjcmVhdGUgb3IgcmVwbGFjZSBmdW5jdGlvbiBwcml2YXRlLnJvdXRlZF9wdWJsaWNfcGxh
+bihwbGFuIGpzb25iKQpyZXR1cm5zIGpzb25iIGxhbmd1YWdlIHNxbCBpbW11dGFibGUgc2V0IHNlYXJjaF9wYXRoPScnIGFzICQk
+CiB3aXRoIG5hdGl2ZV9iYWxhbmNlcyBhcygKICBzZWxlY3QgcS0+Pidmcm9tJyBkZWJ0b3IscS0+Pid0bycgY3JlZGl0b3IscS0+
+PidjdXJyZW5jeScgY3VycmVuY3ksbWF4KChxLT4+J21pbm9yJyk6OmJpZ2ludCkgbWlub3IKICBmcm9tIGpzb25iX2FycmF5X2Vs
+ZW1lbnRzKHBsYW4tPidzb3VyY2VzJylzIGNyb3NzIGpvaW4gbGF0ZXJhbCBqc29uYl9hcnJheV9lbGVtZW50cyhzLT4nbmF0aXZl
+JylxIGdyb3VwIGJ5IDEsMiwzCiApLHJlZHVjdGlvbnMgYXMoCiAgc2VsZWN0IHEtPj4nZnJvbScgZGVidG9yLHEtPj4ndG8nIGNy
+ZWRpdG9yLHEtPj4nY3VycmVuY3knIGN1cnJlbmN5LHN1bSgocS0+PidtaW5vcicpOjpiaWdpbnQpOjpiaWdpbnQgbWlub3IKICBm
+cm9tIGpzb25iX2FycmF5X2VsZW1lbnRzKHBsYW4tPiduYXRpdmUnKXEgZ3JvdXAgYnkgMSwyLDMKICkscmVtYWluaW5nIGFzKAog
+IHNlbGVjdCBiLmRlYnRvcixiLmNyZWRpdG9yLGIuY3VycmVuY3ksYi5taW5vci1jb2FsZXNjZShyLm1pbm9yLDApIG1pbm9yIGZy
+b20gbmF0aXZlX2JhbGFuY2VzIGIgbGVmdCBqb2luIHJlZHVjdGlvbnMgciB1c2luZyhkZWJ0b3IsY3JlZGl0b3IsY3VycmVuY3kp
+CiApCiBzZWxlY3QocGxhbi0nbmF0aXZlJy0nc291cmNlcyctJ2FjdG9ycycpfHxqc29uYl9idWlsZF9vYmplY3QoCiAgJ2NvdmVy
+YWdlJywoc2VsZWN0IGNvYWxlc2NlKGpzb25iX2FnZyhxLSdlZGdlSWQnKSwnW10nKWZyb20ganNvbmJfYXJyYXlfZWxlbWVudHMo
+cGxhbi0+J25hdGl2ZScpcSksCiAgJ3JlbWFpbmluZycsKHNlbGVjdCBjb2FsZXNjZShqc29uYl9hZ2coanNvbmJfYnVpbGRfb2Jq
+ZWN0KCdpZCcsci5kZWJ0b3J8fCc6J3x8ci5jcmVkaXRvcnx8JzonfHxyLmN1cnJlbmN5LCdmcm9tJyxyLmRlYnRvciwndG8nLHIu
+Y3JlZGl0b3IsJ2N1cnJlbmN5JyxyLmN1cnJlbmN5LCdtaW5vcicsci5taW5vcilvcmRlciBieSByLmRlYnRvcixyLmNyZWRpdG9y
+LHIuY3VycmVuY3kpLCdbXScpZnJvbSByZW1haW5pbmcgcikKICkKJCQ7CnJldm9rZSBhbGwgb24gZnVuY3Rpb24gcHJpdmF0ZS5y
+b3V0ZWRfcHVibGljX3BsYW4oanNvbmIpZnJvbSBwdWJsaWMsYW5vbixhdXRoZW50aWNhdGVkOwpub3RpZnkgcGdyc3QsJ3JlbG9h
+ZCBzY2hlbWEnOwpjb21taXQ7Cg==
+$tabby_routed_payload_1$,'base64'),'UTF8');
+  if encode(extensions.digest(migration_sql,'sha256'),'hex')<>'af517e92e62c6a87d1cf6de5b0e1bd2f3abf8f556330eb983387471128020226'then raise exception 'Incomplete routed payload';end if;
+  execute replace(regexp_replace(migration_sql,'commit;\s*$','','i'),E'begin;\n','');
+  insert into supabase_migrations.schema_migrations(version,name,statements)values('202611100002','routed_native_balance_projection',array[migration_sql]);
+ end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.routed_value(bigint,text,numeric,numeric)'))is distinct from '03a36afaaa9283132639a2a676b76b25'then raise exception 'Unexpected routed function: private.routed_value(bigint,text,numeric,numeric)';end if;
  if has_function_privilege('anon','private.routed_value(bigint,text,numeric,numeric)','EXECUTE')or has_function_privilege('authenticated','private.routed_value(bigint,text,numeric,numeric)','EXECUTE')then raise exception 'Private routed helper exposed';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.routed_edge(uuid,uuid,uuid,numeric,numeric)'))is distinct from '68b1d452b3c1b568e41adfe0ffd8bf99'then raise exception 'Unexpected routed function: private.routed_edge(uuid,uuid,uuid,numeric,numeric)';end if;
  if has_function_privilege('anon','private.routed_edge(uuid,uuid,uuid,numeric,numeric)','EXECUTE')or has_function_privilege('authenticated','private.routed_edge(uuid,uuid,uuid,numeric,numeric)','EXECUTE')then raise exception 'Private routed helper exposed';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.routed_build(uuid,uuid,jsonb)'))is distinct from '0d1c57ad9178434bb8614f61705dbbc9'then raise exception 'Unexpected routed function: private.routed_build(uuid,uuid,jsonb)';end if;
  if has_function_privilege('anon','private.routed_build(uuid,uuid,jsonb)','EXECUTE')or has_function_privilege('authenticated','private.routed_build(uuid,uuid,jsonb)','EXECUTE')then raise exception 'Private routed helper exposed';end if;
- if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.routed_public_plan(jsonb)'))is distinct from '23844af922f82e19508599d0718ffd7e'then raise exception 'Unexpected routed function: private.routed_public_plan(jsonb)';end if;
+ if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.routed_public_plan(jsonb)'))is distinct from '532e3731690e7acf89f8e25080dfb2ca'then raise exception 'Unexpected routed function: private.routed_public_plan(jsonb)';end if;
  if has_function_privilege('anon','private.routed_public_plan(jsonb)','EXECUTE')or has_function_privilege('authenticated','private.routed_public_plan(jsonb)','EXECUTE')then raise exception 'Private routed helper exposed';end if;
  if(select md5(replace(prosrc,chr(13)||chr(10),chr(10)))from pg_proc where oid=to_regprocedure('private.routed_digest(uuid,uuid,jsonb,jsonb,timestamptz)'))is distinct from 'bb5e9203c4c15d8a6b257179e32ce68e'then raise exception 'Unexpected routed function: private.routed_digest(uuid,uuid,jsonb,jsonb,timestamptz)';end if;
  if has_function_privilege('anon','private.routed_digest(uuid,uuid,jsonb,jsonb,timestamptz)','EXECUTE')or has_function_privilege('authenticated','private.routed_digest(uuid,uuid,jsonb,jsonb,timestamptz)','EXECUTE')then raise exception 'Private routed helper exposed';end if;
@@ -1165,4 +1196,4 @@ end;
 $tabby_routed_install$;
 notify pgrst,'reload schema';
 commit;
-select 'TABBY_TRIP_ROUTED_INSTALL_COMPLETE_20261110' as installation_status;
+select 'TABBY_TRIP_ROUTED_INSTALL_COMPLETE_20261110_V2' as installation_status;
