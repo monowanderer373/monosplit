@@ -262,7 +262,7 @@ export default function AccountNotice({
   const titleFor = (notice: HomeNotification) => {
     if (notice.fundingGroup) return t('mc.verify.group', { account: notice.relatedAccountName || t('mc.verify.unassigned'), count: notice.taskCount ?? 1 })
     if (notice.ref.kind === 'account') return t('noticeA.account.negative')
-    return hidden ? t(notice.title) : notice.description || t(notice.title)
+    return hidden ? t(notice.title,notice.titleValues) : notice.description || t(notice.title,notice.titleValues)
   }
 
   const position = place.mode === 'closed'

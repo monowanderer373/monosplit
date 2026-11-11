@@ -1,3 +1,4 @@
+import CreatorNoticeTarget from './CreatorNoticeTarget'
 import SharedRestartActions from '../SharedRestartActions'
 import {formatDate} from '../../lib/locale'
 import {useCallback,useEffect,useEffectEvent,useRef,useState} from 'react'
@@ -23,7 +24,8 @@ import {buildCollectPayItems} from '../../lib/collectPay'
 import type {usePersonalLedger} from '../../hooks/usePersonalLedger'
 
 type Props={reviewVersion?:number;details?:boolean;timezone?:string;sourceVersion?:string;owner:string;identity:string;target:NoticeRef;ledger:ReturnType<typeof usePersonalLedger>;onClose:()=>void;onViewed:(notice:HomeNotification)=>void;onChange:()=>Promise<unknown>}
-export default function NotificationTarget(props:Props){
+export default function NotificationTarget(props:Props){return props.target.kind==='creator'?<CreatorNoticeTarget {...props}/>:<StandardNotificationTarget {...props}/>}
+function StandardNotificationTarget(props:Props){
  const lang=useStore(s=>s.lang),t=useT(),navigate=useNavigate(),hidden=useStore(s=>s.homeUi.balanceHidden),setHomeUi=useStore(s=>s.setHomeUi)
  const [fundingNeedsAmount,setFundingNeedsAmount]=useState(false)
  const key=noticeKey(props.target),[reload,setReload]=useState(0),[result,setResult]=useState<{key:string;owner:string;sourceVersion?:string;value:NoticeResolution}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loadingSnapshot,setChecking]=useState(true)

@@ -89,7 +89,7 @@ export function backSpaceNavigation(navigate: NavigateFunction, state: unknown, 
 }
 /** Seed one safe parent only for a source-less detail; never infer a parent's permissions. */
 export function prepareSpaceBack(navigate: NavigateFunction, location: PageLocation, actor: string, fallback: string) {
-  if (!actor || location.state?.moneyAction || location.state?.routeOverlay || !/^\/(?:space|travel\/trip)\/[a-zA-Z0-9:%_-]+$/.test(location.pathname)) return
+  if (!actor || new URLSearchParams(location.search).has('creatorRecord') || location.state?.moneyAction || location.state?.routeOverlay || !/^\/(?:space|travel\/trip)\/[a-zA-Z0-9:%_-]+$/.test(location.pathname)) return
   if(window.location.pathname!==location.pathname||window.location.search!==location.search)return
   // A child can restore its dirty overlay before this retained parent effect
   // runs. Browser state is authoritative even when the URL did not change.

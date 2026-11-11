@@ -386,7 +386,7 @@ function SharedPageContent() {
           {reviewTasks.map((task) => (
             <ReviewRow
               key={`${task.kind}:${task.id}`}
-              title={t(task.notice.title)}
+              title={t(task.notice.title,task.notice.titleValues)}
               meta={[noticeCalendarDate(task.notice.date, authUser.timezone ?? 'Asia/Kuala_Lumpur'), task.notice.contextLabel].filter(Boolean).join(' · ')}
               actionLabel={t('sharedA.reviewAction')}
               onOpen={() => navigate(`/notifications/${task.kind}/${encodeURIComponent(task.id)}`)}
