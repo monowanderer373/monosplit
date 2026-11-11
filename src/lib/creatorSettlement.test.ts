@@ -1,0 +1,20 @@
+// @vitest-environment jsdom
+import{beforeEach,afterEach,describe,it,expect,vi}from'vitest'
+import{readCreatorAttempt,saveCreatorAttempt,clearCreatorRecovery,readCreatorLookup,readCreatorContext,recordCreator,type CreatorAttempt}from'./creatorSettlement'
+import{creatorHomeNotice}from'../hooks/useCreatorNotices'
+import{noticeDestination,parseNoticeLocation}from'./notificationPresentation'
+const mock=vi.hoisted(()=>({session:vi.fn(),rpc:vi.fn()}))
+vi.mock('./supabase',()=>({supabase:{auth:{getSession:mock.session},rpc:mock.rpc}}))
+const id='00000000-0000-4000-8000-000000000001',trip='00000000-0000-4000-8000-000000000002'
+const attempt:CreatorAttempt={requestId:id,attested:true,draft:{rateMode:'custom',vndPerMyr:'6000',occurredAt:'2026-11-11T01:00:00Z',note:'Checked',payments:[],ownAccountLinks:[]},review:{digest:'a'.repeat(64),expiresAt:'2026-11-11T01:10:00Z',plan:{ledgerCurrency:'VND',lines:[],coverage:[],remaining:[],issues:[],rate:{numerator:'6000',denominator:'1',source:'custom'}}}}
+beforeEach(()=>{sessionStorage.clear();localStorage.clear();mock.rpc.mockReset();mock.session.mockResolvedValue({data:{session:{user:{id:'actor'},access_token:'synthetic-token'}},error:null})})
+afterEach(()=>vi.restoreAllMocks())
+describe('creator recovery and identity boundaries',()=>{
+ it('preserves exact reviewed payload and nonce only in matching actor/trip scope',()=>{saveCreatorAttempt('actor:participant',trip,attempt);expect(readCreatorAttempt('actor:participant',trip)).toEqual(attempt);expect(readCreatorAttempt('other:participant',trip)).toBeNull();expect(readCreatorAttempt('actor:participant',id)).toBeNull();clearCreatorRecovery();expect(readCreatorAttempt('actor:participant',trip)).toBeNull();expect(readCreatorLookup('actor:participant',trip)).toBe(id);expect(readCreatorLookup('other:participant',trip)).toBeNull()})
+ it('falls back from blocked session storage and blocks dispatch if neither store works',()=>{const original=Storage.prototype.setItem;const spy=vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(this:Storage,k,v){if(this===sessionStorage)throw Error('blocked');original.call(this,k,v)});saveCreatorAttempt('actor',trip,attempt);expect(readCreatorAttempt('actor',trip)).toEqual(attempt);spy.mockImplementation(()=>{throw Error('blocked')});expect(()=>saveCreatorAttempt('other',trip,attempt)).toThrow('creator_recovery_unavailable');expect(mock.rpc).not.toHaveBeenCalled()})
+ it('does not silently ignore a corrupt or unattested frozen request',()=>{sessionStorage.setItem('tt:creator:pending:actor:'+trip,JSON.stringify({...attempt,attested:false}));expect(()=>readCreatorAttempt('actor',trip)).toThrow('creator_recovery_invalid')})
+ it('rejects a changed authenticated identity before dispatching RPC',async()=>{await expect(readCreatorContext('someone-else',trip)).rejects.toThrow('creator_context_changed');expect(mock.rpc).not.toHaveBeenCalled()})
+ it('checks the post-await context gate before sending financial RPC',async()=>{await expect(recordCreator('actor',trip,attempt,()=>{throw Error('stale-scope')})).rejects.toThrow('stale-scope');expect(mock.rpc).not.toHaveBeenCalled()})
+ it('freezes bearer identity on the single request and sends no client actor',async()=>{const header=vi.fn().mockResolvedValue({data:{canRecord:true,isCreator:true,members:[],policyVersion:'p'},error:null});mock.rpc.mockReturnValue({setHeader:header});await readCreatorContext('actor',trip);expect(header).toHaveBeenCalledWith('Authorization','Bearer synthetic-token');expect(mock.rpc).toHaveBeenCalledWith('get_trip_creator_context',{target_space_id:trip})})
+ it('maps recorder attribution and an opaque notice deep link without private account data',()=>{const notice=creatorHomeNotice({id,recordId:trip,tripId:trip,tripName:'Isolated trip',actorName:'Lii',kind:'creator_recorded',date:'2026-11-11',version:1,pending:false});expect(notice.titleValues).toEqual({name:'Lii'});expect(parseNoticeLocation(noticeDestination(notice.ref),'')).toEqual(notice.ref);expect(notice.tab).toBe('activity')})
+})

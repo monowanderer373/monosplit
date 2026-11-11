@@ -1,3 +1,4 @@
+import {CreatorSettlementEntry} from './CreatorSettlementEntry'
 import AmountInput from './AmountInput'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInRouterContext } from 'react-router-dom'
@@ -45,6 +46,8 @@ type Props = {
   quoteCurrency?: string
   tripName?: string
   currentMemberIds?: ReadonlySet<string>
+  creatorIdentity?: string
+  onOpenCreator?: (recordId?: string) => void
   onChanged?: () => Promise<unknown>
 }
 
@@ -81,7 +84,7 @@ function SettlementPanelBody({
   currentParticipantId,
   participantNames,
   expenses,
-  canPropose, state: sharedState, view, draftKey, onChanged, historyCompletedOnly=false, quoteCurrency='MYR', tripName, currentMemberIds, pairNavigation,
+  canPropose, state: sharedState, view, draftKey, onChanged, historyCompletedOnly=false, quoteCurrency='MYR', tripName, currentMemberIds, pairNavigation, creatorIdentity, onOpenCreator,
 }: Props & {pairNavigation?:PairNavigation}) {
   const t = useT()
   const ownState = useSettlements(!sharedState)
@@ -357,6 +360,7 @@ function SettlementPanelBody({
       ) : null}
 
       {view==='trip-current'?<>
+        {!hidden&&context.scope==='space'&&creatorIdentity&&onOpenCreator?<CreatorSettlementEntry identity={creatorIdentity} actor={currentParticipantId} trip={context.spaceId} onOpen={onOpenCreator}/>:null}
         {!hidden&&context.scope==='space'?<RoutedSettlementList actor={currentParticipantId} trip={context.spaceId} names={participantNames} canPropose={canPropose} onOpen={id=>openPair({other:'routed',mode:'routed',bundleId:id})}/>:null}
         <p className="fx-muted">{t('fx.estimatedIn',{currency:quoteCurrency})}</p>
         <div className="tw-balance-grid fx-estimated-summary" data-testid="pair-totals"><div><span>{t('fx.pay')}</span><strong>{totalsKnown?estimated(totalPay):t('tw.estimateUnavailable')}</strong></div><div><span>{t('fx.collect')}</span><strong>{totalsKnown?estimated(totalCollect):t('tw.estimateUnavailable')}</strong></div></div>
@@ -496,6 +500,7 @@ function SettlementPanelBody({
         </div>
       ) : null}
 
+      {view==='trip-history'&&!hidden&&context.scope==='space'&&creatorIdentity&&onOpenCreator?<CreatorSettlementEntry identity={creatorIdentity} actor={currentParticipantId} trip={context.spaceId} history onOpen={onOpenCreator}/>:null}
       {view==='trip-history'&&!hidden&&context.scope==='space'?<RoutedSettlementList actor={currentParticipantId} trip={context.spaceId} names={participantNames} history onOpen={id=>openPair({other:'routed',mode:'routed',bundleId:id})}/>:null}
       {view==='trip-history'?<section className="fx-bundle-history" data-testid="fx-bundle-history">
         {fxRead.status==='loading'?<p role="status">{t('common.loading')}</p>:fxRead.status==='error'?<p role="alert">{t('tl.unavailable')} <button type="button" onClick={fxRead.retry}>{t('common.retry')}</button></p>:null}

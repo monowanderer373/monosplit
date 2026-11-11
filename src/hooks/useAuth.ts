@@ -12,6 +12,7 @@ import {
 } from '../lib/telemetry'
 import { useStore } from '../store/useStore'
 import type { UserProfile } from '../types'
+import {clearCreatorRecovery} from '../lib/creatorSettlement'
 import {clearRoutedRecovery} from '../lib/routedSettlement'
 import { safeInternalRedirect } from '../lib/authUi'
 
@@ -143,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
       if (!active || event === 'INITIAL_SESSION') return
-      if(event==='SIGNED_OUT')clearRoutedRecovery()
+      if(event==='SIGNED_OUT'){clearRoutedRecovery();clearCreatorRecovery()}
       if (session?.user || event === 'SIGNED_OUT') {
         void acceptSession(session?.user ?? null)
       }

@@ -1,5 +1,9 @@
 import {notificationATranslations} from './notificationATranslations'
 export const notificationTranslations = {
+ 'notice.creatorRecorded':{en:'{{name}} recorded a repayment',zh:'{{name}} 代记了一笔还款'},
+ 'notice.creatorReversed':{en:'{{name}} reversed a recorded repayment',zh:'{{name}} 撤销了一笔代记还款'},
+ 'notice.creatorCorrection':{en:'{{name}} requested a correction',zh:'{{name}} 提出了更正申请'},
+ 'notice.creatorResolved':{en:'{{name}} reviewed a correction request',zh:'{{name}} 处理了更正申请'},
   ...notificationATranslations,
   'notice.reference': {en:'Ref. {{id}}',zh:'参考号 {{id}}'},
   'notice.title': {en:'Notifications',zh:'通知'},

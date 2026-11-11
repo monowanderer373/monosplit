@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react'
+import {useCreatorNotices} from './useCreatorNotices'
 import {supabase} from '../lib/supabase'
 import {buildHomeNotifications,type HomeNotification,type NoticeSnapshot} from '../lib/homeNotifications'
 import {loadNotificationSnapshot} from '../lib/notificationRepository'
@@ -35,8 +36,9 @@ export function useHomeNotifications(identity:string|null,owner:string|null,outb
     channel?.subscribe()
     return()=>{invalidate();if(timer)clearTimeout(timer);clearInterval(poll);window.removeEventListener('focus',schedule);window.removeEventListener('online',schedule);window.removeEventListener('tt:accounts-changed',schedule);window.removeEventListener('tt:shared-restart-changed',schedule);document.removeEventListener('visibilitychange',visible);if(channel&&supabase)void supabase.removeChannel(channel)}
   },[owner,refresh,refreshKey,invalidate])
+  const creator=useCreatorNotices(identity,owner,refreshKey)
   const data=result.owner===owner?result.data:null
-  const notices=useMemo(()=>data?buildHomeNotifications(data,outbox):[],[data,outbox])
+  const notices=useMemo(()=>[...(data?buildHomeNotifications(data,outbox).filter(n=>n.ref.kind!=='payment'||!creator.managedPaymentIds.includes(n.ref.id)):[]),...creator.notices].sort((a,b)=>b.date.localeCompare(a.date)),[data,outbox,creator.managedPaymentIds,creator.notices])
   const reads={...read(identity),...(memoryReads.identity===identity?memoryReads.values:{})}
   const markViewed=useCallback((seen:readonly HomeNotification[])=>{
     if(!identity||!seen.length)return

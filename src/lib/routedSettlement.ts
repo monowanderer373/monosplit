@@ -17,6 +17,7 @@ function plan(value:unknown):RoutedPlan{
  if(p.lines.some(l=>!l?.payment||!safe(l.payment.tenderMinor)||l.payment.tenderMinor===0||!safe(l.valueMinor)||!safe(l.viaMinor)||!safe(l.directMinor)||!safe(l.unappliedMinor))||p.remaining.some(l=>!safe(l.minor)||!['VND','MYR'].includes(l.currency))||!Array.isArray(p.coverage)||p.coverage.some(l=>!safe(l.minor)||!['VND','MYR'].includes(l.currency)))throw new Error('invalid_routed_response')
  return p
 }
+export const validateRoutedPlan=(value:unknown)=>plan(value)
 function proposal(value:unknown):RoutedProposal{const p=value as RoutedProposal;if(!p||typeof p.id!=='string'||!Number.isInteger(p.version)||!Array.isArray(p.needsAccounts))throw new Error('invalid_routed_response');plan(p.plan);return p}
 export async function previewRouted(trip:string,draft:RoutedDraft):Promise<RoutedReview>{const r=await rpc('preview_trip_routed_settlement',{target_space_id:trip,draft});plan(r?.plan);if(typeof r.expiresAt!=='string'||r.digest!==null&&typeof r.digest!=='string')throw new Error('invalid_routed_response');return r}
 export async function submitRouted(trip:string,draft:RoutedDraft,requestId:string,review:RoutedReview){return proposal(await rpc('submit_trip_routed_settlement',{target_space_id:trip,draft,request_id:requestId,reviewed_digest:review.digest,expires_at:review.expiresAt}))}
