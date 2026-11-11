@@ -219,5 +219,15 @@ reset role;
 select is((select count(*)::int from private.creator_outbox where record_id=(select(v->>'id')::uuid from rv where k='manual-record')),1,'manual member has no invented auth notice; actual recipient notified once');
 select is(private.space_signed_outstanding(pg_temp.rid('trip'),pg_temp.rid('u7'),pg_temp.rid('u3'),'VND'),0::bigint,'manual native debt is authoritatively reduced');
 
+set local role authenticated;
+select pg_temp.rclaim(5);
+insert into rr values('group',public.create_space('group','Unchanged group',null,null,'MYR'));
+reset role;
+insert into public.space_members(space_id,participant_id,role)values(pg_temp.rid('group'),pg_temp.rid('u3'),'view');
+set local role authenticated;
+select lives_ok($$select public.remove_space_member(pg_temp.rid('group'),pg_temp.rid('u3'))$$,'original Group member removal remains available');
+reset role;
+select is((select count(*)::int from private.creator_policies where space_id=pg_temp.rid('group')),0,'Group membership does not create proxy policy');
+select is((select count(*)::int from private.creator_audit where space_id=pg_temp.rid('group')),0,'Group operations do not emit proxy audit');
 select * from finish();
 rollback;

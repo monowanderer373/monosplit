@@ -93,6 +93,7 @@ begin
   if tg_op='UPDATE'and(new.removed_at is null or old.removed_at is not null)then return new;end if;
   trip:=old.space_id;target:=old.participant_id;
  end if;
+ if not exists(select 1 from public.spaces s where s.id=trip and s.type='trip')then if tg_op='DELETE'then return old;else return new;end if;end if;
  update private.creator_grants g set enabled=false,updated_at=now()where g.space_id=trip and g.enabled and(target is null or g.participant_id=target);
  insert into private.creator_policies(space_id,version)values(trip,1)on conflict(space_id)do update set version=creator_policies.version+1;
  insert into private.creator_audit(event_key,space_id,actor,kind,safe_diff)values('policy:'||gen_random_uuid(),trip,public.current_participant_id(),'proxy_policy_changed',jsonb_build_object('member',target));

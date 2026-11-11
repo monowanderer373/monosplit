@@ -18,6 +18,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Use official Ubuntu mirrors on the disposable runner
+        run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Verify notifications with the production module graph
@@ -47,6 +49,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Use official Ubuntu mirrors on the disposable runner
+        run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
       - run: npm audit --omit=dev
       - run: python3 scripts/verify-trip-batch-installer.py
@@ -65,6 +69,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Use official Ubuntu mirrors on the disposable runner
+        run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
       - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
@@ -124,6 +130,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Use official Ubuntu mirrors on the disposable runner
+        run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
       - name: Install PostgreSQL client
         run: |
@@ -218,6 +226,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Use official Ubuntu mirrors on the disposable runner
+        run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
       - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
@@ -274,6 +284,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Use official Ubuntu mirrors on the disposable runner
+        run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
       - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
@@ -312,6 +324,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Use official Ubuntu mirrors on the disposable runner
+        run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
       - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
@@ -346,6 +360,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Use official Ubuntu mirrors on the disposable runner
+        run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
       - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - run: npx supabase db reset
