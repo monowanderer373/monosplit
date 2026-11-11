@@ -1,9 +1,11 @@
 # Trip multi-recipient routed settlement — implementation and verification
 
-Status: candidate, not deployed. Repository `monowanderer373/monosplit`, branch
-`feat/trip-routed-settlement`, draft PR [60](https://github.com/monowanderer373/monosplit/pull/60).
-Based on remote main `478a47deffb131e5f37dcd6768bb9a5da2176fad` and integrates
-pending batch PR58 without removing the published account/currency fixes.
+Status: **production verified on 2026-11-11 (Asia/Bangkok)**. Repository
+`monowanderer373/monosplit`, PR [60](https://github.com/monowanderer373/monosplit/pull/60)
+merged as applicationmain `fa1058889dfe860d1c8bf86ed848b9ee8a844cc8`.
+Its full tree equals validated head `960c62546fe9fc55efd254f7826e58d22ec9a0dd`.
+Pending batch PR58 is included and automatically marked merged; the published
+account/currency fixes remain. A documentation-only completion revision follows.
 
 ## Implemented behavior
 
@@ -115,24 +117,36 @@ existing supported settlement flow. No proxy authority or historical repair is i
   assertion before network arrival and a legacy mutation audit misclassifying the
   new read RPC. Original financial assertions and timeouts remain.
 
-## Deployment and environment limits
+## Production release and environment limits
 
-Independent production metadata read: `supabase_read_only_user`, transaction
-read-only on, public CREATE false. Batch and routed migrations are absent; original
-four FX wrapper bodies remain their pre-batch versions. The candidate 24-body audit
-therefore correctly blocks release; it does not indicate a fault in the installed
-old financial schema. No production financial QA writes were performed.
+The user installed final V2. Independent metadata reads verified all41migration
+versions,24/24canonical function bodies,24/24function privileges, required
+financial RLS and private table restrictions. The SQL connection is still
+`supabase_read_only_user`; no schema writer or production financial tests were used.
 
-After final CI, an operator must run the complete V2 installer in the existing
-[SQL Editor](https://supabase.com/dashboard/project/skiqsxvmxvmxfzhrzcxh/sql/new).
-If the original routed001 installer was already run, V2 skips it and adds002;
-no rollback or financial repair is required. The next executable step is an independent 24-body/version/ACL/RLS verification,
-then merge and existing Vercel production publication under the user's standing
-release authorization. Do not deploy the UI before that schema verification.
+Both pending batch202611050001+002 and routed202611100001+002 are now installed.
+No payment, confirmation, reversal, balance adjustment, expense change or Reset was
+executed by the installer or production verification. No further SQL installation
+or user approval is needed for this release.
 
-Physical Honor Magic7 Pro, OS keyboard/safe areas/font scaling, and customer account
-settlements have not been tested. Local PostgreSQL is real but its minimal auth
-fixtures are not GoTrue/PostgREST; the hosted native-browser suite supplies that layer.
+Existing Vercel project `tabby-tally` production deployment
+`dpl_DrKBoX4cbFnfY98QKGwfRJVZakWn` is READY at exact applicationmainfa1058889.
+[Open application](https://tabby-tally-monowanderer373s-projects.vercel.app/).
+Public verification checked the exact served SHA and102precache JS/CSS assets,
+all5new RPC bindings, batch Mixed FX, account/currency guidance, fullscreen QuickAdd
+and preserved MYR/VND left alignment. Public320/390/430px shell had no horizontal
+overflow or runtime errors; the clean public profile remained unauthenticated.
+
+Retained PWA was warmed on actual old478before merge. First normal update cached
+and activated new resources but kept the old document until a timeout. The unchanged
+normal close/reopen cycle then loaded the exact current entry and5module assets,
+all cached and controlled. No static cache was manually deleted. A final
+provider/public/PWA check records the documentation-only completion revision in the
+delivery manifest; application and migrations are unchanged.
+
+Physical Honor Magic7Pro, OS keyboard/safe areas/font scaling and customer account
+settlements were not tested. Isolated authenticated Supabase tests cover financial
+behavior; public production verification covers publication and PWA delivery.
 
 ## Completion checkpoint
 
@@ -172,10 +186,8 @@ suffixes are identifiers, not physical device claims. Original CI immediate fram
 are retained; a separate two-party approval/reversal layout probe verifies the full
 390x844 terminal header/body/footer and zero outer scroll.
 
-**Deployment remains blocked on operator V2 schema installation**, independently
-verified using only metadata reads. Current production role is read-only and no
-candidate schema is installed. The final132260-byte frozen V2 link was sent; it
-supersedes the original installer and safely upgrades an already-installed001.
-No merge, production deployment, customer financial tests or production data
-cleanup was performed. Next: independent24-function/version/ACL/RLS verification,
-then merge/publish and verify the actual public production version.
+**Released** after user installation and independent schema verification. PR60 and
+included PR58 are merged. No customer financial tests or production data cleanup
+were performed. Delivery `/workspace/artifacts/trip-routed-settlement` contains the
+schema, CI, provider/public/PWA proofs and11original mobile screenshots. The latest
+served documentation revision is captured in its `verification.json`.
