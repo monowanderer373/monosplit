@@ -30,7 +30,7 @@ export default defineConfig({
       name: 'mobile-chromium',
       use: {
         ...devices['Pixel 7'],
-        channel: process.platform === 'win32' ? 'msedge' : undefined,
+        channel: process.platform === 'win32' ? 'msedge' : process.env.TABBY_CI_BROWSER === 'chrome' ? 'chrome' : undefined,
       },
     },
   ],
