@@ -235,7 +235,7 @@ begin
 end$$;
 create unique index creator_one_replacement on private.creator_records(replacement_for)where replacement_for is not null;
 create function private.creator_normalize(draft jsonb)
-returns jsonb language plpgsql immutable set search_path='' as $$
+returns jsonb language plpgsql stable set search_path='' as $$
 #variable_conflict use_variable
 declare occurred timestamptz;links jsonb;link jsonb;result jsonb;replacement uuid;
 begin

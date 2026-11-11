@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import{beforeEach,afterEach,describe,it,expect,vi}from'vitest'
-import{readCreatorAttempt,saveCreatorAttempt,clearCreatorRecovery,readCreatorContext,recordCreator,type CreatorAttempt}from'./creatorSettlement'
+import{readCreatorAttempt,saveCreatorAttempt,clearCreatorRecovery,readCreatorLookup,readCreatorContext,recordCreator,type CreatorAttempt}from'./creatorSettlement'
 import{creatorHomeNotice}from'../hooks/useCreatorNotices'
 import{noticeDestination,parseNoticeLocation}from'./notificationPresentation'
 const mock=vi.hoisted(()=>({session:vi.fn(),rpc:vi.fn()}))
@@ -10,7 +10,7 @@ const attempt:CreatorAttempt={requestId:id,attested:true,draft:{rateMode:'custom
 beforeEach(()=>{sessionStorage.clear();localStorage.clear();mock.rpc.mockReset();mock.session.mockResolvedValue({data:{session:{user:{id:'actor'},access_token:'synthetic-token'}},error:null})})
 afterEach(()=>vi.restoreAllMocks())
 describe('creator recovery and identity boundaries',()=>{
- it('preserves exact reviewed payload and nonce only in matching actor/trip scope',()=>{saveCreatorAttempt('actor:participant',trip,attempt);expect(readCreatorAttempt('actor:participant',trip)).toEqual(attempt);expect(readCreatorAttempt('other:participant',trip)).toBeNull();expect(readCreatorAttempt('actor:participant',id)).toBeNull();clearCreatorRecovery();expect(readCreatorAttempt('actor:participant',trip)).toBeNull()})
+ it('preserves exact reviewed payload and nonce only in matching actor/trip scope',()=>{saveCreatorAttempt('actor:participant',trip,attempt);expect(readCreatorAttempt('actor:participant',trip)).toEqual(attempt);expect(readCreatorAttempt('other:participant',trip)).toBeNull();expect(readCreatorAttempt('actor:participant',id)).toBeNull();clearCreatorRecovery();expect(readCreatorAttempt('actor:participant',trip)).toBeNull();expect(readCreatorLookup('actor:participant',trip)).toBe(id);expect(readCreatorLookup('other:participant',trip)).toBeNull()})
  it('falls back from blocked session storage and blocks dispatch if neither store works',()=>{const original=Storage.prototype.setItem;const spy=vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(this:Storage,k,v){if(this===sessionStorage)throw Error('blocked');original.call(this,k,v)});saveCreatorAttempt('actor',trip,attempt);expect(readCreatorAttempt('actor',trip)).toEqual(attempt);spy.mockImplementation(()=>{throw Error('blocked')});expect(()=>saveCreatorAttempt('other',trip,attempt)).toThrow('creator_recovery_unavailable');expect(mock.rpc).not.toHaveBeenCalled()})
  it('does not silently ignore a corrupt or unattested frozen request',()=>{sessionStorage.setItem('tt:creator:pending:actor:'+trip,JSON.stringify({...attempt,attested:false}));expect(()=>readCreatorAttempt('actor',trip)).toThrow('creator_recovery_invalid')})
  it('rejects a changed authenticated identity before dispatching RPC',async()=>{await expect(readCreatorContext('someone-else',trip)).rejects.toThrow('creator_context_changed');expect(mock.rpc).not.toHaveBeenCalled()})

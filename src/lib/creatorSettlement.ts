@@ -54,6 +54,7 @@ export async function retireCreatorAttempt(identity:string,trip:string,requestId
 }
 const prefix='tt:creator:pending:'
 const key=(scope:string,trip:string)=>prefix+scope+':'+trip
+const lookupKey=(scope:string,trip:string)=>'tt:creator:lookup:'+scope+':'+trip
 const stores=()=>{const result:Storage[]=[];try{result.push(sessionStorage)}catch{/* handled before financial dispatch */}try{result.push(localStorage)}catch{/* handled before financial dispatch */}return result}
 export function readCreatorAttempt(scope:string,trip:string):CreatorAttempt|null{
  for(const storage of stores()){
@@ -61,12 +62,16 @@ export function readCreatorAttempt(scope:string,trip:string):CreatorAttempt|null
   try{const a=JSON.parse(raw)as CreatorAttempt;if(a.attested!==true||!uuid.test(a.requestId)||!a.draft||!Array.isArray(a.draft.payments)||!Array.isArray(a.draft.ownAccountLinks)||typeof a.draft.occurredAt!=='string'||!a.review?.digest)throw new Error();validateRoutedPlan(a.review.plan);return a}catch{throw new Error('creator_recovery_invalid')}
  }return null
 }
+export function readCreatorLookup(scope:string,trip:string):string|null{
+ for(const storage of stores()){let value:string|null;try{value=storage.getItem(lookupKey(scope,trip))}catch{continue}if(value){if(!uuid.test(value))throw new Error('creator_recovery_invalid');return value}}return null
+}
 export function saveCreatorAttempt(scope:string,trip:string,a:CreatorAttempt){
  const serialized=JSON.stringify(a)
- for(const storage of stores())try{storage.setItem(key(scope,trip),serialized);if(storage.getItem(key(scope,trip))===serialized)return}catch{/* fallback retains the identical actor-scoped frozen request */}
+ for(const storage of stores())try{storage.setItem(lookupKey(scope,trip),a.requestId);storage.setItem(key(scope,trip),serialized);if(storage.getItem(key(scope,trip))===serialized&&storage.getItem(lookupKey(scope,trip))===a.requestId)return}catch{/* fallback retains the identical actor-scoped frozen request */}
  throw new Error('creator_recovery_unavailable')
 }
-export function clearCreatorAttempt(scope:string,trip:string){for(const storage of stores())try{storage.removeItem(key(scope,trip))}catch{/* next read remains safely blocked if storage fails */}}
+export function clearCreatorAttempt(scope:string,trip:string){for(const storage of stores())try{storage.removeItem(key(scope,trip));storage.removeItem(lookupKey(scope,trip))}catch{/* next read remains safely blocked if storage fails */}}
+/** Logout clears financial payloads; an actor-scoped opaque UUID remains for authoritative lookup/fencing after login. */
 export function clearCreatorRecovery(){for(const storage of stores())try{for(let i=storage.length-1;i>=0;i--){const k=storage.key(i);if(k?.startsWith(prefix))storage.removeItem(k)}}catch{/* unavailable storage is never used to issue an untracked request */}}
 export const creatorChanged=(trip:string)=>window.dispatchEvent(new CustomEvent('tt:creator-settlement-changed',{detail:{trip}}))
 export function creatorError(lang:string,cause:unknown){

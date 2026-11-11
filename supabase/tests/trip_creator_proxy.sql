@@ -38,6 +38,10 @@ select pg_temp.rclaim(3);
 select is(public.get_trip_creator_context(pg_temp.rid('trip'))->>'canRecord','false','ordinary full member is not an automatic proxy');
 select pg_temp.rclaim(2);
 insert into rv values('draft',pg_temp.rdraft(jsonb_build_array(pg_temp.rpayment('dav',1,3,400000,2,200000),pg_temp.rpayment('alex',1,4,100000,2,80000)))||jsonb_build_object('occurredAt',to_char(now()at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'note','Actual cash'));
+insert into rv values('too-large',pg_temp.rdraft(jsonb_build_array(pg_temp.rpayment('dav',1,3,400000,2,200000),pg_temp.rpayment('alex',1,4,120000,2,100000)))||jsonb_build_object('occurredAt',now(),'note','Exceeds common cap'));
+insert into rv values('blocked-review',public.preview_trip_creator_settlement(pg_temp.rid('trip'),(select v from rv where k='too-large')));
+select is((select v->>'digest'from rv where k='blocked-review'),null,'two recipient shared source over-cap review cannot authorize posting');
+select ok((select v->'plan'->'issues'@>'[{"code":"SHARED_LIMIT","paymentIds":["alex","dav"]}]'::jsonb or v->'plan'->'issues'@>'[{"code":"SHARED_LIMIT","paymentIds":["dav","alex"]}]'::jsonb from rv where k='blocked-review'),'server identifies both competing payment rows');
 insert into rv values('preview',public.preview_trip_creator_settlement(pg_temp.rid('trip'),(select v from rv where k='draft')));
 select is(jsonb_array_length((select v->'plan'->'issues'from rv where k='preview')),0,'creator review uses full shared route capacities');
 insert into rr values('request',gen_random_uuid());
@@ -64,6 +68,13 @@ select pg_temp.rclaim(5);
 select is(jsonb_array_length(public.read_trip_creator_settlements(pg_temp.rid('trip'))),0,'uninvolved member cannot view proxy record');
 select is(jsonb_array_length(public.get_creator_settlement_notifications()->'notices'),0,'uninvolved member has no notice');
 
+reset role;
+insert into rr select 'guard-cash',a.id from private.creator_receipts r join public.settlement_allocations a on a.settlement_payment_id=r.payment_id where r.record_id=pg_temp.rid('record')and r.kind='cash'limit 1;
+insert into rr select 'guard-coverage',a.id from private.creator_receipts r join public.settlement_allocations a on a.settlement_payment_id=r.payment_id where r.record_id=pg_temp.rid('record')and r.kind='coverage'limit 1;
+set local role authenticated;
+select pg_temp.rclaim(2);
+select throws_ok($$select public.reverse_settlement_allocation(gen_random_uuid(),pg_temp.rid('guard-cash'),1,'partial')$$,'P0001','fx_bundle_reversal_required','legacy client cannot reverse one proxy cash row');
+select throws_ok($$select public.reverse_settlement_allocation(gen_random_uuid(),pg_temp.rid('guard-coverage'),1,'partial')$$,'P0001','fx_bundle_reversal_required','legacy client cannot reverse one proxy native reduction');
 -- Owner-only late linkage and metadata-only correction.
 select pg_temp.rclaim(3);
 select throws_ok($$select public.link_trip_creator_account(pg_temp.rid('record'),'dav',pg_temp.rid('ps-account'),gen_random_uuid(),1)$$,'P0001','settlement_cash_account_invalid','recipient cannot bind another member account');
