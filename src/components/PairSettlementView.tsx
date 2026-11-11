@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import AmountInput from './AmountInput'
 import { SettlementAccountSetup } from './SettlementAccountSetup'
@@ -23,6 +23,8 @@ type Props={self:string;other:string;otherName:string;youOwe:MoneyLine[];theyOwe
 export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:homeCurrency,spaceId,tripName,expenses,settlements,pageMode,canPropose,review:providedReview,bundleStatus,onClose,onDone,onRefresh}:Props){
   const t=useT(),{authUser}=useAuth(),lang=useStore(s=>s.lang),isReview=pageMode==='review'
   const review=providedReview&&[providedReview.payer_participant_id,providedReview.counterparty_participant_id].includes(self)?providedReview:null
+  const batchCash=useMemo(()=>isReview&&review?.quote.batchVersion===1?review.quote.cashLegs??[]:null,[isReview,review])
+  const [batchAccounts,setBatchAccounts]=useState<Record<string,string>>({})
   const [paymentCurrency,setPaymentCurrency]=useState(homeCurrency)
   const target=isReview&&review?review.target_currency:paymentCurrency
   const paymentCurrencies=[...new Set([homeCurrency,paymentCurrency,...youOwe.map(l=>l.currency),...theyOwe.map(l=>l.currency)])].sort()
@@ -48,7 +50,7 @@ export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:h
   const accountScope=self+':'+target
   const accounts=accountRead?.key===accountScope?accountRead.rows:[]
   const accountStatus=accountRead?.key===accountScope?accountRead.status:'loading'
-  const accountValid=accountStatus==='ready'&&accounts.some(a=>a.id===accountId&&a.currency===target)
+  const accountValid=accountStatus==='ready'&&(batchCash?batchCash.every(c=>accounts.some(a=>a.id===batchAccounts[c.currency]&&a.currency===c.currency)):accounts.some(a=>a.id===accountId&&a.currency===target))
   const sources=pairExpenseSources(expenses,spaceId,self,other)
   const versions=pairExpenseVersions(expenses,spaceId,self,other)
   const sourceChanged=!!review?.quote.expenses?.some(v=>!expenses.some(e=>e.id===v.id&&e.version===v.version&&e.scope==='space'&&e.spaceId===spaceId&&e.status==='active'))
@@ -63,9 +65,9 @@ export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:h
   useEffect(()=>{
     if(!needsAccount)return
     let active=true
-    void loadQuickAccounts().then(rows=>{if(active)setAccountRead({key:accountScope,rows:rows.filter(a=>a.currency===target),status:'ready'})},()=>{if(active)setAccountRead({key:accountScope,rows:[],status:'error'})})
+    void loadQuickAccounts().then(rows=>{if(active)setAccountRead({key:accountScope,rows:rows.filter(a=>batchCash?batchCash.some(c=>c.currency===a.currency):a.currency===target),status:'ready'})},()=>{if(active)setAccountRead({key:accountScope,rows:[],status:'error'})})
     return()=>{active=false}
-  },[needsAccount,target,self,accountRetry,accountScope])
+  },[needsAccount,target,self,accountRetry,accountScope,batchCash])
   useEffect(()=>{
     const reload=()=>setAccountRetry(n=>n+1)
     const visible=()=>{if(document.visibilityState==='visible')reload()}
@@ -99,22 +101,22 @@ export function PairSettlementView({self,other,otherName,youOwe,theyOwe,target:h
   const respond=async(response:'accepted'|'declined')=>{
     if(!supabase||busyRef.current||!review||!canReview)return
     busyRef.current=true;setBusy(true);setError('')
-    try{const {error:failure}=await supabase.rpc('respond_fx_settlement_bundle',{target_bundle_id:review.id,response,expected_version:review.version,receiver_account_id:response==='accepted'&&review.cash_minor>0?accountId||null:null});if(failure)throw failure;await onDone()}
+    try{const {error:failure}=await (batchCash?supabase.rpc('respond_trip_batch_child',{target_bundle_id:review.id,response,expected_version:review.version,receiver_accounts:response==='accepted'?batchAccounts:{}}):supabase.rpc('respond_fx_settlement_bundle',{target_bundle_id:review.id,response,expected_version:review.version,receiver_account_id:response==='accepted'&&review.cash_minor>0?accountId||null:null}));if(failure)throw failure;await onDone()}
     catch(cause){setError(cause&&typeof cause==='object'&&'message'in cause?String(cause.message):'network_error')}finally{busyRef.current=false;setBusy(false)}
   }
   const quoteErrorText=quoteError?(quoteError==='invalid_amount'&&intent==='partial'&&full?.ok?t('fx.partialRange',{amount:display(full.fullMinor)}):quoteError==='too_many_fraction_digits'?t('fx.currencyPrecision',{currency:target,digits:String(currencyExponent(target))}):quoteError==='amount_too_small'?t('fx.amountTooSmall'):quoteError==='invalid_rate'||mode==='custom'&&!full?t('fx.invalidRate'):t('fx.invalidPayment',{currency:target})):''
   const errorText=(code:string)=>/settlement_cash_account_invalid/.test(code)?t('fx.accountInvalid',{currency:target}):/balance_changed|version_conflict|quote_changed/.test(code)?t('fx.quoteChanged'):t(friendlyErrorKey(new Error(code)))
   const title=t(isReview?'fx.reviewTitle':summary?'fx.summaryTitle':'fx.payTitle',{name:otherName})
-  const rateRows=isReview?Object.entries(review?.quote.rates??{}).filter(([c])=>c!==target):foreign.map(code=>{
+  const rateRows=isReview?Object.entries({...review?.quote.rates,...(review?.quote.cashRate?{VND:review.quote.cashRate}:{})}).filter(([c])=>c!==target):foreign.map(code=>{
     let value=null;try{value=rateFor(code)}catch{/* Invalid custom input stays visible. */}
     return [code,{numerator:value?.n.toString()??'',denominator:value?.d.toString()??'',provider:mode==='system'?(fx.snapshot.rates[code]??fx.snapshot.rates[target])?.provider:undefined,rateDate:mode==='system'?(fx.snapshot.rates[code]??fx.snapshot.rates[target])?.rateDate:undefined,source:mode}]as const
   })
-  const accountField=needsAccount?<div className="fx-account"><label htmlFor="fx-account">{t(isReview?'fx.receivedInto':'fx.paidFrom')}</label>{accountStatus==='error'?<p role="alert">{t('fx.accountError')} <button type="button" onClick={()=>setAccountRetry(n=>n+1)}>{t('common.retry')}</button></p>:<select id="fx-account" value={accountId} disabled={busy||accountStatus!=='ready'||!accounts.length} onChange={e=>{setAccountId(e.target.value);setError('')}}><option value="">{accountStatus==='ready'&&!accounts.length?t('fx.noCurrencyAccount',{currency:target}):t(accountStatus==='loading'?'common.loading':'fx.chooseAccount')}</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select>}{accountStatus==='ready'&&!accounts.length?<><p className="fx-muted">{t('fx.accountRequired',{currency:target})}</p><SettlementAccountSetup key={accountScope} currency={target} disabled={busy} onCreated={id=>{setAccountId(id);setError('');setAccountRetry(n=>n+1)}}/></>:null}</div>:null
+  const accountField=batchCash&&canReview?<div className="fx-account">{batchCash.map(c=>{const available=accounts.filter(a=>a.currency===c.currency);return <div key={c.currency}><label>{t('fx.receivedInto')} · {c.currency}<select aria-label={'Receive '+c.currency+' into'} value={batchAccounts[c.currency]??''} disabled={busy||accountStatus!=='ready'||!available.length} onChange={e=>setBatchAccounts(a=>({...a,[c.currency]:e.target.value}))}><option value="">{t(available.length?'fx.chooseAccount':'fx.noCurrencyAccount',{currency:c.currency})}</option>{available.map(a=><option value={a.id} key={a.id}>{a.name} · {a.currency}</option>)}</select></label>{accountStatus==='ready'&&!available.length?<><p className="fx-muted">{t('fx.accountRequired',{currency:c.currency})}</p><SettlementAccountSetup currency={c.currency} disabled={busy} onCreated={id=>{setBatchAccounts(a=>({...a,[c.currency]:id}));setAccountRetry(n=>n+1)}}/></>:null}</div>})}{accountStatus==='error'?<p role="alert">{t('fx.accountError')} <button type="button" onClick={()=>setAccountRetry(n=>n+1)}>{t('common.retry')}</button></p>:null}</div>:needsAccount?<div className="fx-account"><label htmlFor="fx-account">{t(isReview?'fx.receivedInto':'fx.paidFrom')}</label>{accountStatus==='error'?<p role="alert">{t('fx.accountError')} <button type="button" onClick={()=>setAccountRetry(n=>n+1)}>{t('common.retry')}</button></p>:<select id="fx-account" value={accountId} disabled={busy||accountStatus!=='ready'||!accounts.length} onChange={e=>{setAccountId(e.target.value);setError('')}}><option value="">{accountStatus==='ready'&&!accounts.length?t('fx.noCurrencyAccount',{currency:target}):t(accountStatus==='loading'?'common.loading':'fx.chooseAccount')}</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select>}{accountStatus==='ready'&&!accounts.length?<><p className="fx-muted">{t('fx.accountRequired',{currency:target})}</p><SettlementAccountSetup key={accountScope} currency={target} disabled={busy} onCreated={id=>{setAccountId(id);setError('');setAccountRetry(n=>n+1)}}/></>:null}</div>:null
   return createPortal(<section ref={dialog} className="fx-settle-overlay" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} data-testid="pair-settlement" data-mode={isReview?'review':summary?'summary':'pay'}><div className="fx-frame">
     <header className="fx-header"><button type="button" className="fx-back" aria-label={t('tl.balances')} disabled={busy} onClick={close}>‹</button><div><h2>{title}</h2><p>{tripName??t('members.back')}</p></div></header>
     <div className="fx-settle-body" onFocusCapture={e=>{if(e.target instanceof HTMLElement&&e.target.matches('input,select')){const node=e.target;requestAnimationFrame(()=>node.scrollIntoView({block:'nearest'}))}}}>
       {isReview&&!review?<p role={bundleStatus==='loading'?'status':'alert'}>{t(bundleStatus==='loading'?'common.loading':'fx.bundleUnavailable')}</p>:<>
-      <section className="fx-headline"><p>{t(isReview?'fx.reported':full?.ok&&full.direction==='collect'?'fx.netCollect':'fx.netPay')}</p><strong className="fx-net">{net==null?t('tw.estimateUnavailable'):display(net)}</strong></section>
+      <section className="fx-headline"><p>{t(isReview?'fx.reported':full?.ok&&full.direction==='collect'?'fx.netCollect':'fx.netPay')}</p><strong className="fx-net">{batchCash?batchCash.map(c=>display(c.amountMinor,c.currency)).join(' + '):net==null?t('tw.estimateUnavailable'):display(net)}</strong>{batchCash&&review?<p className="fx-muted">≈ {display(review.cash_minor)} · {t('tw.referenceEstimate')}</p>:null}</section>
       {!isReview?<section className="fx-contra"><div><span><strong>{t('fx.youOwe',{name:otherName})}</strong><small>{original(youOwe)}</small></span><b>{yours==null?'—':display(yours)}</b></div><div><span><strong>{t('fx.theyOwe',{name:otherName})}</strong><small>{original(theyOwe)}</small></span><b>{theirs==null?'—':display(theirs)}</b></div></section>:<p className="fx-muted">{t('fx.snapshotHelp')}</p>}
       <button type="button" className="fx-details-toggle" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>{t('fx.included')} <span aria-hidden="true">{open?'⌃':'⌄'}</span></button>
       {open?<section className="fx-included">{sourceChanged?<p role="alert">{t('fx.sourceChanged')}</p>:<ul>{sources.map(row=><li key={row.expenseId}><strong>{row.expense.description??row.expense.currency}</strong><small>{formatDate(row.expense.occurredOn,lang)}</small><p>{t('fx.pairOriginal')} · {display(row.amountMinor,row.currency)}</p>{applications.has(row.expenseId)?<p>{t('fx.applied')} · {display(applications.get(row.expenseId)!,row.currency)}</p>:null}</li>)}</ul>}<p className="fx-muted">{t('fx.previewHelp')}</p></section>:null}

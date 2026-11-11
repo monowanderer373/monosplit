@@ -31,6 +31,8 @@ jobs:
         with:
           name: issue07-production-ui-evidence
           path: test-results/issue07/
+            test-results/trip-batch/
+            test-results/trip-routed/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -45,6 +47,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --omit=dev
+      - run: python3 scripts/verify-trip-batch-installer.py
+      - run: python3 scripts/verify-trip-routed-installer.py
       - run: npm test
       - run: npm run lint
       - run: npm run build
@@ -74,10 +78,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
           python3 supabase/tests/collect_pay_lock_concurrency.py
+          python3 scripts/verify-trip-routed-production.py --db-url "$COLLECT_PAY_TEST_DB_URL"
       - name: Verify FX settlement with overlapping database sessions
         env:
           FX_SETTLEMENT_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-        run: python3 supabase/tests/fx_settlement_concurrency.py
+        run: |
+          python3 supabase/tests/fx_settlement_concurrency.py
+          python3 supabase/tests/trip_batch_concurrency.py
+          ROUTED_SETTLEMENT_TEST_DB_URL="$FX_SETTLEMENT_TEST_DB_URL" python3 supabase/tests/trip_routed_concurrency.py
       - name: Verify atomic multicurrency funding with competing sessions
         env:
           MULTICURRENCY_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -140,7 +148,7 @@ jobs:
           python3 scripts/generate-trip-editor-apply.py
           git diff --exit-code -- docs/runbooks/multicurrency-production-apply.sql docs/runbooks/personal-periods-production-apply.sql docs/runbooks/personal-confirmation-production-apply.sql docs/runbooks/shared-restart-production-apply.sql
           mkdir /tmp/tabby-multicurrency-migrations
-          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql supabase/migrations/202610260001_shared_restart.sql supabase/migrations/202610280001_trip_friend_requests.sql supabase/migrations/202610310001_unified_trip_expense_editor.sql supabase/migrations/202611030001_issue08_historical_placeholder_and_fx_settlement.sql supabase/migrations/202611030002_issue08_fx_cash_and_bundle_controls.sql supabase/migrations/202611040001_issue08_closeout_guards.sql /tmp/tabby-multicurrency-migrations/
+          mv supabase/migrations/20261016130602_multicurrency_accounts_and_funding.sql supabase/migrations/20261016132156_multicurrency_money_movements.sql supabase/migrations/202610250001_personal_ledger_periods.sql supabase/migrations/202610250002_personal_period_opening_safety.sql supabase/migrations/202610250003_personal_period_session_confirmation.sql supabase/migrations/202610260001_shared_restart.sql supabase/migrations/202610280001_trip_friend_requests.sql supabase/migrations/202610310001_unified_trip_expense_editor.sql supabase/migrations/202611030001_issue08_historical_placeholder_and_fx_settlement.sql supabase/migrations/202611030002_issue08_fx_cash_and_bundle_controls.sql supabase/migrations/202611040001_issue08_closeout_guards.sql supabase/migrations/202611050001_trip_batch_mixed_settlement.sql supabase/migrations/202611050002_batch_rate_metadata_guards.sql supabase/migrations/202611100001_trip_routed_settlement.sql supabase/migrations/202611100002_routed_native_balance_projection.sql /tmp/tabby-multicurrency-migrations/
           trap 'mv /tmp/tabby-multicurrency-migrations/*.sql supabase/migrations/' EXIT
           npx supabase migration up --local
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/multicurrency-production-apply.sql
@@ -163,6 +171,27 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version,name)values('202611030001','issue08_historical_placeholder_and_fx_settlement'),('202611030002','issue08_fx_cash_and_bundle_controls');"
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/issue08-closeout-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/issue08-closeout-production-apply.sql
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import re
+          routed=Path('docs/runbooks/trip-routed-production-apply.sql').read_text()
+          routed,n=re.subn(r'(?m)^commit;$','rollback;',routed);assert n==1
+          Path('/tmp/tabby-routed-fresh-rollback.sql').write_text(routed)
+          sql=Path('docs/runbooks/trip-batch-production-apply.sql').read_text()
+          sql,n=re.subn(r'(?m)^commit;$','rollback;',sql);assert n==1
+          Path('/tmp/tabby-batch-fresh-rollback.sql').write_text(sql)
+          PYCODE
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/tabby-routed-fresh-rollback.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/tabby-batch-fresh-rollback.sql 2>&1 | tee /tmp/tabby-batch-upgrade.log
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202611050001_trip_batch_mixed_settlement.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version,name)values('202611050001','trip_batch_mixed_settlement');"
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/tabby-routed-fresh-rollback.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql 2>&1 | tee /tmp/tabby-batch-upgrade.log
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-batch-production-apply.sql 2>&1 | tee /tmp/tabby-batch-upgrade.log
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202611100001_trip_routed_settlement.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version,name)values('202611100001','trip_routed_settlement');"
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-routed-production-apply.sql
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-routed-production-apply.sql
       - if: failure()
         run: python3 scripts/report-database-failure.py
       - name: Assert historical lockdown, normalization, and archive
@@ -315,9 +344,17 @@ jobs:
       - run: npx supabase db reset
       - run: npx playwright install --with-deps chromium
       - name: Verify Trip membership, split, dates, financial history and explicit friendship consent
-        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/issue08-closeout-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
+        run: npx playwright test e2e/trip-members-backend.spec.ts e2e/trip-split-backend.spec.ts e2e/trip-period.spec.ts e2e/trip-ledger-backend.spec.ts e2e/issue08-closeout-backend.spec.ts e2e/trip-batch-backend.spec.ts e2e/trip-routed-backend.spec.ts e2e/trip-editor-backend.spec.ts e2e/shared-navigation-backend.spec.ts e2e/multiuser.spec.ts --workers=1 --retries=0
       - name: Report native browser counts and final failures without auth state
         if: always()
         run: node scripts/report-browser-failures.mjs
+      - name: Save isolated routed settlement phone screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trip-routed-native-evidence
+          path: test-results/trip-routed-native/
+          if-no-files-found: ignore
+          retention-days: 14
       - if: always()
         run: npx supabase stop --no-backup

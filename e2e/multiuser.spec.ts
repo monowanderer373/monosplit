@@ -409,7 +409,7 @@ async function expectShare(page: Page, description: string, amount: string): Pro
 }
 
 async function expectDebt(page: Page, label: string, amount: string): Promise<void> {
-  if(await page.getByTestId('trip-ledger').count())await page.getByRole('tab',{name:'Settle up',exact:true}).click()
+  if(await page.getByTestId('trip-ledger').count()){await page.getByRole('tab',{name:'Settle up',exact:true}).click();const legacy=page.getByRole('button',{name:'Single-currency options',exact:true});if(await legacy.getAttribute('aria-expanded')==='false')await legacy.click()}
   const debt = page.getByRole('article').filter({ hasText: label })
   await expect(debt.getByText(amount, { exact: true })).toBeVisible()
 }

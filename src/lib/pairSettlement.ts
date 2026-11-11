@@ -4,8 +4,8 @@ import type { MoneyLine } from './fxSettlement'
 
 export type StoredFxRate = {numerator:string;denominator:string;source?:string;provider?:string;rateDate?:string;submittedAt?:string;targetRateDate?:string;targetProvider?:string}
 export type StoredFxCoverage = {direction:'payer_owes'|'counterparty_owes';currency:string;covered:number;remaining:number}
-export type FxBundle = {id:string;version:number;status:string;payer_participant_id:string;counterparty_participant_id:string;cash_minor:number;full_net_minor:number;target_currency:string;rate_mode:string;created_at:string;quote:{rates?:Record<string,StoredFxRate>;coverages?:StoredFxCoverage[];expenses?:{id:string;version:number}[];legs?:{direction:string;currency:string;remaining:number}[];submittedAt?:string;sourceVersion?:number}}
-export type PairPage = {other:string;mode:'summary'|'pay'|'review';bundleId?:string}
+export type FxBundle = {id:string;version:number;status:string;payer_participant_id:string;counterparty_participant_id:string;cash_minor:number;full_net_minor:number;target_currency:string;rate_mode:string;created_at:string;quote:{rates?:Record<string,StoredFxRate>;coverages?:StoredFxCoverage[];expenses?:{id:string;version:number}[];legs?:{direction:string;currency:string;remaining:number}[];submittedAt?:string;sourceVersion?:number;batchVersion?:number;cashLegs?:{currency:'MYR'|'VND';amountMinor:number}[];cashRate?:StoredFxRate|null}}
+export type PairPage = {other:string;mode:'summary'|'pay'|'review'|'batch'|'routed';bundleId?:string}
 
 /** Reuse the canonical Participant pairing, including Shared Restart, instead of selecting by currency. */
 export function pairExpenseSources(expenses:readonly CanonicalExpense[],trip:string,self:string,other:string){
