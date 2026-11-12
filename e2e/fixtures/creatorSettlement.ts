@@ -1,13 +1,15 @@
 import type{Page}from'@playwright/test'
 import{setupRouted,tripLedgerId}from'./routedSettlement'
 import{planSettlement,type Snapshot,type Payment}from'../../src/lib/routedSettlementCore'
+import{tripLedgerExpense}from'../../src/test/tripLedgerFixtures'
 import type{CreatorRecord,CreatorDraft,CreatorContext}from'../../src/lib/creatorSettlement'
 export{tripLedgerId}
 export async function setupCreator(page:Page){
- await setupRouted(page)
+ const base=await setupRouted(page)
  const names:Record<string,string>={owner:'Lii',alex:'PS',mia:'Dav',sam:'Alex'},edges:[string,string,number][]=[['alex','owner',280000],['owner','mia',400000],['owner','sam',100000],['alex','mia',250000],['alex','sam',20000]]
- const state={canRecord:true,isCreator:true,failAfterCommit:false,failBeforeCommit:false,expired:false,calls:[]as{rpc:string;body:Record<string,unknown>}[],rows:[]as(CreatorRecord&{requestId:string})[],names,delegated:false}
- const context=():CreatorContext=>({canRecord:state.canRecord,isCreator:state.isCreator,policyVersion:'fixture-policy',name:names.owner,members:Object.entries(names).map(([id,name])=>({id,name,kind:'account',delegated:id==='alex'&&state.delegated}))})
+ base.ledger.expenses=edges.map(([debtor,creditor,n],i)=>tripLedgerExpense('00000000-0000-4000-8000-'+String(444000+i).padStart(12,'0'),'Creator source '+i,[[creditor,n,0],[debtor,0,n]],'VND'))
+ const state={ledger:base.ledger,avatarFailure:false,canRecord:true,isCreator:true,failAfterCommit:false,failBeforeCommit:false,expired:false,calls:[]as{rpc:string;body:Record<string,unknown>}[],rows:[]as(CreatorRecord&{requestId:string})[],names,delegated:false}
+ const context=():CreatorContext=>({canRecord:state.canRecord,isCreator:state.isCreator,policyVersion:'fixture-policy',name:names.owner,members:Object.entries(names).map(([id,name])=>({id,name,kind:'account',...(state.avatarFailure?{avatarUrl:'https://avatar.example.test/broken.png'}:{}),delegated:id==='alex'&&state.delegated}))})
  const projected=(draft:CreatorDraft)=>{const rate=draft.vndPerMyr??'6320';const snapshot:Snapshot={tripId:tripLedgerId,revision:'one',quoteId:'fixture',ledgerCurrency:'VND',rates:{MYR:{numerator:String(Number(rate)/100),denominator:'1'}},participants:Object.keys(names),edges:edges.map(([from,to,minor],i)=>({id:String(i),from,to,minor}))};const p=planSettlement(snapshot,draft.payments as Payment[]);const totals=new Map<string,{from:string;to:string;currency:'VND';minor:number}>();for(const line of p.lines)for(const c of line.coverage){const t=totals.get(c.edgeId)??{from:c.from,to:c.to,currency:'VND',minor:0};t.minor+=c.minor;totals.set(c.edgeId,t)}return{ledgerCurrency:'VND' as const,lines:p.lines.map(l=>({payment:l.payment,valueMinor:l.valueMinor,viaMinor:l.viaMinor,directMinor:l.directMinor,unappliedMinor:l.unappliedMinor})),coverage:[...totals.values()],remaining:p.remaining.map(e=>({...e,currency:'VND' as const})),issues:p.issues,rate:{numerator:rate,denominator:'1',source:'custom',provider:'Custom'}}}
  await page.route('http://127.0.0.1:54321/rest/v1/rpc/**',async route=>{const rpc=new URL(route.request().url()).pathname.split('/').pop()!,body=route.request().postDataJSON()as Record<string,unknown>;const send=(json:unknown)=>route.fulfill({json})
   if(rpc==='get_trip_creator_context')return send(context())
