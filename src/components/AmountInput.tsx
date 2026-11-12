@@ -14,7 +14,7 @@ export default function AmountInput({ value, onValueChange, onKeyDown, ref, plac
       selection.current = null
     }
   })
-  return <input {...props} ref={inputRef} type="text" inputMode="decimal"
+  return <input {...props} ref={inputRef} type="text" inputMode={props.inputMode ?? "decimal"}
     placeholder={placeholder === undefined ? undefined : groupAmount(placeholder)} value={groupAmount(value)}
     onChange={event => {
       const input = event.currentTarget
