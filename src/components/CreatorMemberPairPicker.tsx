@@ -40,7 +40,7 @@ export function CreatorMemberPairPicker({payer, recipient, people, index, onChan
           aria-label={`${labels[side]} ${index}: ${person?.name ?? ct(lang, 'chooseMember')}`}
           aria-expanded={open === side} aria-controls={open === side ? panelId : undefined}
           onClick={() => setOpen(current => current === side ? undefined : side)}>
-          {person ? <RoutedAvatar person={person}/> : <span className="tt-r-avatar" aria-hidden="true">＋</span>}
+          {person ? <RoutedAvatar person={person}/> : <span className="tt-r-avatar" aria-hidden="true">+</span>}
           <span className="tt-c-member-name">{person?.name ?? ct(lang, 'chooseMember')}</span>
           <span aria-hidden="true">⌄</span>
         </button>
