@@ -14,7 +14,7 @@ group.add_argument('--db-url')
 args=parser.parse_args()
 installer=(root/'docs/runbooks/trip-contra-production-apply.sql').read_text()
 functions=dict(re.findall(r"to_regprocedure\('([^']+)'\)\)is distinct from '([0-9a-f]{32})'",installer))
-assert len(functions)==60
+assert len(functions)==61
 quote=lambda x:"'"+x.replace("'","''")+"'"
 versions=sorted(p.name.split('_')[0]for p in(root/'supabase/migrations').glob('*.sql'))
 values=','.join('('+quote(sig)+','+quote(digest)+')'for sig,digest in functions.items())
@@ -26,11 +26,11 @@ query=f"""with expected(sig,body)as(values {values}),audited as(
  from expected e left join pg_proc p on p.oid=to_regprocedure(e.sig)
 )select jsonb_build_object('role',current_user,'readOnly',current_setting('transaction_read_only'),'canCreate',has_schema_privilege(current_user,'public','CREATE'),
  'versionsMatch',(select array_agg(version order by version)from supabase_migrations.schema_migrations)=array[{','.join(map(quote,versions))}]::text[],
- 'expectedFunctions',60,'matchingBodies',(select count(*)from audited where body_ok),'matchingFunctionAcls',(select count(*)from audited where acl_ok),
+ 'expectedFunctions',61,'matchingBodies',(select count(*)from audited where body_ok),'matchingFunctionAcls',(select count(*)from audited where acl_ok),
  'missingOrChangedFunctions',(select coalesce(jsonb_agg(sig),'[]')from audited where not body_ok or not acl_ok),
  'financialRls',not exists(select 1 from unnest(array[{','.join(map(quote,tables))}])t(name)left join pg_class c on c.oid=to_regclass(t.name)where c.oid is null or not c.relrowsecurity),
  'privateTablesProtected',not exists(select 1 from unnest(array[{','.join(map(quote,private))}])t(name)where to_regclass(t.name)is null or coalesce(has_table_privilege('authenticated',to_regclass(t.name),'SELECT,INSERT,UPDATE,DELETE'),true)or coalesce(has_table_privilege('anon',to_regclass(t.name),'SELECT,INSERT,UPDATE,DELETE'),true)),
- 'contraProjectionStable',not exists(select 1 from unnest(array['private.contra_native_pair(jsonb,uuid,uuid,jsonb)','private.contra_gross_display(jsonb,uuid,uuid,jsonb)','private.contra_resolve_native(jsonb,bigint,numeric,numeric)','private.contra_remaining(jsonb)','private.routed_public_plan(jsonb)'])s(sig)join pg_proc p on p.oid=to_regprocedure(s.sig)where p.provolatile<>'s'),
+ 'contraProjectionStable',not exists(select 1 from unnest(array['private.contra_signed_outstanding(uuid,uuid,uuid,text)','private.contra_net_edge(uuid,uuid,uuid,numeric,numeric)','private.contra_quote(text,text,text)','private.contra_pair(uuid,uuid,uuid,jsonb)','private.contra_matrix(uuid,jsonb)','public.read_trip_contra_snapshot(uuid,text,text,text)','private.contra_native_pair(jsonb,uuid,uuid,jsonb)','private.contra_gross_display(jsonb,uuid,uuid,jsonb)','private.contra_resolve_native(jsonb,bigint,numeric,numeric)','private.contra_remaining(jsonb)','private.routed_public_plan(jsonb)'])s(sig)join pg_proc p on p.oid=to_regprocedure(s.sig)where p.provolatile<>'s'),
  'normalizerStable',(select provolatile='s'from pg_proc where oid='private.creator_normalize(jsonb)'::regprocedure),
  'noticeAcls',not has_table_privilege('anon','public.creator_settlement_notices','SELECT,INSERT,UPDATE,DELETE')and not has_table_privilege('authenticated','public.creator_settlement_notices','INSERT,UPDATE,DELETE')and has_table_privilege('authenticated','public.creator_settlement_notices','SELECT'),
  'noticePolicy',exists(select 1 from pg_policies where schemaname='public'and tablename='creator_settlement_notices'and policyname='creator_notice_recipient'),
@@ -50,4 +50,4 @@ try:
 except Exception as error:
  print('Schema audit unavailable: '+type(error).__name__,file=sys.stderr);sys.exit(2)
 print(json.dumps(audit,indent=2))
-sys.exit(0 if audit['versionsMatch']and audit['matchingBodies']==60 and audit['matchingFunctionAcls']==60 and audit['financialRls']and audit['privateTablesProtected']and audit['contraProjectionStable']and audit['normalizerStable']and audit['noticeAcls']and audit['noticePolicy']and audit['workerScheduled']and audit['realtimeAttached']else 1)
+sys.exit(0 if audit['versionsMatch']and audit['matchingBodies']==61 and audit['matchingFunctionAcls']==61 and audit['financialRls']and audit['privateTablesProtected']and audit['contraProjectionStable']and audit['normalizerStable']and audit['noticeAcls']and audit['noticePolicy']and audit['workerScheduled']and audit['realtimeAttached']else 1)

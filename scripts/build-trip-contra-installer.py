@@ -10,6 +10,10 @@ functions=dict(old)
 functions['private.routed_public_plan_v1(jsonb)']=old['private.routed_public_plan(jsonb)']
 for m in re.finditer(r'create(?: or replace)? function ([\w.]+)\((.*?)\)\s*returns.*?\bas \$\$(.*?)\$\$;',raw.decode(),re.S|re.I):
  name,args,body=m.groups();types=','.join(re.split(r'\s+',a.strip())[1]for a in args.split(',')if a.strip());functions[name+'('+types+')']=hashlib.md5(body.encode()).hexdigest()
+# Verify that the statement-stable read alias exactly preserves the canonical native query.
+native_sig='private.space_signed_outstanding(uuid,uuid,uuid,text)'
+old[native_sig]=functions['private.contra_signed_outstanding(uuid,uuid,uuid,text)']
+functions[native_sig]=old[native_sig]
 baseline=sorted(p.name.split('_')[0]for p in(root/'supabase/migrations').glob('*.sql')if p.name.split('_')[0]<version)
 sha=hashlib.sha256(raw).hexdigest()
 out="-- COMPLETE: existing Tabby Tally skiqsxvmxvmxfzhrzcxh with creator proxy installed.\n-- Adds shared bilateral contra snapshots and explicit-net coverage. Does not record payments or change balances.\nbegin;\nset local lock_timeout='10s';\nselect pg_advisory_xact_lock(hashtextextended('tabby.personal-periods.migration',0));\ndo $contra_install$\ndeclare migration_sql text;\nbegin\n"
@@ -31,7 +35,7 @@ $contra_payload$,'base64'),'UTF8');
  end if;
 """
 out+=checks(functions,'contra')
-out+=" if exists(select 1 from unnest(array['private.contra_native_pair(jsonb,uuid,uuid,jsonb)','private.contra_gross_display(jsonb,uuid,uuid,jsonb)','private.contra_resolve_native(jsonb,bigint,numeric,numeric)','private.contra_remaining(jsonb)','private.routed_public_plan(jsonb)'])s(sig)join pg_proc p on p.oid=to_regprocedure(s.sig)where p.provolatile<>'s')then raise exception 'Unexpected contra projection volatility';end if;\n"
+out+=" if exists(select 1 from unnest(array['private.contra_signed_outstanding(uuid,uuid,uuid,text)','private.contra_net_edge(uuid,uuid,uuid,numeric,numeric)','private.contra_quote(text,text,text)','private.contra_pair(uuid,uuid,uuid,jsonb)','private.contra_matrix(uuid,jsonb)','public.read_trip_contra_snapshot(uuid,text,text,text)','private.contra_native_pair(jsonb,uuid,uuid,jsonb)','private.contra_gross_display(jsonb,uuid,uuid,jsonb)','private.contra_resolve_native(jsonb,bigint,numeric,numeric)','private.contra_remaining(jsonb)','private.routed_public_plan(jsonb)'])s(sig)join pg_proc p on p.oid=to_regprocedure(s.sig)where p.provolatile<>'s')then raise exception 'Unexpected contra projection volatility';end if;\n"
 out+=" if(select provolatile from pg_proc where oid='private.creator_normalize(jsonb)'::regprocedure)<>'s'then raise exception 'Unexpected creator normalizer volatility';end if;\n"
 out+="end;\n$contra_install$;\nnotify pgrst,'reload schema';\ncommit;\nselect 'TABBY_TRIP_CONTRA_INSTALL_COMPLETE_20261112' as installation_status;\n"
 (root/'docs/runbooks/trip-contra-production-apply.sql').write_text(out);print('Contra installer:',len(out.encode()),'bytes;',len(functions),'final function fingerprints')

@@ -13,12 +13,12 @@ export type CreatorRow = {id:string; payer:string; recipient:string; amount:stri
 
 export function CreatorRepaymentChooser({people,snapshot,onChoose,disabled}:{people:CreatorPerson[];snapshot:ContraSnapshot;onChoose:(pair:ContraPair)=>void;disabled:boolean}) {
  const lang=useStore(s=>s.lang)
- const choices=snapshot.pairs.filter(p=>p.netMinor!==null&&p.netMinor>0&&p.payer&&p.recipient&&people.some(v=>v.id===p.payer)&&people.some(v=>v.id===p.recipient))
- const recipients=[...new Set(choices.map(p=>p.recipient!))]
+ const choices=snapshot.pairs.map(pair=>({pair,direction:pair.display.known?pair.display:pair.ledger})).filter(({direction:d})=>d.netMinor!==null&&d.netMinor>0&&d.payer&&d.recipient&&people.some(v=>v.id===d.payer)&&people.some(v=>v.id===d.recipient))
+ const recipients=[...new Set(choices.map(p=>p.direction.recipient!))]
  return <div className="tt-c-choices" data-contra-revision={snapshot.revision}>
   <p>{ct(lang,'chooseHelp')}</p>
   {recipients.map(id=><section className="tt-c-debt-list" key={id}><h3>{ct(lang,'owedTo')} {people.find(p=>p.id===id)!.name}</h3>
-   {choices.filter(p=>p.recipient===id).map(pair=>{const person=people.find(p=>p.id===pair.payer)!,d=pair.display;return <button type="button" disabled={disabled} key={pair.id} onClick={()=>onChoose(pair)}>
+   {choices.filter(p=>p.direction.recipient===id).map(({pair,direction})=>{const person=people.find(p=>p.id===direction.payer)!,d=pair.display;return <button type="button" disabled={disabled} key={pair.id} onClick={()=>onChoose(pair)}>
     <RoutedAvatar person={person}/><span>{person.name}</span><strong>{d.known?(d.estimated?'≈ ':'')+routedMoney(d.netMinor!,d.currency):'—'}</strong><span aria-hidden="true">›</span>
    </button>})}
   </section>)}
@@ -27,7 +27,7 @@ export function CreatorRepaymentChooser({people,snapshot,onChoose,disabled}:{peo
  </div>
 }
 
-export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remove, ownControl, rateControl, netMode=false}: {
+export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remove, ownControl, rateControl}: {
   rows: CreatorRow[]
   people: CreatorPerson[]
   disabled: boolean
@@ -36,7 +36,6 @@ export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remov
   remove: (id: string) => void
   ownControl: (id: string, currency: string) => ReactNode
   rateControl: ReactNode
-  netMode?:boolean
 }) {
   const lang = useStore(s => s.lang)
   const r = (key: Parameters<typeof rt>[1]) => rt(lang,key)
@@ -62,7 +61,7 @@ export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remov
             onChange={e => edit(row.id,{method:e.target.value as CreatorRow['method']})}>
             <option value="cash">{r('cash')}</option><option value="bank_transfer">{r('bank')}</option>
           </select></label>
-          {row.via ? <label>{r(netMode?'myrVia':'viaAmount')}<AmountInput aria-label={r(netMode?'myrVia':'viaAmount')+' '+(index+1)}
+          {row.via ? <label>{r('viaAmount')}<AmountInput aria-label={r('viaAmount')+' '+(index+1)}
             value={row.viaAmount} placeholder={r('auto')} onValueChange={value => edit(row.id,{viaAmount:value})}/></label> : null}
         </div>
         {[row.payer,row.recipient].includes(actor) ? ownControl(row.id,row.currency) : null}

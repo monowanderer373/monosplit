@@ -13,7 +13,7 @@ export type ContraPair = {
   id: string; a: string; b: string; edgeBasis: 'net'; nativeBasis: 'same_currency_net'
   native: ContraNative[]; availableNative: ContraNative[]; audit:ContraAudit[]; display: ContraDisplay; grossDisplay: ContraDisplay|null
   netMinor: number | null; availableMinor: number; payer: string | null; recipient: string | null
-  ledgerCurrency:'MYR'; ledger:ContraDisplay; pending:boolean; currentMembers: boolean; sourceVersions: {id:string;version:number}[]
+  ledgerCurrency:'VND'; ledger:ContraDisplay; pending:boolean; currentMembers: boolean; sourceVersions: {id:string;version:number}[]
 }
 export type ContraSnapshot = {
   tripId: string; viewer: string; revision: string; edgeBasis: 'net'; canRecord: boolean
@@ -35,7 +35,7 @@ export function validateContraSnapshot(value:unknown, trip:string, viewer:string
       || p.nativeBasis!=='same_currency_net' || !Array.isArray(p.native) || !Array.isArray(p.availableNative)
       || !safe(p.availableMinor) || p.netMinor!==null&&!safe(p.netMinor) || !d || d.currency!==s.quote.displayCurrency
       || typeof d.known!=='boolean' || typeof d.estimated!=='boolean' || typeof p.currentMembers!=='boolean'
-      || p.ledgerCurrency!=='MYR' || !p.ledger || p.ledger.currency!=='MYR' || typeof p.pending!=='boolean' || !Array.isArray(p.sourceVersions) || !Array.isArray(p.audit)) throw new Error('invalid_contra_snapshot')
+      || p.ledgerCurrency!=='VND' || !p.ledger || p.ledger.currency!=='VND' || typeof p.pending!=='boolean' || !Array.isArray(p.sourceVersions) || !Array.isArray(p.audit)) throw new Error('invalid_contra_snapshot')
     ids.add(p.id)
     const currencies=new Set<string>()
     for(const leg of p.native) {

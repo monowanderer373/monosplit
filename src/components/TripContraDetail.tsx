@@ -19,7 +19,7 @@ export function TripContraDetail({pair,snapshot,names}:{pair:ContraPair|undefine
       <div className="tt-contra-net"><dt>{t('contraNet')}{d.payer?<small>{name(d.payer)} → {name(d.recipient!)}</small>:null}</dt><dd>{money(d.netMinor)}</dd></div>
     </dl>
     {pair.pending?<p className="tt-r-error" role="status">{t('contraPending')}</p>:null}
-    {!pair.netMinor?<p>{t('contraZero')}</p>:null}
+    {pair.netMinor===0?<p>{t('contraZero')}</p>:null}{pair.netMinor===null?<p role="status">{t('contraRate')}</p>:null}
     {!pair.currentMembers?<p>{t('contraMember')}</p>:null}
     <details className="tt-c-details"><summary>{t('contraOriginal')}</summary>
       <p className="tt-r-muted">{t('contraAuditHelp')}</p>

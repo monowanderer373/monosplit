@@ -2,6 +2,80 @@
 begin;
 
 
+-- Same canonical native query; leave the legacy function and its volatility untouched.
+CREATE OR REPLACE FUNCTION private.contra_signed_outstanding(target_space_id uuid, first_participant_id uuid, second_participant_id uuid, currency_code text)
+ RETURNS bigint
+ LANGUAGE plpgsql STABLE
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $$
+declare result_minor numeric;
+begin
+  with positions as (
+    select participation.expense_id, participation.participant_id,
+      participation.participant_order,
+      coalesce(contribution.amount_minor, 0) - share.amount_minor as net_minor
+    from public.expenses as expense
+    join public.expense_participations as participation on participation.expense_id = expense.id
+    join public.expense_shares as share on share.expense_participation_id = participation.id
+    left join public.payer_contributions as contribution on contribution.expense_participation_id = participation.id
+    where expense.scope = 'space' and expense.space_id = target_space_id
+      and expense.status = 'active' and expense.currency = pg_catalog.upper(currency_code)
+    -- Space pairing includes all participations, unlike Direct accepted/tracked.
+  ), debtors as (
+    select *, coalesce(pg_catalog.sum(-net_minor) over (
+      partition by expense_id order by participant_order, participant_id
+      rows between unbounded preceding and 1 preceding
+    ), 0) as start_minor, pg_catalog.sum(-net_minor) over (
+      partition by expense_id order by participant_order, participant_id
+      rows between unbounded preceding and current row
+    ) as end_minor from positions where net_minor < 0
+  ), creditors as (
+    select *, coalesce(pg_catalog.sum(net_minor) over (
+      partition by expense_id order by participant_order, participant_id
+      rows between unbounded preceding and 1 preceding
+    ), 0) as start_minor, pg_catalog.sum(net_minor) over (
+      partition by expense_id order by participant_order, participant_id
+      rows between unbounded preceding and current row
+    ) as end_minor from positions where net_minor > 0
+  ), expense_effect as (
+    select coalesce(pg_catalog.sum(
+      (case when debtor.participant_id = first_participant_id then 1 else -1 end)
+      * private.shared_restart_amount(debtor.expense_id,debtor.participant_id,creditor.participant_id,
+        greatest(0,least(debtor.end_minor,creditor.end_minor)-greatest(debtor.start_minor,creditor.start_minor))::bigint)
+    ), 0) as amount_minor
+    from debtors as debtor join creditors as creditor using (expense_id)
+    where (debtor.participant_id = first_participant_id and creditor.participant_id = second_participant_id)
+       or (debtor.participant_id = second_participant_id and creditor.participant_id = first_participant_id)
+  ), reversals as (
+    select settlement_allocation_id, pg_catalog.sum(amount_minor) as amount_minor
+    from public.settlement_allocation_reversals group by settlement_allocation_id
+  ), transfer_effect as (
+    select coalesce(pg_catalog.sum(
+      (case when payment.debtor_participant_id = first_participant_id then -1 else 1 end)
+      * (case when allocation.state = 'reversed' then 0
+         else allocation.amount_minor - coalesce(reversal.amount_minor, 0) end)
+    ), 0) as amount_minor
+    from public.settlement_payments as payment
+    join public.settlement_allocations as allocation on allocation.settlement_payment_id = payment.id
+    left join reversals as reversal on reversal.settlement_allocation_id = allocation.id
+    where payment.scope = 'space' and payment.space_id = target_space_id
+      and payment.currency = pg_catalog.upper(currency_code) and payment.fx_cash_only = false
+      and allocation.state in ('accepted', 'reversed')
+      and not private.shared_allocation_cleared(allocation.id)
+      and ((payment.debtor_participant_id = first_participant_id and allocation.creditor_participant_id = second_participant_id)
+        or (payment.debtor_participant_id = second_participant_id and allocation.creditor_participant_id = first_participant_id))
+  )
+  select expense_effect.amount_minor + transfer_effect.amount_minor into result_minor
+  from expense_effect cross join transfer_effect;
+  if pg_catalog.abs(result_minor) > 9007199254740991 then
+    raise exception using message = 'amount_overflow', errcode = 'P0001';
+  end if;
+  return result_minor::bigint;
+end;
+$$;
+
+
 -- Auditable original directions; read only, excluded from all cash calculations.
 create function private.contra_native_audit(trip uuid,a uuid,b uuid)
 returns jsonb language sql stable security definer set search_path='' as $$
@@ -15,12 +89,12 @@ $$;
 
 -- A read model over existing original-currency facts, never a second ledger.
 create function private.contra_quote(mode text,custom_rate text,display_currency text)
-returns jsonb language plpgsql security definer set search_path='' as $$
+returns jsonb language plpgsql stable security definer set search_path='' as $$
 #variable_conflict use_variable
 declare snapshot uuid;rates jsonb;n numeric;d numeric;
 begin
  if mode is null or mode not in('system','custom')or private.currency_digits(display_currency)is null then raise exception using message='invalid_rate',errcode='P0001';end if;
- select s.id,s.rates into snapshot,rates from tabby_fx.refresh_state r join tabby_fx.snapshots s on s.id=r.snapshot_id where r.singleton for share of r,s;
+ select s.id,s.rates into snapshot,rates from tabby_fx.refresh_state r join tabby_fx.snapshots s on s.id=r.snapshot_id where r.singleton;
  if mode='custom'then
   if coalesce(custom_rate,'')!~'^[0-9]{1,12}(\.[0-9]{1,12})?$'or custom_rate::numeric<=0 then raise exception using message='invalid_rate',errcode='P0001';end if;
   n:=custom_rate::numeric;d:=1;
@@ -55,12 +129,12 @@ begin
  return jsonb_build_object('known',known,'currency',quote->>'displayCurrency','estimated',estimated,'aOwesB',case when known then f end,'bOwesA',case when known then r end,'contraMinor',case when known then least(f,r)end,'netMinor',case when known then abs(f-r)end,'payer',case when known and f<>r then case when f>r then a else b end end,'recipient',case when known and f<>r then case when f>r then b else a end end);
 end$$;
 create function private.contra_pair(trip uuid,a uuid,b uuid,quote jsonb)
-returns jsonb language plpgsql security definer set search_path='' as $$
+returns jsonb language plpgsql stable security definer set search_path='' as $$
 #variable_conflict use_variable
 declare native jsonb:='[]'::jsonb;available jsonb:='[]'::jsonb;code text;signed bigint;hold bigint;ready boolean:=true;held boolean:=false;leg jsonb;ledger jsonb;available_ledger jsonb;audit jsonb;display jsonb;gross_display jsonb;
 begin
  for code in select distinct e.currency from public.expenses e where e.space_id=trip and e.scope='space'and e.status='active'order by e.currency loop
-  signed:=private.space_signed_outstanding(trip,a,b,code);
+  signed:=private.contra_signed_outstanding(trip,a,b,code);
   if signed<>0 then
    leg:=jsonb_build_object('from',case when signed>0 then a else b end,'to',case when signed>0 then b else a end,'currency',code,'minor',abs(signed));native:=native||jsonb_build_array(leg);
    hold:=private.pending_pair_minor(trip,(leg->>'from')::uuid,(leg->>'to')::uuid,code);held:=held or hold>0;
@@ -72,11 +146,11 @@ begin
  ready:=exists(select 1 from public.space_members m where m.space_id=trip and m.participant_id=a and m.removed_at is null)and exists(select 1 from public.space_members m where m.space_id=trip and m.participant_id=b and m.removed_at is null);
  audit:=private.contra_native_audit(trip,a,b);display:=private.contra_native_pair(native,a,b,quote);gross_display:=private.contra_gross_display(audit,a,b,quote);
  if not coalesce((display->>'known')::boolean and(gross_display->>'known')::boolean and display->'netMinor'=gross_display->'netMinor'and display->'payer'=gross_display->'payer',false)then gross_display:=null;end if;
- ledger:=private.contra_native_pair(native,a,b,quote||jsonb_build_object('displayCurrency','MYR'));available_ledger:=private.contra_native_pair(available,a,b,quote||jsonb_build_object('displayCurrency','MYR'));
- return jsonb_build_object('id',a::text||':'||b::text,'a',a,'b',b,'edgeBasis','net','nativeBasis','same_currency_net','native',native,'availableNative',available,'display',display,'grossDisplay',gross_display,'ledgerCurrency','MYR','ledger',ledger,'netMinor',ledger->'netMinor','payer',ledger->'payer','recipient',ledger->'recipient','availableMinor',case when ready and not held and(ledger->>'known')::boolean and(available_ledger->>'known')::boolean and ledger->>'payer'=available_ledger->>'payer'then least((ledger->>'netMinor')::bigint,(available_ledger->>'netMinor')::bigint)else 0 end,'pending',held,'currentMembers',ready,'audit',audit,'sourceVersions',private.fx_pair_expense_versions(trip,a,b));
+ ledger:=private.contra_native_pair(native,a,b,quote||jsonb_build_object('displayCurrency','VND'));available_ledger:=private.contra_native_pair(available,a,b,quote||jsonb_build_object('displayCurrency','VND'));
+ return jsonb_build_object('id',a::text||':'||b::text,'a',a,'b',b,'edgeBasis','net','nativeBasis','same_currency_net','native',native,'availableNative',available,'display',display,'grossDisplay',gross_display,'ledgerCurrency','VND','ledger',ledger,'netMinor',ledger->'netMinor','payer',ledger->'payer','recipient',ledger->'recipient','availableMinor',case when ready and not held and(ledger->>'known')::boolean and(available_ledger->>'known')::boolean and ledger->>'payer'=available_ledger->>'payer'then least((ledger->>'netMinor')::bigint,(available_ledger->>'netMinor')::bigint)else 0 end,'pending',held,'currentMembers',ready,'audit',audit,'sourceVersions',private.fx_pair_expense_versions(trip,a,b));
 end$$;
 create function private.contra_matrix(trip uuid,quote jsonb)
-returns jsonb language plpgsql security definer set search_path='' as $$
+returns jsonb language plpgsql stable security definer set search_path='' as $$
 #variable_conflict use_variable
 declare pairs jsonb:='[]'::jsonb;pair jsonb;row record;revision text;facts jsonb;
 begin
@@ -89,12 +163,12 @@ begin
  return jsonb_build_object('tripId',trip,'revision',revision,'edgeBasis','net','quote',quote,'pairs',pairs);
 end$$;
 create function public.read_trip_contra_snapshot(target_space_id uuid,rate_mode text default'system',vnd_per_myr text default null,display_currency text default'MYR')
-returns jsonb language plpgsql security definer set search_path='' as $$
+returns jsonb language plpgsql stable security definer set search_path='' as $$
 #variable_conflict use_variable
 declare actor uuid:=private.require_personal_actor();result jsonb;whole boolean;
 begin
  if private.space_role(target_space_id,actor)is null or not exists(select 1 from public.spaces s where s.id=target_space_id and s.type='trip'and s.status<>'voided')then raise exception using message='space_membership_required',errcode='P0001';end if;
- perform private.lock_collect_pay_balance();result:=private.contra_matrix(target_space_id,private.contra_quote(rate_mode,vnd_per_myr,display_currency));whole:=private.creator_can_record(target_space_id,actor);
+ result:=private.contra_matrix(target_space_id,private.contra_quote(rate_mode,vnd_per_myr,display_currency));whole:=private.creator_can_record(target_space_id,actor);
  if not whole then result:=result||jsonb_build_object('pairs',(select coalesce(jsonb_agg(q),'[]')from jsonb_array_elements(result->'pairs')q where actor::text in(q->>'a',q->>'b')));end if;
  return result||jsonb_build_object('viewer',actor,'canRecord',whole);
 end$$;
@@ -112,18 +186,10 @@ begin
 end$$;
 
 
--- New net mode uses the overview's MYR minor unit and the existing original-
--- currency contra/repayment coverage model. Cash always keeps its actual currency.
-create function private.contra_value(amount bigint,code text,n numeric,d numeric)
-returns bigint language plpgsql immutable set search_path='' as $$
-begin
- if amount<0 or amount>9007199254740991 or code not in('MYR','VND')then raise exception using message='invalid_amount',errcode='P0001';end if;
- if code='MYR'then return amount;end if;
- if n is null or d is null or least(n,d)<=0 then raise exception using message='fx_rate_unavailable',errcode='P0001';end if;
- return private.fx_round_div(amount::numeric*100*d,n);
-end$$;
+-- Keep the existing VND quote unit for native routed coverage. The shared
+-- snapshot also provides the overview's display valuation at that exact quote.
 create function private.contra_net_edge(trip uuid,debtor uuid,creditor uuid,n numeric,d numeric)
-returns jsonb language plpgsql security definer set search_path='' as $$
+returns jsonb language plpgsql stable security definer set search_path='' as $$
 #variable_conflict use_variable
 declare pair jsonb;q jsonb;
 begin
@@ -140,21 +206,21 @@ begin
  for leg in select q from jsonb_array_elements(edge->'native')q order by q->>'currency',q->>'from'loop
   original:=(leg->>'minor')::bigint;
   covered:=case when amount=(edge->>'minor')::bigint then original else least(original,private.fx_round_div(original::numeric*amount,(edge->>'minor')::numeric))end;
-  before_value:=private.contra_value(original,leg->>'currency',n,d);after_value:=private.contra_value(original-covered,leg->>'currency',n,d);delta:=before_value-after_value;
+  before_value:=private.routed_value(original,leg->>'currency',n,d);after_value:=private.routed_value(original-covered,leg->>'currency',n,d);delta:=before_value-after_value;
   signum:=case when leg->>'from'=edge->>'from'then 1 else-1 end;net_delta:=net_delta+signum*delta;
   work:=work||jsonb_build_array(leg||jsonb_build_object('original',original,'minor',covered,'before',before_value,'delta',delta,'signum',signum));
  end loop;
  -- Quantize against before/after authoritative balances, not a silent tolerance.
- -- A single native quantum is selected only when it explains the exact MYR delta.
+ -- A single native quantum is selected only when it explains the exact native quote delta.
  difference:=amount-net_delta;
- for leg in select q from jsonb_array_elements(work)q order by case when q->>'currency'='MYR'then 0 else 1 end,q->>'from'loop
+ for leg in select q from jsonb_array_elements(work)q order by case when q->>'currency'='VND'then 0 else 1 end,q->>'from'loop
   exit when difference=0;signum:=(leg->>'signum')::int;original:=(leg->>'original')::bigint;remaining:=original-(leg->>'minor')::bigint;
   wanted:=(leg->>'before')::bigint-((leg->>'delta')::bigint+signum*difference);
   if wanted<0 then continue;end if;
-  if leg->>'currency'='MYR'then lo:=wanted;hi:=wanted;
-  else lo:=greatest(0,ceil((wanted::numeric-0.5)*n/(100*d))::bigint);hi:=ceil((wanted::numeric+0.5)*n/(100*d))::bigint-1;end if;
+  if leg->>'currency'='VND'then lo:=wanted;hi:=wanted;
+  else lo:=greatest(0,ceil((wanted::numeric-0.5)*100*d/n)::bigint);hi:=ceil((wanted::numeric+0.5)*100*d/n)::bigint-1;end if;
   lo:=greatest(lo,0);hi:=least(hi,original);if lo>hi then continue;end if;
-  remaining:=least(greatest(remaining,lo),hi);if private.contra_value(remaining,leg->>'currency',n,d)<>wanted then continue;end if;
+  remaining:=least(greatest(remaining,lo),hi);if private.routed_value(remaining,leg->>'currency',n,d)<>wanted then continue;end if;
   delta:=(leg->>'before')::bigint-wanted;updated:=leg||jsonb_build_object('minor',original-remaining,'delta',delta);
   select jsonb_agg(case when q->>'from'=leg->>'from'and q->>'currency'=leg->>'currency'then updated else q end order by q->>'currency',q->>'from')into work from jsonb_array_elements(work)q;
   net_delta:=net_delta+signum*(delta-(leg->>'delta')::bigint);difference:=amount-net_delta;
@@ -165,7 +231,7 @@ begin
   covered:=(leg->>'minor')::bigint;if covered=0 then continue;end if;delta:=(leg->>'delta')::bigint;
   if(leg->>'signum')::int<0 then contra:=delta;
   else contra:=least(opposite,delta);opposite:=opposite-contra;end if;
-  out:=out||jsonb_build_array((leg-'original'-'before'-'delta'-'signum')||jsonb_build_object('edgeId',edge->>'id','application',case when(leg->>'signum')::int<0 then'contra'when contra>0 then'contra_and_repayment'else'repayment'end,'ledgerCurrency','MYR','contraEquivalentMinor',contra,'repaymentEquivalentMinor',case when(leg->>'signum')::int<0 then 0 else delta-contra end));
+  out:=out||jsonb_build_array((leg-'original'-'before'-'delta'-'signum')||jsonb_build_object('edgeId',edge->>'id','application',case when(leg->>'signum')::int<0 then'contra'when contra>0 then'contra_and_repayment'else'repayment'end,'ledgerCurrency','VND','contraEquivalentMinor',contra,'repaymentEquivalentMinor',case when(leg->>'signum')::int<0 then 0 else delta-contra end));
  end loop;return out;
 end$$;
 
@@ -185,6 +251,8 @@ begin
  if not found then raise exception using message='settlement_participant_denied',errcode='P0001';end if;
  if draft ? 'edgeBasis'or draft ? 'contraSnapshot'then
   if not net_mode or jsonb_typeof(draft->'contraSnapshot')is distinct from'object'or coalesce(draft->'contraSnapshot'->>'revision','')!~'^[a-f0-9]{64}$'or exists(select 1 from jsonb_object_keys(draft->'contraSnapshot')k where k not in('revision','displayCurrency'))then raise exception using message='invalid_contra_snapshot',errcode='P0001';end if;
+  -- Writes hold the existing common financial lock and pin the rate row.
+  perform 1 from tabby_fx.refresh_state r join tabby_fx.snapshots s on s.id=r.snapshot_id where r.singleton for share of r,s;
   cq:=private.contra_quote(mode,draft->>'vndPerMyr',draft->'contraSnapshot'->>'displayCurrency');matrix:=private.contra_matrix(trip,cq);
   if matrix->>'revision'is distinct from draft->'contraSnapshot'->>'revision'then raise exception using message='contra_snapshot_changed',errcode='P0001';end if;
  end if;
@@ -217,7 +285,7 @@ begin
    end if;
   end loop;
   amount:=(p->>'tenderMinor')::bigint;if amount<=0 then raise exception using message='invalid_amount',errcode='P0001';end if;
-  value:=case when net_mode then private.contra_value(amount,p->>'tenderCurrency',n,d)else private.routed_value(amount,p->>'tenderCurrency',n,d)end;route:=0;
+  value:=private.routed_value(amount,p->>'tenderCurrency',n,d);route:=0;
   p:=jsonb_strip_nulls(jsonb_build_object('id',p->>'id','payer',sender,'recipient',receiver,'tenderCurrency',p->>'tenderCurrency','tenderMinor',amount,'method',p->>'method','via',case when via is not null then jsonb_build_object('person',via)||case when p->'via' ? 'minor' then jsonb_build_object('minor',p->'via'->'minor')else '{}'::jsonb end else null end));
   if value=0 then issues:=issues||jsonb_build_array(jsonb_build_object('code','ZERO_VALUE','paymentIds',jsonb_build_array(p->>'id')));end if;
   if via is not null then
@@ -234,7 +302,7 @@ begin
   lines:=lines||jsonb_build_array(jsonb_build_object('payment',p,'valueMinor',value,'viaMinor',route,'directMinor',0,'unappliedMinor',value-route));
  end loop;
  if mode='system' then
-  if exists(select 1 from jsonb_array_elements(payments)q where q->>'tenderCurrency'=case when net_mode then'VND'else'MYR'end)or exists(select 1 from jsonb_each(edges)edge cross join lateral jsonb_array_elements(edge.value->'native')leg where leg->>'currency'=case when net_mode then'VND'else'MYR'end)then
+  if exists(select 1 from jsonb_array_elements(payments)q where q->>'tenderCurrency'='MYR')or exists(select 1 from jsonb_each(edges)edge cross join lateral jsonb_array_elements(edge.value->'native')leg where leg->>'currency'='MYR')then
    if n is null or d is null or n<=0 or d<=0 or quote->>'provider'is null or quote->>'rateDate'is null then raise exception using message='fx_rate_unavailable',errcode='P0001';end if;
    if snapshot is distinct from nullif(draft->>'snapshotId','')::uuid then raise exception using message='quote_changed',errcode='P0001';end if;
   else n:=1;d:=1;quote:=jsonb_build_object('numerator','1','denominator','1','source','identity');end if;
@@ -242,7 +310,7 @@ begin
  -- Aggregated actual cash must explain the same value; splitting MYR cents
  -- across payees must not manufacture a VND of extra native coverage.
  for cash_group in select q->'payment'->>'payer' payer,q->'payment'->>'tenderCurrency' code,sum((q->'payment'->>'tenderMinor')::bigint)::bigint amount,sum((q->>'valueMinor')::bigint)::bigint equivalent,jsonb_agg(q->'payment'->>'id') ids from jsonb_array_elements(lines)q group by 1,2 loop
-  if (case when net_mode then private.contra_value(cash_group.amount,cash_group.code,n,d)else private.routed_value(cash_group.amount,cash_group.code,n,d)end)<>cash_group.equivalent then issues:=issues||jsonb_build_array(jsonb_build_object('code','NATIVE_PRECISION','paymentIds',cash_group.ids));end if;
+  if private.routed_value(cash_group.amount,cash_group.code,n,d)<>cash_group.equivalent then issues:=issues||jsonb_build_array(jsonb_build_object('code','NATIVE_PRECISION','paymentIds',cash_group.ids));end if;
  end loop;
  for k,total in select entry.key,entry.value::text::bigint from jsonb_each(reserved)entry loop
   cap:=(edges->k->>'minor')::bigint;
@@ -276,7 +344,7 @@ begin
   sources:=sources||jsonb_build_array(e);
  end loop;
  if jsonb_array_length(issues)>0 then native:='[]'::jsonb;remaining:='[]'::jsonb;select jsonb_agg(q||jsonb_build_object('viaMinor',0,'directMinor',0,'unappliedMinor',q->'valueMinor'))into lines from jsonb_array_elements(lines)q;for e in select entry.value from jsonb_each(edges)entry loop remaining:=remaining||e->'native';end loop;end if;
- return jsonb_build_object('ledgerCurrency',case when net_mode then'MYR'else'VND'end,'lines',lines,'issues',issues,'remaining',remaining,'rate',quote,'native',native,'sources',sources,'actors',actors)||case when net_mode then jsonb_build_object('edgeBasis','net','contraQuote',cq)else '{}'::jsonb end;
+ return jsonb_build_object('ledgerCurrency','VND','lines',lines,'issues',issues,'remaining',remaining,'rate',quote,'native',native,'sources',sources,'actors',actors)||case when net_mode then jsonb_build_object('edgeBasis','net','contraQuote',cq)else '{}'::jsonb end;
 end $$;
 
 create or replace function private.creator_normalize(draft jsonb)
@@ -408,6 +476,7 @@ begin
  return private.routed_public_plan_v1(plan);
 end$$;
 
+revoke all on function private.contra_signed_outstanding(uuid,uuid,uuid,text)from public,anon,authenticated;
 revoke all on function private.contra_native_audit(uuid,uuid,uuid)from public,anon,authenticated;
 revoke all on function private.contra_quote(text,text,text)from public,anon,authenticated;
 revoke all on function private.contra_display_value(bigint,text,jsonb)from public,anon,authenticated;
@@ -415,7 +484,6 @@ revoke all on function private.contra_native_pair(jsonb,uuid,uuid,jsonb)from pub
 revoke all on function private.contra_pair(uuid,uuid,uuid,jsonb)from public,anon,authenticated;
 revoke all on function private.contra_matrix(uuid,jsonb)from public,anon,authenticated;
 revoke all on function private.contra_gross_display(jsonb,uuid,uuid,jsonb)from public,anon,authenticated;
-revoke all on function private.contra_value(bigint,text,numeric,numeric)from public,anon,authenticated;
 revoke all on function private.contra_net_edge(uuid,uuid,uuid,numeric,numeric)from public,anon,authenticated;
 revoke all on function private.contra_resolve_native(jsonb,bigint,numeric,numeric)from public,anon,authenticated;
 revoke all on function private.routed_build_core(uuid,uuid,jsonb,boolean)from public,anon,authenticated;

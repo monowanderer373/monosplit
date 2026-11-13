@@ -30,7 +30,7 @@ def fixture():
   payload={'expense_scope':'space','target_space_id':trip,'participant_ids':[creditor,debtor],'contribution_amounts':[10000,0],'share_amounts':[0,10000],'total_minor':10000,'currency_code':'MYR','description':'Routed race','category':'Food','occurred_on':'2026-11-10'}
   run(auth(users[0])+'select create_trip_expense_editor('+q(uuid.uuid4())+','+q(trip)+','+q(json.dumps(payload))+'::jsonb,array['+q(creditor)+','+q(debtor)+']::uuid[]);')
  accounts=[js(auth(x)+'select create_personal_account('+q(uuid.uuid4())+",'Routed race cash','cash','MYR',null,null,false);")['account_id']for x in users]
- draft={'rateMode':'custom','vndPerMyr':'6000','payments':[{'id':'actual','payer':ids[0],'recipient':ids[2],'tenderCurrency':'MYR','tenderMinor':10000,'method':'bank_transfer','via':{'person':ids[1],'minor':10000}}]}
+ draft={'rateMode':'custom','vndPerMyr':'6000','payments':[{'id':'actual','payer':ids[0],'recipient':ids[2],'tenderCurrency':'MYR','tenderMinor':10000,'method':'bank_transfer','via':{'person':ids[1],'minor':600000}}]}
  return users,ids,trip,accounts,draft
 def prepared(f,request=None):
  users,ids,trip,accounts,draft=f
@@ -43,6 +43,7 @@ def prepared(f,request=None):
  return review,request,sql
 try:
  f=fixture();users,ids,trip,accounts,draft=f
+ run('begin;set transaction read only;'+auth(users[0])+'select read_trip_contra_snapshot('+q(trip)+",'custom','6000','MYR');rollback;")
  context=js(auth(users[0])+'select get_trip_creator_context('+q(trip)+');')
  run(auth(users[0])+'select set_trip_creator_delegate('+q(trip)+','+q(ids[1])+',true,'+q(uuid.uuid4())+','+q(context['policyVersion'])+');')
  review,request,sql=prepared(f)
@@ -50,6 +51,8 @@ try:
  recipients=[{'participantId':ids[2],'cash':[{'currency':'MYR','amountMinor':'10000','accountId':accounts[1]}]}]
  batch=js(auth(users[1])+'select quote_trip_settlement_batch('+q(trip)+",'custom','6000',null,"+q(json.dumps(recipients))+'::jsonb);')['quoteId']
  first=hold(auth(users[0])+sql)
+ started=time.monotonic();read=js(auth(users[1])+'select read_trip_contra_snapshot('+q(trip)+",'custom','6000','MYR');");assert time.monotonic()-started<5 and any(p['display']['netMinor']==10000 for p in read['pairs'])
+ print('PASS: statement-consistent read during uncommitted posting takes no financial write lock')
  run(auth(users[1])+'select submit_trip_settlement_batch('+q(batch)+','+q(uuid.uuid4())+');','balance_changed')
  # The common financial lock rejects a distinct competing proxy/legacy/batch operation without a partial receipt.
  run(auth(users[1])+other_sql,'balance_changed')
