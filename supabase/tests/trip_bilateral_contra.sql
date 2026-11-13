@@ -154,4 +154,26 @@ select is(jsonb_array_length((select v->'plan'->'issues'from rv where k='two-rev
 insert into rv values('two-record',public.record_trip_creator_settlement(pg_temp.rid('full-two-trip'),(select v from rv where k='two-draft'),gen_random_uuid(),(select v->>'digest'from rv where k='two-review'),(select(v->>'expiresAt')::timestamptz from rv where k='two-review'),true));
 select is(jsonb_array_length(public.read_trip_contra_snapshot(pg_temp.rid('full-two-trip'),'custom','6000','MYR')->'pairs'),0,'full native cash leaves no invented display-rounding debt');
 
+
+-- System VND tender still needs the frozen FX quote for reverse MYR bills.
+reset role;
+insert into tabby_fx.snapshots(rates,fetched_at)values(jsonb_build_object('VND',jsonb_build_object('currency','VND','quote','MYR','numerator','1','denominator','6320','direction','MYR-per-foreign','provider','Frankfurter','rateDate',current_date::text,'fetchedAt',now())),now())returning id as system_snapshot \gset
+update tabby_fx.refresh_state set snapshot_id=:'system_snapshot',retry_after=now()+interval'24 hours'where singleton;
+set local role authenticated;
+insert into rr values('system-trip',public.create_space('trip','Frozen system contra',null,null,'MYR'));
+reset role;
+insert into public.space_members(space_id,participant_id,role)values(pg_temp.rid('system-trip'),pg_temp.rid('u2'),'view');
+set local role authenticated;
+select pg_temp.rbill(pg_temp.rid('system-trip'),1,2,2347880),pg_temp.rbill(pg_temp.rid('system-trip'),2,1,2286,'MYR');
+insert into rv values('system-snapshot',public.read_trip_contra_snapshot(pg_temp.rid('system-trip'),'system',null,'MYR'));
+insert into rv values('system-draft',jsonb_build_object('rateMode','system','snapshotId',:'system_snapshot','edgeBasis','net','contraSnapshot',jsonb_build_object('revision',(select v->>'revision'from rv where k='system-snapshot'),'displayCurrency','MYR'),'payments',jsonb_build_array(pg_temp.rpayment('system-actual',2,1,100000)),'occurredAt',now(),'note','','ownAccountLinks','[]'::jsonb));
+insert into rv values('system-review',public.preview_trip_creator_settlement(pg_temp.rid('system-trip'),(select v from rv where k='system-draft')));
+select is((select v->'plan'->'rate'->>'source'from rv where k='system-review'),'system','reverse MYR source retains System FX despite VND-only actual tender');
+select is((public.preview_trip_creator_settlement(pg_temp.rid('system-trip'),(select v-'edgeBasis'-'contraSnapshot'from rv where k='system-draft'))->'plan'->'rate'->>'source'),'system','untagged legacy preview also detects actual MYR source currency');
+-- Restore the tagged latest preview, preserving existing one-current-review rule.
+update rv set v=public.preview_trip_creator_settlement(pg_temp.rid('system-trip'),(select v from rv where k='system-draft'))where k='system-review';
+insert into rv values('system-record',public.record_trip_creator_settlement(pg_temp.rid('system-trip'),(select v from rv where k='system-draft'),gen_random_uuid(),(select v->>'digest'from rv where k='system-review'),(select(v->>'expiresAt')::timestamptz from rv where k='system-review'),true));
+select is((public.read_trip_contra_snapshot(pg_temp.rid('system-trip'),'system',null,'MYR')->'pairs'->0->'display'->>'netMinor')::bigint,33282::bigint,'System posting and subsequent display agree at the exact same quote');
+select is((public.read_trip_contra_snapshot(pg_temp.rid('system-trip'),'system',null,'MYR')->'pairs'->0->>'netMinor')::bigint,2103405::bigint,'System partial reduces original native net by exactly 100000 VND');
+
 select * from finish();rollback;

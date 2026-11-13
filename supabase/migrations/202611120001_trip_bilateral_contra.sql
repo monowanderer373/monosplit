@@ -302,7 +302,7 @@ begin
   lines:=lines||jsonb_build_array(jsonb_build_object('payment',p,'valueMinor',value,'viaMinor',route,'directMinor',0,'unappliedMinor',value-route));
  end loop;
  if mode='system' then
-  if exists(select 1 from jsonb_array_elements(payments)q where q->>'tenderCurrency'='MYR')or exists(select 1 from jsonb_each(edges)edge cross join lateral jsonb_array_elements(edge.value->'native')leg where leg->>'currency'='MYR')then
+  if exists(select 1 from jsonb_array_elements(payments)q where q->>'tenderCurrency'='MYR')or exists(select 1 from jsonb_each(edges)edge cross join lateral jsonb_array_elements(edge.value->'native')as native_row(value) where native_row.value->>'currency'='MYR')then
    if n is null or d is null or n<=0 or d<=0 or quote->>'provider'is null or quote->>'rateDate'is null then raise exception using message='fx_rate_unavailable',errcode='P0001';end if;
    if snapshot is distinct from nullif(draft->>'snapshotId','')::uuid then raise exception using message='quote_changed',errcode='P0001';end if;
   else n:=1;d:=1;quote:=jsonb_build_object('numerator','1','denominator','1','source','identity');end if;

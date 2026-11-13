@@ -21,6 +21,11 @@ Reads acquire no financial write lock. Posting still uses the original common
 financial lock and pins the quote rows before rebuilding the snapshot. This
 prevents overview polling from interfering with actual payment commands.
 
+The shared core now qualifies its source-currency JSON iterator, preventing a
+PL/pgSQL variable named leg from hiding reverse MYR obligations and incorrectly
+selecting an identity System quote. New and untagged future previews use the
+correct quote; existing financial rows and frozen records are unchanged.
+
 New creator/routed drafts explicitly bind the shared revision. Their common
 transaction rechecks current roles, original obligations and quote. Capacity
 retains the existing VND quote unit; the same snapshot also supplies the user's
