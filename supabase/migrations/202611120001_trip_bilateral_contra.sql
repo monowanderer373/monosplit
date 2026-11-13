@@ -42,9 +42,9 @@ begin
  return private.fx_round_div(amount::numeric*(10::numeric^private.currency_digits(target))*cd*tn,(10::numeric^private.currency_digits(code))*cn*td);
 end$$;
 create function private.contra_native_pair(native jsonb,a uuid,b uuid,quote jsonb)
-returns jsonb language plpgsql immutable set search_path='' as $$
+returns jsonb language plpgsql stable set search_path='' as $$
 #variable_conflict use_variable
-declare leg jsonb;x bigint;f bigint:=0;r bigint:=0;known boolean:=true;estimated boolean:=false;
+declare leg jsonb;x bigint;f bigint:='0'::bigint;r bigint:='0'::bigint;known boolean:=true;estimated boolean:=false;
 begin
  for leg in select q from jsonb_array_elements(native)q loop
   x:=private.contra_display_value((leg->>'minor')::bigint,leg->>'currency',quote);
@@ -101,7 +101,7 @@ end$$;
 
 
 create function private.contra_gross_display(audit jsonb,a uuid,b uuid,quote jsonb)
-returns jsonb language plpgsql immutable set search_path='' as $$
+returns jsonb language plpgsql stable set search_path='' as $$
 #variable_conflict use_variable
 declare row jsonb;native jsonb:='[]'::jsonb;f bigint;r bigint;
 begin
@@ -131,9 +131,9 @@ begin
  return jsonb_build_object('id',debtor::text||':'||creditor::text,'from',debtor,'to',creditor,'minor',case when pair->>'payer'=debtor::text then pair->'availableMinor'else'0'::jsonb end,'native',pair->'availableNative','standingNative',pair->'native','expenses',pair->'sourceVersions');
 end$$;
 create function private.contra_resolve_native(edge jsonb,amount bigint,n numeric,d numeric)
-returns jsonb language plpgsql immutable set search_path='' as $$
+returns jsonb language plpgsql stable set search_path='' as $$
 #variable_conflict use_variable
-declare leg jsonb;work jsonb:='[]'::jsonb;out jsonb:='[]'::jsonb;updated jsonb;original bigint;covered bigint;remaining bigint;before_value bigint;after_value bigint;delta bigint;net_delta bigint:=0;difference bigint;wanted bigint;lo bigint;hi bigint;signum int;opposite bigint:=0;contra bigint;
+declare leg jsonb;work jsonb:='[]'::jsonb;out jsonb:='[]'::jsonb;updated jsonb;original bigint;covered bigint;remaining bigint;before_value bigint;after_value bigint;delta bigint;net_delta bigint:='0'::bigint;difference bigint;wanted bigint;lo bigint;hi bigint;signum int;opposite bigint:='0'::bigint;contra bigint;
 begin
  if amount<0 or amount>(edge->>'minor')::bigint then raise exception using message='invalid_routed_amount',errcode='P0001';end if;
  if amount=0 then return'[]'::jsonb;end if;
@@ -383,7 +383,7 @@ begin
 end
 $legacy_projection$;
 create function private.contra_remaining(plan jsonb)
-returns jsonb language plpgsql immutable set search_path='' as $$
+returns jsonb language plpgsql stable set search_path='' as $$
 #variable_conflict use_variable
 declare balances jsonb;rows jsonb:='[]'::jsonb;pair record;detail jsonb;legs jsonb;q jsonb:=plan->'contraQuote';
 begin
@@ -402,7 +402,7 @@ begin
  end loop;return rows;
 end$$;
 create or replace function private.routed_public_plan(plan jsonb)
-returns jsonb language plpgsql immutable set search_path='' as $$
+returns jsonb language plpgsql stable set search_path='' as $$
 begin
  if plan->>'edgeBasis'='net'then return(private.routed_public_plan_v1(plan)-'contraQuote')||jsonb_build_object('edgeBasis','net','remaining',private.contra_remaining(plan),'remainingEstimated',true);end if;
  return private.routed_public_plan_v1(plan);

@@ -31,6 +31,7 @@ $contra_payload$,'base64'),'UTF8');
  end if;
 """
 out+=checks(functions,'contra')
+out+=" if exists(select 1 from unnest(array['private.contra_native_pair(jsonb,uuid,uuid,jsonb)','private.contra_gross_display(jsonb,uuid,uuid,jsonb)','private.contra_resolve_native(jsonb,bigint,numeric,numeric)','private.contra_remaining(jsonb)','private.routed_public_plan(jsonb)'])s(sig)join pg_proc p on p.oid=to_regprocedure(s.sig)where p.provolatile<>'s')then raise exception 'Unexpected contra projection volatility';end if;\n"
 out+=" if(select provolatile from pg_proc where oid='private.creator_normalize(jsonb)'::regprocedure)<>'s'then raise exception 'Unexpected creator normalizer volatility';end if;\n"
 out+="end;\n$contra_install$;\nnotify pgrst,'reload schema';\ncommit;\nselect 'TABBY_TRIP_CONTRA_INSTALL_COMPLETE_20261112' as installation_status;\n"
 (root/'docs/runbooks/trip-contra-production-apply.sql').write_text(out);print('Contra installer:',len(out.encode()),'bytes;',len(functions),'final function fingerprints')

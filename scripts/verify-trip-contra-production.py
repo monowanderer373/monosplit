@@ -30,6 +30,7 @@ query=f"""with expected(sig,body)as(values {values}),audited as(
  'missingOrChangedFunctions',(select coalesce(jsonb_agg(sig),'[]')from audited where not body_ok or not acl_ok),
  'financialRls',not exists(select 1 from unnest(array[{','.join(map(quote,tables))}])t(name)left join pg_class c on c.oid=to_regclass(t.name)where c.oid is null or not c.relrowsecurity),
  'privateTablesProtected',not exists(select 1 from unnest(array[{','.join(map(quote,private))}])t(name)where to_regclass(t.name)is null or coalesce(has_table_privilege('authenticated',to_regclass(t.name),'SELECT,INSERT,UPDATE,DELETE'),true)or coalesce(has_table_privilege('anon',to_regclass(t.name),'SELECT,INSERT,UPDATE,DELETE'),true)),
+ 'contraProjectionStable',not exists(select 1 from unnest(array['private.contra_native_pair(jsonb,uuid,uuid,jsonb)','private.contra_gross_display(jsonb,uuid,uuid,jsonb)','private.contra_resolve_native(jsonb,bigint,numeric,numeric)','private.contra_remaining(jsonb)','private.routed_public_plan(jsonb)'])s(sig)join pg_proc p on p.oid=to_regprocedure(s.sig)where p.provolatile<>'s'),
  'normalizerStable',(select provolatile='s'from pg_proc where oid='private.creator_normalize(jsonb)'::regprocedure),
  'noticeAcls',not has_table_privilege('anon','public.creator_settlement_notices','SELECT,INSERT,UPDATE,DELETE')and not has_table_privilege('authenticated','public.creator_settlement_notices','INSERT,UPDATE,DELETE')and has_table_privilege('authenticated','public.creator_settlement_notices','SELECT'),
  'noticePolicy',exists(select 1 from pg_policies where schemaname='public'and tablename='creator_settlement_notices'and policyname='creator_notice_recipient'),
@@ -49,4 +50,4 @@ try:
 except Exception as error:
  print('Schema audit unavailable: '+type(error).__name__,file=sys.stderr);sys.exit(2)
 print(json.dumps(audit,indent=2))
-sys.exit(0 if audit['versionsMatch']and audit['matchingBodies']==60 and audit['matchingFunctionAcls']==60 and audit['financialRls']and audit['privateTablesProtected']and audit['normalizerStable']and audit['noticeAcls']and audit['noticePolicy']and audit['workerScheduled']and audit['realtimeAttached']else 1)
+sys.exit(0 if audit['versionsMatch']and audit['matchingBodies']==60 and audit['matchingFunctionAcls']==60 and audit['financialRls']and audit['privateTablesProtected']and audit['contraProjectionStable']and audit['normalizerStable']and audit['noticeAcls']and audit['noticePolicy']and audit['workerScheduled']and audit['realtimeAttached']else 1)
