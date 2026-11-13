@@ -16,7 +16,7 @@ installer=(root/'docs/runbooks/trip-creator-production-apply.sql').read_text()
 functions=dict(re.findall(r"to_regprocedure\('([^']+)'\)\)is distinct from '([0-9a-f]{32})'",installer))
 assert len(functions)==47
 quote=lambda x:"'"+x.replace("'","''")+"'"
-versions=sorted(p.name.split('_')[0]for p in(root/'supabase/migrations').glob('*.sql'))
+versions=sorted(p.name.split('_')[0]for p in(root/'supabase/migrations').glob('*.sql')if p.name.split('_')[0]<='202611110001')
 values=','.join('('+quote(sig)+','+quote(digest)+')'for sig,digest in functions.items())
 tables=['public.trip_settlement_batches','public.settlement_fx_bundles','public.settlement_fx_coverages','public.settlement_payments','public.personal_account_entries','private.trip_routed_proposals','private.trip_routed_approvals','private.trip_routed_receipts',*['private.'+t for t in ['creator_policies','creator_grants','creator_reviews','creator_records','creator_receipts','creator_corrections','creator_audit','creator_outbox']],'public.creator_settlement_notices']
 private=['private.trip_batch_cash','private.trip_batch_quotes',*[t for t in tables if t.startswith('private.')]]

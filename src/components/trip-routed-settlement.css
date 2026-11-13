@@ -63,3 +63,7 @@
 
 .tt-r-compact-trip{display:none}.tt-r-overlay .tt-r-arrow{color:#32684c}.tt-r-via-edge{position:relative;min-width:18px;flex:1;border-top:1px dashed #985d44}.tt-r-via-edge::after{content:'›';position:absolute;right:-2px;top:-12px;color:#985d44;font-size:20px}
 @media(max-height:520px){.tt-r-head small,.tt-r-foot>small{display:none}.tt-r-head h2{font-size:1rem}.tt-r-compact-trip{display:block;font-size:.75rem;color:#607286;margin-bottom:10px!important}}
+
+/* Bilateral detail shares the existing fullscreen repayment shell. */
+.tt-contra-name{display:flex;align-items:center;gap:.6rem;color:inherit;text-align:left;min-height:44px;background:none;border:0;font:inherit;padding:0;cursor:pointer}.tt-contra-name span{color:var(--ms-accent)}
+.tt-contra-detail{color:#223b4d}.tt-contra-detail h3{font-size:1rem;overflow-wrap:anywhere}.tt-contra-detail dl{margin:16px 0;padding:4px 14px;background:#fffcf8;border:1px solid #ddd5c9;border-radius:16px}.tt-contra-detail dl>div{display:flex;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid #e5dfd5}.tt-contra-detail dl>div:last-child{border:0}.tt-contra-detail dt{min-width:0;overflow-wrap:anywhere}.tt-contra-detail dd{margin:0;white-space:nowrap;font-variant-numeric:tabular-nums}.tt-contra-net{font-weight:700}.tt-contra-net small{display:block;font-weight:400;padding-top:6px}.tt-contra-native{padding:12px 0;border-bottom:1px solid #ded7cc}.tt-contra-native p{font-size:.8rem;overflow-wrap:anywhere}

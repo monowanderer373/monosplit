@@ -28,6 +28,7 @@ for (const width of [320,390,430]) test('handoff paired picker, dark host, outst
  await expect(panel.getByRole('heading',{name:'Record a repayment',exact:true})).toBeVisible();await geometry(page);await shot(page,'handoff-choose-'+width);
  const debt=panel.locator('.tt-c-debt-list').filter({has:page.getByRole('heading',{name:'Owed to '+s.names.mia,exact:true})});
  await debt.getByRole('button',{name:new RegExp(s.names.alex)}).click();
+ await expect(panel.getByTestId('contra-pair-detail')).toBeVisible();await panel.getByRole('button',{name:'Record a repayment',exact:true}).click();
  await expect(panel.getByRole('button',{name:'Payer 1: '+s.names.alex,exact:true})).toBeVisible();
  await expect(panel.getByRole('button',{name:'Recipient 1: '+s.names.mia,exact:true})).toBeVisible();
  const amount=panel.getByRole('textbox',{name:'Actual amount paid 1',exact:true});await expect(amount).toHaveValue('');
