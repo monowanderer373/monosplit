@@ -3,7 +3,7 @@ import {useStore} from '../store/useStore'
 import {ct} from '../lib/creatorTexts'
 import {rt, routedMoney} from '../lib/routedSettlement'
 import type {CreatorPerson} from '../lib/creatorSettlement'
-import type {RelationalDebtLine} from '../lib/relationalBalance'
+import type {ContraSnapshot,ContraPair}from'../lib/tripContra'
 import {CreatorMemberPairPicker} from './CreatorMemberPairPicker'
 import {CreatorMemberPicker} from './CreatorMemberPicker'
 import {RoutedAvatar} from './RoutedSettlementMap'
@@ -11,37 +11,23 @@ import AmountInput from './AmountInput'
 
 export type CreatorRow = {id:string; payer:string; recipient:string; amount:string; currency:'MYR'|'VND'; method:'cash'|'bank_transfer'; via:string; viaAmount:string}
 
-export function CreatorRepaymentChooser({people, outstanding, onChoose, disabled}: {
-  people: CreatorPerson[]
-  disabled: boolean
-  outstanding: readonly RelationalDebtLine[]
-  onChoose: (choice: RelationalDebtLine) => void
-}) {
-  const lang = useStore(s => s.lang)
-  // Use only already authorized native balances; no rate estimates or private reads.
-  const choices = outstanding.filter(c => c.remainingMinor > 0 && ['MYR', 'VND'].includes(c.currency)
-    && c.debtorParticipantId !== c.creditorParticipantId
-    && people.some(p => p.id === c.debtorParticipantId) && people.some(p => p.id === c.creditorParticipantId))
-  const recipients = [...new Set(choices.map(c => c.creditorParticipantId))]
-  return <div className="tt-c-choices">
-    <p>{ct(lang, 'chooseHelp')}</p>
-    {recipients.map(id => <section className="tt-c-debt-list" key={id}>
-      <h3>{ct(lang, 'owedTo')} {people.find(p => p.id === id)!.name}</h3>
-      {choices.filter(c => c.creditorParticipantId === id).map(c => {
-        const person = people.find(p => p.id === c.debtorParticipantId)!
-        return <button type="button" disabled={disabled} key={JSON.stringify([c.debtorParticipantId,id,c.currency])}
-          onClick={() => onChoose(c)}>
-          <RoutedAvatar person={person}/><span>{person.name}</span>
-          <strong>{routedMoney(c.remainingMinor,c.currency)}</strong><span aria-hidden="true">›</span>
-        </button>
-      })}
-    </section>)}
-    {!choices.length ? <p className="tt-r-muted">{ct(lang, 'noChoices')}</p> : null}
-    <p className="tt-r-muted">{ct(lang, 'nativeChoices')}</p>
-  </div>
+export function CreatorRepaymentChooser({people,snapshot,onChoose,disabled}:{people:CreatorPerson[];snapshot:ContraSnapshot;onChoose:(pair:ContraPair)=>void;disabled:boolean}) {
+ const lang=useStore(s=>s.lang)
+ const choices=snapshot.pairs.filter(p=>p.netMinor!==null&&p.netMinor>0&&p.payer&&p.recipient&&people.some(v=>v.id===p.payer)&&people.some(v=>v.id===p.recipient))
+ const recipients=[...new Set(choices.map(p=>p.recipient!))]
+ return <div className="tt-c-choices" data-contra-revision={snapshot.revision}>
+  <p>{ct(lang,'chooseHelp')}</p>
+  {recipients.map(id=><section className="tt-c-debt-list" key={id}><h3>{ct(lang,'owedTo')} {people.find(p=>p.id===id)!.name}</h3>
+   {choices.filter(p=>p.recipient===id).map(pair=>{const person=people.find(p=>p.id===pair.payer)!,d=pair.display;return <button type="button" disabled={disabled} key={pair.id} onClick={()=>onChoose(pair)}>
+    <RoutedAvatar person={person}/><span>{person.name}</span><strong>{d.known?(d.estimated?'≈ ':'')+routedMoney(d.netMinor!,d.currency):'—'}</strong><span aria-hidden="true">›</span>
+   </button>})}
+  </section>)}
+  {!choices.length?<p className="tt-r-muted">{ct(lang,'noChoices')}</p>:null}
+  <p className="tt-r-muted">{ct(lang,'contraChoices')}</p>
+ </div>
 }
 
-export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remove, ownControl, rateControl}: {
+export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remove, ownControl, rateControl, netMode=false}: {
   rows: CreatorRow[]
   people: CreatorPerson[]
   disabled: boolean
@@ -50,6 +36,7 @@ export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remov
   remove: (id: string) => void
   ownControl: (id: string, currency: string) => ReactNode
   rateControl: ReactNode
+  netMode?:boolean
 }) {
   const lang = useStore(s => s.lang)
   const r = (key: Parameters<typeof rt>[1]) => rt(lang,key)
@@ -75,7 +62,7 @@ export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remov
             onChange={e => edit(row.id,{method:e.target.value as CreatorRow['method']})}>
             <option value="cash">{r('cash')}</option><option value="bank_transfer">{r('bank')}</option>
           </select></label>
-          {row.via ? <label>{r('viaAmount')}<AmountInput aria-label={r('viaAmount')+' '+(index+1)}
+          {row.via ? <label>{r(netMode?'myrVia':'viaAmount')}<AmountInput aria-label={r(netMode?'myrVia':'viaAmount')+' '+(index+1)}
             value={row.viaAmount} placeholder={r('auto')} onValueChange={value => edit(row.id,{viaAmount:value})}/></label> : null}
         </div>
         {[row.payer,row.recipient].includes(actor) ? ownControl(row.id,row.currency) : null}

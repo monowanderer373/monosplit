@@ -1,3 +1,4 @@
+import{contraFixture}from'./contra'
 import type{Page}from'@playwright/test'
 import{setupTripLedger,tripLedgerId}from'./tripLedger'
 import{tripLedgerExpense}from'../../src/test/tripLedgerFixtures'
@@ -12,6 +13,7 @@ export async function setupIssue08(page:Page,options:{payer?:boolean;missing?:bo
  await page.route('http://127.0.0.1:54321/**',async route=>{
   const u=new URL(route.request().url()),path=u.pathname
   if(path.endsWith('/space_members')&&!u.searchParams.get('select')?.includes('spaces('))return route.fulfill({json:ids.map((id,i)=>({space_id:tripLedgerId,participant_id:id,role:i?'full_access':'owner',joined_at:'2026-11-01T00:00:00Z',removed_at:null,participants:{id,kind:'account',display_name:i===0?'You':i===1?'Alex':i===2?'Jordan':'Sam',auth_user_id:id,created_by:null}}))})
+  if(path.endsWith('/rpc/read_trip_contra_snapshot'))return route.fulfill({json:contraFixture(tripLedgerId,ledger.expenses,ledger.payments,route.request().postDataJSON(),true,state.missing)})
   if(path.endsWith('/rpc/insights_fx_snapshot'))return route.fulfill({json:state.missing?{...autoFxSnapshot,rates:{},status:'unavailable'}:{...autoFxSnapshot,fetchedAt:'2026-11-04T09:10:00Z',rates:{...autoFxSnapshot.rates,VND:{...autoFxSnapshot.rates.VND,denominator:'6320',rateDate:'2026-11-04',fetchedAt:'2026-11-04T09:10:00Z'}}}})
   if(path.endsWith('/rpc/get_personal_multicurrency_accounts')){state.accountReads++;if(state.accountError)return route.fulfill({status:503,json:{message:'Synthetic account read failure'}});return route.fallback()}
   if(path.endsWith('/settlement_fx_bundles')){
