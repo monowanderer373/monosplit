@@ -1,3 +1,5 @@
+import type {TripContraState} from '../hooks/useTripContra'
+import {contraLines,contraTotals} from '../lib/tripContra'
 import {CreatorSettlementEntry} from './CreatorSettlementEntry'
 import AmountInput from './AmountInput'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -48,6 +50,8 @@ type Props = {
   currentMemberIds?: ReadonlySet<string>
   creatorIdentity?: string
   onOpenCreator?: (recordId?: string) => void
+  contra?: TripContraState
+  onContraPair?: (id:string) => void
   onChanged?: () => Promise<unknown>
 }
 
@@ -84,7 +88,7 @@ function SettlementPanelBody({
   currentParticipantId,
   participantNames,
   expenses,
-  canPropose, state: sharedState, view, draftKey, onChanged, historyCompletedOnly=false, quoteCurrency='MYR', tripName, currentMemberIds, pairNavigation, creatorIdentity, onOpenCreator,
+  canPropose, state: sharedState, view, draftKey, onChanged, historyCompletedOnly=false, quoteCurrency='MYR', tripName, currentMemberIds, pairNavigation, creatorIdentity, onOpenCreator, contra, onContraPair,
 }: Props & {pairNavigation?:PairNavigation}) {
   const t = useT()
   const ownState = useSettlements(!sharedState)
@@ -153,22 +157,26 @@ function SettlementPanelBody({
     pair.open(value)
   }
   const fx=useInsightsFx(currentParticipantId,view==='trip-current'&&!hidden&&debts.some(d=>d.currency!==quoteCurrency||d.currency!=='MYR'))
-  const otherIds=[...new Set([...debts.map(d=>d.debtorParticipantId===currentParticipantId?d.creditorParticipantId:d.debtorParticipantId),...fxBundles.filter(b=>b.status==='pending').map(b=>b.payer_participant_id===currentParticipantId?b.counterparty_participant_id:b.payer_participant_id)])]
+  const canonical=contra?.snapshot,netPairs=canonical?.pairs.filter(p=>[p.a,p.b].includes(currentParticipantId))
+  const quoteSnapshot=canonical?{...fx.snapshot,id:canonical.quote.snapshotId,rates:canonical.quote.rates as typeof fx.snapshot.rates}:fx.snapshot
+  const otherIds=[...new Set([...(netPairs?netPairs.map(p=>p.a===currentParticipantId?p.b:p.a):debts.map(d=>d.debtorParticipantId===currentParticipantId?d.creditorParticipantId:d.debtorParticipantId)),...fxBundles.filter(b=>b.status==='pending').map(b=>b.payer_participant_id===currentParticipantId?b.counterparty_participant_id:b.payer_participant_id)])]
   const pairs=otherIds.map(other=>{
-    const lines=pairLines(debts,currentParticipantId,other)
+    const net=netPairs?.find(p=>[p.a,p.b].includes(other))
+    const lines=net?contraLines(net,currentParticipantId):pairLines(debts,currentParticipantId,other)
     let quote:ReturnType<typeof quotePair>|null=null
-    try{quote=quotePair({...lines,target:quoteCurrency,rateFor:c=>systemForeignPerTarget(c,quoteCurrency,fx.snapshot),intent:'full'})}catch{/* Error is shown as unavailable, never a zero estimate. */}
-    return {other,...lines,quote,pending:fxBundles.find(b=>b.status==='pending'&&[b.payer_participant_id,b.counterparty_participant_id].includes(other)),currencies:[...new Set([...lines.youOwe,...lines.theyOwe].map(l=>l.currency))]}
+    try{quote=quotePair({...lines,target:quoteCurrency,rateFor:c=>systemForeignPerTarget(c,quoteCurrency,quoteSnapshot),intent:'full'})}catch{/* Error is shown as unavailable, never a zero estimate. */}
+    return {other,net,...lines,quote,pending:fxBundles.find(b=>b.status==='pending'&&[b.payer_participant_id,b.counterparty_participant_id].includes(other)),currencies:[...new Set([...lines.youOwe,...lines.theyOwe].map(l=>l.currency))]}
   })
-  const totalsKnown=pairs.every(p=>p.quote?.ok)
+  const netTotals=canonical?contraTotals(canonical,currentParticipantId):null
+  const totalsKnown=contra?contra.status==='ready'&&!!netTotals?.known:pairs.every(p=>p.quote?.ok)
   const estimated=(n:bigint)=>hidden?'••••':`${quoteCurrency==='MYR'?'RM':quoteCurrency} ${exactAmount(n,currencyExponent(quoteCurrency),localeForLang(lang))}`
-  const totalPay=pairs.reduce((n,p)=>n+(p.quote?.ok&&p.quote.direction==='pay'?p.quote.fullMinor:0n),0n)
-  const totalCollect=pairs.reduce((n,p)=>n+(p.quote?.ok&&p.quote.direction==='collect'?p.quote.fullMinor:0n),0n)
+  const totalPay=netTotals?.pay??pairs.reduce((n,p)=>n+(p.quote?.ok&&p.quote.direction==='pay'?p.quote.fullMinor:0n),0n)
+  const totalCollect=netTotals?.collect??pairs.reduce((n,p)=>n+(p.quote?.ok&&p.quote.direction==='collect'?p.quote.fullMinor:0n),0n)
   const batchCandidates:BatchCandidate[]=pairs.map(p=>({id:p.other,name:participantNames.get(p.other)??t('common.member'),youOwe:p.youOwe,theyOwe:p.theyOwe,
-    blocked:!canPropose?'You cannot record payments in this trip':currentMemberIds&&!currentMemberIds.has(p.other)?'Not a current trip member':fxRead.status!=='ready'?'Payment status unavailable':p.pending||contextSettlements.some(s=>s.allocations.some(a=>a.state==='pending'&&((s.debtorParticipantId===currentParticipantId&&a.creditorParticipantId===p.other)||(s.debtorParticipantId===p.other&&a.creditorParticipantId===currentParticipantId))))?'Pending payment — review or cancel first':!fx.updating&&p.currencies.some(code=>code!=='MYR'&&code!=='VND'&&!systemForeignPerTarget(code,'MYR',fx.snapshot))?'System rate unavailable. Use single-currency settlement':undefined}))
-  const batchQuotes=new Map(batchCandidates.map(c=>{let q:ReturnType<typeof quotePair>|null=null;try{q=quotePair({...c,target:'MYR',rateFor:code=>systemForeignPerTarget(code,'MYR',fx.snapshot),intent:'full'})}catch{/* Unpriced stays unavailable. */}return[c.id,q]as const}))
+    blocked:contra&&contra.status!=='ready'?'Current net balance unavailable':p.net?.pending?'Pending payment — review or cancel first':!canPropose?'You cannot record payments in this trip':currentMemberIds&&!currentMemberIds.has(p.other)?'Not a current trip member':fxRead.status!=='ready'?'Payment status unavailable':p.pending||contextSettlements.some(s=>s.allocations.some(a=>a.state==='pending'&&((s.debtorParticipantId===currentParticipantId&&a.creditorParticipantId===p.other)||(s.debtorParticipantId===p.other&&a.creditorParticipantId===currentParticipantId))))?'Pending payment — review or cancel first':!fx.updating&&p.currencies.some(code=>code!=='MYR'&&code!=='VND'&&!systemForeignPerTarget(code,'MYR',quoteSnapshot))?'System rate unavailable. Use single-currency settlement':undefined}))
+  const batchQuotes=new Map(batchCandidates.map(c=>{let q:ReturnType<typeof quotePair>|null=null;try{q=quotePair({...c,target:'MYR',rateFor:code=>systemForeignPerTarget(code,'MYR',quoteSnapshot),intent:'full'})}catch{/* Unpriced stays unavailable. */}return[c.id,q]as const}))
   const batchEligible=batchCandidates.filter(c=>{const q=batchQuotes.get(c.id);return !c.blocked&&q?.ok&&q.direction==='pay'})
-  const batchUnpriced=batchCandidates.some(c=>!c.blocked&&c.youOwe.length>0&&!batchQuotes.get(c.id)?.ok&&[...c.youOwe,...c.theyOwe].every(l=>l.currency==='VND'||!!systemForeignPerTarget(l.currency,'MYR',fx.snapshot)))
+  const batchUnpriced=batchCandidates.some(c=>!c.blocked&&c.youOwe.length>0&&!batchQuotes.get(c.id)?.ok&&[...c.youOwe,...c.theyOwe].every(l=>l.currency==='VND'||!!systemForeignPerTarget(l.currency,'MYR',quoteSnapshot)))
   const batchNoPayments=pairs.every(p=>{const q=batchQuotes.get(p.other);return !p.youOwe.length||q?.ok&&q.direction!=='pay'})
   const batchPayTotal=batchEligible.reduce((sum,c)=>{const q=batchQuotes.get(c.id)!;return sum+(q.ok?q.fullMinor:0n)},0n)
   const recovery=context.scope==='space'?readBatchRecovery(currentParticipantId,context.spaceId):null
@@ -366,17 +374,17 @@ function SettlementPanelBody({
         <div className="tw-balance-grid fx-estimated-summary" data-testid="pair-totals"><div><span>{t('fx.pay')}</span><strong>{totalsKnown?estimated(totalPay):t('tw.estimateUnavailable')}</strong></div><div><span>{t('fx.collect')}</span><strong>{totalsKnown?estimated(totalCollect):t('tw.estimateUnavailable')}</strong></div></div>
         {fxRead.status==='error'?<p role="alert">{t('tl.unavailable')} <button type="button" className="ms-btn-ghost" onClick={fxRead.retry}>{t('common.retry')}</button></p>:null}
         {!hidden&&(batchEligible.length>0||batchUnpriced||recovery)?<button type="button" className="batch-launch" disabled={!!action||fxRead.status!=='ready'} onClick={()=>openPair({other:'all',mode:'batch'})}>{recovery?'Check payment result':batchEligible.length?'Settle all · RM '+exactAmount(batchPayTotal,2,localeForLang(lang)):'Settle all'}</button>:!hidden&&batchNoPayments?<p className="batch-empty-pay">No payments due.</p>:null}
-        <div className="fx-pair-list">{pairs.map(p=>{
+        {contra&&contra.status!=='ready'?<p role={contra.status==='error'?'alert':'status'}>{contra.status==='error'?t('tl.unavailable'):t('common.loading')} <button type="button" onClick={contra.refresh}>{t('common.retry')}</button></p>:null}<div className="fx-pair-list" data-contra-revision={canonical?.revision}>{pairs.map(p=>{
           const name=participantNames.get(p.other)??t('common.member')
           const excluded=batchCandidates.find(c=>c.id===p.other)?.blocked
           const outgoing=p.quote?.ok?p.quote.direction!=='collect':p.youOwe.length>0
-          return <article className="fx-pair-row" key={p.other}><div><h3>{name}</h3><small>{t(p.quote?.ok&&p.quote.direction==='collect'?'fx.owesYou':p.quote?.ok&&p.quote.direction==='offset'?'fx.offset':'fx.youOweShort')} · {p.currencies.join(' · ')}</small><p className="fx-pair-value">{p.pending?p.pending.quote.cashLegs?.map(l=>amount(l.amountMinor,l.currency)).join(' + ')??amount(p.pending.cash_minor,p.pending.target_currency):p.quote?.ok?'≈ '+estimated(p.quote.fullMinor):t('tw.estimateUnavailable')}</p></div>
+          return <article className="fx-pair-row" key={p.other}><div><h3>{p.net&&onContraPair?<button type="button" className="tt-contra-name" disabled={hidden||contra?.status!=='ready'} onClick={()=>onContraPair(p.net!.id)}>{name} <span aria-hidden="true">›</span></button>:name}</h3><small>{t(p.quote?.ok&&p.quote.direction==='collect'?'fx.owesYou':p.quote?.ok&&p.quote.direction==='offset'?'fx.offset':'fx.youOweShort')} · {p.currencies.join(' · ')}</small><p className="fx-pair-value">{p.pending&&!p.net?p.pending.quote.cashLegs?.map(l=>amount(l.amountMinor,l.currency)).join(' + ')??amount(p.pending.cash_minor,p.pending.target_currency):p.net?p.net.display.known?(p.net.display.estimated?'≈ ':'')+estimated(BigInt(p.net.display.netMinor!)):t('tw.estimateUnavailable'):p.quote?.ok?'≈ '+estimated(p.quote.fullMinor):t('tw.estimateUnavailable')}</p></div>
           {p.pending?(p.pending.counterparty_participant_id===currentParticipantId?<button type="button" className="fx-pair-primary" disabled={hidden||fxRead.status!=='ready'} onClick={()=>openPair({other:p.other,mode:'review',bundleId:p.pending!.id})}>{t('fx.review')}</button>:<button type="button" disabled={!!action||hidden||fxRead.status!=='ready'} onClick={()=>void cancelBundle(p.pending!.id,p.pending!.version)}>{t('settlement.cancelProposal')}</button>):<button type="button" className={outgoing?'fx-pair-primary':''} disabled={hidden||fxRead.status!=='ready'||outgoing&&(!canPropose||!!excluded)} onClick={()=>openPair({other:p.other,mode:outgoing&&batchCandidates.find(c=>c.id===p.other)&&!batchCandidates.find(c=>c.id===p.other)?.blocked&&!(p.quote?.ok&&p.quote.direction==='offset')?'batch':outgoing?'pay':'summary'})}>{t(!p.quote?.ok&&outgoing?'fx.checkRates':outgoing?p.quote?.ok&&p.quote.direction==='offset'?'fx.offset':'fx.pay':'fx.summary')}</button>}
           {excluded&&!p.pending?<p className="fx-pair-status batch-excluded">{excluded}</p>:null}{!p.pending&&outgoing&&(p.currencies.length>1||!p.quote?.ok||!!excluded)?<button type="button" className="fx-legacy-link" disabled={hidden||!canPropose||fxRead.status!=='ready'} onClick={()=>openPair({other:p.other,mode:'pay'})}>Single-currency settlement</button>:null}{p.pending?<p className="fx-pair-status">{t('settlement.awaitingConfirmation')}</p>:p.quote?.ok&&p.quote.direction==='collect'?<p className="fx-pair-status">{t('tl.awaiting')}</p>:null}</article>
         })}</div>
       </>:null}
       {batchPage&&!hidden&&context.scope==='space'?<TripBatchSettlement key={currentParticipantId+':'+context.spaceId+':'+batchPage.other} nativeExit={!!heldBatch&&!!pairNavigation&&activePair?.mode!=='batch'} onNativeExit={closeHeldBatch} actor={currentParticipantId} trip={context.spaceId} tripName={tripName} candidates={batchCandidates} only={batchPage.other==='all'?undefined:batchPage.other} onClose={()=>{setHeldBatch(null);pair.close();restoreBatchSource()}} onChanged={async()=>{await onChanged?.();fxRead.retry()}}/>:null}
-      {activePair?.mode==='routed'&&!hidden&&context.scope==='space'?<TripRoutedSettlement key={currentParticipantId+':'+context.spaceId+':'+(activePair.bundleId??'new')} actor={currentParticipantId} trip={context.spaceId} tripName={tripName} names={participantNames} proposalId={activePair.bundleId} onClose={pair.close} onChanged={async()=>{await onChanged?.();fxRead.retry()}}/>:null}
+      {activePair?.mode==='routed'&&!hidden&&context.scope==='space'?<TripRoutedSettlement key={currentParticipantId+':'+context.spaceId+':'+(activePair.bundleId??'new')} actor={currentParticipantId} trip={context.spaceId} tripName={tripName} contra={contra} names={participantNames} proposalId={activePair.bundleId} onClose={pair.close} onChanged={async()=>{await onChanged?.();fxRead.retry()}}/>:null}
       {activePair&&activePair.mode!=='batch'&&activePair.mode!=='routed'&&!hidden&&context.scope==='space'?<PairSettlementView key={activePair.other+activePair.mode+activePair.bundleId} self={currentParticipantId} other={activePair.other} otherName={participantNames.get(activePair.other)??t('common.member')} {...pairLines(debts,currentParticipantId,activePair.other)} target={quoteCurrency} spaceId={context.spaceId} tripName={tripName} expenses={expenses} settlements={contextSettlements} pageMode={activePair.mode} canPropose={canPropose} review={activeBundle} bundleStatus={fxRead.status} onClose={pair.close} onRefresh={onChanged} onDone={async()=>{pair.close();await onChanged?.();fxRead.retry()}}/>:null}
       {view!=='trip-history'?<div>{view==='trip-current'?<button type="button" className="ms-btn-ghost fx-legacy-options" aria-expanded={legacyVisible||!!expanded} onClick={()=>setLegacyVisible(v=>!v)}>Single-currency options</button>:null}<div className="ms-list tt-paper-list fx-legacy-native" hidden={view==='trip-current'&&!legacyVisible&&!expanded}>
         {debts.length === 0 ? (

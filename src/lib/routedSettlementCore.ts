@@ -4,6 +4,7 @@ export type Currency = "VND" | "MYR"
 export type Rate = { numerator: string; denominator: string }
 export type Edge = { id: string; from: string; to: string; minor: number }
 export type Snapshot = {
+  edgeBasis?: 'net'
   tripId: string
   revision: string
   quoteId: string
@@ -95,6 +96,7 @@ export function planSettlement(snapshot: Snapshot, payments: Payment[]): Plan {
     edges.set(key, edge)
     balances.set(edge.id, edge.minor)
   }
+  if(snapshot.edgeBasis==='net'&&snapshot.edges.some(e=>e.minor>0&&edges.get(pair(e.to,e.from))?.minor))throw new Error('INVALID_NET_SNAPSHOT')
   const paymentIds = new Set<string>()
   const tenderKeys = new Set<string>()
   const issues: Issue[] = []

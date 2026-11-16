@@ -38,3 +38,7 @@ public/plugins/
 MATT_POCOCK_SKILLS_GUIDE.md
 
 .vercel
+
+# Local Python installer validation bytecode
+__pycache__/
+*.pyc

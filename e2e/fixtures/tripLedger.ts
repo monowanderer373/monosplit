@@ -1,3 +1,4 @@
+import{contraFixture}from'./contra'
 import type{Page}from'@playwright/test'
 import{setupMulticurrency}from'./multicurrency'
 import{apiExpense}from'./insightsUi'
@@ -8,6 +9,7 @@ export async function setupTripLedger(page:Page,options:{hidden?:boolean;lang?:s
  const state={space:{id:tripLedgerId,name:'Hanoi Trip',type:'trip',owner_participant_id:'owner',status:'active',default_currency:'MYR',version:1,start_date:'2026-11-05',end_date:'2026-11-10',created_at:'2026-10-01T00:00:00Z',updated_at:'2026-10-01T00:00:00Z'},role:'owner',expenses:tripLedgerScenario(),payments:[tripLedgerPayment()],failRead:false,failSettlement:false,failWrite:false,commitThenFail:false,activityReads:0,writes:[]as{rpc:string;body:Record<string,unknown>}[]}
  await page.route('http://127.0.0.1:54321/**',async route=>{
   const u=new URL(route.request().url()),p=u.pathname
+  if(p.endsWith('/rpc/read_trip_contra_snapshot'))return route.fulfill({json:contraFixture(tripLedgerId,state.expenses,state.payments,route.request().postDataJSON(),state.role==='owner')})
   if(p.endsWith('/rpc/current_participant_id'))return route.fulfill({json:'owner'})
   if(p.endsWith('/space_members')){
    if(state.failRead)return route.fulfill({status:503,json:{message:'Synthetic unavailable read'}})
