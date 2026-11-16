@@ -213,7 +213,7 @@ jobs:
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-creator-production-apply.sql
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-creator-production-apply.sql
           python3 scripts/verify-trip-creator-production.py --db-url "$LOCAL_DATABASE_URL"
-          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-contra-production-apply.sql
+          python3 scripts/test-trip-contra-bootstrap.py --db-url "$LOCAL_DATABASE_URL"
           psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/runbooks/trip-contra-production-apply.sql
           python3 scripts/verify-trip-contra-production.py --db-url "$LOCAL_DATABASE_URL"
       - if: failure()
