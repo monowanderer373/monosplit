@@ -1,7 +1,7 @@
 import {useState,type ReactNode} from 'react'
 import {contraTotals}from'../lib/tripContra'
 import {MemberBalanceBoard}from'./MemberBalanceBoard'
-import {orderedRepayments,viaDisplay}from'../lib/orderedRepayments'
+import {orderedRepayments,viaDisplay,nativeQuoteRate}from'../lib/orderedRepayments'
 import {useStore} from '../store/useStore'
 import {ct} from '../lib/creatorTexts'
 import {rt, routedMoney} from '../lib/routedSettlement'
@@ -56,7 +56,7 @@ export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remov
       {rows.length > 1 ? <legend>{r('payment')} {index+1}</legend> : null}
       <CreatorMemberPairPicker payer={row.payer} recipient={row.recipient} people={people} index={index+1}
         onChange={(side,id) => edit(row.id,{[side]:id,via:row.via===id?'':row.via,viaAmount:row.via===id?'':row.viaAmount})}/>
-      <div className="tt-final-mode"><button type="button" aria-pressed={!row.full} onClick={()=>{setFullError('');edit(row.id,{full:false})}}>{f('Partial','部分')}</button><button type="button" aria-pressed={!!row.full} disabled={!snapshot} onClick={()=>{setFullError('');if(!snapshot)return;const prior=orderedRepayments(snapshot,rows.slice(0,index));if(index&&!prior.valid)return;const left=prior.left,get=(a:string,b:string)=>left.get(a+':'+b)??0;const cap=get(row.payer,row.recipient)+(row.via?Math.min(get(row.payer,row.via),get(row.via,row.recipient)):0);if(row.currency==='VND')edit(row.id,{amount:String(cap),full:true});else if(snapshot.quote.numerator&&snapshot.quote.denominator){const n=BigInt(snapshot.quote.numerator),d=100n*BigInt(snapshot.quote.denominator),floor=BigInt(cap)*d/n,cents=[floor,floor+1n].find(c=>(2n*c*n+d)/(2n*d)===BigInt(cap));if(cents===undefined){setFullError(f('This full balance cannot be represented in MYR cents. Choose VND or enter a partial payment.','该余额无法用整数 MYR 分表示，请选择 VND 或输入部分还款。'));return}edit(row.id,{amount:(cents/100n).toString()+'.'+(cents%100n).toString().padStart(2,'0'),full:true})}}}>{f('Full','全额')}</button></div>
+      <div className="tt-final-mode"><button type="button" aria-pressed={!row.full} onClick={()=>{setFullError('');edit(row.id,{full:false})}}>{f('Partial','部分')}</button><button type="button" aria-pressed={!!row.full} disabled={!snapshot} onClick={()=>{setFullError('');if(!snapshot)return;const prior=orderedRepayments(snapshot,rows.slice(0,index));if(index&&!prior.valid)return;const left=prior.left,get=(a:string,b:string)=>left.get(a+':'+b)??0;const cap=get(row.payer,row.recipient)+(row.via?Math.min(get(row.payer,row.via),get(row.via,row.recipient)):0);if(row.currency==='VND')edit(row.id,{amount:String(cap),full:true});else if(snapshot.quote.numerator&&snapshot.quote.denominator){const rate=nativeQuoteRate(snapshot),n=rate.n,d=100n*rate.d,floor=BigInt(cap)*d/n,cents=[floor,floor+1n].find(c=>(2n*c*n+d)/(2n*d)===BigInt(cap));if(cents===undefined){setFullError(f('This full balance cannot be represented in MYR cents. Choose VND or enter a partial payment.','该余额无法用整数 MYR 分表示，请选择 VND 或输入部分还款。'));return}edit(row.id,{amount:(cents/100n).toString()+'.'+(cents%100n).toString().padStart(2,'0'),full:true})}}}>{f('Full','全额')}</button></div>
       <div className="tt-c-amount-grid">
         <label>{r('amount')}<AmountInput aria-label={r('amount')+' '+(index+1)} value={row.amount}
           inputMode={row.currency==='VND'?'numeric':'decimal'} onValueChange={value => {setFullError('');edit(row.id,{amount:value})}}/></label>

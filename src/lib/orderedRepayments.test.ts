@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest'
-import {orderedRepayments} from './orderedRepayments'
+import {orderedRepayments,nativeQuoteValue,viaDisplay} from './orderedRepayments'
 import type {ContraSnapshot} from './tripContra'
 import type {CreatorRow} from '../components/CreatorRepaymentForm'
 const snapshot={quote:{numerator:'1',denominator:'1'},pairs:[['p','l',100],['e','l',100],['l','d',100],['p','d',100],['e','d',100]].map(([payer,recipient,availableMinor])=>({payer,recipient,availableMinor,currentMembers:true}))}as unknown as ContraSnapshot
@@ -12,4 +12,6 @@ describe('ordered repayment drafts',()=>{
  it('converts a manually entered MYR via amount using the frozen native quote',()=>{const valued={...snapshot,quote:{...snapshot.quote,numerator:'6000',denominator:'1'},pairs:snapshot.pairs.map(p=>({...p,availableMinor:600000}))};const p=orderedRepayments(valued,[{...row('z','p','420000','60'),viaCurrency:'MYR'},row('a','e','300000')]);expect(p.valid).toBe(true);expect(p.results.map(r=>[r.via,r.direct])).toEqual([[360000,60000],[240000,60000]])})
  it('blocks MYR tender when the authoritative quote is unavailable',()=>{const p=orderedRepayments({...snapshot,quote:{...snapshot.quote,numerator:null}},[{...row('z','p','1'),currency:'MYR'}]);expect(p.valid).toBe(false);expect(p.results[0].error).toContain('rate unavailable')})
  it('accepts explicit MYR zero without inventing an intermediary allocation',()=>{const valued={...snapshot,quote:{...snapshot.quote,numerator:'6000'},pairs:snapshot.pairs.map(p=>({...p,availableMinor:600000}))};const p=orderedRepayments(valued,[{...row('z','p','70000','0.00'),viaCurrency:'MYR'}]);expect(p.valid).toBe(true);expect(p.results[0].via).toBe(0);expect(p.results[0].direct).toBe(70000)})
+ it('accepts exact decimal custom quote parts from SQL numeric',()=>{const valued={...snapshot,quote:{...snapshot.quote,numerator:'6320.125',denominator:'1'}};expect(nativeQuoteValue(valued,800,'MYR')).toBe(50561);expect(viaDisplay(valued,50561,'MYR')).toBe('8.00')})
+ it('handles a decimal denominator without floating point',()=>{const valued={...snapshot,quote:{...snapshot.quote,numerator:'6320.5',denominator:'2.0'}};expect(nativeQuoteValue(valued,10000,'MYR')).toBe(316025);expect(viaDisplay(valued,316025,'MYR')).toBe('100.00')})
 })

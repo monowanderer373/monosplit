@@ -4,19 +4,28 @@ import {parseMajorAmount} from './money'
 
 export type OrderedLine={id:string;value:number;via:number;direct:number;cap:number;remaining:number;upstream:number;downstream:number;error:string}
 const key=(a:string,b:string)=>a+':'+b
+/** SQL numeric quote parts can contain decimals; never convert them through Number. */
+export function nativeQuoteRate(snapshot:ContraSnapshot) {
+ const part=(text:string|null)=>{
+  if(!text||!/^\d{1,30}(?:\.\d{1,12})?$/.test(text))throw Error('Exchange rate unavailable.')
+  const [whole,fraction='']=text.split('.'),n=BigInt(whole+fraction),d=10n**BigInt(fraction.length)
+  if(n<=0n)throw Error('Exchange rate unavailable.')
+  return{n,d}
+ }
+ const a=part(snapshot.quote.numerator),b=part(snapshot.quote.denominator)
+ return{n:a.n*b.d,d:a.d*b.n}
+}
 export function nativeQuoteValue(snapshot:ContraSnapshot,amount:number,currency:'MYR'|'VND') {
  if(currency==='VND')return amount
- const n=snapshot.quote.numerator,d=snapshot.quote.denominator
- if(!n||!d||BigInt(n)<=0n||BigInt(d)<=0n)throw Error('Exchange rate unavailable.')
- const numerator=BigInt(amount)*BigInt(n),denominator=100n*BigInt(d)
+ const rate=nativeQuoteRate(snapshot),numerator=BigInt(amount)*rate.n,denominator=100n*rate.d
  return Number((2n*numerator+denominator)/(2n*denominator))
 }
 export function viaDisplay(snapshot:ContraSnapshot,amount:number,currency:'MYR'|'VND') {
  if(currency==='VND')return String(amount)
- const n=snapshot.quote.numerator,d=snapshot.quote.denominator
- if(!n||!d||BigInt(n)<=0n||BigInt(d)<=0n)return ''
- const cents=BigInt(amount)*100n*BigInt(d)/BigInt(n)
- return (cents/100n).toString()+'.'+(cents%100n).toString().padStart(2,'0')
+ try{
+  const {n,d}=nativeQuoteRate(snapshot),cents=BigInt(amount)*100n*d/n
+  return (cents/100n).toString()+'.'+(cents%100n).toString().padStart(2,'0')
+ }catch{return ''}
 }
 export function orderedRepayments(snapshot:ContraSnapshot,rows:CreatorRow[]) {
  const left=new Map(snapshot.pairs.filter(p=>p.currentMembers&&p.payer&&p.recipient).map(p=>[key(p.payer!,p.recipient!),p.availableMinor]))

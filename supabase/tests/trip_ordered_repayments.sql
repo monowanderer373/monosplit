@@ -30,6 +30,7 @@ create function pg_temp.netdraft(rows jsonb)returns jsonb language sql as $$sele
 create function pg_temp.netpair(a int,b int)returns jsonb language sql as $$select q from jsonb_array_elements(public.read_trip_contra_snapshot(pg_temp.rid('trip'),'custom','6000','MYR')->'pairs')q where q->>'a'=least(pg_temp.rid('u'||a)::text,pg_temp.rid('u'||b)::text)and q->>'b'=greatest(pg_temp.rid('u'||a)::text,pg_temp.rid('u'||b)::text)$$;
 -- Native VND coverage: RM100 at 6000 VND/MYR, never inverse rounded MYR bills.
 select pg_temp.rbill(pg_temp.rid('trip'),2,3,600000),pg_temp.rbill(pg_temp.rid('trip'),2,4,600000),pg_temp.rbill(pg_temp.rid('trip'),1,2,600000),pg_temp.rbill(pg_temp.rid('trip'),1,3,600000),pg_temp.rbill(pg_temp.rid('trip'),1,4,600000);
+select is(public.read_trip_contra_snapshot(pg_temp.rid('trip'),'custom','6320.125','MYR')->'quote'->>'numerator','6320.125','authoritative custom quote retains SQL numeric decimal parts');
 insert into rv values('ordered',pg_temp.netdraft(jsonb_build_array(pg_temp.rpayment('z-first',3,1,420000,2,7000),pg_temp.rpayment('a-second',4,1,300000,2,3000))));
 insert into rv values('ordered-review',public.preview_trip_creator_settlement(pg_temp.rid('trip'),(select v from rv where k='ordered')));
 select isnt((select v->>'digest'from rv where k='ordered-review'),null,'entry-order explicit 70/30 allocations authorize one batch');
