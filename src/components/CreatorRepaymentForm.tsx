@@ -16,11 +16,11 @@ export type CreatorRow = {id:string; full?:boolean; viaCurrency?:'MYR'|'VND'; pa
 
 export function CreatorRepaymentChooser({people,snapshot,onChoose,disabled}:{people:CreatorPerson[];snapshot:ContraSnapshot;onChoose:(pair:ContraPair,recipient?:string)=>void;disabled:boolean}) {
  const lang=useStore(s=>s.lang),f=(en:string,zh:string)=>lang==='zh'?zh:en
- const[board,setBoard]=useState(false),totals=contraTotals(snapshot,snapshot.viewer)
+ const[board,setBoard]=useState(true),totals=contraTotals(snapshot,snapshot.viewer)
  const choices=snapshot.pairs.filter(p=>p.currentMembers&&[p.a,p.b].includes(snapshot.viewer)).map(pair=>({pair,direction:pair.display.known?pair.display:pair.ledger})).filter(({direction:d})=>d.netMinor!==null&&d.netMinor>0&&d.payer&&d.recipient&&people.some(v=>v.id===d.payer)&&people.some(v=>v.id===d.recipient))
  const recipients=[...new Set(choices.map(p=>p.direction.recipient!))]
  return <div className="tt-c-choices" data-contra-revision={snapshot.revision}>
-  <div className="tt-final-totals"><div>{f('To pay','待付')}<strong>{totals.known?routedMoney(totals.pay,snapshot.quote.displayCurrency):'—'}</strong></div><div>{f('To collect','待收')}<strong>{totals.known?routedMoney(totals.collect,snapshot.quote.displayCurrency):'—'}</strong></div></div><button type="button" onClick={()=>setBoard(!board)}>{f('Member balances','成员往来')}</button>{board?<MemberBalanceBoard snapshot={snapshot} people={people} onChoose={onChoose} disabled={disabled}/>:null}
+  <div className="tt-final-totals"><div>{f('To pay','待付')}<strong>{totals.known?routedMoney(totals.pay,snapshot.quote.displayCurrency):'—'}</strong></div><div>{f('To collect','待收')}<strong>{totals.known?routedMoney(totals.collect,snapshot.quote.displayCurrency):'—'}</strong></div></div><button type="button" onClick={()=>setBoard(true)}>{f('Member balances','成员往来')}</button>{board?<MemberBalanceBoard snapshot={snapshot} people={people} onChoose={onChoose} disabled={disabled}/>:null}
   {recipients.map(id=><section className="tt-c-debt-list" key={id}><h3>{ct(lang,'owedTo')} {people.find(p=>p.id===id)!.name}</h3>
    {choices.filter(p=>p.direction.recipient===id).map(({pair,direction})=>{const person=people.find(p=>p.id===direction.payer)!,d=pair.display;return <button type="button" disabled={disabled||pair.availableMinor<=0} key={pair.id} onClick={()=>onChoose(pair)}>
     <RoutedAvatar person={person}/><span>{person.name}</span><strong>{d.known?(d.estimated?'≈ ':'')+routedMoney(d.netMinor!,d.currency):'—'}</strong><span aria-hidden="true">›</span>
