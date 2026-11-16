@@ -157,7 +157,7 @@ function SettlementPanelBody({
     pair.open(value)
   }
   const fx=useInsightsFx(currentParticipantId,view==='trip-current'&&!hidden&&debts.some(d=>d.currency!==quoteCurrency||d.currency!=='MYR'))
-  const canonical=contra?.snapshot,netPairs=canonical?.pairs.filter(p=>[p.a,p.b].includes(currentParticipantId))
+  const canonical=contra?.snapshot,netPairs=canonical?.pairs.filter(p=>p.currentMembers&&[p.a,p.b].includes(currentParticipantId))
   const quoteSnapshot=canonical?{...fx.snapshot,id:canonical.quote.snapshotId,rates:canonical.quote.rates as typeof fx.snapshot.rates}:fx.snapshot
   const otherIds=[...new Set([...(netPairs?netPairs.map(p=>p.a===currentParticipantId?p.b:p.a):debts.map(d=>d.debtorParticipantId===currentParticipantId?d.creditorParticipantId:d.debtorParticipantId)),...fxBundles.filter(b=>b.status==='pending').map(b=>b.payer_participant_id===currentParticipantId?b.counterparty_participant_id:b.payer_participant_id)])]
   const pairs=otherIds.map(other=>{
@@ -166,8 +166,8 @@ function SettlementPanelBody({
     let quote:ReturnType<typeof quotePair>|null=null
     try{quote=quotePair({...lines,target:quoteCurrency,rateFor:c=>systemForeignPerTarget(c,quoteCurrency,quoteSnapshot),intent:'full'})}catch{/* Error is shown as unavailable, never a zero estimate. */}
     return {other,net,...lines,quote,pending:fxBundles.find(b=>b.status==='pending'&&[b.payer_participant_id,b.counterparty_participant_id].includes(other)),currencies:[...new Set([...lines.youOwe,...lines.theyOwe].map(l=>l.currency))]}
-  })
-  const netTotals=canonical?contraTotals(canonical,currentParticipantId):null
+  }).filter(p=>!canonical||!!p.net&&(p.net.netMinor!==0||!!p.pending))
+  const netTotals=canonical?contraTotals({...canonical,pairs:canonical.pairs.filter(p=>p.currentMembers)},currentParticipantId):null
   const totalsKnown=contra?contra.status==='ready'&&!!netTotals?.known:pairs.every(p=>p.quote?.ok)
   const estimated=(n:bigint)=>hidden?'••••':`${quoteCurrency==='MYR'?'RM':quoteCurrency} ${exactAmount(n,currencyExponent(quoteCurrency),localeForLang(lang))}`
   const totalPay=netTotals?.pay??pairs.reduce((n,p)=>n+(p.quote?.ok&&p.quote.direction==='pay'?p.quote.fullMinor:0n),0n)
