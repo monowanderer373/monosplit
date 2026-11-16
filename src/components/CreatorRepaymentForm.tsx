@@ -75,7 +75,7 @@ export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remov
             <option value="cash">{r('cash')}</option><option value="bank_transfer">{r('bank')}</option>
           </select></label>
           {row.via ? <label>{r('viaAmount')}<AmountInput aria-label={r('viaAmount')+' '+(index+1)}
-            value={row.viaAmount} placeholder={r('auto')} onValueChange={value => edit(row.id,{viaAmount:value})}/></label> : null}
+            value={row.viaAmount===''&&plan&&!plan.results[index].error?String(plan.results[index].cap):row.viaAmount} placeholder={r('auto')} onValueChange={value => edit(row.id,{viaAmount:value})}/></label> : null}
         </div>
         {[row.payer,row.recipient].includes(actor) ? ownControl(row.id,row.currency) : null}
       </div>
