@@ -9,9 +9,11 @@ for filename in ['/tmp/tabby-supabase-start.log','/tmp/tabby-db-lint.log','/tmp/
     lines=path.read_text(errors='replace').splitlines()
     indices=set(range(len(lines))) if filename.endswith('db-lint.log') else set() if filename.endswith('supabase-start.log') else set(range(max(0,len(lines)-35),len(lines)))
     for n,line in enumerate(lines):
-        if re.search(r'ERROR:|not ok|Failed test|Parse errors|Dubious',line):
+        if re.search(r'ERROR:|not ok|Failed test|Parse errors|Dubious|error response|error running|failed|unhealthy|timed? ?out|panic|connection refused|could not',line,re.I):
             indices.update(range(max(0,n-2),min(len(lines),n+9)))
     text='\n'.join(lines[n]for n in sorted(indices)if not re.search(r'Secret|Publishable|sb_secret_|sb_publishable_|eyJ',lines[n],re.I))
+    text=re.sub(r'(?:postgres(?:ql)?|redis|mysql)://[^\s\"\']+','[redacted isolated connection]',text)
+    text=re.sub(r'(?i)(password|access_token|api_key)\s*[:=]\s*[^\s,;]+',r'\1=[redacted]',text)
     # Check annotations truncate around4096bytes; split before escaping to retain the actual cause.
     for start in range(0,min(len(text),14000),2800):
         chunk=text[start:start+2800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
