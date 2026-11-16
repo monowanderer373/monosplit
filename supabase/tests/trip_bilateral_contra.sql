@@ -1,4 +1,10 @@
 begin;
+-- Serialize this single-session fixture with scheduled workers before seeding.
+-- Production NOWAIT guards and separate real-session race tests stay unchanged.
+set local lock_timeout='5s';
+lock table public.expenses,public.expense_participations,public.payer_contributions,
+ public.expense_shares,public.settlement_allocations,public.settlement_payments,
+ public.settlement_allocation_reversals in exclusive mode;
 create extension if not exists pgtap with schema extensions;
 select no_plan();
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
