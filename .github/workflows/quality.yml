@@ -375,6 +375,8 @@ jobs:
       - name: Use official Ubuntu mirrors on the disposable runner
         run: bash scripts/ci-ubuntu-mirrors.sh
       - run: npm ci
+      - name: Prepare a unique native stack and avoid occupied database ports
+        run: python3 scripts/prepare-native-test-stack.py
       - run: set -o pipefail; npx supabase start 2>&1 | tee /tmp/tabby-supabase-start.log
       - name: Report redacted isolated stack startup failure
         if: failure()
