@@ -20,7 +20,7 @@ import AmountInput from'./AmountInput'
 import './trip-creator-settlement.css'
 import {orderedRepayments}from'../lib/orderedRepayments'
 type Row=CreatorRow
-const newRow=():Row=>({id:generateId(),payer:'',recipient:'',amount:'',currency:'VND',method:'cash',via:'',viaAmount:''})
+const newRow=():Row=>({id:generateId(),payer:'',recipient:'',amount:'',currency:'VND',method:'cash',via:'',viaAmount:'',viaCurrency:'MYR'})
 const localTime=(time=new Date())=>new Date(time.getTime()-time.getTimezoneOffset()*60000).toISOString().slice(0,16)
 const decimal=(minor:number,currency:string)=>{const digits=currencyExponent(currency),n=BigInt(minor),base=10n**BigInt(digits);return(n/base).toString()+(digits?'.'+(n%base).toString().padStart(digits,'0'):'')}
 type Props={contra:TripContraState;initialPair?:string;identity:string;actor:string;trip:string;tripName:string;recordId?:string;replacementFor?:string;onClose:()=>void;onChanged:()=>Promise<unknown>;onRecorded?:(record:CreatorRecord)=>void;onReplacement?:(id:string)=>void;onOpenRecord?:(id:string)=>void}
@@ -99,7 +99,7 @@ export default function TripCreatorSettlement(props:Props){
  {record.corrections.map(c=><article className="tt-c-correction" key={c.id}><strong>{c.requesterName}</strong><p>{c.reason}</p><p>{c.status==='pending'?t('pending'):c.resolution}</p>{record.canManage&&c.status==='pending'?<><label>{t('resolution')}<textarea aria-label={t('resolution')+' '+c.id} value={resolution} maxLength={500} disabled={busy} onChange={e=>setResolution(e.target.value)}/></label><button type="button" disabled={busy||!resolution.trim()} onClick={()=>void resolve(c)}>{t('resolve')}</button></>:null}</article>)}
  {record.status==='reversed'&&context?.canRecord&&!record.replacementId?<button type="button" onClick={()=>onReplacement?.(record.id)}>{t('replacement')}</button>:null}{record.replacementFor?<button type="button" onClick={()=>onOpenRecord?.(record.replacementFor!)}>{t('old')}</button>:null}{record.replacementId?<button type="button" onClick={()=>onOpenRecord?.(record.replacementId!)}>{t('next')}</button>:null}
  </>:null}
- {error?<p role="alert" className="tt-r-error">{error} <button type="button" disabled={busy} onClick={()=>setReload(n=>n+1)}>{t('refresh')}</button></p>:null}
+ {error?<p role="alert" className="tt-r-error">{error} <button type="button" disabled={busy} onClick={()=>{contra.refresh();setReload(n=>n+1)}}>{t('refresh')}</button></p>:null}
  </>}</div>
  <footer className="tt-r-foot">{!hidden&&!record&&!recordId&&!permissions&&context?.canRecord?(detailPair?<button type="button" disabled={busy||recoverable||recoveryInvalid||!netReady||!snapshot?.pairs.find(p=>p.id===detailPair)?.availableMinor} onClick={()=>begin(snapshot?.pairs.find(p=>p.id===detailPair))}>{t('contraRecord')}</button>:review?.value.digest?<button type="button" disabled={busy||recoverable||recoveryInvalid||!attested||expired||sourceChanged||!netReady} onClick={()=>void submit()}>{t('complete')}</button>:step==='choose'?<button type="button" className="tt-c-secondary" disabled={busy||recoverable||recoveryInvalid} onClick={()=>begin()}>{t('chooseManually')}</button>:<><button type="button" className="tt-c-secondary" disabled={busy||recoverable||recoveryInvalid||rows.length>=50} onClick={add}>{t('addAnother')}</button><button type="button" disabled={busy||recoverable||recoveryInvalid||!netReady||!!snapshot&&!orderedRepayments(snapshot,rows).valid} onClick={()=>void preview()}>{r('preview')}</button></>):null}<small>{t('recordOnly')}</small></footer>
 

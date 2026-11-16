@@ -1,7 +1,7 @@
 import {useState,type ReactNode} from 'react'
 import {contraTotals}from'../lib/tripContra'
 import {MemberBalanceBoard}from'./MemberBalanceBoard'
-import {orderedRepayments}from'../lib/orderedRepayments'
+import {orderedRepayments,viaDisplay}from'../lib/orderedRepayments'
 import {useStore} from '../store/useStore'
 import {ct} from '../lib/creatorTexts'
 import {rt, routedMoney} from '../lib/routedSettlement'
@@ -12,7 +12,7 @@ import {CreatorMemberPicker} from './CreatorMemberPicker'
 import {RoutedAvatar} from './RoutedSettlementMap'
 import AmountInput from './AmountInput'
 
-export type CreatorRow = {id:string; full?:boolean; payer:string; recipient:string; amount:string; currency:'MYR'|'VND'; method:'cash'|'bank_transfer'; via:string; viaAmount:string}
+export type CreatorRow = {id:string; full?:boolean; viaCurrency?:'MYR'|'VND'; payer:string; recipient:string; amount:string; currency:'MYR'|'VND'; method:'cash'|'bank_transfer'; via:string; viaAmount:string}
 
 export function CreatorRepaymentChooser({people,snapshot,onChoose,disabled}:{people:CreatorPerson[];snapshot:ContraSnapshot;onChoose:(pair:ContraPair,recipient?:string)=>void;disabled:boolean}) {
  const lang=useStore(s=>s.lang),f=(en:string,zh:string)=>lang==='zh'?zh:en
@@ -74,8 +74,9 @@ export function CreatorRepaymentForm({rows, people, disabled, actor, edit, remov
             onChange={e => edit(row.id,{method:e.target.value as CreatorRow['method']})}>
             <option value="cash">{r('cash')}</option><option value="bank_transfer">{r('bank')}</option>
           </select></label>
-          {row.via ? <label>{r('viaAmount')}<AmountInput aria-label={r('viaAmount')+' '+(index+1)}
-            value={row.viaAmount===''&&plan&&!plan.results[index].error?String(plan.results[index].cap):row.viaAmount} placeholder={r('auto')} onValueChange={value => edit(row.id,{viaAmount:value})}/></label> : null}
+          {row.via?<label>{f('Via currency','抵扣参考币种')}<select aria-label={'Via currency '+(index+1)} value={row.viaCurrency??'VND'} onChange={e=>edit(row.id,{viaCurrency:e.target.value as 'MYR'|'VND',viaAmount:''})}><option>MYR</option><option>VND</option></select></label>:null}
+          {row.via ? <label>{row.viaCurrency==='MYR'?f('Apply via · MYR','经中间人抵扣 · MYR'):r('viaAmount')}<AmountInput aria-label={(row.viaCurrency==='MYR'?f('Apply via · MYR','经中间人抵扣 · MYR'):r('viaAmount'))+' '+(index+1)}
+            value={row.viaAmount===''&&plan&&!plan.results[index].error?viaDisplay(snapshot!,plan.results[index].cap,row.viaCurrency??'VND'):row.viaAmount} placeholder={r('auto')} onValueChange={value => edit(row.id,{viaAmount:value})}/></label> : null}
         </div>
         {[row.payer,row.recipient].includes(actor) ? ownControl(row.id,row.currency) : null}
       </div>
