@@ -51,3 +51,6 @@
 .tt-final-home .fx-estimated-summary>div,.tt-final-home .fx-pair-row{background:#fffaf0;border:1px solid #cbbda9;border-radius:12px;padding:12px}.tt-final-home .fx-estimated-summary strong,.tt-final-home .fx-pair-value{color:#294b3b}.tt-final-home .tt-contra-name{display:flex;align-items:center;gap:8px;min-height:44px}.tt-final-avatar{display:inline-grid;place-items:center;flex:none;width:30px;height:30px;border-radius:50%;background:#e2ebdf;color:#294b3b;font-size:12px}.tt-final-home .tt-c-entry>button{background:#294b3b;color:#fff;border-color:#294b3b;text-align:center}
 
 .tt-final-drag-coin{position:fixed;z-index:4;pointer-events:none;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#fffaf0;box-shadow:0 3px 10px #24292130;font-size:24px}
+.tt-final-coverage{border-top:1px solid var(--edge);margin-top:12px}.tt-final-coverage>summary{min-height:44px;cursor:pointer;padding:12px 0;font-weight:600}
+.tt-final-review-rows article{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.tt-final-review-rows article>:not(button){grid-column:1 / -1}.tt-final-review-rows article>button{min-width:0;width:100%;min-height:44px}
+.tt-c-overlay .tt-final-chip{touch-action:none}
