@@ -15,10 +15,16 @@ export type ContraPair = {
   netMinor: number | null; availableMinor: number; payer: string | null; recipient: string | null
   ledgerCurrency:'VND'; ledger:ContraDisplay; pending:boolean; currentMembers: boolean; sourceVersions: {id:string;version:number}[]
 }
+export type TripBalanceSummary = {
+  rows: {payer: string; recipient: string; minor: number; estimated: boolean}[]
+  incomplete: boolean
+}
+
 export type ContraSnapshot = {
   tripId: string; viewer: string; revision: string; edgeBasis: 'net'; canRecord: boolean
   quote: {mode:'system'|'custom'; snapshotId:string|null; displayCurrency:string; numerator:string|null; denominator:string|null; rates:Record<string,{numerator:string;denominator:string;provider?:string;rateDate?:string}>}
   pairs: ContraPair[]
+  tripBalances?: TripBalanceSummary
 }
 const safe = (n:unknown):n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0
 
@@ -28,6 +34,14 @@ export function validateContraSnapshot(value:unknown, trip:string, viewer:string
   if(!s || s.tripId!==trip || s.viewer!==viewer || s.edgeBasis!=='net' || !/^[a-f0-9]{64}$/.test(s.revision)
     || !Array.isArray(s.pairs) || typeof s.canRecord!=='boolean' || !s.quote || !['system','custom'].includes(s.quote.mode)
     || typeof s.quote.displayCurrency!=='string' || !s.quote.rates) throw new Error('invalid_contra_snapshot')
+  const balances = s.tripBalances
+  if (balances !== undefined && (!balances || typeof balances.incomplete !== 'boolean'
+    || !Array.isArray(balances.rows) || balances.rows.some(row => !row
+      || typeof row.payer !== 'string' || !row.payer
+      || typeof row.recipient !== 'string' || !row.recipient || row.payer === row.recipient
+      || !safe(row.minor) || row.minor === 0 || typeof row.estimated !== 'boolean'))) {
+    throw new Error('invalid_contra_snapshot')
+  }
   const ids=new Set<string>()
   for(const p of s.pairs) {
     const d=p.display

@@ -4,19 +4,27 @@
 --db-url accepts only a disposable loopback PostgreSQL database for testing.
 """
 from pathlib import Path
-import argparse,json,os,re,subprocess,sys,urllib.request
+import argparse,hashlib,json,os,re,subprocess,sys,urllib.request
 from urllib.parse import urlsplit
 root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser(description=__doc__)
 group=parser.add_mutually_exclusive_group(required=True)
 group.add_argument('--production',action='store_true')
 group.add_argument('--db-url')
+parser.add_argument('--before-trip-shared-balances',action='store_true')
 args=parser.parse_args()
 installer=(root/'docs/runbooks/trip-contra-production-apply.sql').read_text()
 functions=dict(re.findall(r"to_regprocedure\('([^']+)'\)\)is distinct from '([0-9a-f]{32})'",installer))
 assert len(functions)==61
 quote=lambda x:"'"+x.replace("'","''")+"'"
 versions=sorted(p.name.split('_')[0]for p in(root/'supabase/migrations').glob('*.sql'))
+shared_version='202611180001'
+if args.before_trip_shared_balances:
+ versions.remove(shared_version)
+else:
+ migration=(root/'supabase/migrations/202611180001_trip_shared_balance_summary.sql').read_text()
+ body=migration.split('$$',2)[1]
+ functions['public.read_trip_contra_snapshot(uuid,text,text,text)']=hashlib.md5(body.encode()).hexdigest()
 values=','.join('('+quote(sig)+','+quote(digest)+')'for sig,digest in functions.items())
 tables=['public.trip_settlement_batches','public.settlement_fx_bundles','public.settlement_fx_coverages','public.settlement_payments','public.personal_account_entries','private.trip_routed_proposals','private.trip_routed_approvals','private.trip_routed_receipts',*['private.'+t for t in ['creator_policies','creator_grants','creator_reviews','creator_records','creator_receipts','creator_corrections','creator_audit','creator_outbox']],'public.creator_settlement_notices']
 private=['private.trip_batch_cash','private.trip_batch_quotes',*[t for t in tables if t.startswith('private.')]]

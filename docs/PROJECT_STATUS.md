@@ -1,5 +1,11 @@
 # Tabby Tally project status
 
+
+## 2026-11-18 — Shared Trip balances in Settle Up
+- Local branch `feat/trip-shared-balances`, implementation `4097da4`. The Trip ledger shows a read-only list from the existing Contra snapshot. The server shares only payer, recipient, net amount and estimate status with active Trip members. Individual audit detail and repayment authorization remain scoped.
+- Local production build, ESLint, and 945 Vitest tests passed. Database permission regressions and the historical upgrade migration were added to CI coverage. Remote CI and authenticated production verification are pending.
+- Automatic review blocked pushing to GitHub. After authorization for the confirmed repository, push the branch, run CI, apply the forward migration, deploy, and verify with an ordinary Trip member and a nonmember.
+
 Checkpoint: 2026-11-16 (Asia/Bangkok). Final Settle Up PR64 merged at32c3002a; Vercel Production7823480138 SUCCESS and canonical source/102published assets independently verified. No schema migration or additional SQL installation. Final documentation revision/public PWA evidence is recorded in /workspace/artifacts/settle-final/REPORT.md.
 
 ## Published — Final Settle Up handoff
