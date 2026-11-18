@@ -70,7 +70,7 @@ for name, sql, error in cases:
 
 marker = 'TABBY_TRIP_CONTRA_INSTALL_COMPLETE_20261112'
 assert marker in query(bootstrap)
-audit_result = subprocess.run([sys.executable, str(root / 'scripts/verify-trip-contra-production.py'), '--db-url', args.db_url], check=True, text=True, capture_output=True)
+audit_result = subprocess.run([sys.executable, str(root / 'scripts/verify-trip-contra-production.py'), '--db-url', args.db_url, '--before-trip-shared-balances'], check=True, text=True, capture_output=True)
 audit = json.loads(audit_result.stdout)
 installed_schema = schema_state()
 assert financial_rows() == before_rows

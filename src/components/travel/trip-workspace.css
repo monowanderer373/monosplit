@@ -35,3 +35,12 @@
 .tw-history .tl-history-tabs button{flex:0 1 auto;font-size:.8125rem}
 .tw-page .tl-split-review{display:inline-flex;align-items:center;gap:6px;color:var(--tw-red)}
 .tw-page .tl-split-review i{width:8px;height:8px;border-radius:50%;background:var(--tw-red);flex:none}
+
+.tw-trip-balances { margin-top: 20px; padding: 14px; border: 1px solid var(--tw-line); border-radius: 12px; }
+.tw-trip-balances h3 { margin: 0 0 6px; font-size: 1rem; font-weight: 600; }
+.tw-trip-balances ul { list-style: none; margin: 0; padding: 0; }
+.tw-trip-balances li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 8px 0; font-size: .875rem; }
+.tw-trip-balances li + li { border-top: 1px solid var(--tw-line); }
+.tw-trip-balances li span { overflow-wrap: anywhere; }
+.tw-trip-balances strong { font-variant-numeric: tabular-nums; }
+.tw-trip-balances p { margin: 6px 0 0; font-size: .875rem; color: var(--tw-sub); }

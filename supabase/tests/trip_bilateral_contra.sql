@@ -68,6 +68,15 @@ select ok(not has_function_privilege('authenticated','private.contra_matrix(uuid
 set local role authenticated;
 select pg_temp.rclaim(2);
 select ok(not exists(select 1 from jsonb_array_elements(public.read_trip_contra_snapshot(pg_temp.rid('trip'),'custom','6000','MYR')->'pairs')q where pg_temp.rid('u2')::text not in(q->>'a',q->>'b')),'ordinary member reads only its bilateral pairs');
+select is((select (row->>'minor')::bigint
+ from jsonb_array_elements(public.read_trip_contra_snapshot(pg_temp.rid('trip'),'custom','6000','MYR')->'tripBalances'->'rows') as rows(row)
+ where row->>'payer'=pg_temp.rid('u4')::text and row->>'recipient'=pg_temp.rid('u1')::text),
+ 13965::bigint,'ordinary member sees the remaining balance between two other members');
+select ok(not exists(
+ select 1 from jsonb_array_elements(public.read_trip_contra_snapshot(pg_temp.rid('trip'),'custom','6000','MYR')->'tripBalances'->'rows') as rows(row)
+ where (row - array['payer','recipient','minor','estimated']) <> '{}'::jsonb
+),'shared balance rows do not disclose audit or settlement inputs');
+
 select pg_temp.rclaim(7);
 select throws_ok($$select public.read_trip_contra_snapshot(pg_temp.rid('trip'),'custom','6000','MYR')$$,'P0001','space_membership_required','unrelated actor cannot read Trip net facts');
 select pg_temp.rclaim(1);

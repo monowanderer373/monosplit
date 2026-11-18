@@ -33,6 +33,7 @@ import './trip-workspace.css'
 import SettlementPanel from'../SettlementPanel'
 import {TripMoneyCard} from './TripMoneyCard'
 import TripExpenseList from './TripExpenseList'
+import TripBalanceList from './TripBalanceList'
 import {useTripPrivateExpenses} from '../../hooks/useTripPrivateExpenses'
 import {activePersonalExpenses} from '../../lib/personalPeriods'
 import ExpenseHistoryList from'../ExpenseHistoryList'
@@ -101,6 +102,7 @@ export default function TripLedger({entry,members,ledger,settlementState,refresh
    {ready&&!failed&&!confirmed.failed&&!hidden&&confirmed.rows.length?<div className="tw-confirmed-transfers" data-testid="trip-confirmed-transfers">{confirmed.rows.slice(0,3).map(fact=><article key={fact.id}><strong data-money-tone="repaid">{t(fact.kind==='repaid'?'tw.repaid':'tw.received')} · {money(fact.amountMinor,fact.currency)}</strong><span>{t(fact.partialReversal?'tw.afterReversal':'tw.confirmed')} · {formatDate(fact.date,lang)}</span></article>)}<p>{t('tw.spendingUnchanged')}</p></div>:null}
    {ready&&!failed&&!summary.rows.length?<p className="tw-zero-balance">{t('tl.none')}</p>:null}</details></section>
    <div hidden={!ready||failed||confirmed.failed}><SettlementPanel context={context} currentParticipantId={self} participantNames={names} expenses={authoritative} canPropose={authorityReady&&['owner','full_access','view'].includes(entry.role)&&entry.space.status!=='voided'} state={settlementState} view="trip-current" currentMemberIds={new Set(members.map(m=>m.participant.id))} tripName={entry.space.name} quoteCurrency={authUser?.defaultCurrency||entry.space.defaultCurrency} draftKey={actor+':'+self+':'+trip} creatorIdentity={actor} onOpenCreator={openCreator} contra={contra} onContraPair={id=>openCreator(undefined,undefined,id)} onChanged={refresh}/></div>
+   {!hidden&&ready&&!failed&&!confirmed.failed&&<TripBalanceList snapshot={contra.snapshot} names={names} chinese={lang==='zh'} money={money}/>}
   </section>
   {view==='main'&&tab==='history'?<section id="tl-panel-history" role="tabpanel" aria-labelledby="tl-tab-history" className="tw-history" data-testid="trip-history-panel">
    <p className="tw-history-help">{lang==='zh'?'查看费用更正、取消、资料更新和结算记录。待处理付款保留在结算标签。':'Expense changes and payment history. Pending payments stay in Settle up.'}</p>
