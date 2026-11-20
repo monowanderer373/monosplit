@@ -1,5 +1,11 @@
 ## 2026-11-05 — Final result-action and unavailable-reference guards
 
+## 2026-11-20 — Final Trip statement
+- Added a Final statement entry below My spending, with shared bill totals in original currencies, all outstanding payment directions, and per-member pay/collect totals. The statement uses the latest posted custom repayment quote when present, otherwise the current system quote. It is read-only and available only to active Trip members.
+- Local build, ESLint and 17 Contra tests passed. Four database assertions cover posted custom rate selection, ordinary-member visibility, anonymous ACL and nonmember denial. Production deployment and browser verification are pending.
+- Shared Trip balances PR65 was merged and deployed with all eight Quality jobs passing. Production migration 202611180001 was verified. Financial customer records and screenshots are excluded from repository evidence.
+
+
 - ea73696 passed all8 required jobs:903units,1221SQL+real concurrency/installer paths,364productionUI direct0flaky,15native direct0flaky,17Travel/10CollectPay. Fullbrowser529direct+1flaky new native flow. First failure was an ignored Done click while onChanged refresh still held the submit lock: receipt Done lacked the busy-disabled state already used by the header. Add that state and a controlled refresh-gate test (no sleep/timeout increase or weakened monetary assertion).
 - Actual entered cash totals now remain independent of quote validity. Missing FX cannot remove a selected person's actual cash from the headline or present a false zero reference; malformed cash shows Check payment amounts. Review remains disabled until amounts/rates/coverage/accounts validate.
 - All18actual-module mobile batch cases pass55.2s, including both recovery outcomes, source scroll/focus, rate failures and delayed-refresh Done. No schema/financial-engine change; installer remains53b5c2e exact74,536bytes/V2. Fresh current-head CI and independent production schema installation still required. No customer production financial QA writes.

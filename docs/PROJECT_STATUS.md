@@ -1,5 +1,11 @@
 # Tabby Tally project status
 
+## 2026-11-20 — Final Trip statement
+- Added a Final statement entry below My spending, with shared bill totals in original currencies, all outstanding payment directions, and per-member pay/collect totals. The statement uses the latest posted custom repayment quote when present, otherwise the current system quote. It is read-only and available only to active Trip members.
+- Local build, ESLint and 17 Contra tests passed. Four database assertions cover posted custom rate selection, ordinary-member visibility, anonymous ACL and nonmember denial. Production deployment and browser verification are pending.
+- Shared Trip balances PR65 was merged and deployed with all eight Quality jobs passing. Production migration 202611180001 was verified. Financial customer records and screenshots are excluded from repository evidence.
+
+
 
 ## 2026-11-18 — Shared Trip balances in Settle Up
 - Local branch `feat/trip-shared-balances`, implementation `4097da4`. The Trip ledger shows a read-only list from the existing Contra snapshot. The server shares only payer, recipient, net amount and estimate status with active Trip members. Individual audit detail and repayment authorization remain scoped.

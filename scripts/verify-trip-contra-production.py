@@ -20,7 +20,7 @@ quote=lambda x:"'"+x.replace("'","''")+"'"
 versions=sorted(p.name.split('_')[0]for p in(root/'supabase/migrations').glob('*.sql'))
 shared_version='202611180001'
 if args.before_trip_shared_balances:
- versions.remove(shared_version)
+ versions=[v for v in versions if v <= '202611120001']
 else:
  migration=(root/'supabase/migrations/202611180001_trip_shared_balance_summary.sql').read_text()
  body=migration.split('$$',2)[1]

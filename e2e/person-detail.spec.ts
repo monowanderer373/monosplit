@@ -114,7 +114,7 @@ test('keeps Group and Trip pages money-first without Close Trip', async ({
   await expect(page.getByRole('button', { name: '+ Add expense' })).toHaveCount(0)
   await expect(page.getByRole('tab',{name:'Expenses',exact:true})).toHaveAttribute('aria-selected','true')
   await expect(page.getByText('Close Trip')).toHaveCount(0)
-  await expect(page.getByText('Final Statement')).toHaveCount(0)
+  await expect(page.getByRole('button', {name: /Final statement/i})).toBeVisible()
   await expect(page.getByTestId('trip-detail-summary')).toBeVisible()
   await expect(page.getByTestId('space-position')).toBeHidden()
   await page.getByRole('tab',{name:'Settle up',exact:true}).click()
