@@ -44,3 +44,11 @@
 .tw-trip-balances li span { overflow-wrap: anywhere; }
 .tw-trip-balances strong { font-variant-numeric: tabular-nums; }
 .tw-trip-balances p { margin: 6px 0 0; font-size: .875rem; color: var(--tw-sub); }
+
+.tw-statement-trigger { display: flex; justify-content: space-between; width: 100%; min-height: 44px; padding: 10px 14px; margin: 12px 0; border: 1px solid var(--tw-line); border-radius: 10px; background: var(--tw-paper, #f8f5ee); color: var(--tw-ink, #263e4f); font-weight: 600; text-align: left; }
+.tw-final-statement { color: #263e4f; background: #f8f5ee; }
+.tw-final-statement .tw-trip-balances { margin-top: 14px; }
+.tw-final-statement h3, .tw-final-statement h4 { font-size: 1rem; font-weight: 600; }
+.tw-statement-time, .tw-statement-rate { margin: 8px 0; font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere; }
+.tw-statement-total { margin: 14px 0; padding: 12px 0; border-block: 1px solid #d6d1c6; }
+.tw-statement-total p { margin: 6px 0; font-variant-numeric: tabular-nums; }

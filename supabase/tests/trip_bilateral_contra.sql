@@ -77,8 +77,13 @@ select ok(not exists(
  where (row - array['payer','recipient','minor','estimated']) <> '{}'::jsonb
 ),'shared balance rows do not disclose audit or settlement inputs');
 
+select is(public.read_trip_final_statement(pg_temp.rid('trip'))->>'rateBasis','latest_recorded_custom','statement selects the posted custom repayment rate');
+select ok(jsonb_array_length(public.read_trip_final_statement(pg_temp.rid('trip'))->'snapshot'->'tripBalances'->'rows')>0,'ordinary member can view shared final balance directions');
+select ok(not has_function_privilege('anon','public.read_trip_final_statement(uuid)','EXECUTE'),'anonymous cannot read statement');
 select pg_temp.rclaim(7);
 select throws_ok($$select public.read_trip_contra_snapshot(pg_temp.rid('trip'),'custom','6000','MYR')$$,'P0001','space_membership_required','unrelated actor cannot read Trip net facts');
+select throws_ok($$select public.read_trip_final_statement(pg_temp.rid('trip'))$$,'P0001','space_membership_required','nonmember cannot read statement');
+
 select pg_temp.rclaim(1);
 select throws_ok($$select public.preview_trip_creator_settlement(pg_temp.rid('trip'),(select v from rv where k='multi'))$$,'P0001','contra_snapshot_changed','stale net snapshot cannot authorize a new payment');
 insert into rv values('reverse',public.reverse_trip_creator_settlement((select(v->>'id')::uuid from rv where k='record'),gen_random_uuid(),1,'Isolated undo'));
